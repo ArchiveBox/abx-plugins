@@ -1,0 +1,24 @@
+[package]
+name = "tlsn-mux"
+version = "0.1.0"
+edition = "2024"
+authors = ["TLSNotary Contributors"]
+description = "Async multiplexing library used by TLSNotary."
+keywords = ["multiplex", "futures", "async"]
+categories = ["network-programming", "asynchronous"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tlsnotary/tlsn-utils"
+
+[dependencies]
+futures = { version = "0.3.12", default-features = false, features = [
+    "std",
+    "executor",
+] }
+log = "0.4.8"
+nohash-hasher = "0.2"
+parking_lot = "0.12"
+rand = "0.10"
+static_assertions = "1"
+pin-project = "1.1.0"
+web-time = "1.1.0"
+blake3 = { version = "1.8" }

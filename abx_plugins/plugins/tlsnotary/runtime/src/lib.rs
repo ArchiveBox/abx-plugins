@@ -34,6 +34,7 @@ pub struct Verified {
     pub connection_time_unix: u64,
     pub notary_key: String,
     pub status: u16,
+    pub response_complete: bool,
     pub content_type: String,
     pub body_sha256: String,
     pub body_base64: String,
@@ -114,6 +115,7 @@ pub fn verify(bytes: &[u8], trusted_key: &str) -> Result<Verified> {
         "unsupported content encoding"
     );
     let raw_body = &recv[body_start..];
+    let mut response_complete = false;
     let body = match header("transfer-encoding")? {
         Some(value) => {
             ensure!(
@@ -123,20 +125,30 @@ pub fn verify(bytes: &[u8], trusted_key: &str) -> Result<Verified> {
             let mut remaining = raw_body;
             let mut body = Vec::new();
             loop {
-                let (offset, size) = complete(
-                    httparse::parse_chunk_size(remaining)
-                        .map_err(|_| anyhow::anyhow!("invalid HTTP chunk size"))?,
-                )?;
+                let (offset, size) = match httparse::parse_chunk_size(remaining)
+                    .map_err(|_| anyhow::anyhow!("invalid HTTP chunk size"))?
+                {
+                    httparse::Status::Complete(value) => value,
+                    httparse::Status::Partial => {
+                        response_complete = false;
+                        break;
+                    }
+                };
                 remaining = &remaining[offset..];
                 let size = usize::try_from(size)?;
                 if size == 0 {
+                    response_complete = true;
                     ensure!(
                         remaining == b"\r\n",
                         "unexpected HTTP trailers or trailing bytes"
                     );
                     break;
                 }
-                ensure!(size <= remaining.len().saturating_sub(2), "truncated chunk");
+                if remaining.len() < size.saturating_add(2) {
+                    body.extend_from_slice(&remaining[..size.min(remaining.len())]);
+                    response_complete = false;
+                    break;
+                }
                 body.extend_from_slice(&remaining[..size]);
                 ensure!(
                     &remaining[size..size + 2] == b"\r\n",
@@ -148,19 +160,30 @@ pub fn verify(bytes: &[u8], trusted_key: &str) -> Result<Verified> {
         }
         None => {
             if let Some(length) = header("content-length")? {
+                let expected = length.parse::<usize>()?;
                 ensure!(
-                    length.parse::<usize>()? == raw_body.len(),
-                    "incomplete response body"
+                    raw_body.len() <= expected,
+                    "bytes beyond declared response body"
                 );
+                response_complete = raw_body.len() == expected;
             }
             raw_body.to_vec()
         }
     };
     let body = if encoding == "gzip" {
         let mut decoded = Vec::new();
-        flate2::read::MultiGzDecoder::new(&body[..])
+        let decoded_result = flate2::read::MultiGzDecoder::new(&body[..])
             .take(16 * 1024 * 1024 + 1)
-            .read_to_end(&mut decoded)?;
+            .read_to_end(&mut decoded);
+        // A signed compressed prefix can yield a decoded prefix before EOF.
+        // Only expected truncation is permitted, never invalid data/checksums;
+        // complete responses still require a complete valid gzip stream.
+        if let Err(error) = decoded_result {
+            ensure!(
+                !response_complete && error.kind() == std::io::ErrorKind::UnexpectedEof,
+                "invalid compressed response: {error}"
+            );
+        }
         ensure!(
             decoded.len() <= 16 * 1024 * 1024,
             "decompressed response exceeds 16 MiB"
@@ -182,6 +205,7 @@ pub fn verify(bytes: &[u8], trusted_key: &str) -> Result<Verified> {
         connection_time_unix: output.connection_info.time,
         notary_key,
         status,
+        response_complete,
         content_type: header("content-type")?.unwrap_or_else(|| "application/octet-stream".into()),
         body_sha256: hex::encode(Sha256::digest(&body)),
         body_base64: BASE64_STANDARD.encode(body),

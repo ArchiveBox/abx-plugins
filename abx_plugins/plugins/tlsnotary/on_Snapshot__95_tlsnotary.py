@@ -62,6 +62,8 @@ def main(url: str) -> None:
                     staging,
                     "--max-recv",
                     str(config.TLSNOTARY_MAX_RECV_BYTES),
+                    "--prefix-bytes",
+                    str(config.TLSNOTARY_PREFIX_BYTES),
                     "--timeout",
                     str(config.TLSNOTARY_TIMEOUT),
                 ],

@@ -43,3 +43,10 @@ hyper = { version = "1", features = ["client", "http1"], optional = true }
 hyper-util = { version = "0.1", features = ["tokio"], optional = true }
 http-body-util = { version = "0.1", optional = true }
 getrandom02 = { package = "getrandom", version = "0.2", features = ["js"], optional = true }
+
+# Upstream bounded stream admission fixes TooManyStreams under asymmetric load.
+[patch."https://github.com/tlsnotary/tlsn-utils"]
+tlsn-mux = { path = "vendor/tlsn-mux" }
+
+[patch."https://github.com/privacy-ethereum/mpz"]
+mpz-common = { path = "vendor/mpz-common" }

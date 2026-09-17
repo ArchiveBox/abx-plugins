@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.runtime
-    command: ["serve", "--bind", "0.0.0.0:7048", "--key-file", "/state/signing.key", "--concurrency", "2", "--max-recv", "16384", "--timeout", "180"]
+    command: ["serve", "--bind", "0.0.0.0:7048", "--key-file", "/state/signing.key", "--concurrency", "2", "--max-recv", "49152", "--timeout", "180"]
     volumes:
       - ./state:/state:ro
     ports:

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TLSNotary",
-  "description": "EXPERIMENTAL: public notarization is not yet enabled; use a separately tested notary. Opt-in private TLS notarization of the top-level HTTPS response. Adds MPC computation and substantial network traffic, slowing archiving. A public notary corroborates encrypted traffic and signs commitments without receiving URL paths, query strings, cookies, or page content. Timing, traffic sizes and your IP remain visible; destination metadata may be observable. The saved artifact contains the URL and content: share it deliberately. No images, scripts, video streams or other subresources are notarized.",
+  "description": "EXPERIMENTAL, opt-in. Opt-in private TLS notarization of the top-level HTTPS response, capped at 48 KiB by default; larger responses are explicitly labelled partial. Adds MPC computation and substantial network traffic, slowing archiving. A public notary corroborates encrypted traffic and signs commitments without receiving URL paths, query strings, cookies, or page content. Timing, traffic sizes and your IP remain visible; destination metadata may be observable. The saved artifact contains the URL and content: share it deliberately. No images, scripts, video streams or other subresources are notarized.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -21,8 +21,8 @@
     },
     "TLSNOTARY_NOTARY_URL": {
       "type": "string",
-      "default": "wss://verify.archivebox.io/notarize",
-      "description": "Planned public endpoint, not yet routed or enabled. Configure a separately tested WSS notary; loopback WS is permitted for development."
+      "default": "wss://tlsnotary.zervice.io/notarize",
+      "description": "Public bounded-capture endpoint. Self-hosters must run the matching plugin runtime; loopback WS is permitted for development."
     },
     "TLSNOTARY_TRUSTED_KEY": {
       "type": "string",
@@ -41,16 +41,23 @@
     },
     "TLSNOTARY_MAX_RECV_BYTES": {
       "type": "integer",
-      "default": 16384,
+      "default": 49152,
       "minimum": 16384,
       "maximum": 524288,
-      "description": "MPC response budget including headers. Public ArchiveBox service permits 16 KiB; larger values require a separately provisioned notary. Oversized responses fail without a partial proof."
+      "description": "MPC response budget including headers. Public ArchiveBox service permits 48 KiB per session; larger values require a separately provisioned notary."
     },
     "TLSNOTARY_TIMEOUT": {
       "type": "integer",
       "default": 180,
       "minimum": 1,
       "description": "Maximum seconds per top-level notarization; no automatic retries."
+    },
+    "TLSNOTARY_PREFIX_BYTES": {
+      "type": "integer",
+      "default": 49152,
+      "minimum": 0,
+      "maximum": 524288,
+      "description": "Bounded capture (48 KiB by default): 0 requires the complete response; otherwise use at least 32768 and at most TLSNOTARY_MAX_RECV_BYTES. Requests gzip encoding and stops at a complete TLS record boundary. The proof and verifier explicitly label incomplete responses. A byte prefix does not certify a video duration."
     }
   }
 }

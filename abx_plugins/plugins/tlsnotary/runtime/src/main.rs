@@ -2,6 +2,7 @@ use anyhow::{Result, bail, ensure};
 use async_tungstenite::{
     tokio::{accept_hdr_async_with_config, client_async_tls_with_connector_and_config},
     tungstenite::{
+        client::IntoClientRequest,
         handshake::server::{ErrorResponse, Request as WsRequest, Response as WsResponse},
         http::StatusCode,
         protocol::WebSocketConfig,
@@ -50,10 +51,13 @@ enum Command {
         trusted_key: String,
         #[arg(long)]
         output: PathBuf,
-        #[arg(long, default_value_t = 16384)]
+        #[arg(long, default_value_t = 49152)]
         max_recv: usize,
         #[arg(long, default_value_t = 180)]
         timeout: u64,
+        /// Stop after this many HTTP wire bytes; certify a clearly labelled prefix.
+        #[arg(long, default_value_t = 49152)]
+        prefix_bytes: usize,
     },
     Verify {
         artifact: PathBuf,
@@ -69,7 +73,7 @@ enum Command {
         key_file: PathBuf,
         #[arg(long, default_value_t = 2)]
         concurrency: usize,
-        #[arg(long, default_value_t = 16384)]
+        #[arg(long, default_value_t = 49152)]
         max_recv: usize,
         #[arg(long, default_value_t = 180)]
         timeout: u64,
@@ -80,12 +84,118 @@ enum Command {
 }
 // WsStream uses max_message_size to split writes. Keep messages below the frame
 // limit too: its defaults permit 64 MiB messages but only 16 MiB received frames.
+const WIRE_PROTOCOL: &str = "abx-tlsnotary-batch-v1";
+
 fn websocket_config() -> WebSocketConfig {
     WebSocketConfig::default()
         .max_message_size(Some(1024 * 1024))
         .max_frame_size(Some(1024 * 1024))
         .max_write_buffer_size(2 * 1024 * 1024)
 }
+// Stop at a complete TLS record boundary. The TLSN engine still authenticates
+// every admitted record; this transport only bounds acquisition, never verification.
+struct RecordBudget<S> {
+    inner: S,
+    budget: usize,
+    used: usize,
+    header: [u8; 5],
+    filled: usize,
+    emitted: usize,
+    remaining: usize,
+    stopped: bool,
+}
+impl<S> RecordBudget<S> {
+    fn new(inner: S, budget: usize) -> Self {
+        Self {
+            inner,
+            budget,
+            used: 0,
+            header: [0; 5],
+            filled: 0,
+            emitted: 5,
+            remaining: 0,
+            stopped: false,
+        }
+    }
+}
+impl<S: AsyncRead + Unpin> AsyncRead for RecordBudget<S> {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        out: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        use std::{
+            pin::Pin,
+            task::{Poll, ready},
+        };
+        let this = self.get_mut();
+        if out.is_empty() || this.stopped {
+            return Poll::Ready(Ok(0));
+        }
+        loop {
+            if this.emitted < 5 {
+                let count = out.len().min(5 - this.emitted);
+                out[..count].copy_from_slice(&this.header[this.emitted..this.emitted + count]);
+                this.emitted += count;
+                return Poll::Ready(Ok(count));
+            }
+            if this.remaining > 0 {
+                let limit = out.len().min(this.remaining);
+                let count = ready!(Pin::new(&mut this.inner).poll_read(cx, &mut out[..limit]))?;
+                if count == 0 {
+                    return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into()));
+                }
+                this.remaining -= count;
+                return Poll::Ready(Ok(count));
+            }
+            while this.filled < 5 {
+                let count = ready!(
+                    Pin::new(&mut this.inner).poll_read(cx, &mut this.header[this.filled..])
+                )?;
+                if count == 0 {
+                    if this.filled != 0 {
+                        return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into()));
+                    }
+                    return Poll::Ready(Ok(0));
+                }
+                this.filled += count;
+            }
+            let length = u16::from_be_bytes([this.header[3], this.header[4]]) as usize;
+            if this.header[0] == 23 {
+                if length > this.budget.saturating_sub(this.used) {
+                    this.stopped = true;
+                    return Poll::Ready(Ok(0));
+                }
+                this.used += length;
+            }
+            this.remaining = length;
+            this.emitted = 0;
+            this.filled = 0;
+        }
+    }
+}
+impl<S: AsyncWrite + Unpin> AsyncWrite for RecordBudget<S> {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        data: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.get_mut().inner).poll_write(cx, data)
+    }
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.get_mut().inner).poll_flush(cx)
+    }
+    fn poll_close(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.get_mut().inner).poll_close(cx)
+    }
+}
+
 fn signing_key(path: &PathBuf) -> Result<k256::ecdsa::SigningKey> {
     Ok(k256::ecdsa::SigningKey::from_slice(&hex::decode(
         std::fs::read_to_string(path)?.trim(),
@@ -154,10 +264,11 @@ async fn main() -> Result<()> {
             output,
             max_recv,
             timeout,
+            prefix_bytes,
         } => {
             tokio::time::timeout(
                 Duration::from_secs(timeout),
-                capture(&url, &notary, &trusted_key, &output, max_recv),
+                capture(&url, &notary, &trusted_key, &output, max_recv, prefix_bytes),
             )
             .await??;
         }
@@ -196,14 +307,16 @@ async fn main() -> Result<()> {
                     let outcome = tokio::time::timeout(Duration::from_secs(timeout), async {
                         let ws = accept_hdr_async_with_config(
                             tcp,
-                            |req: &WsRequest, resp: WsResponse| {
-                                if req.uri().path() != "/notarize" || req.uri().query().is_some() {
+                            |req: &WsRequest, mut resp: WsResponse| {
+                                if req.uri().path() != "/notarize" || req.uri().query().is_some()
+                                    || req.headers().get("Sec-WebSocket-Protocol").and_then(|v| v.to_str().ok()) != Some(WIRE_PROTOCOL) {
                                     let mut error = ErrorResponse::new(Some(
-                                        "Use /notarize without a query".into(),
+                                        "Use the matching ArchiveBox TLSNotary runtime at /notarize without a query".into(),
                                     ));
                                     *error.status_mut() = StatusCode::BAD_REQUEST;
                                     return Err(error);
                                 }
+                                resp.headers_mut().insert("Sec-WebSocket-Protocol", WIRE_PROTOCOL.parse().unwrap());
                                 Ok(resp)
                             },
                             Some(websocket_config()),
@@ -232,7 +345,12 @@ async fn capture(
     trusted_key: &str,
     output: &PathBuf,
     max_recv: usize,
+    prefix_bytes: usize,
 ) -> Result<()> {
+    ensure!(
+        prefix_bytes == 0 || (prefix_bytes >= 32768 && prefix_bytes <= max_recv),
+        "prefix budget must be between 32 KiB and max_recv"
+    );
     let url = url::Url::parse(url)?;
     ensure!(
         url.scheme() == "https"
@@ -265,9 +383,21 @@ async fn capture(
     ))
     .await?;
     tcp.set_nodelay(true)?;
-    let (ws, _) =
-        client_async_tls_with_connector_and_config(notary, tcp, None, Some(websocket_config()))
+    let mut request = notary.into_client_request()?;
+    request
+        .headers_mut()
+        .insert("Sec-WebSocket-Protocol", WIRE_PROTOCOL.parse()?);
+    let (ws, response) =
+        client_async_tls_with_connector_and_config(request, tcp, None, Some(websocket_config()))
             .await?;
+    ensure!(
+        response
+            .headers()
+            .get("Sec-WebSocket-Protocol")
+            .and_then(|v| v.to_str().ok())
+            == Some(WIRE_PROTOCOL),
+        "notary runtime protocol mismatch"
+    );
     let (driver, mut handle) = Session::new(WsStream::new(ws)).split();
     let driver = tokio::spawn(driver);
     let _guard = DriverGuard(driver.abort_handle());
@@ -284,36 +414,57 @@ async fn capture(
         .await?;
     let target = tokio::net::TcpStream::connect((host, 443)).await?;
     target.set_nodelay(true)?;
-    let (tls, prover) = prover.connect(
+    let (mut tls, prover) = prover.connect(
         TlsClientConfig::builder()
             .server_name(ServerName::Dns(host.try_into()?))
             .root_store(RootCertStore::mozilla())
             .build()?,
-        target.compat(),
+        RecordBudget::new(
+            target.compat(),
+            if prefix_bytes > 0 {
+                prefix_bytes
+            } else {
+                usize::MAX
+            },
+        ),
     )?;
     let prover_task = tokio::spawn(prover.into_future());
     let _prover_guard = DriverGuard(prover_task.abort_handle());
-    let (mut sender, connection) =
-        hyper::client::conn::http1::handshake(TokioIo::new(tls.compat())).await?;
-    let connection = tokio::spawn(connection);
-    let _http_guard = DriverGuard(connection.abort_handle());
-    let request = Request::builder()
-        .uri(&uri)
-        .header("Host", host)
-        .header(
-            "Accept",
-            "text/html,application/json,text/plain;q=0.9,*/*;q=0.1",
-        )
-        .header("Accept-Encoding", "gzip")
-        .header("Connection", "close")
-        .header(
-            "User-Agent",
-            "Mozilla/5.0 (compatible; ArchiveBox TLSNotary/0.1)",
-        )
-        .body(Empty::<Bytes>::new())?;
-    // No cookies are imported or sent in this first capture mode. The request is private from the notary.
-    let response = sender.send_request(request).await?;
-    let _body = response.into_body().collect().await?;
+    if prefix_bytes > 0 {
+        // Compression lets the same MPC byte budget authenticate more page content.
+        // RecordBudget stops acquisition at an authenticated record boundary;
+        // the exact captured length is derived from the signed transcript.
+        let request = format!(
+            "GET {uri} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: ArchiveBox-TLSNotary/0.1\r\n\r\n"
+        );
+        tls.write_all(request.as_bytes()).await?;
+        let mut received = Vec::new();
+        tls.read_to_end(&mut received).await?;
+        tls.close().await?;
+        drop(tls);
+    } else {
+        let (mut sender, connection) =
+            hyper::client::conn::http1::handshake(TokioIo::new(tls.compat())).await?;
+        let connection = tokio::spawn(connection);
+        let _http_guard = DriverGuard(connection.abort_handle());
+        let request = Request::builder()
+            .uri(&uri)
+            .header("Host", host)
+            .header(
+                "Accept",
+                "text/html,application/json,text/plain;q=0.9,*/*;q=0.1",
+            )
+            .header("Accept-Encoding", "gzip")
+            .header("Connection", "close")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (compatible; ArchiveBox TLSNotary/0.1)",
+            )
+            .body(Empty::<Bytes>::new())?;
+        // No cookies are imported or sent in this first capture mode. The request is private from the notary.
+        let response = sender.send_request(request).await?;
+        let _body = response.into_body().collect().await?;
+    }
     let mut prover = prover_task.await??;
     let transcript = prover.transcript().clone();
     let mut commits = TranscriptCommitConfig::builder(&transcript);
@@ -369,6 +520,10 @@ async fn capture(
         .transcript_proof(proof.build()?);
     let artifact = bincode::serialize(&presentation.build()?)?;
     let verified = abx_tlsnotary::verify(&artifact, trusted_key)?;
+    ensure!(
+        prefix_bytes > 0 || verified.response_complete,
+        "incomplete HTTP response; use explicit prefix capture mode"
+    );
     std::fs::create_dir_all(output)?;
     std::fs::write(output.join("capture.tlsn"), artifact)?;
     std::fs::write(
@@ -388,8 +543,29 @@ async fn notarize<S: AsyncRead + AsyncWrite + Send + Unpin + 'static>(
     key: &k256::ecdsa::SigningKey,
     max_recv: usize,
 ) -> Result<()> {
+    let (failed, failure) = tokio::sync::oneshot::channel();
+    tokio::select! {
+        result = notarize_session(socket, key, max_recv, failed) => result,
+        _ = async {
+            if failure.await.is_err() { std::future::pending::<()>().await; }
+        } => bail!("notary transport disconnected"),
+    }
+}
+
+async fn notarize_session<S: AsyncRead + AsyncWrite + Send + Unpin + 'static>(
+    socket: S,
+    key: &k256::ecdsa::SigningKey,
+    max_recv: usize,
+    failed: tokio::sync::oneshot::Sender<()>,
+) -> Result<()> {
     let (driver, mut handle) = Session::new(socket).split();
-    let driver = tokio::spawn(driver);
+    let driver = tokio::spawn(async move {
+        let result = driver.await;
+        if result.is_err() {
+            let _ = failed.send(());
+        }
+        result
+    });
     let _guard = DriverGuard(driver.abort_handle());
     let verifier = match handle
         .new_verifier(

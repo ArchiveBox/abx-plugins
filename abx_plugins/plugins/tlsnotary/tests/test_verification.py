@@ -47,6 +47,7 @@ def test_real_signed_response(binary):
     verified = json.loads(result.stdout)
     assert verified["url"] == "https://news.ycombinator.com/"
     assert verified["status"] == 200
+    assert verified["response_complete"] is True
     assert verified["connection_time_unix"] == 1789600956
     body = base64.b64decode(verified["body_base64"])
     assert len(body) == 34163
@@ -58,9 +59,13 @@ def test_real_signed_response(binary):
     )
 
 
+@pytest.mark.parametrize(
+    "artifact_name",
+    ["hacker-news.tlsn", "youtube-prefix.tlsn", "youtube-gzip-prefix.tlsn"],
+)
 @pytest.mark.parametrize("damage", ["modified", "truncated", "trailing"])
-def test_corrupted_artifact_rejected(binary, tmp_path, damage):
-    data = ARTIFACT.read_bytes()
+def test_corrupted_artifact_rejected(binary, tmp_path, damage, artifact_name):
+    data = (ARTIFACT.parent / artifact_name).read_bytes()
     if damage == "modified":
         data = (
             data[: len(data) // 2]
@@ -92,3 +97,35 @@ def test_expected_url_rejected(binary):
     )
     assert result.returncode != 0
     assert "differs from expected" in result.stderr
+
+
+def test_real_signed_prefix_is_not_a_complete_response(binary):
+    artifact = Path(__file__).parent / "fixtures" / "youtube-prefix.tlsn"
+    result = run_verify(binary, artifact)
+    assert result.returncode == 0, result.stderr
+    verified = json.loads(result.stdout)
+    assert verified["url"] == "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+    assert verified["status"] == 200
+    assert verified["response_complete"] is False
+    body = base64.b64decode(verified["body_base64"])
+    assert len(body) == 27474
+    assert (
+        hashlib.sha256(body).hexdigest()
+        == verified["body_sha256"]
+        == "4e34695198de66340538c69aa37fbfc064adfe98400c415cee76818f488e5dcb"
+    )
+
+
+def test_real_gzip_prefix_decodes_authenticated_bytes(binary):
+    artifact = Path(__file__).parent / "fixtures" / "youtube-gzip-prefix.tlsn"
+    result = run_verify(binary, artifact)
+    assert result.returncode == 0, result.stderr
+    verified = json.loads(result.stdout)
+    assert verified["response_complete"] is False
+    body = base64.b64decode(verified["body_base64"])
+    assert len(body) == 145304
+    assert (
+        hashlib.sha256(body).hexdigest()
+        == verified["body_sha256"]
+        == "d1fbd120e0d63a627af339fc1488083373f6941afc4c65845e9a402ce030a146"
+    )
