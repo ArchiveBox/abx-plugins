@@ -63,7 +63,7 @@ exclude = [
     "**/__pycache__/**",
     "**/*.pyc",
     "**/*.pyo",
-    "abx_plugins/plugins/**/README.md",
+    "abx_plugins/plugins/*/README.md", # Preserve nested runtime/deployment instructions.
     "**/tests/**",
     "tests/**",
     "docs/**",
@@ -76,7 +76,7 @@ exclude = [
     "**/__pycache__/**",
     "**/*.pyc",
     "**/*.pyo",
-    "abx_plugins/plugins/**/README.md",
+    "abx_plugins/plugins/*/README.md",
     "**/tests/**",
     "tests/**",
     "docs/**",

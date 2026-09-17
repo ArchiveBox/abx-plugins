@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+  />
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>TLSNotary verification</title
+  ><link rel="stylesheet" href="style.css" />
+  <main>
+    <span class="brand">ArchiveBox · TLSNotary</span>
+    <h1>Verify an archived response</h1>
+    <p id="status" role="status">
+      Select receipt.json and response.http, or drop both files here.
+    </p>
+    <label class="drop"
+      >Choose capture files<input id="files" type="file" multiple
+    /></label>
+    <dl id="details"></dl>
+    <p class="note">
+      Verification runs on this device. Files are never uploaded. Trust depends
+      on the configured verifier key and its clock. Only this response is
+      authenticated.
+    </p>
+    <details>
+      <summary>Verify independently</summary>
+      <p>
+        Obtain verify.mjs and the verifier public key from an independently
+        trusted source. Check the Ed25519 signature over the decoded receipt
+        payload, then compare SHA-256(response.http bytes || decoded blinder) to
+        its signed hash. Check hostname, signed range and HTTP completeness too.
+        The receipt contains no response bytes.
+      </p>
+    </details>
+    <details id="content" hidden>
+      <summary>Authenticated response content</summary>
+      <pre id="body"></pre>
+    </details>
+  </main>
+  <script type="module" src="app.mjs"></script>
+</html>

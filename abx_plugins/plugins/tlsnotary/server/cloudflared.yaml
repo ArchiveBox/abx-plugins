@@ -1,0 +1,7 @@
+tunnel: 526a2510-a597-4d09-a96e-5d44793d45a1
+credentials-file: /etc/cloudflared/credentials.json
+protocol: http2
+ingress:
+  - hostname: tlsnotary.zervice.io
+    service: http://gateway:7047
+  - service: http_status:404

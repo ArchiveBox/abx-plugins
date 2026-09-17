@@ -1,0 +1,134 @@
+:root {
+  font: 16px/1.5 system-ui;
+  color: #193329;
+  background: #f1f6f3;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 900px;
+  margin: auto;
+  padding: 32px;
+}
+.brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #48785e;
+}
+h1 {
+  font-size: 30px;
+  margin: 12px 0;
+}
+#status {
+  padding: 18px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #ccdcd2;
+}
+.verified {
+  color: #126436;
+  background: #e2f6e9 !important;
+  border-color: #86c59c !important;
+}
+.failed {
+  color: #962b2b;
+  background: #ffecec !important;
+}
+.drop {
+  display: block;
+  border: 2px dashed #b4c8bc;
+  border-radius: 12px;
+  padding: 20px;
+}
+input {
+  display: block;
+  margin-top: 12px;
+}
+dl {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+}
+dt {
+  color: #63766b;
+}
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.note,
+details {
+  font-size: 14px;
+  color: #53655b;
+}
+details {
+  margin-top: 22px;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: white;
+  padding: 18px;
+  max-height: 450px;
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  main {
+    padding: 18px;
+  }
+  dl {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  dd {
+    margin-bottom: 10px;
+  }
+}
+.compact main {
+  padding: 14px;
+}
+.compact h1,
+.compact .drop,
+.compact .note,
+.compact details {
+  display: none;
+}
+.compact #status {
+  font-size: 13px;
+  padding: 9px;
+}
+.compact dl {
+  font-size: 12px;
+  grid-template-columns: 110px 1fr;
+  gap: 6px;
+}
+.compact dd:last-child,
+.compact dt:nth-last-child(2) {
+  display: none;
+}
+
+.compact main {
+  padding: 8px;
+}
+.compact .brand,
+.compact dt:nth-of-type(2),
+.compact dd:nth-of-type(2) {
+  display: none;
+}
+.compact #status {
+  margin: 0;
+  padding: 5px;
+  font-size: 12px;
+}
+.compact dl {
+  margin: 8px 0 0;
+  font-size: 10px;
+  grid-template-columns: 95px 1fr;
+  gap: 3px;
+}
