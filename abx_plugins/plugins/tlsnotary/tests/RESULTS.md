@@ -51,12 +51,18 @@ For ArchiveBox, run its ordinary collection commands with the source-built image
 ```bash
 mkdir collection
 docker run --rm -v "$PWD/collection:/data" archivebox/archivebox:tlsnotary-test init
-docker run --rm -v "$PWD/collection:/data" -e TLSNOTARY_ENABLED=true \
+docker run --rm -v "$PWD/collection:/data" archivebox/archivebox:tlsnotary-test \
+  config --set TLSNOTARY_ENABLED=True
+docker run --rm -v "$PWD/collection:/data" \
   archivebox/archivebox:tlsnotary-test add \
   --plugins=title,screenshot,dom,headers,archivewebpage,tlsnotary https://sweeting.me/
 docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD/collection:/data" \
   archivebox/archivebox:tlsnotary-test server 0.0.0.0:8000
 ```
+
+Persist the opt-in in collection config so workers launched by an already-running
+supervisor receive it too. A one-command environment override does not change the
+environment of an existing supervisor.
 
 Open the snapshot detail page and select TLSNotary. Its trusted plugin preview
 renders the verifier; the compact card shows the authenticated hostname/status.
