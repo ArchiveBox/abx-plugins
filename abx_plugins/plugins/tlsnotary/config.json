@@ -37,7 +37,7 @@
     },
     "TLSNOTARY_VERIFIER_URL": {
       "type": "string",
-      "default": "https://tlsnotary.archivebox.io",
+      "default": "https://tlsnotary.zervice.io",
       "description": "Verifier and signed-receipt service. HTTP is permitted only for local development."
     },
     "TLSNOTARY_TRUSTED_KEY": {

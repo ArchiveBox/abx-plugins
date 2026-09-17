@@ -83,8 +83,12 @@ function main(){
 }
 async function run(request){try{
  const headers={};for(const h of request.requestHeaders){if(!h.name.startsWith(':'))headers[h.name.toLowerCase()]=h.value;}
- headers.host=${JSON.stringify(target.hostname)};headers['accept-encoding']='gzip';headers.connection='close';delete headers['content-length'];
- const result=await prove({url,method:'GET',headers},${JSON.stringify(options)});
+ headers.host=${JSON.stringify(
+   target.hostname
+ )};headers['accept-encoding']='gzip';headers.connection='close';delete headers['content-length'];
+ const result=await prove({url,method:'GET',headers},${JSON.stringify(
+   options
+ )});
  done(JSON.stringify({ok:true,result}));
 }catch(error){done(JSON.stringify({ok:false,error:String(error)}));}}
 export default {config,main};`;
@@ -92,11 +96,11 @@ export default {config,main};`;
 async function capture() {
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
   const prepared = JSON.parse(
-    fs.readFileSync(path.join(config.CRAWL_DIR, "tlsnotary/extension.json")),
+    fs.readFileSync(path.join(config.CRAWL_DIR, "tlsnotary/extension.json"))
   );
   releaseLock = await chrome.acquireSessionLock(
     path.join(config.CRAWL_DIR, "tlsnotary/capture.lock"),
-    config.TLSNOTARY_TIMEOUT * 1000,
+    config.TLSNOTARY_TIMEOUT * 1000
   );
   const connection = await chrome.connectToPage({
     chromeSessionDir: path.join(config.SNAP_DIR, "chrome"),
@@ -111,7 +115,7 @@ async function capture() {
     throw new Error("TLSNotary requires an HTTPS document");
   const original = chrome.findExtensionMetadataByName(
     connection.extensions || [],
-    "tlsnotary",
+    "tlsnotary"
   );
   const stateFile = path.join(config.CRAWL_DIR, "tlsnotary/browser-state.json");
   const state = fs.existsSync(stateFile)
@@ -123,7 +127,7 @@ async function capture() {
     });
     fs.writeFileSync(
       stateFile,
-      JSON.stringify({ endpoint: browser.wsEndpoint() }),
+      JSON.stringify({ endpoint: browser.wsEndpoint() })
     );
   }
   await chrome.loadUnpackedExtensionsIntoBrowser(browser, [prepared]);
@@ -132,7 +136,7 @@ async function capture() {
   server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "text/html" });
     res.end(
-      "<!doctype html><title>ArchiveBox TLSNotary</title><p>Private response verification</p>",
+      "<!doctype html><title>ArchiveBox TLSNotary</title><p>Private response verification</p>"
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -146,7 +150,7 @@ async function capture() {
     !(
       endpoint.protocol === "http:" &&
       ["localhost", "127.0.0.1", "host.docker.internal", "gateway"].includes(
-        endpoint.hostname,
+        endpoint.hostname
       )
     )
   )
@@ -156,13 +160,13 @@ async function capture() {
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
       t.url().includes("confirm"),
-    { timeout: 15000 },
+    { timeout: 15000 }
   );
   const resultPromise = caller.evaluate(
     (code, receiptId) =>
       window.tlsn.execCode(code, { sessionData: { mode: "Mpc", receiptId } }),
     pluginCode(url, verifierUrl, receiptId),
-    receiptId,
+    receiptId
   );
   resultPromise.catch(() => {});
   approval = await (await targetPromise).page();
@@ -172,7 +176,7 @@ async function capture() {
   for (const button of buttons)
     if (
       (await button.evaluate((el) => el.textContent)).includes(
-        "allow all data sharing this session",
+        "allow all data sharing this session"
       )
     ) {
       await button.click();
@@ -185,7 +189,7 @@ async function capture() {
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!result.ok)
     throw new Error(
-      "Extension proof failed: " + String(result.error).slice(0, 240),
+      "Extension proof failed: " + String(result.error).slice(0, 240)
     );
   const local = result.result.localProof;
   if (!local || local.openings.recv.length !== 1 || local.openings.sent.length)
@@ -207,11 +211,10 @@ async function capture() {
   }
   if (!receipt) throw new Error("Verifier did not issue a signed receipt");
   receipt.blinder = Buffer.from(opening.blinder).toString("base64");
-  const trustedKey =
-    config.TLSNOTARY_TRUSTED_KEY ||
-    JSON.parse(fs.readFileSync(path.join(__dirname, "web/trust.json")))
-      .publicKey;
-  const { verifyReceipt } = await import("./web/verify.mjs");
+  const { verifyReceipt, TRUSTED_PUBLIC_KEY } = await import(
+    "./web/verify.mjs"
+  );
+  const trustedKey = config.TLSNOTARY_TRUSTED_KEY || TRUSTED_PUBLIC_KEY;
   const verified = await verifyReceipt(receipt, response, trustedKey);
   if (verified.server_name !== new URL(url).hostname)
     throw new Error("Signed server identity differs from Chrome document");
@@ -222,9 +225,13 @@ async function capture() {
   fs.cpSync(path.join(__dirname, "web"), stage, { recursive: true });
   fs.writeFileSync(path.join(stage, "response.http"), response);
   fs.writeFileSync(path.join(stage, "receipt.json"), JSON.stringify(receipt));
+  const verifierCode = fs.readFileSync(path.join(stage, "verify.mjs"), "utf8");
   fs.writeFileSync(
-    path.join(stage, "trust.json"),
-    JSON.stringify({ publicKey: trustedKey }),
+    path.join(stage, "verify.mjs"),
+    verifierCode.replace(
+      JSON.stringify(TRUSTED_PUBLIC_KEY),
+      JSON.stringify(trustedKey)
+    )
   );
   fs.writeFileSync(
     path.join(stage, "metadata.json"),
@@ -235,7 +242,7 @@ async function capture() {
       bytes: response.length,
       receipt_bytes: Buffer.byteLength(JSON.stringify(receipt)),
       extension_version: prepared.version,
-    }),
+    })
   );
   const generation =
     "capture-" +
@@ -274,7 +281,7 @@ async function capture() {
     console.error(`[tlsnotary] ${error.message}`);
     emitArchiveResultRecord(
       "failed",
-      "TLSNotary extension capture failed; see hook log",
+      "TLSNotary extension capture failed; see hook log"
     );
     process.exitCode = 1;
   } finally {

@@ -1,4 +1,4 @@
-import { verifyReceipt } from "./verify.mjs";
+import { verifyReceipt, TRUSTED_PUBLIC_KEY } from "./verify.mjs";
 if (new URLSearchParams(location.search).has("compact"))
   document.body.classList.add("compact");
 const status = document.querySelector("#status"),
@@ -9,9 +9,10 @@ async function verify(receipt, response) {
   details.replaceChildren();
   document.querySelector("#content").hidden = true;
   try {
-    const trust = await (await fetch("trust.json")).json();
-    const result = await verifyReceipt(receipt, response, trust.publicKey);
-    status.textContent = "Verified · signature and archived response match";
+    const result = await verifyReceipt(receipt, response, TRUSTED_PUBLIC_KEY);
+    status.textContent = document.body.classList.contains("compact")
+      ? "Verified response"
+      : "Verified · signature and archived response match";
     status.className = "verified";
     for (const [label, value] of Object.entries({
       "Authenticated server": result.server_name,
@@ -28,7 +29,7 @@ async function verify(receipt, response) {
       details.append(dt, dd);
     }
     document.querySelector("#body").textContent = new TextDecoder().decode(
-      result.body,
+      result.body
     );
     document.querySelector("#content").hidden = false;
   } catch (error) {
@@ -46,14 +47,14 @@ async function files(list) {
   }
   await verify(
     JSON.parse(await receipt.text()),
-    new Uint8Array(await response.arrayBuffer()),
+    new Uint8Array(await response.arrayBuffer())
   );
 }
 document.querySelector("#files").addEventListener("change", (e) =>
   files(e.target.files).catch((e) => {
     status.textContent = e.message;
     status.className = "failed";
-  }),
+  })
 );
 document.addEventListener("dragover", (e) => e.preventDefault());
 document.addEventListener("drop", (e) => {
@@ -71,7 +72,7 @@ try {
   if (receipt.ok && response.ok)
     await verify(
       await receipt.json(),
-      new Uint8Array(await response.arrayBuffer()),
+      new Uint8Array(await response.arrayBuffer())
     );
 } catch {
   status.textContent =

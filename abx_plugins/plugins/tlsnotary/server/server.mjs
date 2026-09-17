@@ -6,7 +6,7 @@ import dns from "node:dns/promises";
 import { createPrivateKey, createPublicKey, sign } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 const key = createPrivateKey(
-  fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem"),
+  fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem")
 );
 const publicKey = createPublicKey(key)
   .export({ type: "spki", format: "der" })
@@ -34,7 +34,7 @@ const json = (res, status, value) => {
 };
 function reject(socket, status = 400) {
   socket.end(
-    `HTTP/1.1 ${status} Rejected\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
+    `HTTP/1.1 ${status} Rejected\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`
   );
 }
 const app = http.createServer((req, res) => {
@@ -54,20 +54,30 @@ const app = http.createServer((req, res) => {
     "/app.mjs": "app.mjs",
     "/verify.mjs": "verify.mjs",
     "/style.css": "style.css",
-    "/trust.json": "trust.json",
   };
   const file = files[u.pathname];
   if (!file) return json(res, 404, { error: "Not found" });
-  if (file === "trust.json") return json(res, 200, { publicKey });
   res.writeHead(200, {
     "Content-Type": file.endsWith(".mjs")
       ? "text/javascript"
       : file.endsWith(".css")
-        ? "text/css"
-        : "text/html",
+      ? "text/css"
+      : "text/html",
     "Content-Security-Policy":
       "default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'none'; connect-src 'self'",
   });
+  if (file === "verify.mjs") {
+    const code = fs.readFileSync(
+      path.join(import.meta.dirname, "web", file),
+      "utf8"
+    );
+    return res.end(
+      code.replace(
+        /export const TRUSTED_PUBLIC_KEY\s*=\s*"[^"]+";/,
+        "export const TRUSTED_PUBLIC_KEY = " + JSON.stringify(publicKey) + ";"
+      )
+    );
+  }
   fs.createReadStream(path.join(import.meta.dirname, "web", file)).pipe(res);
 });
 function wire(client, backend, session) {
@@ -151,7 +161,10 @@ app.on("upgrade", async (req, socket, head) => {
         sockets: new Set(),
         id: null,
         receiptId: null,
+        closed: false,
         close() {
+          if (this.closed) return;
+          this.closed = true;
           for (const s of this.sockets) s.terminate?.();
           clearTimeout(this.timer);
           clearTimeout(this.registrationTimer);
@@ -173,7 +186,7 @@ app.on("upgrade", async (req, socket, head) => {
         });
         const registrationTimer = (session.registrationTimer = setTimeout(
           () => session.close(),
-          5000,
+          5000
         ));
         client.once("message", (data) => {
           clearTimeout(registrationTimer);
@@ -197,7 +210,7 @@ app.on("upgrade", async (req, socket, head) => {
             if (
               receipts.has(d.receiptId) ||
               [...sessions.values()].some(
-                (s) => s !== session && s.receiptId === d.receiptId,
+                (s) => s !== session && s.receiptId === d.receiptId
               )
             )
               throw Error();
@@ -233,12 +246,13 @@ app.on("upgrade", async (req, socket, head) => {
     }
     if (u.pathname === "/verifier") {
       const session = byId.get(u.searchParams.get("sessionId"));
-      if (!session || session.verifier) return reject(socket, 403);
+      if (!session || session.closed || session.verifier)
+        return reject(socket, 403);
       session.verifier = true;
       wsServer.handleUpgrade(req, socket, head, (client) => {
         const backend = new WebSocket(
           upstream + "/verifier?sessionId=" + encodeURIComponent(session.id),
-          { maxPayload: 2 * 1024 * 1024 },
+          { maxPayload: 2 * 1024 * 1024 }
         );
         session.sockets.add(client);
         session.sockets.add(backend);
@@ -254,7 +268,7 @@ app.on("upgrade", async (req, socket, head) => {
     }
     if (u.pathname === "/proxy") {
       const session = [...sessions.values()].find(
-        (s) => s.receiptId === u.searchParams.get("capture"),
+        (s) => s.receiptId === u.searchParams.get("capture")
       );
       const host = u.searchParams.get("token");
       if (
@@ -265,6 +279,8 @@ app.on("upgrade", async (req, socket, head) => {
         net.isIP(host)
       )
         return reject(socket, 403);
+      // Reserve before asynchronous DNS so parallel upgrades cannot share a slot.
+      session.proxy = true;
       const addresses = await dns.lookup(host, { all: true, family: 4 });
       // Pin the resolved address in connect(), preventing DNS rebinding.
       const allowed = (ip) => {
@@ -281,9 +297,12 @@ app.on("upgrade", async (req, socket, head) => {
           (a === 198 && [18, 19].includes(b))
         );
       };
-      if (!addresses.length || addresses.some((a) => !allowed(a.address)))
+      if (
+        session.closed ||
+        !addresses.length ||
+        addresses.some((a) => !allowed(a.address))
+      )
         return reject(socket, 403);
-      session.proxy = true;
       wsServer.handleUpgrade(req, socket, head, (client) => {
         session.sockets.add(client);
         const tcp = net.connect({ host: addresses[0].address, port: 443 });

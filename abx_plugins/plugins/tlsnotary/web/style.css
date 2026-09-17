@@ -112,3 +112,23 @@ pre {
 .compact dt:nth-last-child(2) {
   display: none;
 }
+
+.compact main {
+  padding: 8px;
+}
+.compact .brand,
+.compact dt:nth-of-type(2),
+.compact dd:nth-of-type(2) {
+  display: none;
+}
+.compact #status {
+  margin: 0;
+  padding: 5px;
+  font-size: 12px;
+}
+.compact dl {
+  margin: 8px 0 0;
+  font-size: 10px;
+  grid-template-columns: 95px 1fr;
+  gap: 3px;
+}

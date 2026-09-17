@@ -76,9 +76,30 @@ HASH commitment. The webhook listener and upstream verifier are isolated on a
 private Docker network. Public endpoints require no authentication. The bridge
 connects only to public IPv4 addresses on port 443, pinning DNS resolution.
 
-## Acceptance status
+## Acceptance
 
-The extension replacement is under active end-to-end testing. Previous native
-prototype results and artifacts have been removed; they are not acceptance
-results for this plugin. Docker, ArchiveBox UI and screenshot validation must be
-recorded in `tests/RESULTS.md` before this status is changed.
+Real extension captures passed in abx-dl Docker and ArchiveBox Docker for Hacker
+News and Sweeting.me. A real httpbin cookie round trip passed. The ArchiveBox
+snapshot detail preview and independent verification UI both verified the saved
+bytes; tampering was rejected. Two public Cabbage sessions succeeded concurrently
+and a third received HTTP 503. See [measured results](tests/RESULTS.md).
+
+YouTube's watch page did not complete within 180 seconds; ordinary title and
+screenshot outputs still succeeded. Large-response hashing remains constrained by
+the pinned upstream extension. This plugin does not certify video prefixes.
+
+The working public endpoint and verification UI are https://tlsnotary.zervice.io/.
+The prepared ingress also supports `tlsnotary.archivebox.io` and
+`verify.archivebox.io`, but their Cloudflare DNS aliases still need to point at
+`tlsnotary.zervice.io` before those names can be used.
+
+For an offline check with Node 22+, obtain this plugin and its public key from an
+independently trusted source, then run (no network access is used):
+
+```bash
+node tests/check_capture.mjs /path/to/snapshot/tlsnotary/current INDEPENDENTLY_TRUSTED_BASE64_SPKI_KEY
+```
+
+This checks the real signature and response and also asserts that five altered
+versions are rejected. The public key is pinned in `web/verify.mjs`; do not trust
+code or keys supplied only by the archive you are investigating.

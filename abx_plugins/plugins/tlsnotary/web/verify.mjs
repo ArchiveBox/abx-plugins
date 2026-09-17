@@ -1,3 +1,5 @@
+export const TRUSTED_PUBLIC_KEY =
+  "MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=";
 // Shared by the browser viewer, capture hook and offline CLI. No network access.
 const from64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const hex = (bytes) =>
@@ -8,7 +10,7 @@ function requireValue(ok, message) {
 export async function verifyReceipt(receipt, response, trustedKey) {
   requireValue(
     typeof trustedKey === "string" && trustedKey.length > 0,
-    "An independently trusted verifier key is required",
+    "An independently trusted verifier key is required"
   );
   const payloadBytes = from64(receipt.payload);
   const key = await crypto.subtle.importKey(
@@ -16,39 +18,39 @@ export async function verifyReceipt(receipt, response, trustedKey) {
     from64(trustedKey),
     "Ed25519",
     false,
-    ["verify"],
+    ["verify"]
   );
   requireValue(
     await crypto.subtle.verify(
       "Ed25519",
       key,
       from64(receipt.signature),
-      payloadBytes,
+      payloadBytes
     ),
-    "Invalid verifier signature",
+    "Invalid verifier signature"
   );
   const signed = JSON.parse(new TextDecoder().decode(payloadBytes));
   requireValue(
     signed.format === "abx-tlsnotary-receipt-v1" &&
       signed.algorithm === "SHA256",
-    "Unsupported signed receipt",
+    "Unsupported signed receipt"
   );
   requireValue(
     typeof signed.server_name === "string" && signed.server_name.length > 0,
-    "Missing authenticated hostname",
+    "Missing authenticated hostname"
   );
   requireValue(
     Number.isSafeInteger(signed.time) && signed.time > 0,
-    "Invalid signed time",
+    "Invalid signed time"
   );
   requireValue(
     signed.start === 0 && signed.end === response.length && response.length > 0,
-    "Response length does not match signed range",
+    "Response length does not match signed range"
   );
   const blinder = from64(receipt.blinder);
   requireValue(
     blinder.length === 16 && /^[a-f0-9]{64}$/.test(signed.hash),
-    "Invalid commitment opening",
+    "Invalid commitment opening"
   );
   const input = new Uint8Array(response.length + blinder.length);
   input.set(response);
@@ -56,7 +58,7 @@ export async function verifyReceipt(receipt, response, trustedKey) {
   requireValue(
     hex(new Uint8Array(await crypto.subtle.digest("SHA-256", input))) ===
       signed.hash,
-    "Archived response does not match signed commitment",
+    "Archived response does not match signed commitment"
   );
   const parsed = parseResponse(response);
   let body = parsed.body;
@@ -104,7 +106,7 @@ export function parseResponse(bytes) {
   const status = /^HTTP\/1\.[01] (\d{3}) /.exec(lines.shift());
   requireValue(
     status && Number(status[1]) >= 200 && Number(status[1]) < 300,
-    "Response is not a successful HTTP document",
+    "Response is not a successful HTTP document"
   );
   const headers = new Map();
   for (const line of lines) {
@@ -114,23 +116,23 @@ export function parseResponse(bytes) {
     requireValue(
       !headers.has(k) ||
         !["content-length", "transfer-encoding", "content-encoding"].includes(
-          k,
+          k
         ),
-      "Ambiguous HTTP framing",
+      "Ambiguous HTTP framing"
     );
     headers.set(k, line.slice(i + 1).trim());
   }
   requireValue(
     !headers.has("content-encoding") ||
       ["identity", "gzip"].includes(headers.get("content-encoding")),
-    "Unexpected compressed response",
+    "Unexpected compressed response"
   );
   let body = bytes.slice(split + 4);
   if (headers.has("transfer-encoding")) {
     requireValue(
       headers.get("transfer-encoding").toLowerCase() === "chunked" &&
         !headers.has("content-length"),
-      "Unsupported HTTP framing",
+      "Unsupported HTTP framing"
     );
     let at = 0;
     const chunks = [];
@@ -151,7 +153,7 @@ export function parseResponse(bytes) {
       if (size === 0) {
         requireValue(
           at + 2 === body.length && body[at] === 13 && body[at + 1] === 10,
-          "Unsupported trailers or incomplete response",
+          "Unsupported trailers or incomplete response"
         );
         break;
       }
@@ -160,7 +162,7 @@ export function parseResponse(bytes) {
           at + size + 2 <= body.length &&
           body[at + size] === 13 &&
           body[at + size + 1] === 10,
-        "Truncated chunk",
+        "Truncated chunk"
       );
       chunks.push(body.slice(at, at + size));
       at += size + 2;
@@ -175,7 +177,7 @@ export function parseResponse(bytes) {
     requireValue(
       /^\d+$/.test(headers.get("content-length")) &&
         Number(headers.get("content-length")) === body.length,
-      "Incomplete HTTP response",
+      "Incomplete HTTP response"
     );
   } else {
     throw new Error("Complete response requires explicit HTTP framing");

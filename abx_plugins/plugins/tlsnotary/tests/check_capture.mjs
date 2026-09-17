@@ -8,7 +8,7 @@ const dir = process.argv[2],
   trustedKey = process.argv[3];
 assert(
   dir && trustedKey,
-  "Supply capture directory and independently trusted key",
+  "Supply capture directory and independently trusted key"
 );
 const receipt = JSON.parse(fs.readFileSync(path.join(dir, "receipt.json")));
 const body = new Uint8Array(fs.readFileSync(path.join(dir, "response.http")));
@@ -16,17 +16,17 @@ const verified = await verifyReceipt(receipt, body, trustedKey);
 assert(verified.status >= 200 && verified.status < 300);
 assert(
   fs.statSync(path.join(dir, "receipt.json")).size < 2048,
-  "Receipt must stay compact",
+  "Receipt must stay compact"
 );
 assert(
-  !Object.hasOwn(receipt, "response") && !Object.hasOwn(receipt, "transcript"),
+  !Object.hasOwn(receipt, "response") && !Object.hasOwn(receipt, "transcript")
 );
 const changed = body.slice();
 changed[changed.length - 1] ^= 1;
 await assert.rejects(verifyReceipt(receipt, changed, trustedKey), /commitment/);
 await assert.rejects(
   verifyReceipt(receipt, body.slice(0, -1), trustedKey),
-  /length/,
+  /length/
 );
 const altered = structuredClone(receipt);
 const payload = Buffer.from(altered.payload, "base64");
@@ -37,7 +37,7 @@ const wrongOpening = structuredClone(receipt);
 wrongOpening.blinder = Buffer.alloc(16).toString("base64");
 await assert.rejects(
   verifyReceipt(wrongOpening, body, trustedKey),
-  /commitment/,
+  /commitment/
 );
 const wrongKey = generateKeyPairSync("ed25519")
   .publicKey.export({ type: "spki", format: "der" })
@@ -50,5 +50,5 @@ console.log(
     response_bytes: body.length,
     receipt_bytes: fs.statSync(path.join(dir, "receipt.json")).size,
     tamper_checks: 5,
-  }),
+  })
 );
