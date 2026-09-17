@@ -1,0 +1,18 @@
+abx_plugins/plugins/tlsnotary/README.md
+  h_923c208e183a7b 1,3-17,64
+abx_plugins/plugins/tlsnotary/research/EXTENSION_API_AUDIT.md
+  h_923c208e183a7b 1-123
+abx_plugins/plugins/tlsnotary/research/README.md
+  h_923c208e183a7b 3-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f34bb7c96d8f8c13eddbab0e797379e27ed23deb",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
