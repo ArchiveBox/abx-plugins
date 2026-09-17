@@ -1,0 +1,81 @@
+abx_plugins/plugins/tlsnotary/config.json
+  s_ffefb637465167::t_37e346533e2a33 4,24-25,44,47,54-60
+abx_plugins/plugins/tlsnotary/runtime/Cargo.lock
+  s_ffefb637465167::t_f2c0a1ff33d6b8 509-519,1179,1184-1195,2250-2255,2283-2293,2342-2347,3074
+abx_plugins/plugins/tlsnotary/runtime/src/lib.rs
+  s_ffefb637465167::t_1d40422997cbd3 37,118,128-136,140,147-151,163,165-166,168,175,177-186,208
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/Cargo.toml
+  s_ffefb637465167::t_10e1d163b2b21d 1-29
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/context/test/helpers.rs
+  s_044c52c0270663::t_35c30b78a270d4 1-48
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/context/test/mod.rs
+  s_044c52c0270663::t_788b23fd479f32 1-18
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/context/test/recording.rs
+  s_044c52c0270663::t_d57eedbc582743 1-465
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/context/test/replay.rs
+  s_044c52c0270663::t_c210189d4eec53 1-201
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/context/test/tests.rs
+  s_044c52c0270663::t_a44dab25664fe5 1-447
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/executor.rs
+  s_044c52c0270663::t_141f2f7b548067 1-482
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/future.rs
+  s_044c52c0270663::t_954f7c5fca3bdd 1-197
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/id.rs
+  s_044c52c0270663::t_20cd8675ec0007 1-91
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/ideal.rs
+  s_044c52c0270663::t_4918479c20f210 1-58
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/io.rs
+  s_044c52c0270663::t_495d83457f8d22 1-289
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/lib.rs
+  s_044c52c0270663::t_fd0009b5f09752 1-49
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/mux.rs
+  s_044c52c0270663::t_29762a0ba0b4a6 1-131
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/sync/async_mutex.rs
+  s_044c52c0270663::t_c89bcceb1d2ccd 1-111
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/sync/async_syncer.rs
+  s_044c52c0270663::t_42eb966505c732 1-238
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/sync/barrier.rs
+  s_044c52c0270663::t_2570ef8812d8f2 1-357
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/sync/mod.rs
+  s_044c52c0270663::t_0df012d24a11bb 1-295
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/sync/mutex.rs
+  s_044c52c0270663::t_58337796556cd4 1-109
+abx_plugins/plugins/tlsnotary/runtime/vendor/mpz-common/src/task.rs
+  s_044c52c0270663::t_0bd81565bfed2e 1-16
+abx_plugins/plugins/tlsnotary/runtime/vendor/tlsn-mux/Cargo.toml
+  s_ffefb637465167::t_22ba7ba727bd7e 1-24
+abx_plugins/plugins/tlsnotary/runtime/vendor/tlsn-mux/UPSTREAM.md
+  s_ffefb637465167::t_b7ce97f9b04f59 1-5
+abx_plugins/plugins/tlsnotary/runtime/vendor/tlsn-mux/src/connection/stream/flow_control.rs
+  s_ffefb637465167::t_2d920062a89430 1-305
+abx_plugins/plugins/tlsnotary/runtime/vendor/tlsn-mux/src/error.rs
+  s_ffefb637465167::t_2e8e5f11e7454e 1-103
+abx_plugins/plugins/tlsnotary/server/nginx.conf
+  s_ffefb637465167::t_e8dc4ddf128189 13-21
+abx_plugins/plugins/tlsnotary/web/index.html
+  s_ffefb637465167::t_0c2c4324acb6c1 9,11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ff96ff880adec48cad0e554a73ee6181ff37d16c",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
