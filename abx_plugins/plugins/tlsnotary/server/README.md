@@ -13,7 +13,10 @@ a third receives HTTP 503. This is experimental public-service software.
 ## Start locally
 
 From this directory, copy `.env.example` to `.env`. Its defaults use `./state` for
-the signing key and bind the gateway to loopback port 7047. Generate the key once:
+the signing key and bind the gateway to loopback port 7047. Set `TLSNOTARY_UID`
+and `TLSNOTARY_GID` in `.env` to the output of `id -u` and `id -g` for the account
+creating the key. The gateway runs with that identity, so it can read a private
+mode-600 key with all Linux capabilities dropped. Generate the key once:
 `mkdir -p state && openssl genpkey -algorithm ED25519 -out state/signing.pem && chmod 600 state/signing.pem`.
 Back up this key securely; replacing it changes which receipts your server can
 sign. Do not regenerate it during upgrades.

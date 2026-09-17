@@ -17,8 +17,9 @@ byte budget fail explicitly. There is no prefix or video-duration claim.
 ```bash
 set -euo pipefail
 capture_dir="$(mktemp -d)"
-uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with-editable . --with abx-dl==1.12.276 abx-dl install tlsnotary
-TLSNOTARY_ENABLED=true uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with-editable . --with abx-dl==1.12.276 abx-dl dl \
+export ABX_PLUGINS_DIR="$PWD/abx_plugins/plugins"
+uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with abx-dl==1.12.276 abx-dl install tlsnotary
+TLSNOTARY_ENABLED=true uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with abx-dl==1.12.276 abx-dl dl \
   --plugins=title,screenshot,tlsnotary --dir="$capture_dir" 'https://news.ycombinator.com/'
 node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs \
   "$capture_dir/tlsnotary/current" MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=
@@ -71,6 +72,8 @@ environment/tunnel configuration, and complete deployment instructions.
 set -euo pipefail
 export TLSNOTARY_STATE_DIR="$(mktemp -d)"
 export TLSNOTARY_PORT="${TLSNOTARY_PORT:-7047}"
+export TLSNOTARY_UID="$(id -u)"
+export TLSNOTARY_GID="$(id -g)"
 openssl genpkey -algorithm ED25519 -out "$TLSNOTARY_STATE_DIR/signing.pem"
 chmod 600 "$TLSNOTARY_STATE_DIR/signing.pem"
 cd abx_plugins/plugins/tlsnotary/server

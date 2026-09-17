@@ -179,7 +179,9 @@ async function capture() {
         "allow all data sharing this session"
       )
     ) {
-      await button.click();
+      // Approval closes its popup. Dispatch the complete click in one operation
+      // so Puppeteer cannot send pointer-up to an already closed target.
+      await button.evaluate((element) => element.click());
       accepted = true;
       break;
     }
