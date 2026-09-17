@@ -535,6 +535,20 @@
         margin-top: var(--ab-s-5);
       }
 
+      .plugin-screenshots {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+
+      .plugin-screenshots img {
+        display: block;
+        width: 100%;
+        height: 180px;
+        object-fit: contain;
+        object-position: top;
+      }
+
       .plugin-modal-description {
         margin: 0;
         font-size: var(--ab-size-base);
@@ -1210,6 +1224,20 @@ abx-dl 'https://example.com'</code></pre>
                   <a class="ab-btn ab-btn--sm" href="{{ plugin.source_url }}" target="_blank" rel="noreferrer">Source on GitHub</a>
                 </div>
 
+                {% if plugin.screenshots %}
+                <h3 class="section-title">Screenshots</h3>
+                <div class="plugin-screenshots">
+                  {% for filename, feature in plugin.screenshots %}
+                  {% for breakpoint in ["desktop", "tablet", "mobile"] %}
+                  <a href="https://archivebox.io/screenshots/{{ filename }}-{{ breakpoint }}.png" target="_blank" rel="noreferrer">
+                    <img data-screenshot-src="https://archivebox.io/screenshots/{{ filename }}-{{ breakpoint }}.png" alt="{{ plugin.display_title }} — {{ feature }} ({{ breakpoint }})" loading="lazy" decoding="async">
+                    <span>{{ feature }} · {{ breakpoint | capitalize }}</span>
+                  </a>
+                  {% endfor %}
+                  {% endfor %}
+                </div>
+                {% endif %}
+
                 {% if plugin.required_plugins or plugin.required_binaries or plugin.output_mimetypes %}
                 <h3 class="section-title">Dependencies &amp; Outputs</h3>
                 <div class="plugin-info-grid">
@@ -1812,6 +1840,10 @@ abx-dl 'https://example.com'</code></pre>
 
         modalTitle.textContent = title ? title.textContent : card.id;
         modalBody.innerHTML = body.innerHTML;
+        modalBody.querySelectorAll("[data-screenshot-src]").forEach((img) => {
+          img.src = img.dataset.screenshotSrc;
+          img.addEventListener("error", () => img.closest("a").remove());
+        });
         modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
         highlightAllShell(modalBody);
         modalEl.showModal();

@@ -29,6 +29,38 @@ LANGUAGE_NAMES = {
 }
 HOOK_PHASES = ("Crawl", "Snapshot")
 
+# Stable filenames hotlink the latest published images; no cross-repo build dependency.
+# Each plugin can have multiple feature views, each with all three breakpoints.
+PLUGIN_SCREENSHOTS = {
+    "singlefile": [("46-snapshot-view-singlefile", "Snapshot view")],
+    "screenshot": [("47-snapshot-view-screenshot", "Snapshot view")],
+    "wget": [("48-snapshot-view-wget", "Snapshot view")],
+    "dom": [("49-snapshot-view-dom", "Snapshot view")],
+    "pdf": [("50-snapshot-view-pdf", "Snapshot view")],
+    "readability": [("51-snapshot-view-readability", "Snapshot view")],
+    "archivewebpage": [("52-snapshot-view-archivewebpage", "Snapshot view")],
+    "responses": [("53-snapshot-view-responses", "Snapshot view")],
+    "ytdlp": [("54-snapshot-view-ytdlp", "Snapshot view")],
+    "chrome_mhtml": [("55-snapshot-view-chrome-mhtml", "Snapshot view")],
+    "defuddle": [("56-snapshot-view-defuddle", "Snapshot view")],
+    "mercury": [("57-snapshot-view-mercury", "Snapshot view")],
+    "chrome": [("58-snapshot-view-chrome", "Snapshot view")],
+    "consolelog": [("59-snapshot-view-consolelog", "Snapshot view")],
+    "dns": [("60-snapshot-view-dns", "Snapshot view")],
+    "sslcerts": [("61-snapshot-view-sslcerts", "Snapshot view")],
+    "redirects": [("62-snapshot-view-redirects", "Snapshot view")],
+    "headers": [("63-snapshot-view-headers", "Snapshot view")],
+    "seo": [("64-snapshot-view-seo", "Snapshot view")],
+    "accessibility": [("65-snapshot-view-accessibility", "Snapshot view")],
+    "htmltotext": [("66-snapshot-view-htmltotext", "Snapshot view")],
+    "trafilatura": [("67-snapshot-view-trafilatura", "Snapshot view")],
+    "parse_html_urls": [("68-snapshot-view-parse-html-urls", "Snapshot view")],
+    "parse_txt_urls": [("69-snapshot-view-parse-txt-urls", "Snapshot view")],
+    "parse_dom_outlinks": [("70-snapshot-view-parse-dom-outlinks", "Snapshot view")],
+    "hashes": [("71-snapshot-view-hashes", "Snapshot view")],
+    "opencode": [("07-ai-agent", "AI agent")],
+}
+
 
 def github_tree_url(relative_path: str) -> str:
     return f"{GITHUB_REPO}/tree/{DEFAULT_GITHUB_REF}/{relative_path}"
@@ -459,6 +491,7 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     return {
         "name": plugin_dir.name,
         "display_title": display_title,
+        "screenshots": PLUGIN_SCREENSHOTS.get(plugin_dir.name, []),
         "description": description,
         "phases": phases,
         "primary_language": primary_language,
