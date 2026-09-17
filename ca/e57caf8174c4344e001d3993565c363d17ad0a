@@ -1,0 +1,38 @@
+abx_plugins/plugins/tlsnotary/.gitignore
+  h_923c208e183a7b 5
+abx_plugins/plugins/tlsnotary/README.md
+  h_923c208e183a7b 18-24,27-31,67-69,71-83,86-90,116-117,123-126,129-131,133
+abx_plugins/plugins/tlsnotary/on_Snapshot__95_tlsnotary.js
+  h_923c208e183a7b 215,225
+abx_plugins/plugins/tlsnotary/server/.dockerignore
+  h_923c208e183a7b 1-7
+abx_plugins/plugins/tlsnotary/server/.env.example
+  h_923c208e183a7b 1-4
+abx_plugins/plugins/tlsnotary/server/Dockerfile
+  h_923c208e183a7b 3,5
+abx_plugins/plugins/tlsnotary/server/README.md
+  h_923c208e183a7b 1-86
+abx_plugins/plugins/tlsnotary/server/cloudflared.yaml.example
+  h_923c208e183a7b 1-10
+abx_plugins/plugins/tlsnotary/server/docker-compose.yml
+  h_923c208e183a7b 18-20
+abx_plugins/plugins/tlsnotary/tests/check_capture.mjs
+  h_923c208e183a7b 6
+abx_plugins/plugins/tlsnotary/tests/check_parallel.mjs
+  h_923c208e183a7b 9
+abx_plugins/plugins/tlsnotary/tests/fixtures/README.md
+  h_923c208e183a7b 1-11
+abx_plugins/plugins/tlsnotary/tests/fixtures/hacker-news/receipt.json
+  h_923c208e183a7b 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cae57caf8174c4344e001d3993565c363d17ad0a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
