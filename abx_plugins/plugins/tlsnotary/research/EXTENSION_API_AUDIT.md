@@ -132,3 +132,15 @@ Uncompressed Hacker News exceeded the upstream MPC mux stream limit while hashin
 Requesting normal gzip encoding reduced its authenticated HTTP response to about
 6 KB and completed successfully. No mux limit or cryptographic implementation was
 modified. Larger pages can still fail; see [acceptance results](../tests/RESULTS.md).
+
+## Direct extension approval
+
+The pinned release's `entries/ConfirmPopup/index.tsx` sends
+`{type: 'PLUGIN_CONFIRM_RESPONSE', requestId, mode: 'all-session'}` to the background
+worker. `entries/Background/index.ts` forwards it to
+`ConfirmationManager.handleConfirmationResponse`, which resolves the pending
+execution and closes the popup. The hook reads the request ID from that extension
+target's URL and sends this exact RPC from its existing `offscreen.html` target
+through CDP `Runtime.evaluate`. The offscreen context remains alive when approval
+closes the popup. No DOM selectors, button text, pointer events, or React internals
+are used. `window.tlsn.execCode`, `useHeaders` and `prove` remain the execution APIs.

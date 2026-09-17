@@ -14,11 +14,10 @@ ensureNodeModuleResolution(module);
 const chrome = require("../chrome/chrome_utils.js");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
-let browser, caller, approval, server, extensionId, releaseLock;
+let browser, caller, server, extensionId, releaseLock;
 let stopped = false;
 async function cleanup() {
   if (caller) await caller.close().catch(() => {});
-  if (approval) await approval.close().catch(() => {});
   // This extension instance belongs to this hook. Unloading also cancels any
   // active WASM proof and its managed auth window on timeout; Chrome stays alive.
   if (browser && extensionId)
@@ -169,24 +168,32 @@ async function capture() {
     receiptId
   );
   resultPromise.catch(() => {});
-  approval = await (await targetPromise).page();
-  await approval.waitForSelector("button");
-  const buttons = await approval.$$("button");
-  let accepted = false;
-  for (const button of buttons)
-    if (
-      (await button.evaluate((el) => el.textContent)).includes(
-        "allow all data sharing this session"
-      )
-    ) {
-      // Approval closes its popup. Dispatch the complete click in one operation
-      // so Puppeteer cannot send pointer-up to an already closed target.
-      await button.evaluate((element) => element.click());
-      accepted = true;
-      break;
-    }
-  if (!accepted)
-    throw new Error("Expected TLSNotary approval control was not found");
+  const confirmation = await targetPromise;
+  const requestId = new URL(confirmation.url()).searchParams.get("requestId");
+  if (!requestId) throw new Error("Extension confirmation omitted request ID");
+  // Use the pinned extension's own approval RPC, without selectors or clicks.
+  // Send from its offscreen document: approval closes the popup, while this
+  // execution context stays alive to receive the background worker's reply.
+  const offscreen = await browser.waitForTarget(
+    (target) => target.url() === `chrome-extension://${extensionId}/offscreen.html`,
+    { timeout: 10000 }
+  );
+  const approvalSession = await offscreen.createCDPSession();
+  try {
+    const result = await approvalSession.send("Runtime.evaluate", {
+      expression: `chrome.runtime.sendMessage(${JSON.stringify({
+        type: "PLUGIN_CONFIRM_RESPONSE",
+        requestId,
+        mode: "all-session",
+      })})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (result.exceptionDetails)
+      throw new Error("Extension approval RPC failed");
+  } finally {
+    await approvalSession.detach();
+  }
   const raw = await resultPromise;
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!result.ok)

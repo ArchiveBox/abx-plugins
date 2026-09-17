@@ -38,8 +38,9 @@ let Chrome position approval/managed windows inside the headless screen. No Rust
 alternative prover, or custom MPC implementation is installed. See
 [the upstream API audit](research/EXTENSION_API_AUDIT.md).
 
-The hook uses Chrome's persisted snapshot target, drives the extension's approval
-UI, and unloads its extension instance when finished or cancelled. It disconnects
+The hook uses Chrome's persisted snapshot target and sends the extension's own
+`PLUGIN_CONFIRM_RESPONSE` RPC through its offscreen document over CDP. It uses no
+approval selectors or clicks, and unloads its extension instance when finished or cancelled. It disconnects
 from the shared browser without closing it. Proof failure produces a failed plugin
 result; other archiving outputs remain available.
 
