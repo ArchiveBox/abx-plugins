@@ -78,6 +78,12 @@ Defined in [config.json](./config.json).
 | `CHROME_ARGS`           | see config                                   | Static Chromium flags.                                              |
 | `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |
 
+Cached extensions belonging to bundled plugins follow `PLUGINS` selection
+(including required plugin dependencies) and their `<PLUGIN>_ENABLED` setting.
+With no explicit selection, the enabled settings apply. Other user-managed
+extensions remain available regardless of plugin selection; an installed cache
+entry does not select a bundled plugin for a crawl.
+
 ## Session Modes
 
 ### `CHROME_ISOLATION=crawl`

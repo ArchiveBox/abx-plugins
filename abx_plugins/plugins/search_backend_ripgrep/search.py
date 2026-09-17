@@ -206,4 +206,4 @@ def flush(snapshot_ids: Iterable[str]) -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_search_command(search, flush))
+    raise SystemExit(run_search_command(iter_search, flush))

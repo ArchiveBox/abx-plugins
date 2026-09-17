@@ -3392,6 +3392,25 @@ async function connectToPage(options = {}) {
 
 function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
   const installedExtensions = [];
+  const selectedPlugins = new Set(
+    getEnvArray("PLUGINS")
+      .map((name) => String(name).trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const hasSelection = selectedPlugins.size > 0;
+  // Selection includes declared dependencies, just like the runner catalog.
+  // Reading a cache directory alone must not activate unrelated plugins.
+  for (const name of selectedPlugins) {
+    if (!/^[a-z0-9_]+$/.test(name)) continue;
+    try {
+      const config = JSON.parse(
+        fs.readFileSync(path.join(__dirname, "..", name, "config.json"), "utf-8")
+      );
+      for (const dependency of config.required_plugins || []) {
+        selectedPlugins.add(String(dependency).toLowerCase());
+      }
+    } catch (error) {}
+  }
 
   if (!fs.existsSync(extensionsDir)) {
     return { installedExtensions };
@@ -3403,6 +3422,18 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
     try {
       const extPath = path.join(extensionsDir, file);
       const extData = JSON.parse(fs.readFileSync(extPath, "utf-8"));
+      const pluginName = String(extData.name || "").trim().toLowerCase();
+      const pluginConfig = path.join(__dirname, "..", pluginName, "config.json");
+      // Unknown extensions are user-managed extras: preserve their loading.
+      // Built-in caches use the plugin's stable name, not a localized Web
+      // Store display name or extension ID.
+      if (/^[a-z0-9_]+$/.test(pluginName) && fs.existsSync(pluginConfig)) {
+        const config = JSON.parse(fs.readFileSync(pluginConfig, "utf-8"));
+        const enabledKey = `${pluginName.toUpperCase()}_ENABLED`;
+        const enabled = config.properties?.[enabledKey];
+        if (enabled && !getEnvBool(enabledKey, enabled.default !== false)) continue;
+        if (hasSelection && !selectedPlugins.has(pluginName)) continue;
+      }
       if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path))
         continue;
       delete extData.id;
