@@ -7,7 +7,8 @@ compact receipts after the pinned official TLSNotary verifier completes MPC.
 
 Install Docker with Compose v2, OpenSSL, and curl. The official verifier image is
 currently amd64, so an ARM host needs Docker's amd64 emulation. Allow up to 6 GiB
-for the verifier plus 256 MiB for the gateway. Two sessions can run concurrently;
+for the verifier, 256 MiB for the gateway, and another 128 MiB for cloudflared
+when using the `public` profile, plus memory for the host OS. Two sessions can run concurrently;
 a third receives HTTP 503. This is experimental public-service software.
 
 ## Start locally

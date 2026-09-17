@@ -41,20 +41,28 @@ mkdir capture
 docker run --rm -v "$PWD/capture:/out" -e TLSNOTARY_ENABLED=true \
   archivebox/abx-dl:tlsnotary-test dl \
   --plugins=title,screenshot,tlsnotary https://news.ycombinator.com/
-node tests/check_capture.mjs capture/tlsnotary/current INDEPENDENTLY_TRUSTED_BASE64_SPKI_KEY
+node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs capture/tlsnotary/current INDEPENDENTLY_TRUSTED_BASE64_SPKI_KEY
 ```
+
+Run these commands from the repository root.
 
 For ArchiveBox, run its ordinary collection commands with the source-built image:
 
 ```bash
 mkdir collection
 docker run --rm -v "$PWD/collection:/data" archivebox/archivebox:tlsnotary-test init
-docker run --rm -v "$PWD/collection:/data" -e TLSNOTARY_ENABLED=true \
+docker run --rm -v "$PWD/collection:/data" archivebox/archivebox:tlsnotary-test \
+  config --set TLSNOTARY_ENABLED=True
+docker run --rm -v "$PWD/collection:/data" \
   archivebox/archivebox:tlsnotary-test add \
   --plugins=title,screenshot,dom,headers,archivewebpage,tlsnotary https://sweeting.me/
 docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD/collection:/data" \
   archivebox/archivebox:tlsnotary-test server 0.0.0.0:8000
 ```
+
+Persist the opt-in in collection config so workers launched by an already-running
+supervisor receive it too. A one-command environment override does not change the
+environment of an existing supervisor.
 
 Open the snapshot detail page and select TLSNotary. Its trusted plugin preview
 renders the verifier; the compact card shows the authenticated hostname/status.
@@ -88,10 +96,13 @@ Cabbage through Cloudflare. Both exited 0 and produced verifiable receipts; an
 actual third WebSocket upgrade received HTTP 503. The same test passed locally.
 
 ```bash
-node tests/check_parallel.mjs https://tlsnotary.zervice.io \
+# Use a dedicated idle server. This local command requires Docker Desktop.
+# On Linux, use a dedicated reachable HTTPS service URL instead.
+TLSNOTARY_TEST_CONTROL_URL=http://127.0.0.1:7047 \
+node abx_plugins/plugins/tlsnotary/tests/check_parallel.mjs http://host.docker.internal:7047 \
   archivebox/abx-dl:tlsnotary-test ./new-parallel-evidence
-# Run on an idle service; registers and closes a real upstream session.
-node tests/check_admission.mjs https://tlsnotary.zervice.io
+# Run on the same idle service; holds real upstream sessions for admission.
+node abx_plugins/plugins/tlsnotary/tests/check_admission.mjs http://127.0.0.1:7047
 ```
 
 The closed-session test first failed with HTTP 101 against the old gateway, then
@@ -123,3 +134,24 @@ is shipped. The images are local acceptance builds, not published releases.
 
 The public service is deployed on Cabbage. The `archivebox.io` aliases still need
 Cloudflare DNS changes; the working zervice.io endpoint is the configured default.
+
+## Late review regression checks
+
+The malformed-upgrade test reproduced two leaked admission slots with invalid
+WebSocket keys before the fix. With admission reserved only after a successful
+upgrade, both requests returned 400 and health remained at zero active sessions.
+The closed-session 403 check and two real concurrent Docker captures passed again
+against the updated gateway (third admission 503, both captures exit 0).
+
+The browser viewer cleared all prior authenticated details/content when only a
+receipt was selected after a successful verification. A generation counter also
+prevents older asynchronous reads, verification, and auto-loading from publishing
+a result for a newer selection. HTTP parsing checks use the real Hacker News
+fixture with coding-case and trailer variations; forbidden framing trailers and
+truncated trailers fail. Windows locking has a native msvcrt path but has not been
+runtime-tested on Windows.
+
+Admission checks hold two real registered control sessions until the third request
+returns 503; the separate parallel-capture check observes overlap and verifies both
+receipts. Separating these avoids racing a live capture finishing during the
+admission probe.

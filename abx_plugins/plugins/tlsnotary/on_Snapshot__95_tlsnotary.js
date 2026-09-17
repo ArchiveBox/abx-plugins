@@ -112,6 +112,8 @@ async function capture() {
   const url = connection.page.url();
   if (new URL(url).protocol !== "https:")
     throw new Error("TLSNotary requires an HTTPS document");
+  if (new URL(url).port)
+    throw new Error("TLSNotary supports HTTPS on port 443 only");
   const original = chrome.findExtensionMetadataByName(
     connection.extensions || [],
     "tlsnotary"
