@@ -462,12 +462,14 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
         text,
     )
     # The native router keeps the mount in useLocation().pathname. OpenCode's
-    # draft promotion, tab closing, legacy redirect, and SDK scope checks expect
-    # app-relative paths. Normalize only those checks, never browser/router state.
+    # draft promotion, tab closing, legacy redirect, SDK scope checks, and layout
+    # route classifier (pathname, search) expect app-relative paths. Normalize
+    # only those reads, never browser/router state. Otherwise Home stays selected
+    # on every mounted session and its button cannot navigate back to Home.
     text = re.sub(
-        r'([$\w]+\.pathname)(?===="/new-session"|!=="/"|\.startsWith\("/api/"\)|\.slice\([$\w]+\(\)\.length\+1\))',
+        r'([$\w]+)\.pathname(?===="/new-session"|!=="/"|\.startsWith\("/api/"\)|\.slice\([$\w]+\(\)\.length\+1\)|,\1\.search\))',
         lambda match: (
-            f'({match[1]}.replace(/^{_PROXY_PREFIX.replace("/", r"\/")}(?=\\/|$)/,"")||"/")'
+            f'({match[0]}.replace(/^{_PROXY_PREFIX.replace("/", r"\/")}(?=\\/|$)/,"")||"/")'
         ),
         text,
     )
