@@ -82,26 +82,46 @@
           timestamped just as successfully as a genuine one.
         </p>
         <figure class="analogy">
-          <figcaption>What notarizing a printed screenshot establishes</figcaption>
+          <figcaption>
+            Imagine someone fabricates a social media post by editing it in their
+            browser or Photoshop, then takes a printout to a notary and signs it
+            in front of them.
+          </figcaption>
           <div class="flow">
             <div class="flow-card">
               <span class="step-number">1</span>
-              <h3>Printed screenshot</h3>
-              <p>The image may have been edited before it was printed.</p>
+              <h3>Capture “authentic” content</h3>
+              <p>
+                Save a screenshot, HTML, or a recording of requests and responses.
+                The content may already have been altered.
+              </p>
             </div>
             <span class="flow-arrow" aria-hidden="true">→</span>
             <div class="flow-card">
               <span class="step-number">2</span>
-              <h3>Witnessed signature</h3>
-              <p>The witness observes your signature, not the website’s response.</p>
+              <h3>Sign and record the time</h3>
+              <p>
+                Bring it to a notary, timestamping service or blockchain:
+                “I saw ‘xyz’ at this time. Record it.” The signature and timestamp
+                can be valid even if the content is fabricated.
+              </p>
             </div>
             <span class="flow-arrow" aria-hidden="true">→</span>
             <div class="flow-card">
               <span class="step-number">3</span>
-              <h3>Unverified source</h3>
-              <p>A stamp on the printout cannot establish what the website sent.</p>
+              <h3>Mistake preservation for authenticity</h3>
+              <p>
+                In court, someone argues: “The signature and timestamp verify,
+                and the hashes match. It’s unchanged, so it must be authentic.”
+                Those checks do not establish the source of step 1.
+              </p>
             </div>
           </div>
+          <p>
+            A fabricated capture can pass the same checks. The unanswered question
+            is: <strong>did facebook.com/some/post actually serve “xyz” to this
+            viewer on Thursday at 2 p.m.?</strong>
+          </p>
         </figure>
         <p>
           Hashing a saved response and retaining its SSL/TLS certificate leaves
