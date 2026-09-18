@@ -56,8 +56,8 @@ docker run --rm -v "$PWD/collection:/data" archivebox/archivebox:tlsnotary-test 
 docker run --rm -v "$PWD/collection:/data" \
   archivebox/archivebox:tlsnotary-test add \
   --plugins=title,screenshot,dom,headers,archivewebpage,tlsnotary https://sweeting.me/
-docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD/collection:/data" \
-  archivebox/archivebox:tlsnotary-test server 0.0.0.0:8000
+docker run --rm -p 127.0.0.1:5797:5797 -v "$PWD/collection:/data" \
+  archivebox/archivebox:tlsnotary-test server 0.0.0.0:5797
 ```
 
 Persist the opt-in in collection config so workers launched by an already-running
