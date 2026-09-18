@@ -2,7 +2,7 @@
 const lab = document.querySelector('.exchange');
 if (lab && !new URLSearchParams(location.search).has('compact')) {
   const $ = selector => lab.querySelector(selector);
-  const request = 'GET /private/report?key=example HTTP/1.1\nHost: documents.example\nCookie: session=example-secret';
+  const request = 'GET /private/report?key=example HTTP/1.1\nHost: example.com\nCookie: session=example-secret';
   const body = 'Private report: budget is $100.';
   const response = `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${body.length}\r\n\r\n${body}`;
   // Repeated rounds are grouped. Routes represent the three protocol participants.
@@ -11,7 +11,7 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
     { phase:'Setup', route:['client','verifier'], kind:'control', label:'register', detail:'Session limits + opaque ID', title:'Ask the verifier to participate', copy:'The client registers a session with byte limits and an opaque identifier. It does not send the private URL path, cookies or page content as registration metadata.', payload:'register\nmode: MPC\nmax received: 262144 bytes\nmax sent: 16384 bytes\nreceipt ID: <random opaque ID>', visibility:'The verifier can read these session settings. They are not the private HTTP request.' },
     { phase:'Setup', route:['verifier','client'], kind:'control', label:'Session OK', detail:'Verifier → Client', title:'The verifier accepts the session', copy:'The verifier returns a session identifier. The client uses it to associate the following cryptographic exchanges with this capture.', payload:'session_registered\nsession ID: <assigned ID>', visibility:'The session ID is protocol metadata, not a credential for the website.' },
     { phase:'Setup', route:['client','verifier'], roundTrip:true, kind:'mpc', label:'MPC setup', detail:'Private computation', title:'Prepare the joint computation', copy:'The client and verifier exchange cryptographic setup messages. Many rounds are condensed into this exchange. Neither party sends its private inputs as ordinary plaintext.', payload:'MPC setup messages\nCryptographic encodings\nPrivate inputs remain private', visibility:'The verifier participates without receiving the cookies or the response.' },
-    { phase:'TLS handshake', route:['client','server'], kind:'handshake', label:'TLS ClientHello', detail:'Start the TLS connection', title:'Start the website TLS handshake', copy:'The client sends a TLS ClientHello to the server. The website sees a normal TLS connection; it does not need TLSNotary-specific software.', payload:'ClientHello\nserver name: documents.example\nsupported TLS parameters', visibility:'The destination name is public here. There is no HTTP request or cookie in this message.' },
+    { phase:'TLS handshake', route:['client','server'], kind:'handshake', label:'TLS ClientHello', detail:'Start the TLS connection', title:'Start the website TLS handshake', copy:'The client sends a TLS ClientHello to the server. The website sees a normal TLS connection; it does not need TLSNotary-specific software.', payload:'ClientHello\nserver name: example.com\nsupported TLS parameters', visibility:'The destination name is public here. There is no HTTP request or cookie in this message.' },
     { phase:'TLS handshake', route:['server','client'], kind:'handshake', label:'TLS ServerHello', detail:'Certificate + handshake', title:'Receive the server’s identity information', copy:'The server returns its handshake messages and certificate information. This identifies the server key; it is not a server signature on the later page contents.', payload:'ServerHello and related messages\ncertificate chain\nkey-exchange information', visibility:'Server identity is checked in the TLSNotary protocol. Keeping a certificate alone would not authenticate an archived response.' },
     { phase:'TLS handshake', route:['client','verifier'], roundTrip:true, kind:'mpc', label:'Key exchange', detail:'MPC · shares stay private', title:'Perform the key operations jointly', copy:'The client and verifier jointly perform the TLS cryptographic operations, keeping their key shares private. These MPC rounds interleave with the server handshake in a real exchange.', payload:'MPC handshake computation\nClient private input: key share\nVerifier private input: key share\nNo plaintext transfer of either share', visibility:'The client cannot unilaterally construct an authenticated false exchange and convince an honest verifier.' },
     { phase:'TLS handshake', route:['client','server'], roundTrip:true, kind:'handshake', label:'TLS Finished', detail:'Handshake authenticated', title:'Finish the authenticated handshake', copy:'The participants complete the TLS handshake. The resulting connection can now carry the private HTTP request.', payload:'Authenticated Finished messages\nWebsite TLS session established', visibility:'The certificate and joint handshake establish the connection; later response bytes still need to be bound to the receipt.' },
@@ -46,11 +46,11 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
     exampleHash=Array.from(new Uint8Array(buffer),b=>b.toString(16).padStart(2,'0')).join('');
     hashReady=true; render();
   }).catch(()=>{});
-  const receiptText = () => `server_name: documents.example\ntime: <verifier issuance time>\nalgorithm: SHA256\nhash: ${exampleHash}\nstart: 0\nend: ${responseBytes.length}\nsignature: Ed25519(verifier key, payload)`;
+  const receiptText = () => `server_name: example.com\ntime: <verifier issuance time>\nalgorithm: SHA256\nhash: ${exampleHash}\nstart: 0\nend: ${responseBytes.length}\nsignature: Ed25519(verifier key, payload)`;
   const entries = [
-    {at:0,source:'client',label:'Request metadata · private',text:()=> 'Target: documents.example\nPath: /private/report?key=example\nCookie: session=example-secret\nNot disclosed to the verifier.'},
+    {at:0,source:'client',label:'Request metadata · private',text:()=> 'Target: example.com\nPath: /private/report?key=example\nCookie: session=example-secret\nNot disclosed to the verifier.'},
     {at:2,source:'verifier',label:'Session accepted',text:()=> 'MPC session registered.\nNo page contents requested.'},
-    {at:5,source:'server',label:'Server identity received',text:()=> 'Certificate chain + handshake data\nClaimed hostname: documents.example'},
+    {at:5,source:'server',label:'Server identity received',text:()=> 'Certificate chain + handshake data\nClaimed hostname: example.com'},
     {at:7,source:'joint',label:'Authenticated TLS session',text:()=> 'Handshake complete.\nClient + verifier use private key shares.'},
     {at:9,source:'client',label:'Request sent',text:()=> 'GET /… + cookies\nEncrypted for the server.'},
     {at:11,source:'server',label:'Response ciphertext arriving',text:()=> 'Record group 1 received.\nContents are still encrypted.'},
@@ -108,10 +108,10 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
     const isLocal=event.route.length===1, isServer=event.route.includes('server');
     const returning=event.roundTrip?travel>=0.5:event.route[0]!=='client';
     const leg=event.roundTrip?(travel<0.5?travel*2:2-travel*2):returning?1-travel:travel;
-    const a=isServer?[330,225]:[470,225], b=isServer?[150,440]:[650,440];
+    const a=isServer?[330,420]:[470,420], b=isServer?[150,215]:[650,215];
     const amount=0.2+leg*0.6;
     let position=[a[0]+(b[0]-a[0])*amount,a[1]+(b[1]-a[1])*amount];
-    if(isLocal)position=event.route[0]==='client'?[400,174]:event.route[0]==='server'?[150,577]:[650,577];
+    if(isLocal)position=event.route[0]==='client'?[400,569]:event.route[0]==='server'?[150,172]:[650,172];
     $('#exchange-packet').setAttribute('transform',`translate(${position.join(' ')})`);
     $('#exchange-route').setAttribute('d',isLocal?'':`M ${a.join(' ')} L ${b.join(' ')}`);
     lab.style.setProperty('--message-color',colors[event.kind]);

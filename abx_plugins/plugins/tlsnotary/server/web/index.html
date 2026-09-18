@@ -214,30 +214,30 @@
                 <marker id="network-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#60828e" /></marker>
               </defs>
               <rect width="800" height="660" fill="url(#network-grid)" opacity=".28" />
-              <path class="network-link" d="M 330 225 L 150 440" />
-              <path class="network-link" d="M 470 225 L 650 440" />
-              <text x="132" y="294" class="connection-title">TLS + HTTP</text>
-              <text x="668" y="294" class="connection-title">MPC + proof</text>
-              <path id="exchange-route" d="M 330 225 L 150 440" />
-              <g data-node="client" transform="translate(400 125)">
+              <path class="network-link" d="M 330 420 L 150 215" />
+              <path class="network-link" d="M 470 420 L 650 215" />
+              <text x="132" y="346" class="connection-title">TLS + HTTP</text>
+              <text x="668" y="346" class="connection-title">MPC + proof</text>
+              <path id="exchange-route" d="M 330 420 L 150 215" />
+              <g data-node="client" transform="translate(400 520)">
                 <rect x="-115" y="-100" width="230" height="200" rx="14" />
                 <text y="-57" class="node-title">Client</text>
-                <text y="-31" class="node-sub">Your browser + extension</text>
+                <text y="-31" class="node-sub">ArchiveBox Browser</text>
                 <text y="-5" class="node-memory" id="browser-memory">Private URL + cookies</text>
               </g>
-              <g data-node="server" transform="translate(150 530)">
+              <g data-node="server" transform="translate(150 125)">
                 <rect x="-115" y="-90" width="230" height="180" rx="14" />
                 <text y="-48" class="node-title">Server</text>
                 <text y="-22" class="node-sub">The website you are archiving</text>
-                <text y="2" class="node-memory">documents.example</text>
+                <text y="2" class="node-memory">example.com</text>
               </g>
-              <g data-node="verifier" transform="translate(650 530)">
+              <g data-node="verifier" transform="translate(650 125)">
                 <rect x="-115" y="-90" width="230" height="180" rx="14" />
                 <text y="-48" class="node-title">Verifier</text>
-                <text y="-22" class="node-sub">TLSNotary + receipt signer</text>
+                <text y="-22" class="node-sub">TLSNotary.zervice.io</text>
                 <text y="2" class="node-memory" id="verifier-memory">Not involved yet</text>
               </g>
-              <g id="exchange-packet" transform="translate(294 268)" aria-hidden="true">
+              <g id="exchange-packet" transform="translate(400 569)" aria-hidden="true">
                 <rect x="-110" y="-38" width="220" height="76" rx="10" />
                 <text y="-3" id="packet-label">GET /…</text>
                 <text y="22" id="packet-detail">TLS encrypted · request</text>
@@ -269,7 +269,7 @@
             <div class="exchange-envelope">
               <span id="exchange-payload-label">Message contents · example values</span>
               <pre id="exchange-payload">GET /private/report?key=example HTTP/1.1
-Host: documents.example
+Host: example.com
 Cookie: session=example-secret</pre>
               <p id="exchange-visibility">Readable at the browser and website. Encrypted on the network.</p>
             </div>
@@ -504,5 +504,5 @@ JS</code></pre>
     </article>
   </main>
   <script type="module" src="app.mjs"></script>
-  <script type="module" src="diagram.mjs?v=d4cc6bc6ad62"></script>
+  <script type="module" src="diagram.mjs?v=6949943a3f2c"></script>
 </html>
