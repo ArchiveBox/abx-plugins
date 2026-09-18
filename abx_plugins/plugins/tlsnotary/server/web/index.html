@@ -231,7 +231,7 @@
               <path class="network-link" d="M 330 420 L 150 215" />
               <path class="network-link" d="M 470 420 L 650 215" />
               <text x="132" y="346" class="connection-title">TLS + HTTP</text>
-              <text x="668" y="346" class="connection-title">MPC + proof</text>
+              <text x="668" y="346" class="connection-title">Private verification</text>
               <path id="exchange-route" d="M 330 420 L 150 215" />
               <g data-node="client" transform="translate(400 520)">
                 <rect x="-115" y="-100" width="230" height="200" rx="14" />
@@ -266,12 +266,11 @@
               <strong id="proof-machine-label">Private computation</strong>
               <code id="proof-scramble" aria-hidden="true"></code>
               <progress id="proof-machine-progress" max="1" value="0" aria-label="Illustrated computation progress"></progress>
-              <span>Schematic encodings, not actual proof bytes</span>
             </div>
             <p id="evidence-note">The client collects the response, the verifier’s signed receipt and the random value needed to check the hash later.</p>
           </aside>
           </div>
-          <div class="exchange-legend"><span data-kind="control">Session / metadata</span><span data-kind="handshake">TLS handshake</span><span data-kind="request">HTTP request</span><span data-kind="response">HTTP response</span><span data-kind="mpc">MPC / ZK messages</span><span data-kind="receipt">Signed receipt</span><span data-kind="local">Local operation</span></div>
+          <div class="exchange-legend"><span data-kind="control">Session / metadata</span><span data-kind="handshake">TLS handshake</span><span data-kind="request">HTTP request</span><span data-kind="response">HTTP response</span><span data-kind="mpc">Private computation / proof</span><span data-kind="receipt">Signed receipt</span><span data-kind="local">Local operation</span></div>
           <div class="exchange-event">
             <div class="exchange-narrative">
               <span class="exchange-kicker" id="exchange-phase">Prepare</span>
@@ -527,6 +526,6 @@ JS</code></pre>
 <script type="module" src="site-chrome.mjs"></script>
 <!-- END ARCHIVEBOX FOOTER -->
   <script type="module" src="app.mjs"></script>
-  <script type="module" src="diagram.mjs?v=6949943a3f2c"></script>
+  <script type="module" src="diagram.mjs?v=48164acd7b41"></script>
 </body>
 </html>
