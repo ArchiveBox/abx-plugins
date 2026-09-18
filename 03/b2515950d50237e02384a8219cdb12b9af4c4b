@@ -1,0 +1,20 @@
+abx_plugins/plugins/archivewebpage/replay_preview.py
+  h_923c208e183a7b 136-137,142-143,145,165-168,171,200-201,207
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  h_923c208e183a7b 147-159
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  h_923c208e183a7b 70-71
+tests/test_archivewebpage_replay_preview.py
+  h_923c208e183a7b 10-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "03b2515950d50237e02384a8219cdb12b9af4c4b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
