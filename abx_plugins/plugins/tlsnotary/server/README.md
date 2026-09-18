@@ -88,3 +88,10 @@ network; do not expose them separately. Receipts are held in memory for up to on
 hour for collection by clients, not stored as a public archive. There is no durable
 capture database in the server. Keep the gateway's signing key and tunnel
 credentials private and monitor resource use for your deployment.
+
+## Educational diagram
+
+The verification page includes a self-hosted Three.js protocol illustration below
+the file verifier. Its committed assets need no extra runtime dependencies or
+build step. The diagram never reads selected capture files and is not a live
+proof. See [visualization/README.md](visualization/README.md) to rebuild it.

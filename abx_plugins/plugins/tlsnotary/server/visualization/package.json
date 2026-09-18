@@ -1,0 +1,12 @@
+{
+  "name": "tlsnotary-protocol-diagram",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.186.0"
+  }
+}
