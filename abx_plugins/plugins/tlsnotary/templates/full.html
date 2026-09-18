@@ -9,7 +9,7 @@
     name="viewport"
     content="width=device-width"
   /><title>TLSNotary verification</title
-  ><link rel="stylesheet" href="style.css?v=278a4434e7fd" />
+  ><link rel="stylesheet" href="style.css?v=0af33b174181" />
   <main>
     <span class="brand">ArchiveBox · TLSNotary</span>
     <h1>Verify an ArchiveBox web archive using TLSNotary</h1>
@@ -194,7 +194,7 @@
           <figcaption>
             <span class="exchange-kicker">A capture, message by message</span>
             <strong id="exchange-title">Follow the exchange as evidence is assembled</strong>
-            <span>Play or scrub. Messages move between the three participants as the worksheet fills in.</span>
+            <span>Play or scrub. Messages move between the three participants as the client assembles the signature package.</span>
           </figcaption>
           <div class="exchange-controls">
             <button type="button" id="exchange-play" aria-label="Play exchange">Play</button>
@@ -246,15 +246,15 @@
             </svg>
           </div>
           <aside class="evidence-paper" aria-labelledby="evidence-title">
-            <header><span class="paper-kicker">EVIDENCE ASSEMBLY</span><h3 id="evidence-title">Evidence worksheet</h3><span id="evidence-stage">Collecting metadata</span></header>
-            <div class="evidence-lines" id="evidence-lines" role="region" aria-label="Evidence assembled so far" tabindex="0"></div>
+            <header><h3 id="evidence-title">Signature Package</h3></header>
+            <div class="evidence-lines" id="evidence-lines" role="region" aria-label="Signature package assembly" tabindex="0"></div>
             <div id="proof-machine" hidden>
               <strong id="proof-machine-label">Private computation</strong>
               <code id="proof-scramble" aria-hidden="true"></code>
               <progress id="proof-machine-progress" max="1" value="0" aria-label="Illustrated computation progress"></progress>
               <span>Schematic encodings, not actual proof bytes</span>
             </div>
-            <p id="evidence-note">This worksheet explains the process. It is not an exported proof file.</p>
+            <p id="evidence-note">The client collects the response, the verifier’s signed receipt and the random value needed to check the hash later.</p>
           </aside>
           </div>
           <div class="exchange-legend"><span data-kind="control">Session / metadata</span><span data-kind="handshake">TLS handshake</span><span data-kind="request">HTTP request</span><span data-kind="response">HTTP response</span><span data-kind="mpc">MPC / ZK messages</span><span data-kind="receipt">Signed receipt</span><span data-kind="local">Local operation</span></div>
@@ -274,7 +274,7 @@ Cookie: session=example-secret</pre>
               <p id="exchange-visibility">Readable at the browser and website. Encrypted on the network.</p>
             </div>
           </div>
-          <p id="exchange-caption" class="exchange-footnote">Illustration of the three-party protocol, not a recorded capture or a real notarization. Example values and playback timing are illustrative. The side panel is a temporary worksheet, not an additional saved artifact. Each moving envelope represents a message or a group of TLS records; repeated MPC rounds, TCP acknowledgments, DNS and transport handshakes are condensed. The two channels can interleave in a real session.</p>
+          <p id="exchange-caption" class="exchange-footnote">Illustration of the three-party protocol, not a recorded capture or a real notarization. Example values and playback timing are illustrative. The side panel shows assembly steps; intermediate handshake data and protocol messages are not additional saved artifacts. Each moving envelope represents a message or a group of TLS records; repeated MPC rounds, TCP acknowledgments, DNS and transport handshakes are condensed. The two channels can interleave in a real session.</p>
           <details class="exchange-sources"><summary>Protocol sources and what this illustration omits</summary><p>The sequence follows TLSNotary’s <a href="https://tlsnotary.org/docs/protocol/mpc-tls/handshake/">joint TLS handshake</a>, <a href="https://tlsnotary.org/docs/protocol/mpc-tls/encryption/">private encryption and decryption</a> and the extension’s <a href="https://github.com/tlsnotary/tlsn-extension/blob/d446234/packages/extension/src/offscreen/ProveManager/index.ts">session and disclosure flow</a>. The compact signed receipt is part of <a href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/tlsnotary">ArchiveBox’s integration</a>.</p><p>The three boxes are protocol roles. Hosting, relays and internal service components are omitted. The ordinary browser page load happens before this illustrated request. Actual MPC rounds can interleave with TLS traffic. The example hash is computed locally over the displayed HTTP response and an all-zero example blinder; real captures use a random blinder. The signature is symbolic. This animation performs no MPC or zero-knowledge proof.</p></details>
           <noscript><p class="exchange-footnote">Enable JavaScript to play or scrub the exchange. The network diagram and explanation remain available above.</p></noscript>
         </figure>
@@ -504,5 +504,5 @@ JS</code></pre>
     </article>
   </main>
   <script type="module" src="app.mjs"></script>
-  <script type="module" src="diagram.mjs?v=c36a97ca1e4b"></script>
+  <script type="module" src="diagram.mjs?v=d4cc6bc6ad62"></script>
 </html>

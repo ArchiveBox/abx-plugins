@@ -479,9 +479,7 @@ input:focus-visible {
 .exchange-map-scroll { align-self: center; }
 .evidence-paper { display: flex; flex-direction: column; min-height: 0; height: 510px; margin: 16px 16px 16px 0; border-radius: 5px; background: #f6f3e9; color: #253a38; border: 1px solid #d9d3c2; box-shadow: 0 8px 22px #0003; }
 .evidence-paper header { padding: 17px 19px 12px; border-bottom: 1px solid #d7d5c7; }
-.paper-kicker { font: 9px ui-monospace, monospace; color: #57776c; letter-spacing: .1em; }
 .guide .evidence-paper h3 { font: 600 19px/1.4 Georgia, serif; margin: 5px 0; }
-#evidence-stage { color: #6a756d; font: 10px ui-monospace, monospace; }
 .evidence-lines { min-height: 0; overflow: auto; flex: 1; padding: 8px 18px 18px; scroll-behavior: auto; scrollbar-width: thin; }
 .evidence-lines:focus-visible { outline: 2px solid #39765c; outline-offset: -3px; }
 .evidence-entry { border-bottom: 1px solid #e1dece; padding: 12px 0; }
