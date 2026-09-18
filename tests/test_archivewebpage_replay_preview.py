@@ -7,6 +7,31 @@ from pathlib import Path
 from abx_plugins.plugins.archivewebpage import replay_preview
 
 
+def test_replay_prefers_requested_page_over_unrelated_first_page(
+    tmp_path: Path,
+) -> None:
+    wacz_path = tmp_path / "capture.wacz"
+    with zipfile.ZipFile(wacz_path, "w") as zf:
+        zf.writestr(
+            "pages/pages.jsonl",
+            "\n".join(
+                json.dumps(page)
+                for page in [
+                    {"format": "json-pages-1.0"},
+                    {"url": "https://x.com/explore/tabs/for-you"},
+                    {"url": "https://x.com/theSquashSH"},
+                ]
+            ),
+        )
+    html = replay_preview.render_preview_html(
+        "archivewebpage.wacz",
+        "/archivewebpage/archivewebpage.wacz",
+        wacz_path=wacz_path,
+        fallback_url="https://x.com/theSquashSH",
+    )
+    assert 'data-url="https://x.com/theSquashSH"' in html
+
+
 def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     tmp_path: Path,
 ) -> None:

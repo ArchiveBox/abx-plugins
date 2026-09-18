@@ -144,7 +144,19 @@ async function expandDetails(page, options = {}) {
             ...document.querySelectorAll("a.morelink"),
             ...textControls,
           ]),
-        ];
+        ].filter((element) => {
+          // "Show more" can be a navigation link (e.g. X's recommended
+          // people sidebar), not an expansion control. Never leave the
+          // captured document to expand content, including nested controls.
+          const anchor = element.closest("a[href]");
+          if (anchor) {
+            const href = anchor.getAttribute("href").trim();
+            if (href && !href.startsWith("#") && !/^javascript:/i.test(href)) {
+              return false;
+            }
+          }
+          return true;
+        });
       };
 
       let expanded = 0;

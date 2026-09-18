@@ -67,6 +67,8 @@ INFINISCROLL_TEST_PAGE_HTML = """
 <body>
   <div id="status">loads: 0</div>
   <p>Show more context is static text, not a control.</p>
+  <a href="/i/connect_people?user_id=262147093">Show more</a>
+  <a role="button" href="/explore/tabs/for-you"><span>Load more</span></a>
   <main id="feed"></main>
   <script>
     const feed = document.getElementById('feed');

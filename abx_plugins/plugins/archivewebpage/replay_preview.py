@@ -133,14 +133,16 @@ def serve_replay_asset_response(rel_path: str, config, response_factory):
     return response
 
 
-def _first_archived_url(wacz_path: Path) -> str:
-    """Extract the first archived URL from the WACZ's pages index.
+def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
+    """Prefer the requested page when recorded, otherwise use the first page.
 
     The snapshot's ``Snapshot.url`` is the URL the user *asked* to archive,
     but the WACZ records whatever URL the browser actually navigated to (e.g.
     the final URL after redirects). replayweb.page's ``url=`` param has to
-    match an entry in ``pages/pages.jsonl`` exactly, so use the recorded one.
+    match a recorded page. Page index order is not navigation order: an
+    incidental page can appear before the requested page.
     """
+    first_url = ""
     try:
         with zipfile.ZipFile(wacz_path) as zf:
             for name in ("pages/pages.jsonl", "pages/extraPages.jsonl"):
@@ -160,10 +162,13 @@ def _first_archived_url(wacz_path: Path) -> str:
                         continue  # header row, not a real page entry
                     url = record.get("url")
                     if url:
-                        return url
+                        if url == preferred_url:
+                            return url
+                        if not first_url:
+                            first_url = url
     except (zipfile.BadZipFile, OSError):
         pass
-    return ""
+    return first_url
 
 
 def _replay_base_for_output_path(output_path: str) -> str:
@@ -192,14 +197,14 @@ def render_preview_html(
 ) -> str:
     """Render the plugin's ``full.html`` template as the WACZ preview body.
 
-    If a WACZ path is provided, the first archived URL from its pages index
-    is used so replayweb.page can land directly in replay mode. Falls back to
+    If recorded, prefer ``fallback_url`` over incidental pages in the WACZ.
+    Otherwise use the first archived URL to support redirects. Falls back to
     ``fallback_url`` (typically ``Snapshot.url``) if the WACZ has no readable
     pages index.
     """
     archived_url = ""
     if wacz_path is not None and wacz_path.suffix.lower() == ".wacz":
-        archived_url = _first_archived_url(wacz_path)
+        archived_url = _first_archived_url(wacz_path, fallback_url)
     if not archived_url:
         archived_url = fallback_url or ""
 
