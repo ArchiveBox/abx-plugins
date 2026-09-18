@@ -1,0 +1,20 @@
+abx_plugins/plugins/opencode/README.md
+  h_923c208e183a7b 34-42,46-47
+abx_plugins/plugins/opencode/runtime.py
+  h_923c208e183a7b 36-38,68,235-241,366-368,370-371,373-374
+abx_plugins/plugins/opencode/templates/agent.html
+  h_923c208e183a7b 67-73,75,79-83,103-104,106-110,112-118,216-249,251-252,264-268
+abx_plugins/plugins/opencode/tests/test_collection_isolation.py
+  h_923c208e183a7b 1-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ac82d82602463467c2dc2f53b13aebf60bc92222",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
