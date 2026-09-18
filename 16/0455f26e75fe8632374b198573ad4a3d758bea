@@ -1,0 +1,14 @@
+abx_plugins/plugins/opencode/config.json
+  h_923c208e183a7b 46,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "160455f26e75fe8632374b198573ad4a3d758bea",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
