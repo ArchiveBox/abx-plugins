@@ -39,6 +39,383 @@
       <summary>Authenticated response content</summary>
       <pre id="body"></pre>
     </details>
+    <article class="guide" aria-labelledby="guide-title">
+      <header class="guide-intro">
+        <span class="eyebrow">Understanding your evidence</span>
+        <h2 id="guide-title">A saved page tells a story.<br />How do you prove its source?</h2>
+        <p class="lead">
+          Imagine a website publishes a statement, then removes it. You saved a
+          copy. The website’s owner says, “We never served that. You made it up.”
+          How could someone who wasn’t there tell who is right?
+        </p>
+        <p>
+          This is the <strong>non-repudiation problem</strong>: obtaining evidence
+          of what a server sent that another person can check later, rather than
+          having to take the person making the capture at their word.
+        </p>
+        <nav class="guide-nav" aria-label="Evidence guide">
+          <a href="#copy-and-source">The problem</a>
+          <a href="#private-witness">How TLSNotary helps</a>
+          <a href="#privacy">What stays private</a>
+          <a href="#trust">Who you trust</a>
+          <a href="#independent-check">Check it yourself</a>
+        </nav>
+      </header>
+
+      <section id="copy-and-source" aria-labelledby="problem-title">
+        <span class="eyebrow">01 · Preservation and provenance</span>
+        <h2 id="problem-title">“Unchanged” doesn’t mean “authentic.”</h2>
+        <p>
+          A <strong>hash</strong> is a digital fingerprint of a file. It helps
+          detect changes. A trusted timestamp can establish that those bytes
+          existed by a particular time. Neither, on its own, establishes who
+          supplied the original bytes. A fabricated page can be hashed and
+          timestamped just as successfully as a genuine one.
+        </p>
+        <figure class="analogy">
+          <figcaption>The printout-at-the-notary problem</figcaption>
+          <div class="flow">
+            <div class="flow-card">
+              <span class="step-number">1</span>
+              <h3>You bring a printout</h3>
+              <p>It might show the real page. It might have been edited in Photoshop.</p>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-card">
+              <span class="step-number">2</span>
+              <h3>You sign it before a witness</h3>
+              <p>The witness observes your signature, not the website’s response.</p>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-card">
+              <span class="step-number">3</span>
+              <h3>The source is still unproven</h3>
+              <p>A stamp on the printout cannot establish what the website sent.</p>
+            </div>
+          </div>
+        </figure>
+        <p>
+          Hashing a saved response and retaining its SSL/TLS certificate leaves
+          the same gap. Even if you sign or timestamp that package, you have
+          preserved a claim about its origin—not cryptographically established
+          that origin. The certificate identifies a server’s key; it is not the
+          server’s signature on the saved page.
+        </p>
+        <div class="distinction">
+          <p><strong>Integrity:</strong> “This copy has not changed since it was recorded.”</p>
+          <p><strong>Origin:</strong> “This server actually sent these bytes.”</p>
+        </div>
+        <p>
+          A common pitfall when evaluating existing products in this space
+          (e.g. Hunchly, Snapoena, Page Vault, ProofSnap and GoFullPage) is assuming
+          that a signed or timestamped archive proves remote origin. The question
+          to ask is: <strong>how does the capture process rule out fabrication
+          before the content is hashed?</strong> That depends on the capture
+          architecture, not simply on whether the evidence package has a signature.
+        </p>
+        <details>
+          <summary>Technical detail · Why the HTTPS padlock isn’t a transferable signature</summary>
+          <p>
+            TLS authenticates the connection to its participants. Its application
+            records use symmetric authentication keys available to the endpoints.
+            A client controlling its capture environment can construct a false
+            transcript and authenticate it with those keys. Saving network
+            packets, certificates, HAR or WARC files does not by itself eliminate
+            that possibility.
+          </p>
+          <p>
+            In TLS 1.3, the server’s CertificateVerify signature covers the
+            handshake transcript; later application records use symmetric AEAD
+            protection. The distinction is explicit in the
+            <a href="https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.3">IETF’s TLS 1.3 handshake specification</a>
+            and <a href="https://www.rfc-editor.org/rfc/rfc8446.html#section-5.2">record protection specification</a>.
+            TLS 1.2 makes the corresponding separation in
+            <a href="https://www.rfc-editor.org/rfc/rfc5246.html#section-6.2.3">RFC 5246</a>.
+          </p>
+        </details>
+        <details>
+          <summary>For evidence reviewers · Timestamps still serve an important purpose</summary>
+          <p>
+            Preservation, timing and source authentication answer different
+            questions. A timestamp is useful evidence about when particular data
+            existed; a hash helps check whether it changed afterward. Neither
+            mechanism examines whether the material was fabricated before it was
+            submitted. See the <a href="https://www.rfc-editor.org/rfc/rfc3161.html#section-2.1">IETF time-stamping protocol</a>.
+          </p>
+          <p>
+            TLSNotary adds evidence of remote origin. It does not replace record
+            keeping, context or an assessment of evidentiary weight. This service’s
+            receipt is not a qualified electronic timestamp or a legal notarial act.
+          </p>
+        </details>
+      </section>
+
+      <section id="private-witness" aria-labelledby="witness-title">
+        <span class="eyebrow">02 · A witness who doesn’t read the page</span>
+        <h2 id="witness-title">Authenticate the connection, not a printout.</h2>
+        <p>
+          TLSNotary brings an independent verifier into the cryptographic process
+          <strong>while the website is being contacted</strong>. The person making
+          the capture cannot simply substitute an invented response and convince
+          an honest verifier that it came from that website.
+        </p>
+        <figure class="protocol">
+          <figcaption>During an ArchiveBox TLSNotary capture</figcaption>
+          <div class="flow">
+            <div class="flow-card">
+              <span class="node-label">The source</span>
+              <h3>Website</h3>
+              <p>Serves a response over an authenticated, encrypted connection.</p>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">↔</span>
+            <div class="flow-card private-card">
+              <span class="node-label">Your device</span>
+              <h3>Browser + extension</h3>
+              <p>Uses your session and keeps the readable response locally.</p>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">↔</span>
+            <div class="flow-card">
+              <span class="node-label">Independent witness</span>
+              <h3>Verifier server</h3>
+              <p>Checks cryptographic evidence, without reading the page.</p>
+            </div>
+          </div>
+          <p class="diagram-note">
+            The arrows show participation, not physical routing. This deployment
+            relays encrypted website traffic through the verifier’s transport proxy.
+          </p>
+          <div class="receipt-strip">
+            <strong>Saved on your device</strong>
+            <span><code>response.http</code> + <code>receipt.json</code></span>
+            <span>The response, plus a small signed receipt binding it to a server name.</span>
+          </div>
+        </figure>
+        <p>
+          An independent service could always visit a public page and attest to
+          what it saw. The breakthrough here is <strong>checking the source without
+          requiring the witness to read the content</strong>. Secure multi-party
+          computation (MPC) and zero-knowledge proofs make that possible.
+        </p>
+        <p class="source-note">
+          TLSNotary is a pioneer in this field, with a
+          <a href="https://tlsnotary.org/assets/files/TLSNotary-6f4ad5e83bdff50c765c0ae08143414c.pdf">published protocol dating to 2014</a>.
+          Its current <a href="https://tlsnotary.org/docs/protocol/mpc-tls/">MPC-TLS protocol</a>
+          addresses the problem without requiring websites to adopt a new signing system.
+        </p>
+        <details>
+          <summary>Technical detail · What MPC and zero-knowledge each contribute</summary>
+          <p>
+            MPC lets the browser and verifier perform the TLS operations together
+            without giving the browser unilateral control of the authentication
+            secrets. Zero-knowledge then lets the browser prove that a concealed
+            response matches a cryptographic commitment—a fingerprint locked to
+            those bytes—without revealing the response itself.
+          </p>
+          <p>
+            A zero-knowledge proof alone would not fix a transcript the client was
+            free to fabricate. Participation in the connection is essential.
+            This plugin uses TLSNotary’s MPC mode, plus a SHA-256 hash commitment;
+            it does not use the separate protocol called “proxy mode.” See
+            <a href="https://tlsnotary.org/docs/faq/#why-does-tlsnotary-need-an-online-verifier-cant-this-be-done-serverlessly-in-the-browser-with-zero-knowledge">why an online verifier is needed</a>
+            and <a href="https://tlsnotary.org/docs/protocol/commit_strategy/">commitment strategies</a>.
+          </p>
+        </details>
+        <details>
+          <summary>Research context · Is TLSNotary the only approach?</summary>
+          <p>
+            No. TLSNotary has a long history, but “the first ever” and “the only
+            solution” are broader claims than these sources establish. For
+            example, the <a href="https://eprint.iacr.org/2017/578">2017 TLS-N paper</a>
+            describes a different approach: extending TLS to support transferable
+            proofs. TLSNotary’s practical attraction is bringing a separate
+            verifier to existing websites while preserving the user’s privacy.
+          </p>
+        </details>
+      </section>
+
+      <section id="privacy" aria-labelledby="privacy-title">
+        <span class="eyebrow">03 · Why privacy changes what is possible</span>
+        <h2 id="privacy-title">Private evidence needn’t become the witness’s data.</h2>
+        <p>
+          A public archive can visit a news article itself. It cannot ordinarily
+          see your private social media posts, a document shared only with you,
+          or a page behind your login without being given access. Handing over
+          credentials or a readable copy can expose far more than you intended.
+        </p>
+        <p>
+          TLSNotary makes it possible to authenticate data from an authenticated
+          session while keeping its contents hidden from the verifier. That is
+          what makes private posts, logged-in pages and documents such as Google
+          Docs compelling use cases. <strong>It is a capability of the approach,
+          not a promise that this plugin supports every website or document.</strong>
+        </p>
+        <div class="privacy-grid">
+          <div class="privacy-panel">
+            <h3>Kept from this verifier</h3>
+            <ul>
+              <li>Readable page contents and response headers</li>
+              <li>Cookies, authorization headers and embedded secrets</li>
+              <li>The URL path and query, including private document IDs</li>
+            </ul>
+          </div>
+          <div class="privacy-panel metadata-panel">
+            <h3>Still visible to the service</h3>
+            <ul>
+              <li>Destination hostname and IP address</li>
+              <li>Traffic sizes, timing and connection metadata</li>
+              <li>The commitment and fixed HTTP protocol markers</li>
+            </ul>
+          </div>
+        </div>
+        <p>
+          <strong>Your saved archive is still sensitive.</strong> It contains the
+          actual response, including any secrets the website sent in it. Someone
+          you give that file to can read it. The verifier at the top of this page
+          checks selected files locally; it does not upload them.
+        </p>
+        <details>
+          <summary>Technical detail · Redaction, transport and the limits of this integration</summary>
+          <p>
+            The capture configuration discloses no request transcript. It hashes
+            the complete received response and reveals only fixed syntax such as
+            <code>HTTP/1.1</code>, spaces and line endings. The response opening
+            stays local. The destination is deliberately visible to the transport
+            proxy; this is not an anonymity service. Cloudflare, which fronts this
+            deployment, can also observe transport metadata. A sensitive value
+            encoded in a hostname is not hidden like a value in the URL path.
+          </p>
+          <p>
+            TLSNotary supports selective disclosure, but this ArchiveBox receipt
+            binds the <em>whole saved response</em>. Editing or redacting that file
+            afterward makes this receipt fail verification. The plugin currently
+            authenticates a separate main-document request made by the extension,
+            using captured browser request headers. It does not certify all tab
+            traffic, downloaded assets, video content or the rendered screenshot.
+            A JavaScript application’s initial response may not contain the document
+            visible on screen.
+          </p>
+          <p class="source-note">
+            See the <a href="https://tlsnotary.org/docs/extension/verifier/#what-the-verifier-does-not-see">extension’s disclosure model</a>
+            and <a href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/tlsnotary">this plugin’s capture and server code</a>.
+          </p>
+        </details>
+      </section>
+
+      <section id="trust" aria-labelledby="trust-title">
+        <span class="eyebrow">04 · Read the result precisely</span>
+        <h2 id="trust-title">What does a green “Verified” result mean?</h2>
+        <p>For an ArchiveBox TLSNotary receipt, it means:</p>
+        <blockquote>
+          These saved response bytes match a commitment signed by the configured
+          verifier. That verifier attests to their origin from the named server
+          and records its own time of issuing the receipt.
+        </blockquote>
+        <p>
+          Someone cannot alter the response and retain a valid result without
+          defeating the cryptography or obtaining a different valid receipt.
+          But <strong>a valid signature identifies the signer; it cannot guarantee
+          the signer was honest</strong>. The trust chain matters.
+        </p>
+        <div class="trust-list">
+          <div><h3>The verifier operator</h3><p>You trust it to run the protocol correctly, sign only successful results, protect its signing key and not collude with the person making the capture. You also trust its clock for the displayed time.</p></div>
+          <div><h3>The server’s identity</h3><p>You rely on TLS certificate validation and the trusted certificate authorities that bind a key to a hostname. This authenticates a domain—not a particular human author or the truth of a statement.</p></div>
+          <div><h3>The checking software and key</h3><p>You trust the software doing the check, the device running it, and the source of the verifier’s public key. A key supplied only by the person presenting the evidence is not an independent trust anchor.</p></div>
+          <div><h3>The cryptography and its implementation</h3><p>You rely on TLSNotary’s protocol, the signature and hash algorithms, and their correct implementation. This remains experimental software; a green badge is not a substitute for reviewing those assumptions.</p></div>
+        </div>
+        <details>
+          <summary>For evidence reviewers · What this receipt does not establish</summary>
+          <ul>
+            <li><strong>The whole page:</strong> it covers the accompanying response, not every file in an ArchiveBox snapshot or an ArchiveWeb.page WACZ.</li>
+            <li><strong>The exact requested URL or account:</strong> the signed payload names the server, not the private request path, query, cookies or user identity.</li>
+            <li><strong>Truth or authorship:</strong> a server can publish false statements, display user-supplied text or be compromised.</li>
+            <li><strong>A publication date:</strong> the receipt’s time is the verifier’s issuance time, not when the website first published the content or a separately certified time.</li>
+            <li><strong>Automatic legal acceptance:</strong> admissibility and weight still depend on the applicable rules, context and supporting evidence.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>Technical detail · Why a small receipt is enough—and what it delegates</summary>
+          <p>
+            During capture, the upstream TLSNotary verifier checks the protocol
+            and commitment proof. ArchiveBox’s gateway signs a payload containing
+            the authenticated hostname, its issuance time, the response range and
+            the commitment. Later verification checks that signature and opens
+            the commitment using your saved response. It does <em>not</em> replay
+            the interactive proof or independently repeat certificate validation.
+          </p>
+          <p>
+            This is an ArchiveBox receipt backed by a verifier’s attestation,
+            not a website-issued signature or a standalone TLSNotary presentation.
+            A dishonest operator, a compromised signing key or collusion could
+            produce a false receipt that passes the local check. Running your own
+            verifier gives you operational control, but does not make your
+            self-issued receipts independent evidence to someone who distrusts you.
+            See <a href="https://tlsnotary.org/docs/faq/#what-is-the-role-of-a-notary">TLSNotary’s explanation of delegated trust</a>.
+          </p>
+        </details>
+      </section>
+
+      <section id="independent-check" aria-labelledby="check-title">
+        <span class="eyebrow">05 · Evidence you can check elsewhere</span>
+        <h2 id="check-title">Keep the response. Keep the receipt. Know the key.</h2>
+        <div class="file-pair">
+          <div><code>response.http</code><p>The original response bytes, stored once. This is the content being authenticated.</p></div>
+          <span aria-hidden="true">+</span>
+          <div><code>receipt.json</code><p>The signed commitment and its opening. A small receipt, not another copy of the page.</p></div>
+        </div>
+        <p>
+          You do not need this public service to stay online to check an existing
+          capture. Preserve both files unchanged, the verification software, and
+          an independently obtained copy of the verifier’s public key. You can
+          give those to another reviewer to check on their own device.
+        </p>
+        <details>
+          <summary>Developer instructions · Verify locally with Node.js</summary>
+          <p>
+            Review and obtain <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/tlsnotary/server/web/verify.mjs">verify.mjs from the source repository</a>.
+            Place it alongside the two capture files. With a current Node.js
+            version supporting Web Crypto and <code>DecompressionStream</code>,
+            run the command below from that directory. Replace the placeholder
+            with the base64 SPKI public key you independently trust for the
+            verifier that issued the receipt.
+          </p>
+          <pre class="code-example"><code>TRUSTED_KEY='INDEPENDENTLY_TRUSTED_BASE64_SPKI_KEY' node --input-type=module &lt;&lt;'JS'
+import { readFileSync } from 'node:fs';
+import { verifyReceipt } from './verify.mjs';
+
+const receipt = JSON.parse(readFileSync('receipt.json', 'utf8'));
+const response = new Uint8Array(readFileSync('response.http'));
+const result = await verifyReceipt(receipt, response, process.env.TRUSTED_KEY);
+console.log('Verified:', result.server_name);
+console.log('Verifier time:', new Date(result.time * 1000).toISOString());
+console.log('Authenticated bytes:', response.length);
+JS</code></pre>
+          <p>
+            The check validates an Ed25519 signature over the decoded payload,
+            recomputes <code>SHA-256(response.http bytes || 16-byte blinder)</code>,
+            matches the signed byte range and requires a complete successful HTTP
+            response. The blinder is random data that hides the commitment from
+            guessing while the response is private. It is saved locally in the receipt.
+          </p>
+          <p>
+            A green result on a website controlled by an untrusted party is not
+            independent verification. For contested evidence, review the code and
+            establish the key through a separate trusted channel. Keep the original
+            key when an operator rotates keys; newly published keys do not
+            automatically authenticate older receipts.
+          </p>
+        </details>
+        <p class="source-note">
+          Want to operate a verifier? The plugin includes
+          <a href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/tlsnotary/server">Docker Compose, example configuration and setup instructions</a>.
+          Captures are opt-in because the cryptographic work adds time and bandwidth.
+        </p>
+      </section>
+      <footer class="guide-footer">
+        Built with <a href="https://tlsnotary.org/">TLSNotary</a> ·
+        <a href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/tlsnotary">Inspect the ArchiveBox integration</a> ·
+        <a href="#">Back to verification ↑</a>
+      </footer>
+    </article>
   </main>
   <script type="module" src="app.mjs"></script>
 </html>
