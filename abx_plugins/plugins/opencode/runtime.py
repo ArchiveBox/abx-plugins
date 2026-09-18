@@ -443,6 +443,16 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
         rf'\1"{_PROXY_PREFIX}"+\2\3',
         text,
     )
+    # The native router keeps the mount in useLocation().pathname. OpenCode's
+    # draft promotion, tab closing, legacy redirect, and SDK scope checks expect
+    # app-relative paths. Normalize only those checks, never browser/router state.
+    text = re.sub(
+        r'([$\w]+\.pathname)(?===="/new-session"|!=="/"|\.startsWith\("/api/"\)|\.slice\([$\w]+\(\)\.length\+1\))',
+        lambda match: (
+            f'({match[1]}.replace(/^{_PROXY_PREFIX.replace("/", r"\/")}(?=\\/|$)/,"")||"/")'
+        ),
+        text,
+    )
     # Only the web entrypoint's default server needs the mount prefix. Changing
     # location.origin globally breaks the router's same-origin link interception.
     text = text.replace(

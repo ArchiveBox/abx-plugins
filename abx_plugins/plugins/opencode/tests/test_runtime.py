@@ -57,6 +57,51 @@ def test_opencode_url_builders_preserve_server_base_path(
     )
 
 
+@pytest.mark.parametrize("mount", ["", "/admin/agent/opencode"])
+@pytest.mark.parametrize(
+    "expression,path,expected",
+    [
+        ('v.pathname==="/new-session"', "/new-session", True),
+        ('v.pathname==="/new-session"', "/session/ses_123", False),
+        ('v.pathname!=="/"', "/", False),
+        ('v.pathname!=="/"', "/new-session", True),
+        ('v.pathname.startsWith("/api/")', "/api/session", True),
+        ('v.pathname.startsWith("/api/")', "/session", False),
+        (
+            "v.pathname.slice(a().length+1)",
+            "/encoded/session/ses_123",
+            "/session/ses_123",
+        ),
+    ],
+)
+def test_opencode_app_path_checks_handle_mount(mount, expression, path, expected):
+    from abx_plugins.plugins.opencode import runtime
+
+    # Application expressions from OpenCode's actual index-Kw4ozAkJ.js bundle.
+    rewritten = runtime._rewrite_text(
+        expression.encode(),
+        "http://127.0.0.1:4096",
+    ).decode()
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            f'const v={{pathname:{json.dumps(mount + path)}}};const a=()=>"encoded";console.log(JSON.stringify({rewritten}));',
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(result.stdout) == expected
+
+
+def test_opencode_native_router_pathname_is_unchanged():
+    from abx_plugins.plugins.opencode import runtime
+
+    expression = b'window.location.pathname.replace(/^\\/+/,"/")'
+    assert runtime._rewrite_text(expression, "http://127.0.0.1:4096") == expression
+
+
 def test_stop_owned_process_falls_back_for_stopped_process_without_dedicated_group():
     from abx_plugins.plugins.opencode import runtime
 
