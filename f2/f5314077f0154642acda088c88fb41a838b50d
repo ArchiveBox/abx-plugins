@@ -1,0 +1,45 @@
+abx_plugins/plugins/tlsnotary/server/.dockerignore
+  s_ffefb637465167::t_1808029d129f15 8
+abx_plugins/plugins/tlsnotary/server/README.md
+  s_ffefb637465167::t_20bbc32bb16362 91-97
+abx_plugins/plugins/tlsnotary/server/server.mjs
+  s_ffefb637465167::t_9447cc13968d22 57-58
+abx_plugins/plugins/tlsnotary/server/visualization/README.md
+  s_ffefb637465167::t_1a576f4ef35860 1-20
+abx_plugins/plugins/tlsnotary/server/visualization/build.mjs
+  s_ffefb637465167::t_c6d82458fccb7a 1-26
+abx_plugins/plugins/tlsnotary/server/visualization/package-lock.json
+  s_ffefb637465167::t_ae1859a57ab408 1-505
+abx_plugins/plugins/tlsnotary/server/visualization/package.json
+  s_ffefb637465167::t_c8b8a37b353546 1-12
+abx_plugins/plugins/tlsnotary/server/visualization/scene.mjs
+  s_ffefb637465167::t_8f39db3f8a8fa4 1-164
+abx_plugins/plugins/tlsnotary/server/web/THREE-LICENSE.txt
+  s_ffefb637465167::t_770d0ca1873547 1-21
+abx_plugins/plugins/tlsnotary/server/web/diagram.mjs
+  s_ffefb637465167::t_1dc740f1915646 1-107
+abx_plugins/plugins/tlsnotary/server/web/index.html
+  s_ffefb637465167::t_81510ebc3dc25f 12,193-210,212-226,228-232,234,236-244,246-247,476
+abx_plugins/plugins/tlsnotary/server/web/scene.mjs
+  s_ffefb637465167::t_b05471da068a42 1-4228
+abx_plugins/plugins/tlsnotary/server/web/style.css
+  s_ffefb637465167::t_ea11686a781a1f 399-513
+abx_plugins/plugins/tlsnotary/templates/full.html
+  s_ffefb637465167::t_3190c9c68e48b9 12,193-210,212-226,228-232,234,236-244,246-247,476
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f2f5314077f0154642acda088c88fb41a838b50d",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
