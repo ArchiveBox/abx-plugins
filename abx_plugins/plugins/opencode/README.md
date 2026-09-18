@@ -18,6 +18,14 @@ pathname, and history retain their normal semantics; only the web entrypoint's
 default API server and asset URLs receive the prefix. SDK requests and protocol
 discovery preserve that server's mount path when resolving endpoints. Session navigation and
 reloads are exercised with the real UI, and terminal transport with a real shell.
+Both `/event` and `/global/event` stream without buffering. Provider OAuth
+callbacks remain open while OpenCode waits for authorization or cancellation;
+the ordinary API read timeout must not abort a pending human login.
+
+For ChatGPT on a remote server or in Docker, choose **ChatGPT Pro/Plus (headless)**
+and complete the device-code flow. OpenCode's **browser** method requires its
+`localhost:1455` callback listener to be reachable from the user's browser; that
+loopback callback is not the ArchiveBox HTTP proxy. Anthropic uses an API key.
 
 The wrapper preserves existing browser-side servers and projects. Unavailable
 or full browser storage cannot suppress the access warning or block dismissal.

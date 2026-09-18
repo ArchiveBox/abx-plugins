@@ -608,7 +608,7 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
         in {"accept", "accept-language", "content-type", "range", "user-agent"}
         or key.lower().startswith("x-opencode-")
     }
-    if method == "GET" and path.endswith("/event"):
+    if method == "GET" and (path == "event" or path.endswith("/event")):
         return (
             200,
             {
@@ -630,7 +630,12 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
         params=params,
         data=body if method not in {"GET", "HEAD"} else None,
         headers=forwarded,
-        timeout=settings["timeout"],
+        # OAuth callbacks are long polls: OpenCode waits for the human to
+        # authorize or cancel, and owns that flow's expiry. Keep connection
+        # establishment bounded, but do not turn a pending login into a 503.
+        timeout=(settings["timeout"], None)
+        if method == "POST" and re.fullmatch(r"provider/[^/]+/oauth/callback", path)
+        else settings["timeout"],
         allow_redirects=False,
     ) as upstream:
         content = upstream.content
