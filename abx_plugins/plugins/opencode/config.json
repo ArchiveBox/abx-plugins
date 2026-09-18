@@ -43,7 +43,7 @@
     {
       "name": "{OPENCODE_BINARY}",
       "binproviders": "env,pnpm",
-      "min_version": null,
+      "min_version": "1.18.31",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
@@ -52,7 +52,7 @@
           "min_release_age": 0,
           "postinstall_scripts": true,
           "install_args": [
-            "opencode-ai@1.17.15"
+            "opencode-ai@1.18.31"
           ]
         }
       }
