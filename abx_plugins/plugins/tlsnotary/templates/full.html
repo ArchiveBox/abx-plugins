@@ -420,6 +420,54 @@ Cookie: session=example-secret</pre>
           <div><h3>The checking software and key</h3><p>You trust the software doing the check, the device running it, and the source of the verifier’s public key. A key supplied only by the person presenting the evidence is not an independent trust anchor.</p></div>
           <div><h3>The cryptography and its implementation</h3><p>You rely on TLSNotary’s protocol, the signature and hash algorithms, and their correct implementation. This integration is experimental software.</p></div>
         </div>
+        <h3>Reducing reliance on one verifier</h3>
+        <p>
+          Independent attestations from several verifiers can reduce the risk of
+          one operator being compromised, coerced or collaborating with a dishonest
+          client. A possible arrangement would use separately operated services in
+          the United States, China, Russia, India, France and Brazil. Different
+          jurisdictions and political interests can make coordinated interference
+          harder, provided the operators also have independent management,
+          administrators and signing keys. Geography alone does not establish
+          independence.
+        </p>
+        <p>
+          Universities, government agencies and other large institutions could
+          provide these services with published operating policies, independent
+          audits and formal procedures for exceptional access. Recorded approvals
+          and auditable administrative actions can make bribery, social engineering
+          or pressure harder to conceal. That paper trail should concern operation
+          of the service, without recording users’ private URLs, cookies or page
+          contents. Institutional size is useful only when these controls exist.
+        </p>
+        <p>
+          Keeping content private also limits selective interference: the verifier
+          cannot inspect hidden pages and decide to falsify every capture containing
+          a particular phrase. Targeting hidden content would require additional
+          information, such as a signal from a cooperating client. Visible metadata,
+          including the destination hostname, can still be used to select sessions.
+        </p>
+        <details>
+          <summary>Technical detail · What multiple verifiers would need to check</summary>
+          <p>
+            Each operator must independently authenticate the claimed exchange;
+            several signatures on one operator’s unchecked assertion do not provide
+            that independence. A reviewer must choose the required operators and
+            acceptance rule in advance. Requiring every designated operator to
+            attest to the same claim means all would have to fail or collude to
+            accept a fabricated claim. A quorum requires compromising that quorum,
+            not every operator. Shared software flaws remain a common risk.
+          </p>
+          <p>
+            Separate captures can return different content. Their receipts must be
+            checked against the actual request and response each authenticates,
+            rather than counted as confirmations of identical bytes automatically.
+            This is a possible deployment model: the current ArchiveBox plugin uses
+            one verifier per capture and does not implement multi-verifier consensus.
+            TLSNotary describes the underlying
+            <a href="https://tlsnotary.org/docs/faq/#why-can-a-verifier-trust-a-tlsnotary-proof">trust in an independent notary</a>.
+          </p>
+        </details>
         <details>
           <summary>For evidence reviewers · What this receipt does not establish</summary>
           <ul>
