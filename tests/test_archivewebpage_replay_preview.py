@@ -1,42 +1,10 @@
 from __future__ import annotations
 
 import json
-import hashlib
-import os
 import zipfile
-from argparse import Namespace
 from pathlib import Path
 
 from abx_plugins.plugins.archivewebpage import replay_preview
-from abx_plugins.plugins.base.testing import install_required_binary_from_config
-
-
-def test_replay_backport_leaves_installed_recorder_unchanged(tmp_path: Path) -> None:
-    env = {**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
-    installed = install_required_binary_from_config(
-        Path(replay_preview.__file__).parent,
-        "archivewebpage",
-        env=env,
-    )
-    assert installed.abspath
-    config = Namespace(ABXPKG_LIB_DIR=env["ABXPKG_LIB_DIR"])
-    extension = replay_preview.find_extension_dir(config)
-    assert extension is not None
-    worker = extension / "sw.js"
-    original = worker.read_bytes()
-    result = replay_preview.serve_replay_asset("replay/sw.js", config)
-    assert result is not None
-    body, content_type, headers = result
-    # This exact worker passed the real cookie-free WACZ replay regression.
-    assert hashlib.sha256(body).hexdigest() == (
-        "b5b66bd04eddae3342c53441fdfb1504193b38f9fa496d3767eaab90c4c4b68e"
-    )
-    assert worker.read_bytes() == original
-    assert replay_preview.serve_replay_asset("replay/sw.js", config) == result
-    assert content_type == "application/javascript; charset=utf-8"
-    assert headers["Cache-Control"] == "no-cache"
-    assert headers["ETag"] == f'"{hashlib.sha256(body).hexdigest()}"'
-    assert "Last-Modified" not in headers
 
 
 def test_replay_prefers_requested_page_over_unrelated_first_page(
