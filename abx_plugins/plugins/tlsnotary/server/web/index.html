@@ -9,7 +9,7 @@
     name="viewport"
     content="width=device-width"
   /><title>TLSNotary verification</title
-  ><link rel="stylesheet" href="style.css?v=20a3d6150ff8" />
+  ><link rel="stylesheet" href="style.css?v=8d8ac4906756" />
   <main>
     <span class="brand">ArchiveBox · TLSNotary</span>
     <h1>Verify an ArchiveBox web archive using TLSNotary</h1>
@@ -190,61 +190,75 @@
           the capture cannot simply substitute an invented response and convince
           an honest verifier that it came from that website.
         </p>
-        <figure class="protocol-lab" aria-labelledby="lab-title">
+        <figure class="exchange" aria-labelledby="exchange-title">
           <figcaption>
-            <span class="lab-kicker">Interactive protocol model</span>
-            <span id="lab-title">Authenticate a response without showing it to the verifier</span>
-            <span class="lab-caption">An illustration of this integration, not a live connection or proof.</span>
+            <span class="exchange-kicker">A capture, message by message</span>
+            <strong id="exchange-title">Follow the request through the network</strong>
+            <span>Play the exchange slowly, or drag the timeline to inspect any hop.</span>
           </figcaption>
-          <div class="lab-steps" role="group" aria-label="Protocol stage">
-            <button type="button" data-phase="0" aria-pressed="true"><span>01</span> Connect together</button>
-            <button type="button" data-phase="1" aria-pressed="false"><span>02</span> Prove a commitment</button>
-            <button type="button" data-phase="2" aria-pressed="false"><span>03</span> Check later</button>
-          </div>
-          <div class="lab-stage">
-            <div class="lab-canvas" aria-hidden="true"></div>
-            <div class="lab-fallback" aria-hidden="true"><span>▤</span><span>▱</span><span>◎</span></div>
-            <div class="lab-actors">
-              <div><span class="actor-dot source-dot"></span><strong>Website</strong><span>The authenticated source</span></div>
-              <div><span class="actor-dot device-dot"></span><strong>Your browser</strong><span>Readable content stays here</span></div>
-              <div><span class="actor-dot verifier-dot"></span><strong>Verifier</strong><span>Participates without reading</span></div>
+          <div class="exchange-controls">
+            <button type="button" id="exchange-play" aria-label="Play exchange">Play</button>
+            <div class="exchange-track">
+              <label for="exchange-time">Exchange timeline <output id="exchange-position">01 / 27</output></label>
+              <input id="exchange-time" type="range" min="0" max="2699" step="1" value="0" aria-describedby="exchange-caption" />
+              <div class="exchange-chapters" aria-hidden="true"><span>Browser load</span><span>Setup</span><span>TLS + HTTP</span><span>Proof</span><span>Receipt</span></div>
             </div>
-            <div class="lab-path-labels" aria-hidden="true"><span>Encrypted TLS traffic</span><span>MPC + proof messages</span></div>
-            <button class="lab-motion" type="button" aria-pressed="false" hidden>Pause animation</button>
           </div>
-          <div class="lab-explanation" aria-live="polite">
-            <span class="lab-step-label">Step 01 / During capture</span>
-            <h3 class="lab-phase-title">The browser cannot fabricate the TLS exchange on its own.</h3>
-            <p class="lab-phase-copy">The browser and verifier jointly perform the TLS operations. The website serves an ordinary HTTPS response. The browser gets the readable bytes; the verifier participates without receiving the page or your cookies.</p>
+          <div class="exchange-map-scroll" tabindex="0" role="region" aria-label="Network diagram. Scroll horizontally on small screens.">
+            <svg class="exchange-map" viewBox="0 0 1000 465" role="img" aria-labelledby="network-title network-desc">
+              <title id="network-title">The deployed TLSNotary network path</title>
+              <desc id="network-desc">Browser to Cloudflare, through cloudflared on Cabbage to the ArchiveBox gateway. The gateway forwards encrypted TLS records to the website and MPC messages to the separate verifier. The saved archive remains on the user's device.</desc>
+              <defs>
+                <pattern id="network-grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M 25 0 L 0 0 0 25" fill="none" stroke="#35515b" stroke-width=".4" /></pattern>
+                <marker id="network-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M 0 0 L 7 3.5 L 0 7 Z" fill="#577880" /></marker>
+              </defs>
+              <rect width="1000" height="465" fill="url(#network-grid)" opacity=".32" />
+              <rect x="447" y="113" width="523" height="321" rx="18" class="network-boundary" />
+              <text x="467" y="139" class="network-boundary-label">CABBAGE · VERIFIER OPERATOR</text>
+              <path class="network-link" d="M 95 280 L 300 280 L 495 280 L 700 280 L 900 150" />
+              <path class="network-link" d="M 700 280 L 900 300" />
+              <path class="network-link local-link" d="M 95 280 L 95 440" />
+              <path class="network-link direct-link" d="M 95 280 L 95 70 L 805 70 L 805 150 L 900 150" />
+              <text x="380" y="49" class="network-wire-label">Initial browser navigation · ordinary HTTPS</text>
+              <text x="194" y="304" class="network-wire-label">HTTPS / WSS</text>
+              <text x="400" y="304" class="network-wire-label">Tunnel / HTTP2</text>
+              <text x="598" y="304" class="network-wire-label">HTTP / WS</text>
+              <text x="815" y="195" class="network-wire-label">TCP :443</text>
+              <text x="825" y="320" class="network-wire-label">Private WS</text>
+              <g data-node="browser" transform="translate(95 220)"><rect x="-65" y="-34" width="130" height="68" rx="10"/><text y="-4">Your browser</text><text y="18" class="node-sub">TLSNotary extension</text></g>
+              <g data-node="edge" transform="translate(300 220)"><rect x="-65" y="-34" width="130" height="68" rx="10"/><text y="-4">Cloudflare</text><text y="18" class="node-sub">Public HTTPS edge</text></g>
+              <g data-node="tunnel" transform="translate(495 220)"><rect x="-60" y="-34" width="120" height="68" rx="10"/><text y="-4">cloudflared</text><text y="18" class="node-sub">Tunnel connector</text></g>
+              <g data-node="gateway" transform="translate(700 220)"><rect x="-65" y="-34" width="130" height="68" rx="10"/><text y="-4">Gateway</text><text y="18" class="node-sub">Proxy + receipt signer</text></g>
+              <g data-node="website" transform="translate(900 70)"><rect x="-70" y="-34" width="140" height="68" rx="10"/><text y="-4">Website</text><text y="18" class="node-sub">documents.example</text></g>
+              <g data-node="verifier" transform="translate(900 365)"><rect x="-70" y="-34" width="140" height="68" rx="10"/><text y="-4">TLSNotary</text><text y="18" class="node-sub">MPC verifier container</text></g>
+              <g data-node="archive" transform="translate(95 385)"><rect x="-65" y="-29" width="130" height="58" rx="10"/><text y="-2">Snapshot directory</text><text y="17" class="node-sub">Local files</text></g>
+              <path class="network-link" d="M 95 254 V 280 M 300 254 V 280 M 495 254 V 280 M 700 254 V 280 M 900 104 V 150 M 900 300 V 331 M 95 414 V 440" />
+              <text x="30" y="28" id="packet-label">HTTPS request</text>
+              <path id="exchange-route" d="M 95 280 L 95 70 L 805 70 L 805 150 L 900 150" />
+              <g id="exchange-packet" aria-hidden="true"><circle r="24" class="packet-halo"/><rect x="-17" y="-12" width="34" height="24" rx="5"/><path d="M -10 -4 L 10 -4 M -10 2 L 10 2 M -10 8 L 3 8"/></g>
+              <g class="network-local-note"><text x="228" y="340">PRIVATE INPUTS STAY LOCAL</text><text x="228" y="363" id="browser-memory">URL path · cookies · page content</text><text x="228" y="397" id="verifier-memory">Verifier: not involved yet</text></g>
+            </svg>
           </div>
-          <div class="lab-inspector">
-            <div class="lab-inspector-heading">
-              <h3>Who can see what?</h3>
-              <div class="lab-views" role="group" aria-label="Inspect a participant's view">
-                <button type="button" data-view="device" aria-pressed="true">Your device</button>
-                <button type="button" data-view="verifier" aria-pressed="false">Verifier service</button>
-              </div>
+          <div class="exchange-legend"><span data-kind="control">Session / metadata</span><span data-kind="tls">Website TLS records</span><span data-kind="mpc">MPC / ZK messages</span><span data-kind="receipt">Signed receipt</span><span data-kind="local">Local operation</span></div>
+          <div class="exchange-event">
+            <div class="exchange-narrative">
+              <span class="exchange-kicker" id="exchange-phase">Before notarization</span>
+              <h3 id="exchange-heading">The browser loads the page normally</h3>
+              <p id="exchange-copy">The plugin opens the target URL in Chrome to obtain the request headers for the logged-in session. This initial navigation is ordinary HTTPS and is not the notarized request.</p>
+              <p class="exchange-hop"><span>Now</span><strong id="exchange-hop">Your browser → Website</strong></p>
+              <p id="exchange-hop-detail">A direct HTTPS connection to the website. No TLSNotary verifier participates yet.</p>
             </div>
-            <div class="lab-fields" aria-live="polite">
-              <div><span>Destination</span><code>private.example</code><span class="field-tag">visible to both</span></div>
-              <div><span>Request path</span><code data-secret="/documents/private-id?token=secret">/documents/private-id?token=secret</code><span class="secret-tag field-tag">private</span></div>
-              <div><span>Cookie header</span><code data-secret="session=your-login-secret">session=your-login-secret</code><span class="secret-tag field-tag">private</span></div>
-              <div><span>Response body</span><code data-secret="Meeting notes: budget is $100.">Meeting notes: budget is $100.</code><span class="secret-tag field-tag">private</span></div>
+            <div class="exchange-envelope">
+              <span id="exchange-payload-label">Message contents · example values</span>
+              <pre id="exchange-payload">GET /private/report?key=example HTTP/1.1
+Host: documents.example
+Cookie: session=example-secret</pre>
+              <p id="exchange-visibility">Readable at the browser and website. Encrypted on the network.</p>
             </div>
-            <p class="lab-visibility-note">Illustrative data only. Your browser can read the response and save it locally.</p>
           </div>
-          <div class="lab-commitment">
-            <div class="commitment-heading"><h3>Try changing the saved bytes</h3><button type="button" class="lab-tamper" aria-pressed="false">Alter the example response</button></div>
-            <p class="lab-example-text">Meeting notes: budget is $100.</p>
-            <div class="lab-digests">
-              <div><span>Original commitment</span><code class="lab-original">Requires JavaScript to calculate</code></div>
-              <div><span>Recomputed from saved bytes</span><code class="lab-recomputed">Requires JavaScript to calculate</code></div>
-            </div>
-            <p class="lab-hash-result" role="status">The response and a random blinder are hashed locally for this example.</p>
-            <p class="lab-hash-note">This computes a real SHA-256 commitment, but does not run MPC, generate a zero-knowledge proof or sign a receipt. A hash alone does not authenticate origin. TLSNotary establishes that connection during capture; later checks depend on the verifier’s signed attestation.</p>
-          </div>
-          <p class="lab-footnote">The paths show protocol relationships, not network routing. Our transport proxy relays encrypted website traffic. The service still sees hostname, traffic sizes, timing, the commitment and fixed HTTP markers. No example data leaves this page.</p>
-          <p class="lab-footnote">Protocol reference: <a href="https://tlsnotary.org/docs/protocol/mpc-tls/">TLSNotary MPC-TLS</a> · <a href="https://tlsnotary.org/docs/protocol/commit_strategy/">Commitment strategies</a></p>
+          <p id="exchange-caption" class="exchange-footnote">Protocol walkthrough of this deployment, not a recorded packet capture. Example values and playback timing are illustrative. Each moving envelope represents a message or a group of TLS records; repeated MPC rounds, TCP acknowledgments, DNS and transport handshakes are condensed. The two channels can interleave in a real session.</p>
+          <details class="exchange-sources"><summary>Message ordering and implementation sources</summary><p>The routes come from the plugin’s <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/tlsnotary/server/server.mjs">gateway</a>, <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/tlsnotary/server/cloudflared.yaml">tunnel configuration</a> and <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/tlsnotary/on_Snapshot__95_tlsnotary.js">capture hook</a>. See also the extension’s <a href="https://github.com/tlsnotary/tlsn-extension/blob/d446234/packages/extension/src/offscreen/ProveManager/index.ts">session and disclosure sequence</a>, TLSNotary’s <a href="https://tlsnotary.org/docs/protocol/mpc-tls/handshake/">joint TLS handshake</a> and <a href="https://tlsnotary.org/docs/protocol/mpc-tls/encryption/">private encryption and decryption</a>.</p><p>Cloudflare terminates the outer HTTPS/WSS connection. It can inspect that transport’s metadata and payload, but the website application data inside it remains protected by a separate TLS session. The tunnel encrypts the edge-to-connector hop. On the local container network, the gateway forwards WebSocket payloads to either the verifier or its TCP bridge; it does not decrypt the website response.</p></details>
+          <noscript><p class="exchange-footnote">Enable JavaScript to play or scrub the exchange. The network diagram and explanation remain available above.</p></noscript>
         </figure>
         <p>
           An independent service could always visit a public page and attest to
@@ -473,5 +487,5 @@ JS</code></pre>
     </article>
   </main>
   <script type="module" src="app.mjs"></script>
-  <script type="module" src="diagram.mjs?v=93426b428a75"></script>
+  <script type="module" src="diagram.mjs?v=91b5ddbb1f47"></script>
 </html>

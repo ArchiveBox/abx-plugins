@@ -120,5 +120,4 @@ pythonPlatform = "Linux"
 
 [tool.codespell]
 ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te"
-# Generated Three.js bundle; its readable source remains spellchecked.
-skip = "*.json,abx_plugins/plugins/tlsnotary/server/web/scene.mjs"
+skip = "*.json"

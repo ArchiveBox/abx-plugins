@@ -91,7 +91,6 @@ credentials private and monitor resource use for your deployment.
 
 ## Educational diagram
 
-The verification page includes a self-hosted Three.js protocol illustration below
-the file verifier. Its committed assets need no extra runtime dependencies or
-build step. The diagram never reads selected capture files and is not a live
+The verification page includes a self-hosted, scrub-able network exchange below
+the file verifier. Its HTML, SVG and JavaScript need no dependencies or build step. The diagram never reads selected capture files and is not a live
 proof. See [visualization/README.md](visualization/README.md) to rebuild it.
