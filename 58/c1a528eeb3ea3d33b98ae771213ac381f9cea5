@@ -1,0 +1,16 @@
+abx_plugins/plugins/archivewebpage/on_CrawlSetup__80_archivewebpage_prepare.py
+  h_923c208e183a7b 8-9,23-55
+tests/test_archivewebpage_concurrent_collections.py
+  h_923c208e183a7b 2-3,10,110-158,285-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "58c1a528eeb3ea3d33b98ae771213ac381f9cea5",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
