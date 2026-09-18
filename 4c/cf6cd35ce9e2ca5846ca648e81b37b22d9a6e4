@@ -1,0 +1,16 @@
+abx_plugins/plugins/tlsnotary/server/web/index.html
+  h_923c208e183a7b 85-89,93-97,102-107,112-117,120-124
+abx_plugins/plugins/tlsnotary/templates/full.html
+  h_923c208e183a7b 85-89,93-97,102-107,112-117,120-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4ccf6cd35ce9e2ca5846ca648e81b37b22d9a6e4",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
