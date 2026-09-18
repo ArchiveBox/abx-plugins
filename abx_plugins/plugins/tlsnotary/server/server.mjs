@@ -55,6 +55,7 @@ const app = http.createServer((req, res) => {
     "/verify.mjs": "verify.mjs",
     "/style.css": "style.css",
     "/diagram.mjs": "diagram.mjs",
+    "/site-chrome.mjs": "site-chrome.mjs",
   };
   const file = files[u.pathname];
   if (!file) return json(res, 404, { error: "Not found" });
