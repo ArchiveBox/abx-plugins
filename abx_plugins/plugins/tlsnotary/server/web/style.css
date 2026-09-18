@@ -583,3 +583,20 @@ input:focus-visible {
 
 .abx-footer-local > div > a + a { margin-left: 12px; }
 /* END ARCHIVEBOX CHROME */
+
+/* Claim-specific trust relationships. */
+.trust-icon-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.guide .trust-diagram-intro { margin-bottom: 14px; }
+.trust-diagrams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.trust-diagram { padding: 22px; border: 1px solid #cbdad0; border-radius: 12px; background: #fffefa; }
+.trust-relation { display: grid; grid-template-columns: 72px minmax(0, 1fr) 72px; align-items: center; gap: 8px; margin-bottom: 22px; }
+.trust-party { display: grid; justify-items: center; gap: 7px; font-size: 13px; color: #234e40; }
+.trust-party svg { width: 40px; height: 40px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.trust-edge { display: grid; justify-items: center; color: #83601d; font-size: 10px; text-align: center; }
+.trust-edge svg { width: 100%; max-width: 100px; height: 32px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.checks-without-trust .trust-edge { color: #346b59; }
+.trust-cross { stroke-width: 3; paint-order: stroke; }
+.guide .trust-diagram h3 { margin: 0 0 8px; font-size: 17px; }
+.guide .trust-diagram p { margin: 0; font-size: 14px; line-height: 1.6; }
+.guide .trust-diagram-note { font-size: 13px; color: #53655b; margin: 14px 0 26px; }
+@media (max-width: 650px) { .trust-diagrams { grid-template-columns: minmax(0, 1fr); } }
