@@ -436,11 +436,31 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
         rf'\1base:"{_PROXY_PREFIX}",',
         text,
     )
+    # New-layout titlebar tabs render plain anchors instead of router links.
+    # Prefix only their rendered href; navigation still receives native routes.
+    text = re.sub(
+        r"(get href\(\)\{return )([$\w]+\([$\w]+\.tab\))(\})",
+        rf'\1"{_PROXY_PREFIX}"+\2\3',
+        text,
+    )
     # Only the web entrypoint's default server needs the mount prefix. Changing
     # location.origin globally breaks the router's same-origin link interception.
     text = text.replace(
         '?"http://localhost:4096":location.origin',
         f'?"http://localhost:4096":location.origin+"{_PROXY_PREFIX}"',
+    )
+    # The newer SDK and protocol probe use URL(path, server). A leading slash
+    # discards the server's mount path, making the probe misidentify a v1 server
+    # as v2. Resolve relative endpoints against a directory base instead.
+    text = re.sub(
+        r"new URL\(([$\w]+\.path),([$\w]+\.baseUrl)\)",
+        r'new URL(\1.replace(/^\//,""),\2.replace(/\/?$/,"/"))',
+        text,
+    )
+    text = re.sub(
+        r"new URL\(([$\w]+),([$\w]+\.url)\)",
+        r'new URL(\1.replace(/^\//,""),\2.replace(/\/?$/,"/"))',
+        text,
     )
     text = text.replace('"/assets/', f'"{_PROXY_PREFIX}/assets/')
     text = text.replace("'/assets/", f"'{_PROXY_PREFIX}/assets/")

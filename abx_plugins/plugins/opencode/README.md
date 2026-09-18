@@ -15,7 +15,8 @@ error event and close. Ordinary pages do not import the runtime.
 
 The embedded app uses its native router base for the mount path. Browser origin,
 pathname, and history retain their normal semantics; only the web entrypoint's
-default API server and asset URLs receive the prefix. Session navigation and
+default API server and asset URLs receive the prefix. SDK requests and protocol
+discovery preserve that server's mount path when resolving endpoints. Session navigation and
 reloads are exercised with the real UI, and terminal transport with a real shell.
 
 The wrapper preserves existing browser-side servers and projects. Unavailable
@@ -27,3 +28,7 @@ Checkpointing defaults to disabled. State and credentials stay under
 
 Runtime tests live in `tests/test_runtime.py`. The host's authentication,
 HTTP/streaming, and incomplete-install integration tests live in ArchiveBox.
+
+Docker images install this plugin's dependencies through `x-install-in-docker`.
+The agent remains disabled by default; installing its executable does not enable
+the route or start the service.

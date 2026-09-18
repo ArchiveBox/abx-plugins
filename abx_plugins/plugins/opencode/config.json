@@ -115,5 +115,6 @@
     }
   },
   "x-auto-run": false,
+  "x-install-in-docker": true,
   "hidden": true
 }

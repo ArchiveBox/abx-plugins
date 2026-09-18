@@ -1,8 +1,59 @@
 import json
+from pathlib import Path
 import signal
 import subprocess
 
 import pytest
+
+
+def test_opencode_is_included_in_docker_without_enabling_the_agent():
+    config = json.loads((Path(__file__).parents[1] / "config.json").read_text())
+    assert config["x-install-in-docker"] is True
+    assert config["properties"]["OPENCODE_ENABLED"]["default"] is False
+
+
+@pytest.mark.parametrize(
+    "expression,variables",
+    [
+        # URL builders from the real OpenCode 1.18.30 web entrypoint:
+        # assets/index-Kw4ozAkJ.js (SDK transport and protocol discovery).
+        (
+            "new URL(a.path,e.baseUrl)",
+            'const a={path:"/api/health"};const e={baseUrl:base};',
+        ),
+        ("new URL(n,e.url)", 'const n="/global/health";const e={url:base};'),
+    ],
+)
+@pytest.mark.parametrize(
+    "base_path",
+    ["", "/admin/agent/opencode", "/admin/agent/opencode/"],
+)
+def test_opencode_url_builders_preserve_server_base_path(
+    expression,
+    variables,
+    base_path,
+):
+    from abx_plugins.plugins.opencode import runtime
+
+    rewritten = runtime._rewrite_text(
+        expression.encode(),
+        "http://127.0.0.1:4096",
+    ).decode()
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            f"const base={json.dumps('https://archivebox.example' + base_path)};{variables}console.log({rewritten}.href)",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    endpoint = "/api/health" if "a.path" in expression else "/global/health"
+    assert (
+        result.stdout.strip()
+        == "https://archivebox.example" + base_path.rstrip("/") + endpoint
+    )
 
 
 def test_stop_owned_process_falls_back_for_stopped_process_without_dedicated_group():
