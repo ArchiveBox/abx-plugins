@@ -37,6 +37,7 @@ Checkpointing defaults to disabled. State and credentials stay under
 Runtime tests live in `tests/test_runtime.py`. The host's authentication,
 HTTP/streaming, and incomplete-install integration tests live in ArchiveBox.
 
-Docker images install this plugin's dependencies through `x-install-in-docker`.
+ArchiveBox's Dockerfile installs this plugin's dependencies in its app layers;
+the abx-dl downloader image does not include OpenCode.
 The agent remains disabled by default; installing its executable does not enable
 the route or start the service.

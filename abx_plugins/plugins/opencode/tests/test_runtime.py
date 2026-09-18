@@ -6,9 +6,10 @@ import subprocess
 import pytest
 
 
-def test_opencode_is_included_in_docker_without_enabling_the_agent():
+def test_opencode_is_opt_in_and_excluded_from_downloader_image_installs():
     config = json.loads((Path(__file__).parents[1] / "config.json").read_text())
-    assert config["x-install-in-docker"] is True
+    assert "x-install-in-docker" not in config
+    assert config["x-auto-run"] is False
     assert config["properties"]["OPENCODE_ENABLED"]["default"] is False
 
 
