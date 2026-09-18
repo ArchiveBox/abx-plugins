@@ -1,26 +1,29 @@
-# Network exchange walkthrough
+# Three-party exchange and evidence assembly
 
-`../web/diagram.mjs` defines 27 ordered message groups and deterministic playback.
-The network diagram is inline SVG in `../web/index.html`. Only the play/pause button
-and native range input are interactive. Scrubbing recomputes the current message,
-hop, envelope contents and disclosure explanation directly from the playhead.
-The illustration never reads selected capture files or makes network requests.
+`../web/diagram.mjs` defines 22 message groups and deterministic playback. The SVG
+has exactly three participants (Client, Server, Verifier) and two connections.
+Packets carry abbreviated contents and use different colors for TLS handshakes,
+requests, responses, private computation and receipts. Hosting and relay details
+are deliberately omitted from this protocol explanation.
 
-After editing markup, CSS or JavaScript, run `node build.mjs` here to refresh asset
-cache keys and synchronize the plugin's full-output template when present. There
-are no build dependencies, generated vendor bundles or runtime libraries.
+The side worksheet types entries at the same playhead position as the packet
+animation, identifies their source, and removes future entries when rewound.
+Ciphertext arrival precedes readable response assembly; the client-only plaintext
+appears after authenticated decryption. MPC/ZK symbols are explicitly schematic.
+The worksheet is an explanation, not a third output file or an uploaded transcript.
 
-The walkthrough follows the capture hook, gateway and tunnel configuration in this
-plugin, plus the extension's ProveManager and TLSNotary's MPC-TLS documentation.
-Sources are linked under the diagram. It includes the initial ordinary browser
-navigation and the extension's separate authenticated request. Message payloads
-use explicit example values, not invented raw proof bytes. The fixed playback
-speed is illustrative, not a latency measurement or recorded packet trace.
-Repeated MPC rounds and transport details are condensed; the actual channels can
-interleave. Key shares are private protocol inputs, not plaintext messages.
+A real SHA-256 calculation uses the displayed example response and a fixed all-zero
+16-byte example blinder. Actual captures require their random private blinder.
+The signature is symbolic, not a real signature or notarization of the example.
+The diagram never contacts a service, performs MPC or reads selected capture files.
+The real receipt verifier remains independent.
 
-Playback pauses offscreen and in background tabs. Reduced-motion mode starts
-paused. Compact snapshot thumbnails skip initialization. Without JavaScript, the
-static network diagram and initial explanation remain available. The native range
-input supports arrow keys, Home and End. The diagram can scroll horizontally on
-small screens, while the current hop and message contents stay readable below it.
+After editing markup, CSS or JavaScript, run `node build.mjs` here to refresh cache
+keys and synchronize the plugin's full-output template. No dependencies or build
+libraries are needed. Protocol sources are linked under the diagram. Repeated
+rounds and timing are illustrative; real TLS and MPC work can interleave.
+
+Playback pauses offscreen and in background tabs; reduced-motion mode starts
+paused. Compact thumbnails skip initialization. The range input supports arrows,
+Home and End. The worksheet sits beside the diagram on desktop and below it on
+small screens. With JavaScript disabled, the static diagram remains visible.
