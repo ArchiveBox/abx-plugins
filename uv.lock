@@ -3,13 +3,13 @@ revision = 3
 requires-python = ">=3.12, <3.15"
 
 [options]
-exclude-newer = "2026-09-13T06:00:38.844558243Z"
+exclude-newer = "2026-09-13T06:10:58.460330699Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-09-18T06:00:37.84457301Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-18T06:10:57.460343568Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
@@ -55,7 +55,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abxbus", specifier = "==2.5.56" },
-    { name = "abxpkg", specifier = "==1.12.120" },
+    { name = "abxpkg", specifier = "==1.12.121" },
     { name = "httpx", marker = "extra == 'opencode'", specifier = ">=0.28.1" },
     { name = "imagesize", specifier = ">=2.0.0" },
     { name = "requests", marker = "extra == 'opencode'", specifier = ">=2.32.3" },
@@ -103,7 +103,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.12.120"
+version = "1.12.121"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
@@ -111,9 +111,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/64/4def5f9a8c6814c431074b55b833b9c0c4f65fff96116c4a91fdf5a59946/abxpkg-1.12.120.tar.gz", hash = "sha256:36a2e0c89bc39852c77060280285b406f2f99232a1040704557c84c7beed43d8", size = 239372 }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/9b/46bbeb18b832c1146cc40c5e3418f2fec99b3710311526f95a3634a4eccc/abxpkg-1.12.121.tar.gz", hash = "sha256:9b7ce35a8918888ec53142fd422df27b98f82e9adddcdad97e5b19a842f447d2", size = 239375 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/ab/421dfe7c67c78d0f1539940d29676f13ad001a8c83c691d8bc63afc18fe3/abxpkg-1.12.120-py3-none-any.whl", hash = "sha256:61d19dc661937f4e2fb75d7854a95e1813916c52e8ab6069f2d4d846b757fe81", size = 253749 },
+    { url = "https://files.pythonhosted.org/packages/99/c0/a16ff82b7c81a3f326d05a11f95b2f09421d42c5d23f03359cd69e73cc30/abxpkg-1.12.121-py3-none-any.whl", hash = "sha256:7909f203e8cc162996bde9b568184624a445fc20ac3f60ee640316399a997b5b", size = 253747 },
 ]
 
 [[package]]
