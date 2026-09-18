@@ -493,7 +493,6 @@ input:focus-visible {
 .evidence-entry-heading strong { font: 600 11px/1.4 ui-monospace, monospace; }
 .evidence-entry pre { font: 11px/1.65 ui-monospace, monospace; color: #445248; background: none; padding: 0; margin: 6px 0 0; max-height: none; white-space: pre-wrap; overflow-wrap: anywhere; }
 .evidence-entry.is-typing pre::after { content: '▌'; color: #1a6c4d; }
-.guide #evidence-note { padding: 10px 16px; margin: 0; border-top: 1px solid #d7d5c7; font: 9px/1.5 ui-monospace, monospace; color: #687467; }
 #proof-machine { padding: 12px 16px; background: #e8e0f1; border-top: 1px solid #d5c8e4; display: grid; gap: 5px; }
 #proof-machine[hidden] { display: none; }
 #proof-machine strong { color: #5a4079; font: 600 10px ui-monospace, monospace; }

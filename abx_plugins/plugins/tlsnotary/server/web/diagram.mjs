@@ -25,7 +25,7 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
     { phase:'Proof', route:['client','verifier'], kind:'control', label:"Disclosure rules", detail:"Which bytes may be revealed", title:'Specify the allowed disclosures', copy:'The client requests a SHA-256 commitment to the full response. Only fixed HTTP syntax is disclosed; the private request and readable response are withheld.', payload:'sent: []\nrecv:\n  PROTOCOL → fixed syntax only\n  ALL → SHA256 commitment', visibility:'Byte ranges and disclosure rules are visible. The response opening remains private.' },
     { phase:'Proof', route:['client','verifier'], roundTrip:true, kind:'proof', label:"Response hash proof", detail:"Link hash to server response", title:'Prove that the commitment matches the response', copy:'The client binds the authenticated response to a blinded hash. The verifier checks the proof without receiving the response or the blinder.', payload:'H = SHA256(response || blinder)\nZK verification messages\nServer identity + permitted syntax\nResponse and blinder remain local', visibility:'The hash alone would not prove origin. Its binding to the authenticated TLS exchange is what the verifier checks here.' },
     { phase:'Proof', route:['verifier'], kind:'proof', label:"Hash verified", detail:"Server identity + response hash", title:'Accept the authenticated commitment', copy:'The verifier has checked the protocol result, server identity and response commitment. It can now attest to the result without possessing the page contents.', payload:'Authenticated server identity\nVerified response commitment\nFull response byte range\nPermitted disclosures only', visibility:'A later reviewer trusts the verifier’s attestation; the compact receipt does not replay the interactive proof.' },
-    { phase:'Receipt', route:['verifier'], kind:'receipt', label:"Sign receipt", detail:"Hash + hostname + time", title:'Sign the compact receipt', copy:'The verifier service signs the response commitment, server name, byte range and its own issuance time. The signature is the verifier operator’s, not the website’s.', payload:'Signed fields:\nserver_name, time, algorithm\nhash, start, end\nEd25519 signature over the payload', visibility:'The panel shows decoded fields. The signature is represented symbolically, not as a real notarization of the example page.' },
+    { phase:'Receipt', route:['verifier'], kind:'receipt', label:"Sign receipt", detail:"Hash + hostname + time", title:'Sign the compact receipt', copy:'The verifier service signs the response commitment, server name, byte range and its own issuance time. The signature is the verifier operator’s, not the website’s.', payload:'Signed fields:\nserver_name, time, algorithm\nhash, start, end\nEd25519 signature over the payload', visibility:'The receipt binds the response hash to the server name, byte range and issuance time.' },
     { phase:'Receipt', route:['verifier','client'], kind:'receipt', label:"Signed receipt", detail:"Signed statement + signature", title:'Deliver the receipt to the client', copy:'The client receives the verifier’s signed statement identifying the server, response hash, byte range and issuance time. It checks the signature, then saves the receipt alongside the response and the random value used to calculate its hash.', payload:'From verifier: signed statement + signature\nAlready on client: response + random value\nTogether: the package for later verification', visibility:'The response bytes have not been uploaded. The receipt contains no duplicate copy of the response.' },
     { phase:'Save', route:['client'], kind:'local', label:"Save package", detail:"response.http + receipt.json", title:'Save the two artifacts', copy:'The client stores response.http once and saves receipt.json beside it. The intermediate handshake data and protocol messages are not extra proof files required by this integration.', payload:'response.http: original response bytes\nreceipt.json: signed payload\n              signature + blinder', visibility:'The saved response is sensitive. Someone given response.http can read its contents.' },
     { phase:'Verify later', route:['client'], kind:'local', label:"Check saved files", detail:"Check signature + response hash", title:'Verify the saved evidence later', copy:'A reviewer checks the receipt’s signature with an independently trusted verifier key, then recomputes the blinded hash and checks the byte range and HTTP completeness. Neither original server needs to be online.', payload:'1. Check Ed25519 signature\n2. Hash response + saved blinder\n3. Match commitment and byte range\n4. Check complete HTTP response', visibility:'Trust remains in the verifier operator, its signing key and clock, the server identity checks and the checking software.' },
@@ -33,18 +33,16 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
   const colors = {control:'#e7be79',handshake:'#70dcca',request:'#7dbfff',response:'#ffa7bd',mpc:'#c5a6ff',proof:'#dfadff',receipt:'#f5d974',local:'#89e5bd'};
   const names = {client:'Client',server:'Server',verifier:'Verifier'};
   const slider = $('#exchange-time'), play = $('#exchange-play');
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  let time=0, playing=!reduced.matches, visible=false, frame=0, last=0, previousEvent=-1;
+  let time=0, playing=true, visible=false, frame=0, last=0, previousEvent=-1;
   const blinder = new Uint8Array(16); // Fixed example opening, not a production blinder.
   let exampleHash='SHA256(response || example blinder)';
-  let hashReady=false;
   const responseBytes = new TextEncoder().encode(response);
   const hashInput = new Uint8Array(responseBytes.length+blinder.length);
   hashInput.set(responseBytes); hashInput.set(blinder,responseBytes.length);
   // Real hash for the illustrative bytes; this is not an MPC proof or notarization.
   if (crypto.subtle) crypto.subtle.digest('SHA-256',hashInput).then(buffer=>{
     exampleHash=Array.from(new Uint8Array(buffer),b=>b.toString(16).padStart(2,'0')).join('');
-    hashReady=true; render();
+    render();
   }).catch(()=>{});
   const receiptText = () => `server_name: example.com\ntime: <verifier issuance time>\nalgorithm: SHA256\nhash: ${exampleHash}\nstart: 0\nend: ${responseBytes.length}\nsignature: Ed25519(verifier key, payload)`;
   const entries = [
@@ -103,9 +101,6 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
     const glyphs='░▒▓█';
     $('#proof-scramble').textContent=Array.from({length:28},(_,i)=>glyphs[(i*7+Math.floor(time*38))%4]).join('');
     $('#proof-machine-progress').value=progress;
-    $('#evidence-note').textContent=index>=18
-      ? `${hashReady?'The hash is computed from these example bytes. ':'Hash shown symbolically. '}The signature is symbolic. This illustration is not a real notarization.`
-      : 'The client collects the response, the verifier’s signed receipt and the random value needed to check the hash later.';
     // Follow the writing while playing or scrubbing; this never scrolls the main page.
     const key=`${active}:${Math.floor(time*100)}`;
     if(key!==lastTyped){paper.scrollTop=paper.scrollHeight;lastTyped=key;}
@@ -149,13 +144,12 @@ if (lab && !new URLSearchParams(location.search).has('compact')) {
   function label(){play.textContent=playing?'Pause':time>=events.length-0.01?'Replay':'Play';play.setAttribute('aria-label',playing?'Pause exchange':'Play exchange');}
   function tick(now){
     frame=0;if(!playing||!visible||document.hidden)return;
-    time=Math.min(events.length-0.001,time+Math.min((now-last)/1000,0.1)/7);last=now;render();
+    time=Math.min(events.length-0.001,time+Math.min((now-last)/1000,0.1)/(events[Math.floor(time)].route.length===1?1.5:4));last=now;render();
     if(time>=events.length-0.001)playing=false;label();if(playing)frame=requestAnimationFrame(tick);
   }
   function schedule(){cancelAnimationFrame(frame);last=performance.now();if(playing&&visible&&!document.hidden)frame=requestAnimationFrame(tick);label();}
   play.addEventListener('click',()=>{if(time>=events.length-0.01)time=0;playing=!playing;render();schedule();});
   slider.addEventListener('input',()=>{playing=false;time=Number(slider.value)/100;render();schedule();});
-  reduced.addEventListener('change',()=>{if(reduced.matches)playing=false;schedule();});
   document.addEventListener('visibilitychange',schedule);
   const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;schedule();},{threshold:0});observer.observe(lab);
   addEventListener('pagehide',()=>cancelAnimationFrame(frame));addEventListener('pageshow',schedule);
