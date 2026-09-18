@@ -10,6 +10,7 @@ chromewebstore provider — that extension ships pre-built ``ui.js`` and
 from __future__ import annotations
 
 import json
+import hashlib
 import mimetypes
 from email.utils import formatdate
 from html import escape as html_escape
@@ -103,6 +104,27 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
         return None
 
     body = file_path.read_bytes()
+    if target == "sw.js":
+        # Temporary backport of wabac's cookie-free X API lookup: archived
+        # pages without session cookies use api.x.com instead of x.com/i/api.
+        # Only try the identical recorded GET URL after an exact lookup misses.
+        # Keep the recorder/exporter and its cookie privacy settings untouched.
+        # Remove after the pinned bundle includes webrecorder/wabac.js#378.
+        if hashlib.sha256(body).hexdigest() != (
+            "eb449aec15884416b045f3e21d2f5c88db840968a38ccf1b6b12e1c7e587cec9"
+        ):
+            raise RuntimeError(
+                "Review the X replay backport for this ArchiveWeb.page bundle",
+            )
+        original = b"if(o||!this.fuzzyPrefixSearch||r.noFuzzyCheck||(o=await this.lookupQueryPrefix(s,r)),o?.origURL)"
+        replacement = (
+            b'if(!o&&"GET"===e.method){const t=s.replace('
+            b'/^https:\\/\\/api\\.x\\.com\\/graphql\\//,"https://x.com/i/api/graphql/");'
+            b"t!==s&&(o=await this.lookupUrl(t,i,c),o&&(s=t))}" + original
+        )
+        if body.count(original) != 1:
+            raise RuntimeError("ArchiveWeb.page X replay patch target is not unique")
+        body = body.replace(original, replacement)
     content_type = (
         "application/javascript; charset=utf-8"
         if file_path.suffix == ".js"
@@ -113,6 +135,11 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
         "Last-Modified": formatdate(file_path.stat().st_mtime, usegmt=True),
     }
     if file_path.name == "sw.js":
+        # The response includes our backport, so the extension file's mtime
+        # alone cannot validate it after an ArchiveBox update.
+        del headers["Last-Modified"]
+        headers["Cache-Control"] = "no-cache"
+        headers["ETag"] = f'"{hashlib.sha256(body).hexdigest()}"'
         # Allow the SW to claim the whole snapshot host scope rather than
         # only ``/replay/``; replayweb.page intercepts arbitrary in-archive
         # URLs once the worker activates.
