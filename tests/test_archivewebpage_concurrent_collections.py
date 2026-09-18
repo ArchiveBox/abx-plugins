@@ -1,10 +1,13 @@
 import json
+import gzip
+import hashlib
 import shutil
 import signal
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
 from pathlib import Path
+import zipfile
 from typing import TypedDict
 
 import pytest
@@ -102,6 +105,55 @@ def _run_stop_hook(
         timeout=60,
         env=env,
     )
+
+
+def test_export_indexes_recorded_request_cookies(
+    archivewebpage_crawl,
+    tmp_path,
+    httpserver,
+):
+    """Replay needs the captured request cookies in CDX, not only in WARC."""
+    httpserver.expect_request("/start").respond_with_data(
+        "",
+        status=302,
+        headers={
+            "Location": "/profile",
+            "Set-Cookie": "replay_session=captured; Path=/",
+        },
+    )
+    httpserver.expect_request("/profile").respond_with_data(
+        "<html><title>Recorded profile</title><body>Recorded profile</body></html>",
+        content_type="text/html",
+    )
+    env, _, tabs = archivewebpage_crawl
+    url = httpserver.url_for("/start")
+    snapshot, snapshot_env = _start_snapshot_recording(
+        tmp_path / "cookie-snapshot",
+        env,
+        tabs,
+        snapshot_id="profile",
+        url=url,
+    )
+    stop = _run_stop_hook(snapshot, snapshot_env, url)
+    assert stop.returncode == 0, stop.stderr
+    with zipfile.ZipFile(snapshot / "archivewebpage/archivewebpage.wacz") as archive:
+        index_name = next(
+            n for n in archive.namelist() if n.endswith((".cdx", ".cdx.gz"))
+        )
+        index = archive.read(index_name)
+        if index_name.endswith(".gz"):
+            index = gzip.decompress(index)
+        entries = [
+            json.loads(line.split(" ", 2)[2]) for line in index.decode().splitlines()
+        ]
+        profile = next(
+            entry for entry in entries if entry["url"] == httpserver.url_for("/profile")
+        )
+        assert profile.get("req.http:cookie") == "replay_session=captured"
+        metadata = json.loads(archive.read("datapackage.json"))
+        for resource in metadata["resources"]:
+            payload = archive.read(resource["path"])
+            assert resource["hash"] == "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def _run_ublock_config_hook(
@@ -229,6 +281,20 @@ def archivewebpage_crawl(
             env=env,
         )
         assert installed.loaded_abspath is not None
+
+    prepared = subprocess.run(
+        [
+            str(
+                ARCHIVEWEBPAGE_PLUGIN_DIR
+                / "on_CrawlSetup__80_archivewebpage_prepare.py",
+            ),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert prepared.returncode == 0, prepared.stderr
 
     crawl_chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
     launch_process, _cdp_url = launch_chromium_session(
