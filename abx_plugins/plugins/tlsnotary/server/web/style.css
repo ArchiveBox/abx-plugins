@@ -435,8 +435,8 @@ input:focus-visible {
 #exchange-route { fill: none; stroke: var(--message-color); stroke-width: 4; }
 #exchange-packet { filter: drop-shadow(0 4px 8px #020e1790); }
 #exchange-packet rect { fill: var(--message-color); stroke: #ffffff80; stroke-width: 1.5; }
-#packet-label { fill: #10232b; font: 750 22px ui-monospace, monospace; text-anchor: middle; }
-#packet-detail { fill: #173239; font: 11px ui-monospace, monospace; text-anchor: middle; }
+#packet-label { fill: #10232b; font: 750 18px ui-monospace, monospace; text-anchor: middle; }
+#packet-detail { fill: #173239; font: 10px ui-monospace, monospace; text-anchor: middle; }
 .network-caption { fill: #9cb7c1; font: 10px system-ui; text-anchor: middle; }
 .exchange-legend { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 14px 26px; border-block: 1px solid #304954; font-size: 10px; color: #bbd0d5; }
 .exchange-legend span::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 7px; background: #e7be79; }
