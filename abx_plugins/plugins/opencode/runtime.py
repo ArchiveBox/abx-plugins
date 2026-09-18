@@ -33,6 +33,9 @@ _DEFAULT_CONFIG = """{
   "snapshot": false
 }
 """
+_COLLECTION_IGNORE = (
+    "# ArchiveBox: do not recursively index collection payloads or agent state.\n*\n"
+)
 
 _TEXT_CONTENT_TYPES = (
     "text/",
@@ -62,6 +65,7 @@ You are running inside an ArchiveBox collection directory.
 - ArchiveBox REST API URL: {archivebox_api_url}
 - Prefer the `archivebox` CLI for authenticated changes, e.g. `archivebox add`, `archivebox schedule`, `archivebox update`, and `archivebox shell`.
 - Run ArchiveBox CLI commands from the ArchiveBox collection directory above.
+- This collection can contain millions of snapshots and OpenCode's own state. Never recursively scan, glob, grep, index, or run Git over the collection or its subdirectories. Use the ArchiveBox database/CLI/API to find snapshot IDs and paths, then read only the specific files needed.
 - Get command help with `archivebox list --help`, `archivebox add --help`, `archivebox schedule --help`, etc. Do not use `archivebox help <command>`.
 - Use `--depth=0` by default. Only use recursive crawling when the user explicitly asks for it; use `--depth=1` when you need pages one hop out.
 - Before any recursive crawl, constrain scope with ArchiveBox config such as `CRAWL_MAX_URLS`, `CRAWL_MAX_SIZE`, `SNAPSHOT_MAX_*`, `URL_ALLOWLIST`, `URL_DENYLIST`, and related limits.
@@ -228,6 +232,13 @@ def _project_route(workdir: Path, session_id: str = "") -> str:
 def _ensure_project_files(settings: dict) -> None:
     workdir = settings["workdir"].resolve()
     workdir.mkdir(parents=True, exist_ok=True)
+    # With FFF disabled, OpenCode still starts a background `rg --files` index.
+    # Prune every child at the root, including unknown future payload directories.
+    # Preserve administrator rules; the final rule must take precedence.
+    ignore_path = workdir / ".ignore"
+    existing_ignore = ignore_path.read_text() if ignore_path.exists() else ""
+    if not existing_ignore.endswith(_COLLECTION_IGNORE):
+        ignore_path.write_text(existing_ignore.rstrip("\n") + "\n" + _COLLECTION_IGNORE)
     editable_skill_path = settings["opencode_dir"] / "SKILL.md"
     editable_skill_path.parent.mkdir(parents=True, exist_ok=True)
     if not editable_skill_path.exists():
@@ -352,8 +363,15 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
             "BROWSER": "false",
             "GIT_CEILING_DIRECTORIES": str(workdir),
+            # OpenCode searches for .git itself, then invokes git from that
+            # ancestor. A ceiling alone cannot stop discovery there or in snapshots.
+            "GIT_DIR": os.devnull,
             "HOME": str(settings["home"]),
+            "OPENCODE_DISABLE_FFF": "true",
+            "OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER": "true",
             "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+            # Override even an existing user config that enables checkpoints.
+            "OPENCODE_CONFIG_CONTENT": _DEFAULT_CONFIG,
             "XDG_CONFIG_HOME": str(settings["config_home"]),
             "XDG_DATA_HOME": str(settings["data_home"]),
             "XDG_STATE_HOME": str(settings["state_home"]),

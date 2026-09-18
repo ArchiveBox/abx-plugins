@@ -31,11 +31,20 @@ The wrapper preserves existing browser-side servers and projects. Unavailable
 or full browser storage cannot suppress the access warning or block dismissal.
 
 OpenCode works directly in the collection directory without initializing Git.
-Checkpointing defaults to disabled. State and credentials stay under
-`DATA_DIR/opencode`; existing user configuration is preserved.
+Git discovery is disabled for its process, including ancestor and nested repos.
+Checkpointing is forced off even when existing user configuration enables it.
+The FFF indexer and filesystem watcher are disabled; a final `*` rule in the
+working directory's `.ignore` prevents the fallback ripgrep indexer from walking
+any descendants, including snapshots and OpenCode's own state. This also excludes
+the collection from ordinary ripgrep searches; existing ignore rules are retained.
+Targeted file reads and ArchiveBox CLI/database/API access remain available.
+State and credentials stay under `DATA_DIR/opencode`; user configuration files
+are preserved. These controls prevent automatic scans, not explicit shell commands.
 
 Runtime tests live in `tests/test_runtime.py`. The host's authentication,
 HTTP/streaming, and incomplete-install integration tests live in ArchiveBox.
+`tests/test_collection_isolation.py` runs the real pinned OpenCode server against
+ancestor/nested Git repositories and verifies indexing exclusions and file reads.
 
 ArchiveBox's Dockerfile installs this plugin's dependencies in its app layers;
 the abx-dl downloader image does not include OpenCode.

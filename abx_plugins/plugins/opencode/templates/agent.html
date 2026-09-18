@@ -64,10 +64,22 @@
             padding: 24px;
             font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
+        .opencode-agent-welcome-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 14px;
+        }
         .opencode-agent-welcome-panel h1 {
-            margin: 0 0 10px;
+            margin: 0;
             font-size: 22px;
             line-height: 1.25;
+        }
+        .opencode-agent-welcome-logo {
+            flex: none;
+            width: clamp(90px, 20vw, 120px);
+            height: auto;
         }
         .opencode-agent-welcome-panel p {
             margin: 0 0 14px;
@@ -88,8 +100,22 @@
         }
         .opencode-agent-welcome-actions {
             display: flex;
+            align-items: center;
+            flex-wrap: wrap;
             justify-content: flex-end;
+            gap: 12px;
+        }
+        .opencode-agent-welcome-links {
+            display: flex;
+            align-items: center;
             gap: 8px;
+            margin-right: auto;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .opencode-agent-welcome-links a {
+            text-decoration: underline;
+            text-underline-offset: 2px;
         }
         .opencode-agent-welcome button {
             cursor: pointer;
@@ -187,9 +213,43 @@
                 <iframe src="{{ proxy_url }}" title="OpenCode Agent" class="opencode-agent-frame"></iframe>
                 <div class="opencode-agent-welcome" id="opencode-agent-welcome">
                     <div class="opencode-agent-welcome-panel" role="dialog" aria-modal="true" aria-labelledby="opencode-agent-welcome-title">
-                        <h1 id="opencode-agent-welcome-title">ArchiveBox AI Agent</h1>
+                        <div class="opencode-agent-welcome-header">
+                            <h1 id="opencode-agent-welcome-title">ArchiveBox AI Agent</h1>
+                            <!-- Official OpenCode light wordmark: https://opencode.ai/brand -->
+                            <svg class="opencode-agent-welcome-logo" role="img" aria-label="OpenCode" width="640" height="115" viewBox="0 0 640 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_1401_86330)">
+                            <mask id="mask0_1401_86330" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="0" width="640" height="115">
+                            <path d="M640 0H0V115H640V0Z" fill="white"/>
+                            </mask>
+                            <g mask="url(#mask0_1401_86330)">
+                            <path d="M49.2346 82.1433H16.4141V49.2861H49.2346V82.1433Z" fill="#CFCECD"/>
+                            <path d="M49.2308 32.8573H16.4103V82.143H49.2308V32.8573ZM65.641 98.5716H0V16.4287H65.641V98.5716Z" fill="#656363"/>
+                            <path d="M131.281 82.1433H98.4609V49.2861H131.281V82.1433Z" fill="#CFCECD"/>
+                            <path d="M98.4649 82.143H131.285V32.8573H98.4649V82.143ZM147.696 98.5716H98.4649V115H82.0547V16.4287H147.696V98.5716Z" fill="#656363"/>
+                            <path d="M229.746 65.7139V82.1424H180.516V65.7139H229.746Z" fill="#CFCECD"/>
+                            <path d="M229.743 65.7144H180.512V82.143H229.743V98.5716H164.102V16.4287H229.743V65.7144ZM180.512 49.2859H213.332V32.8573H180.512V49.2859Z" fill="#656363"/>
+                            <path d="M295.383 98.5718H262.562V49.2861H295.383V98.5718Z" fill="#CFCECD"/>
+                            <path d="M295.387 32.8573H262.567V98.5716H246.156V16.4287H295.387V32.8573ZM311.797 98.5716H295.387V32.8573H311.797V98.5716Z" fill="#656363"/>
+                            <path d="M393.848 82.1433H344.617V49.2861H393.848V82.1433Z" fill="#CFCECD"/>
+                            <path d="M393.844 32.8573H344.613V82.143H393.844V98.5716H328.203V16.4287H393.844V32.8573Z" fill="#211E1E"/>
+                            <path d="M459.485 82.1433H426.664V49.2861H459.485V82.1433Z" fill="#CFCECD"/>
+                            <path d="M459.489 32.8573H426.668V82.143H459.489V32.8573ZM475.899 98.5716H410.258V16.4287H475.899V98.5716Z" fill="#211E1E"/>
+                            <path d="M541.539 82.1433H508.719V49.2861H541.539V82.1433Z" fill="#CFCECD"/>
+                            <path d="M541.535 32.8571H508.715V82.1428H541.535V32.8571ZM557.946 98.5714H492.305V16.4286H541.535V0H557.946V98.5714Z" fill="#211E1E"/>
+                            <path d="M639.996 65.7139V82.1424H590.766V65.7139H639.996Z" fill="#CFCECD"/>
+                            <path d="M590.77 32.8573V49.2859H623.59V32.8573H590.77ZM640 65.7144H590.77V82.143H640V98.5716H574.359V16.4287H640V65.7144Z" fill="#211E1E"/>
+                            </g>
+                            </g>
+                            <defs>
+                            <clipPath id="clip0_1401_86330">
+                            <rect width="640" height="115" fill="white"/>
+                            </clipPath>
+                            </defs>
+                            </svg>
+                        </div>
                         <p>This agent can work directly with your ArchiveBox collection. It can inspect the crawl database, create and monitor crawls, run maintenance operations, answer research questions, query archived data, and help with complex collection workflows.</p>
-                        <p>To connect ChatGPT on a hosted server or in Docker, choose <strong>ChatGPT Pro/Plus → Headless</strong>. For Anthropic, enter an API key.</p>
+                        <p><strong>Set up your preferred model provider first</strong> using the model selector in the chat box. Free models are also available.</p>
+                        <p>Your prompts and archive content accessed by the agent may be sent to the selected model provider. Only use providers you trust with that data, including when choosing free models from third parties.</p>
                         <p>Example prompts:</p>
                         <ul>
                             <li>Archive this list of URLs with depth 0, then report which ones failed and why.</li>
@@ -201,6 +261,11 @@
                             The agent has unrestricted access to this collection and can make destructive edits. Review requests carefully. Permission settings can be changed from the OpenCode gear icon in the lower left.
                         </div>
                         <div class="opencode-agent-welcome-actions">
+                            <div class="opencode-agent-welcome-links">
+                                <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/mcp/README.md#usage" target="_blank" rel="noopener noreferrer">MCP Setup</a>
+                                <span aria-hidden="true">&middot;</span>
+                                <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/skills/archivebox/SKILL.md" target="_blank" rel="noopener noreferrer">SKILL.md</a>
+                            </div>
                             <button type="button" id="opencode-agent-welcome-dismiss">Start using Agent</button>
                         </div>
                     </div>
