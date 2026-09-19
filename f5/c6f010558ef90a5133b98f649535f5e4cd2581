@@ -1,0 +1,28 @@
+README.md
+  h_923c208e183a7b 1,4-5
+abx_plugins/plugins/tlsnotary/server/web/index.html
+  h_923c208e183a7b 20,616
+abx_plugins/plugins/tlsnotary/templates/full.html
+  h_923c208e183a7b 20,616
+docs/CNAME
+  h_923c208e183a7b 1
+docs/generate.py
+  h_923c208e183a7b 570
+docs/index.html
+  h_923c208e183a7b 7-12,1018,1020,10411
+docs/index.html.j2
+  h_923c208e183a7b 7-12,1018,1020,1400
+pyproject.toml
+  h_923c208e183a7b 86,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f5c6f010558ef90a5133b98f649535f5e4cd2581",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
