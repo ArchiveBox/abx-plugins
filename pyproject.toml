@@ -83,9 +83,9 @@ exclude = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ArchiveBox/abx-plugins"
+Homepage = "https://plugins.archivebox.io/"
 Source = "https://github.com/ArchiveBox/abx-plugins"
-Documentation = "https://github.com/ArchiveBox/ArchiveBox"
+Documentation = "https://plugins.archivebox.io/"
 "Bug Tracker" = "https://github.com/ArchiveBox/abx-plugins/issues"
 
 [tool.pytest.ini_options]
