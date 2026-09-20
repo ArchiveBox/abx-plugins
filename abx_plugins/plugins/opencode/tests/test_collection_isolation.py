@@ -2,13 +2,33 @@ import json
 import os
 import socket
 import subprocess
+from pathlib import Path
 
 import requests
 import pytest
 
+from abx_plugins.plugins.base.testing import install_required_binary_from_config
+
+
+@pytest.fixture(scope="module")
+def opencode_env(tmp_path_factory):
+    plugin_dir = Path(__file__).parents[1]
+    env = {
+        **os.environ,
+        "ABXPKG_LIB_DIR": str(tmp_path_factory.mktemp("opencode-lib")),
+    }
+    for name in ("node", "npm", "git", "opencode"):
+        binary = install_required_binary_from_config(plugin_dir, name, env=env)
+        assert binary.abspath and binary.version, f"Failed to install {name}"
+    return env
+
 
 @pytest.mark.parametrize("collection_is_repo", [False, True])
-def test_collection_is_not_a_git_project_or_file_index(tmp_path, collection_is_repo):
+def test_collection_is_not_a_git_project_or_file_index(
+    tmp_path,
+    collection_is_repo,
+    opencode_env,
+):
     """Exercise the real pinned OpenCode server, including its background indexer."""
     from abx_plugins.plugins.opencode import runtime
 
@@ -50,11 +70,7 @@ def test_collection_is_not_a_git_project_or_file_index(tmp_path, collection_is_r
         {
             "DATA_DIR": str(collection),
             "OPENCODE_PORT": port,
-            **(
-                {"ABXPKG_LIB_DIR": os.environ["ABXPKG_LIB_DIR"]}
-                if "ABXPKG_LIB_DIR" in os.environ
-                else {}
-            ),
+            "ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"],
         },
     )
     config = settings["config_home"] / "opencode" / "opencode.jsonc"
