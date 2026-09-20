@@ -1,0 +1,16 @@
+abx_plugins/plugins/opentimestamps/templates/viewer.html
+  h_923c208e183a7b 13-14
+abx_plugins/plugins/opentimestamps/tests/test_opentimestamps.py
+  h_923c208e183a7b 180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "929fe4c24353e71eeba0c145df31df2b14ef15b3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
