@@ -25,6 +25,8 @@ Each card occupies one 42px snapshot grid row (normal cards occupy three), with 
 | htmltotext | htmltotext.txt | Article reader |
 | defuddle | content.html | Article reader |
 | trafilatura | configured primary content file | Article reader |
+| liteparse | primary extracted TXT / JSON | Article reader with document selector |
+| opendataloader | content.md / content.txt | Article reader with output selector |
 
 Full views use inline CSS and JavaScript, with no new runtime dependencies or
 cross-plugin template imports. On narrow screens diagrams stack, long values
@@ -33,7 +35,8 @@ wrap, and toolbar labels collapse to accessible icons.
 Every viewer has three output actions:
 
 - **View all files** opens the plugin directory with `?files=1`.
-- **Download** targets the main output file directly.
+- **Download** targets the main output file directly. Text/document readers use
+  `?raw=1` to preserve the original bytes without automatic Markdown conversion.
 - **View raw** opens that file with `?preview=1&raw=1`, bypassing its plugin
   template and using ArchiveBox's text/JSON preview.
 
@@ -55,6 +58,3 @@ DNS displays only captured relationships: configured nameservers are not proof
 that a specific server answered a browser request. SEO images use locally
 captured response files when available. Certificate downloads use captured PEM
 files; certificate-chain labels reflect the captured certificate metadata.
-
-The newer document extractors liteparse and opendataloader are pending an explicit
-viewer choice; their existing file views remain available.

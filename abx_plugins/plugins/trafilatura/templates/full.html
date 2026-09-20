@@ -10,10 +10,11 @@
 (() => {
   const compact=new URLSearchParams(location.search).get('card')==='1';document.body.classList.toggle('card-view',compact);
   const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';const folder=new URL('./',output);
-  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=output.href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
+  const rawBytes=url=>{const value=new URL(url);value.searchParams.set('raw','1');return value};
+  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=rawBytes(output).href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
   const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!=null)node.textContent=String(text);if(cls)node.className=cls;return node};
   const asArticleText=(text,pathname)=>{const lower=pathname.toLowerCase();if(lower.endsWith('.html')||lower.endsWith('.htm'))return new DOMParser().parseFromString(text,'text/html').body?.textContent||'';if(lower.endsWith('.xml')||lower.endsWith('.xmltei'))return new DOMParser().parseFromString(text,'application/xml').documentElement?.textContent||'';if(lower.endsWith('.json')){try{const data=JSON.parse(text);return [data.text,data.raw_text,data.body,data.content].find(value=>typeof value==='string'&&value.trim())||text}catch{return text}}return text};
-  const loadArticle=async()=>{const textOutput=new URL('content.txt',folder),candidates=output.pathname.endsWith('/content.txt')?[output]:[textOutput,output];for(const candidate of candidates){try{const response=await fetch(candidate);if(!response.ok)continue;const raw=await response.text(),text=asArticleText(raw,candidate.pathname).trim();if(text)return text}catch{}}throw new Error('No readable article output')};
+  const loadArticle=async()=>{const textOutput=new URL('content.txt',folder),candidates=output.pathname.endsWith('/content.txt')?[output]:[textOutput,output];for(const candidate of candidates){try{const response=await fetch(rawBytes(candidate));if(!response.ok)continue;const raw=await response.text(),text=asArticleText(raw,candidate.pathname).trim();if(text)return text}catch{}}throw new Error('No readable article output')};
   const summary=document.getElementById('card-summary'),article=document.getElementById('article');loadArticle().then(text=>{const words=text.split(/\s+/).length;article.textContent=text;summary.append(el('span',text),el('span',words+' word'+(words===1?'':'s'),'badge'))}).catch(()=>{article.textContent='Unable to read extracted article text.';article.className='muted'});
 })();
 </script></body></html>

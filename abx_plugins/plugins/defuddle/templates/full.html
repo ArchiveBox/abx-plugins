@@ -10,8 +10,9 @@
 (() => {
   const compact=new URLSearchParams(location.search).get('card')==='1';document.body.classList.toggle('card-view',compact);
   const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';const folder=new URL('./',output);
-  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=output.href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';if(!compact)document.getElementById('reader').src=output.href;
+  const rawBytes=url=>{const value=new URL(url);value.searchParams.set('raw','1');return value};
+  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=rawBytes(output).href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';if(!compact)document.getElementById('reader').src=output.href;
   const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!=null)node.textContent=String(text);if(cls)node.className=cls;return node};
-  if(compact)fetch(output).then(r=>{if(!r.ok)throw new Error(r.status);return r.text()}).then(html=>{const doc=new DOMParser().parseFromString(html,'text/html'),text=(doc.body?.textContent||'').replace(/\s+/g,' ').trim(),words=text?text.split(/\s+/).length:0;document.getElementById('card-summary').append(el('span',text||'Clean article'),el('span',words+' word'+(words===1?'':'s'),'badge'))}).catch(()=>document.getElementById('card-summary').append(el('span','Clean article')));
+  if(compact)fetch(rawBytes(output)).then(r=>{if(!r.ok)throw new Error(r.status);return r.text()}).then(html=>{const doc=new DOMParser().parseFromString(html,'text/html'),text=(doc.body?.textContent||'').replace(/\s+/g,' ').trim(),words=text?text.split(/\s+/).length:0;document.getElementById('card-summary').append(el('span',text||'Clean article'),el('span',words+' word'+(words===1?'':'s'),'badge'))}).catch(()=>document.getElementById('card-summary').append(el('span','Clean article')));
 })();
 </script></body></html>

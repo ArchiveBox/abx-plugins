@@ -15,14 +15,14 @@ header h1{display:none}main{min-height:calc(100vh - 62px);display:grid;place-ite
   output.search = ''; output.hash = '';
   const folder = new URL('./', output);
   document.getElementById('files').href = folder.href + '?files=1';
-  document.getElementById('download').href = output.href;
+  document.getElementById('download').href = output.href + '?raw=1';
   document.getElementById('raw').href = output.href + '?preview=1&raw=1';
   const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = String(text); if (cls) node.className = cls; return node; };
   const safeLink = (value, label) => { const a = el('a', label || value); try { const u = new URL(value); if (['https:', 'http:'].includes(u.protocol)) { a.href = u.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; } } catch {} return a; };
   const summary = document.getElementById('card-summary');
   const content = document.getElementById('content');
   
-  fetch(output).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); }).then(title => {
+  fetch(output.href + '?raw=1').then(r => { if (!r.ok) throw new Error(r.status); return r.text(); }).then(title => {
     summary.append(el('span', title));
     content.append(el('h1', title, 'page-title'));
   });

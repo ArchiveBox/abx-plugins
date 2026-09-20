@@ -10,9 +10,10 @@
 (() => {
   const compact=new URLSearchParams(location.search).get('card')==='1';document.body.classList.toggle('card-view',compact);
   const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';const folder=new URL('./',output);
-  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=output.href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
+  const rawBytes=url=>{const value=new URL(url);value.searchParams.set('raw','1');return value};
+  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=rawBytes(output).href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
   const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!=null)node.textContent=String(text);if(cls)node.className=cls;return node};
   const summary=document.getElementById('card-summary'),article=document.getElementById('article');
-  fetch(output).then(r=>{if(!r.ok)throw new Error(r.status);return r.text()}).then(text=>{const clean=text.trim(),words=clean?clean.split(/\s+/).length:0;article.textContent=clean;summary.append(el('span',clean||'Extracted text'),el('span',words+' word'+(words===1?'':'s'),'badge'))}).catch(()=>{article.textContent='Unable to read extracted text.';article.className='muted'});
+  fetch(rawBytes(output)).then(r=>{if(!r.ok)throw new Error(r.status);return r.text()}).then(text=>{const clean=text.trim(),words=clean?clean.split(/\s+/).length:0;article.textContent=clean;summary.append(el('span',clean||'Extracted text'),el('span',words+' word'+(words===1?'':'s'),'badge'))}).catch(()=>{article.textContent='Unable to read extracted text.';article.className='muted'});
 })();
 </script></body></html>
