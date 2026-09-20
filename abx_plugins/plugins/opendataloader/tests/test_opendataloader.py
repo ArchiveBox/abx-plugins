@@ -336,10 +336,10 @@ def test_extract_single_pdf():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place PDF as if the responses plugin saved an original PDF response.
-        responses_dir = snap_dir / "responses" / "application" / "example.com"
-        responses_dir.mkdir(parents=True, exist_ok=True)
-        (responses_dir / "output.pdf").write_bytes(pdf_content)
+        # Place PDF as if wget saved the original response body.
+        wget_dir = snap_dir / "wget" / "example.com"
+        wget_dir.mkdir(parents=True, exist_ok=True)
+        (wget_dir / "output.pdf").write_bytes(pdf_content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)

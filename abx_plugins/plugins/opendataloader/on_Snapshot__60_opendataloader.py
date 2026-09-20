@@ -5,7 +5,7 @@
 """
 Extract structured text from PDFs using opendataloader-pdf.
 
-Finds all PDF files produced by other plugins (pdf, responses, staticfile)
+Finds original PDF files produced by other plugins (responses, staticfile, wget)
 and extracts text, tables, and metadata from each one. Processes every PDF
 found, combining results into content.md, content.txt, and metadata.json.
 
@@ -87,7 +87,7 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
 def find_pdf_sources() -> list[Path]:
     """Find all PDF files from sibling plugin output directories.
 
-    Searches for original PDF responses/static files. Browser-rendered
+    Searches for original PDF responses/static files and wget downloads. Browser-rendered
     pdf/output.pdf exists for most HTML pages and is not a useful input here.
     """
     search_patterns = [
@@ -97,6 +97,9 @@ def find_pdf_sources() -> list[Path]:
         # Staticfile plugin output
         "staticfile/**/*.pdf",
         "*_staticfile/**/*.pdf",
+        # Wget plugin output (original response bytes)
+        "wget/**/*.pdf",
+        "*_wget/**/*.pdf",
     ]
 
     found: list[Path] = []
