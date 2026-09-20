@@ -1,0 +1,28 @@
+abx_plugins/plugins/dns/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/dns/templates/full.html
+  h_923c208e183a7b 1-32
+abx_plugins/plugins/headers/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/headers/templates/full.html
+  h_923c208e183a7b 1-27
+abx_plugins/plugins/redirects/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/redirects/templates/full.html
+  h_923c208e183a7b 1-31
+abx_plugins/plugins/sslcerts/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/sslcerts/templates/full.html
+  h_923c208e183a7b 1-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8468771c3075cf13244f68371e7d0dded6a83f29",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
