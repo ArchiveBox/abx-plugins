@@ -107,6 +107,7 @@ Lifecycle:
 - optional binary preflight can run before crawl setup, but hook scripts also resolve declared binaries through shared config helpers when run directly
 - `on_CrawlSetup__*` runs before snapshot extraction; background setup hooks use their first stdout line as readiness and emit no stdout JSONL records
 - `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
+- `wait_for_plugins` lists optional producers that must finish before a consumer hook runs; it does not enable them. Final-file consumers may also declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
 
 State:
 

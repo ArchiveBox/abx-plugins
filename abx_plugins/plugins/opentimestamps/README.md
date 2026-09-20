@@ -54,6 +54,8 @@ those values. `--url` identifies the hook invocation; it is not sent to calendar
 starts after the previous process exits. Hashes also declares `wait_for_plugins`
 for optional download producers, so runners supporting that metadata wait for
 already-started downloads without enabling them.
+It declares `wait_for_background_cleanup` so supported runners flush and stop
+snapshot monitors after TLSNotary finishes and before the manifest is generated.
 
 TLSNotary publishes real files under `tlsnotary/capture-*/` before atomically
 switching its `current` symlink. Hashes walks those real directories, including
@@ -70,8 +72,11 @@ explicitly; the plugin neither runs hashes itself nor waits for arbitrary stale
 files. Direct callers must finish producers, run hashes successfully, and then
 run OpenTimestamps. Concurrent writers/runs in the same snapshot are unsupported.
 
-The manifest is created after the foreground captures and declared downloads finish.
-Browser monitors and runner logs may still write during cleanup.
+The manifest is created after the foreground captures, declared downloads, and
+snapshot monitor cleanup finish. Shared browser/session state (`chrome/`,
+`.persona/`, `.abx-dl/`) and the root runner `index.jsonl` are excluded because
+they can change after this snapshot finishes. Archived responses, certificates,
+TLSNotary evidence, and retained screencast frames remain included.
 `hashes/` and `opentimestamps/` are excluded from hashing to avoid circular
 commitments and recursive inclusion of prior timestamp proofs.
 

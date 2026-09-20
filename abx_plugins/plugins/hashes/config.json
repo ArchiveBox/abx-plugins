@@ -29,6 +29,7 @@
   },
   "category": "metadata",
   "display_order": 100,
+  "wait_for_background_cleanup": true,
   "wait_for_plugins": [
     "ytdlp",
     "gallerydl",

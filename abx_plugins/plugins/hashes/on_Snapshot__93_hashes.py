@@ -59,10 +59,19 @@ def collect_files(
 
     for root, dirs, filenames in os.walk(snapshot_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        if Path(root) == snapshot_dir:
+            # Session state belongs to the runner and can change after this
+            # snapshot finishes (or be shared with the next snapshot).
+            dirs[:] = [d for d in dirs if d not in {".persona", ".abx-dl", "chrome"}]
 
         for filename in filenames:
             filepath = Path(root) / filename
             rel_path = filepath.relative_to(snapshot_dir)
+
+            # The runner keeps appending lifecycle records after hashing. These
+            # are execution bookkeeping, not archived content or evidence.
+            if rel_path == Path("index.jsonl"):
+                continue
 
             if filepath.is_symlink():
                 continue
