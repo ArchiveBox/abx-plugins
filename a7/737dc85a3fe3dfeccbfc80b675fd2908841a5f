@@ -1,0 +1,26 @@
+.github/pages/verify.py
+  h_923c208e183a7b 17
+abx_plugins/plugins/opentimestamps/README.md
+  h_923c208e183a7b 8-11,73-74,103,118-120
+abx_plugins/plugins/opentimestamps/config.json
+  h_923c208e183a7b 4
+abx_plugins/plugins/opentimestamps/templates/viewer.html
+  h_923c208e183a7b 13-14,18,21
+abx_plugins/plugins/opentimestamps/tests/test_opentimestamps.py
+  h_923c208e183a7b 180-181
+pyproject.toml
+  h_923c208e183a7b 52
+uv.lock
+  h_923c208e183a7b 6,12,38,74,116,118,246-292,480-498,664-675
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a7737dc85a3fe3dfeccbfc80b675fd2908841a5f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
