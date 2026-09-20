@@ -1,0 +1,16 @@
+.github/pages/site.py
+  h_923c208e183a7b 40-43
+.github/pages/verify.py
+  h_923c208e183a7b 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9d21bb4ea4d989d302b15a6530c8f530d2ee3343",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
