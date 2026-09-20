@@ -23,11 +23,23 @@ def opencode_env(tmp_path_factory):
     return env
 
 
+@pytest.fixture(scope="module")
+def rg_binary(opencode_env):
+    binary = install_required_binary_from_config(
+        Path(__file__).parents[2] / "search_backend_ripgrep",
+        "rg",
+        env=opencode_env,
+    )
+    assert binary.abspath and binary.version, "Failed to install ripgrep"
+    return str(binary.abspath)
+
+
 @pytest.mark.parametrize("collection_is_repo", [False, True])
 def test_collection_is_not_a_git_project_or_file_index(
     tmp_path,
     collection_is_repo,
     opencode_env,
+    rg_binary,
 ):
     """Exercise the real pinned OpenCode server, including its background indexer."""
     from abx_plugins.plugins.opencode import runtime
@@ -101,7 +113,7 @@ def test_collection_is_not_a_git_project_or_file_index(
         # Verify the actual fallback indexer's traversal independently of its
         # asynchronous cache, which could otherwise be empty before indexing ends.
         indexed = subprocess.run(
-            ["rg", "--no-config", "--files", "--glob=!**/.git/**", "."],
+            [rg_binary, "--no-config", "--files", "--glob=!**/.git/**", "."],
             cwd=collection,
             capture_output=True,
             text=True,
