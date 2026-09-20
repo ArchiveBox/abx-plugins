@@ -54,7 +54,7 @@ environment variables or shell commands. Sonic reads snapshot metadata from
 - `PERSONAS_DIR` - persona profiles root (default: `~/.config/abx/personas`)
 - `ACTIVE_PERSONA` - persona name (default: `Default`)
 
-### Binary dependency contract (concise)
+### Binary dependency contract
 
 Lifecycle:
 
@@ -97,7 +97,10 @@ State/OS:
 - durable install root: `ABXPKG_LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
 - built-in providers include `apt` (Debian/Ubuntu), `brew` (macOS/Linux), and language/runtime-specific installers; many hooks currently assume POSIX paths
 
-### Hook family contract
+### Plugin Hook Lifecycle
+
+<img width="333" height="238" alt="Screenshot 2026-09-20 at 5 29 57 AM" src="https://github.com/user-attachments/assets/27af3ce7-e480-48f0-b6a0-5e445abbd792" />
+
 
 Lifecycle:
 
@@ -203,3 +206,5 @@ Hooks emit plain JSONL records to stdout. The current hook families and records 
 - `on_Snapshot__*` → background readiness line when applicable, then `ArchiveResult`, `Snapshot`, `Tag`
 
 `abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.
+
+<img width="391" height="149" alt="Screenshot 2026-09-20 at 6 17 27 AM" src="https://github.com/user-attachments/assets/bcd4f84e-09db-4f8a-9913-164823be0b79" /><img width="389" height="456" alt="Screenshot 2026-09-20 at 6 17 44 AM" src="https://github.com/user-attachments/assets/4bb945b7-2496-4d8d-b51a-9841fd700eee" />
