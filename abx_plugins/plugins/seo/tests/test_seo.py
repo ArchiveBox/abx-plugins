@@ -34,6 +34,11 @@ CHROME_STARTUP_TIMEOUT_SECONDS = 45
 @pytest.fixture
 def seo_test_url(httpserver):
     """Serve a deterministic page with known SEO tags."""
+    image = Path(__file__).resolve().parents[4] / "docs/assets/social-card.png"
+    httpserver.expect_request("/featured.png").respond_with_data(
+        image.read_bytes(),
+        content_type="image/png",
+    )
     httpserver.expect_request("/seo").respond_with_data(
         """
         <!doctype html>
@@ -43,6 +48,7 @@ def seo_test_url(httpserver):
             <title>Deterministic SEO Title</title>
             <meta name="description" content="SEO fixture description" />
             <meta name="keywords" content="archivebox,seo,fixture" />
+            <meta property="og:image" content="/featured.png" />
             <meta property="og:title" content="Deterministic OG Title" />
             <meta property="og:description" content="Deterministic OG Description" />
             <meta name="twitter:title" content="Deterministic Twitter Title" />
@@ -136,6 +142,14 @@ class TestSEOWithChrome:
             assert result_json["output_str"] == "seo/seo.json", result_json
 
             assert seo_output.exists(), "No seo.json produced"
+            featured_image = seo_dir / "featured-image.png"
+            assert featured_image.is_file(), "Featured image was not archived"
+            assert (
+                featured_image.read_bytes()
+                == (
+                    Path(__file__).resolve().parents[4] / "docs/assets/social-card.png"
+                ).read_bytes()
+            )
             seo_data = json.loads(seo_output.read_text())
             assert seo_data["title"] == "Deterministic SEO Title"
             assert seo_data["description"] == "SEO fixture description"

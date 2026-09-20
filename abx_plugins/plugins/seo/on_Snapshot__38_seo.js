@@ -103,6 +103,28 @@ async function extractSeo(url) {
       return seo;
     });
 
+    // Archive the social preview image even when it is not displayed in the page.
+    for (const name of fs.readdirSync(OUTPUT_DIR)) {
+      if (/^featured-image\.[a-z0-9]+$/i.test(name)) fs.unlinkSync(path.join(OUTPUT_DIR, name));
+    }
+    const imageTypes = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif", "image/svg+xml": "svg", "image/x-icon": "ico", "image/vnd.microsoft.icon": "ico"};
+    const imageURLs = [...new Set([seoData["og:image:secure_url"], seoData["og:image"], seoData["og:image:url"], seoData["twitter:image"], seoData["twitter:image:src"], seoData.image].filter(Boolean))];
+    for (const candidate of imageURLs) {
+      try {
+        const imageURL = new URL(candidate, seoData.url);
+        if (!["http:", "https:"].includes(imageURL.protocol)) continue;
+        const response = await fetch(imageURL, {signal: AbortSignal.timeout(Math.min(timeout, 10000))});
+        const extension = imageTypes[(response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase()];
+        if (!response.ok || !extension) { await response.body?.cancel(); continue; }
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (!bytes.length) continue;
+        fs.writeFileSync(path.join(OUTPUT_DIR, `featured-image.${extension}`), bytes);
+        break;
+      } catch (error) {
+        console.warn(`Could not archive featured image: ${error.message}`);
+      }
+    }
+
     // Write output
     fs.writeFileSync(outputPath, JSON.stringify(seoData, null, 2));
 
