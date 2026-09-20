@@ -3,13 +3,13 @@ revision = 3
 requires-python = ">=3.12, <3.15"
 
 [options]
-exclude-newer = "2026-09-14T06:17:47.336524301Z"
+exclude-newer = "2026-09-15T09:49:04.434560343Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-09-19T06:17:46.336537215Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-20T09:49:03.434571179Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
@@ -55,7 +55,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abxbus", specifier = "==2.5.57" },
-    { name = "abxpkg", specifier = "==1.12.129" },
+    { name = "abxpkg", specifier = "==1.12.132" },
     { name = "httpx", marker = "extra == 'opencode'", specifier = ">=0.28.1" },
     { name = "imagesize", specifier = ">=2.0.0" },
     { name = "requests", marker = "extra == 'opencode'", specifier = ">=2.32.3" },
@@ -103,7 +103,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.12.129"
+version = "1.12.132"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
@@ -111,9 +111,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/31/08/6d0a1040a2b15a5e0f34e7804c0c88fa7a9c9218d1817b31ecf5faaa6a28/abxpkg-1.12.129.tar.gz", hash = "sha256:f3408831820dd85f9db6ac8ea4089992fa57c61cd35c4f91ac06140ff4d960ed", size = 239382 }
+sdist = { url = "https://files.pythonhosted.org/packages/05/5a/7bbbae5873f1496723189c9ee098c8c41c295e27a1689f928b2857b8a2d9/abxpkg-1.12.132.tar.gz", hash = "sha256:fc823e9fd615d28a850e7160ecc573444d51ed4d7e74cca922c0ebb8b28b39c7", size = 239393 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/90/64a3bf8664f24b7899b3c6e8d48413b68441c60a600d163ec4d69e9be6e8/abxpkg-1.12.129-py3-none-any.whl", hash = "sha256:95c1d45280419aedf69db035c783cb408f56064c97687a9914f4ff32831fcc39", size = 253747 },
+    { url = "https://files.pythonhosted.org/packages/e3/97/4e9a9920b57a036f7105716c2b292e013fef8be8020f43fd7a1f82b87d16/abxpkg-1.12.132-py3-none-any.whl", hash = "sha256:eb1a4cf6bc1b97673ef0f56b9828fbaec9f9c6a001d932b917b27246cd39ddac", size = 253748 },
 ]
 
 [[package]]
