@@ -1,0 +1,36 @@
+abx_plugins/plugins/hashes/config.json
+  h_923c208e183a7b 31-42
+abx_plugins/plugins/hashes/on_Snapshot__93_hashes.py
+  h_923c208e183a7b 23-27,41-44,57,198-200,202,209,227-230
+abx_plugins/plugins/opentimestamps/README.md
+  h_923c208e183a7b 1-137
+abx_plugins/plugins/opentimestamps/config.json
+  h_923c208e183a7b 1-56
+abx_plugins/plugins/opentimestamps/on_Snapshot__99_opentimestamps.py
+  h_923c208e183a7b 1-136
+abx_plugins/plugins/opentimestamps/templates/card.html
+  h_923c208e183a7b 1
+abx_plugins/plugins/opentimestamps/templates/full.html
+  h_923c208e183a7b 1-23
+abx_plugins/plugins/opentimestamps/templates/icon.html
+  h_923c208e183a7b 1
+abx_plugins/plugins/opentimestamps/tests/test_opentimestamps.py
+  h_923c208e183a7b 1-200
+abx_plugins/plugins/tlsnotary/README.md
+  h_923c208e183a7b 139-146
+docs/generate.py
+  h_923c208e183a7b 61,574-577
+docs/index.html
+  h_923c208e183a7b 1263,3031,3058,3106,3109,9356-9542,9679,9681-9684,9690,9692-9693,9695-9703,9711,9714,9716,9724-9725,9731-9732,9735-9745,9751,9755-9758,9766,9776,9787,9789,9812,9821-9822,9830-9831,9839-9840,9842-9843,9848-9849,9852,10307,10377-10378,10381,10706,10902
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "340f53086361c4d49089589e8c537a62c0f1451d",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
