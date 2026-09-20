@@ -5,19 +5,19 @@ import argparse
 import json
 import os
 import shutil
-from datetime import datetime, timezone
+import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
-
 SITE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SITE_DIR.parent
 PLUGINS_DIR = REPO_ROOT / "abx_plugins" / "plugins"
 TEMPLATE_DIR = SITE_DIR
-DEFAULT_OUTPUT_DIR = SITE_DIR
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "_site"
 ASSETS_DIR = SITE_DIR / "css"
 EXCLUDED_PLUGIN_DIRS = {"__pycache__"}
 GITHUB_REPO = "https://github.com/ArchiveBox/abx-plugins"
@@ -557,7 +557,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
     template = environment.get_template(template_name)
     html = template.render(
         site={
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "generated_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
             "github_repo": GITHUB_REPO,
             "github_ref": DEFAULT_GITHUB_REF,
             "plugin_count": len(plugins),
@@ -576,6 +576,18 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
         encoding="utf-8",
     )
     (output_dir / ".nojekyll").write_text("", encoding="utf-8")
+    subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            str(REPO_ROOT / ".github/pages/site.py"),
+            "render",
+            str(output_dir.resolve()),
+        ],
+        check=True,
+    )
     return index_path
 
 
