@@ -1,0 +1,14 @@
+abx_plugins/plugins/opendataloader/config.json
+  h_923c208e183a7b 108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e90f79268e10727d16897fc3d81156d92d58e12d",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
