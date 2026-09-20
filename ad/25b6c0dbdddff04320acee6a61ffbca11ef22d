@@ -1,0 +1,18 @@
+.github/pages/base/marquee.css
+  h_923c208e183a7b 3,6
+.github/pages/marquee.py
+  h_923c208e183a7b 81,97-98
+.github/pages/site.py
+  h_923c208e183a7b 115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ad25b6c0dbdddff04320acee6a61ffbca11ef22d",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
