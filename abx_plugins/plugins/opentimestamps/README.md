@@ -5,11 +5,10 @@ only CLI arguments, environment configuration, sibling files, shared base helper
 and the upstream `ots` CLI. No ArchiveBox database or abx-dl imports are required.
 
 The stamped bytes include the Merkle root **and** the file paths, hashes, sizes,
-and metadata. The client sends a blinded commitment to the configured calendars;
-it does not upload the manifest, URL, archive files, or TLSNotary responses.
-Calendar acceptance is a **pending proof**, not a verified Bitcoin timestamp.
-See the [upstream client](https://github.com/opentimestamps/opentimestamps-client)
-for protocol details and verification requirements.
+and metadata. The client sends only a blinded commitment to the configured calendars.
+See [the archive trust chain](https://tlsnotary.zervice.io/) for how the evidence
+fits together, and the [upstream client](https://github.com/opentimestamps/opentimestamps-client)
+for OpenTimestamps commands.
 
 ## Run with abx-dl
 
@@ -71,10 +70,8 @@ explicitly; the plugin neither runs hashes itself nor waits for arbitrary stale
 files. Direct callers must finish producers, run hashes successfully, and then
 run OpenTimestamps. Concurrent writers/runs in the same snapshot are unsupported.
 
-The manifest describes files at the hashing boundary. Browser monitors and runner
-logs may still change during cleanup; timestamping does not freeze those files or
-certify later changes. This ordering guarantees completed TLSNotary captures and
-the completed manifest, not quiescence of every background browser recorder.
+The manifest is created after the foreground captures and declared downloads finish.
+Browser monitors and runner logs may still write during cleanup.
 `hashes/` and `opentimestamps/` are excluded from hashing to avoid circular
 commitments and recursive inclusion of prior timestamp proofs.
 
@@ -103,8 +100,7 @@ OpenTimestamps emits `skipped`; missing prerequisites and network errors emit
 - `index.html`: offline summary, downloads, and verification instructions.
 
 Successful reruns publish a new generation and retain previous evidence. A failed
-rerun leaves the previous generation intact; that retained proof is not a claim
-that the failed run succeeded. `card.html`, `full.html`, and `icon.html` provide
+rerun leaves the previous generation intact. `card.html`, `full.html`, and `icon.html` provide
 the card, full preview wrapper, and plugin icon without host imports. The hook
 renders `viewer.html` into each generation's standalone `index.html`; the host
 templates embed that completed output instead of trying to reconstruct its data.
@@ -119,12 +115,9 @@ ots verify hashes.json.ots
 
 Custom calendars may require `ots -l https://your-calendar.example upgrade ...`.
 Verification with the upstream client normally uses your Bitcoin node. Keep the
-manifest alongside its proof; a hash mismatch must fail verification. Independently
-compare archived files against the retained manifest, and separately verify
-TLSNotary receipts with an independently trusted verifier key. Timestamping
-establishes prior existence after successful verification, not page authenticity,
-truth, or an exact capture time. The viewer intentionally does not claim it has
-verified Bitcoin confirmation, even after you upgrade the proof externally.
+manifest alongside its proof. The complete explanation of TLS certificates,
+TLSNotary, archive hashes, and timestamps lives at
+[tlsnotary.zervice.io](https://tlsnotary.zervice.io/).
 
 ## Tests
 

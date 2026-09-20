@@ -177,7 +177,8 @@ def test_live_stamp_and_failed_rerun_preserves_evidence(tmp_path):
     page = (current / "index.html").read_text()
     assert json.loads(manifest)["root_hash"] in page
     assert "$ROOT_HASH" not in page and "$MANIFEST_SHA256" not in page
-    assert "Bitcoin confirmation has not been checked" in page
+    assert 'class="status">Calendar submission saved' in page
+    assert 'href="https://tlsnotary.zervice.io/"' in page
 
     # The real client must reject altered manifest bytes before network verification.
     altered = tmp_path / "altered.json"

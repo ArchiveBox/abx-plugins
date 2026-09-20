@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenTimestamps",
-  "description": "Submit the completed hash manifest, including saved TLSNotary evidence, to OpenTimestamps calendars. Saves a detached proof pending Bitcoin confirmation; does not authenticate page origin.",
+  "description": "Timestamp the completed archive manifest, including any saved TLS certificates and TLSNotary proofs, using OpenTimestamps and Bitcoin.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["hashes"],

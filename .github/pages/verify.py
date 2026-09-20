@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 
 
 class Handler(SimpleHTTPRequestHandler):
-    def log_message(self, *args):
+    def log_message(self, format: str, *args) -> None:
         pass
 
 
