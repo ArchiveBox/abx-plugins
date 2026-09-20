@@ -1,0 +1,18 @@
+abx_plugins/plugins/opencode/config.json
+  h_923c208e183a7b 117-119
+abx_plugins/plugins/opencode/tests/test_runtime.py
+  h_923c208e183a7b 12
+abx_plugins/plugins/search_backend_sonic/config.json
+  h_923c208e183a7b 125-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9e974604fd9985c6b942077bed9b6fb5fb46b129",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
