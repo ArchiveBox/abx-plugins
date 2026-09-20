@@ -107,7 +107,7 @@ def main(url: str) -> None:
         if read_manifest(snap_dir) != manifest:
             raise ValueError("Hashes changed during submission; rerun OpenTimestamps")
 
-        page = (Path(__file__).parent / "templates/full.html").read_text()
+        page = (Path(__file__).parent / "templates/viewer.html").read_text()
         page = page.replace("$ROOT_HASH", root_hash).replace(
             "$MANIFEST_SHA256",
             hashlib.sha256(manifest).hexdigest(),

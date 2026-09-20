@@ -45,6 +45,21 @@ def test_evidence_hooks_run_in_order():
     assert all(".bg." not in name for name in names)
 
 
+def test_host_preview_embeds_the_generated_viewer():
+    from jinja2 import Environment, FileSystemLoader
+
+    templates = Environment(
+        loader=FileSystemLoader(PLUGINS / "opentimestamps/templates"),
+        autoescape=True,
+    )
+    output_path = "/archive/output/opentimestamps/current/index.html"
+    for name in ("card.html", "full.html"):
+        rendered = templates.get_template(name).render(output_path=output_path)
+        assert f'src="{output_path}"' in rendered
+        assert "$ROOT_HASH" not in rendered
+        assert "$MANIFEST_SHA256" not in rendered
+
+
 def test_hashes_publishes_completion_and_covers_tlsnotary(tmp_path):
     capture_files(tmp_path)
     code, record, stderr = run_plugin("hashes", tmp_path, HASHES_ENABLED="true")

@@ -105,7 +105,9 @@ OpenTimestamps emits `skipped`; missing prerequisites and network errors emit
 Successful reruns publish a new generation and retain previous evidence. A failed
 rerun leaves the previous generation intact; that retained proof is not a claim
 that the failed run succeeded. `card.html`, `full.html`, and `icon.html` provide
-the preview, standalone viewer, and plugin icon without host imports.
+the card, full preview wrapper, and plugin icon without host imports. The hook
+renders `viewer.html` into each generation's standalone `index.html`; the host
+templates embed that completed output instead of trying to reconstruct its data.
 
 After Bitcoin confirmation, from `opentimestamps/current/`:
 
