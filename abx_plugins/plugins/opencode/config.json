@@ -114,6 +114,9 @@
       "description": "Seconds to wait for OpenCode startup and proxied requests, including cold provider catalog loading"
     }
   },
+  "x-runtimes": [
+    "archivebox"
+  ],
   "x-auto-run": false,
   "hidden": true
 }

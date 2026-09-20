@@ -122,6 +122,9 @@
     "search": ["search.py", "search"],
     "flush": ["search.py", "flush"]
   },
+  "x-runtimes": [
+    "archivebox"
+  ],
   "x-auto-run": false,
   "hidden": true
 }

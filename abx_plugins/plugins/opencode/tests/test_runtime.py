@@ -9,6 +9,7 @@ import pytest
 def test_opencode_is_opt_in_and_excluded_from_downloader_image_installs():
     config = json.loads((Path(__file__).parents[1] / "config.json").read_text())
     assert "x-install-in-docker" not in config
+    assert config["x-runtimes"] == ["archivebox"]
     assert config["x-auto-run"] is False
     assert config["properties"]["OPENCODE_ENABLED"]["default"] is False
 
