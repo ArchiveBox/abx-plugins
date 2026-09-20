@@ -1,0 +1,14 @@
+abx_plugins/plugins/opencode/tests/test_collection_isolation.py
+  h_923c208e183a7b 26-36,42,116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7c5db8e51007d8e4a7697b0671c966ac55d7b345",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
