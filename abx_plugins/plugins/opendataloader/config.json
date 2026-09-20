@@ -105,5 +105,6 @@
     }
   },
   "category": "text",
-  "display_order": 80
+  "display_order": 80,
+  "x-install-in-docker": true
 }
