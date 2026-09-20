@@ -1,0 +1,48 @@
+abx_plugins/plugins/accessibility/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/accessibility/templates/full.html
+  h_923c208e183a7b 1-27
+abx_plugins/plugins/chrome/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/chrome/templates/full.html
+  h_923c208e183a7b 1-28
+abx_plugins/plugins/hashes/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/hashes/templates/full.html
+  h_923c208e183a7b 1-35
+abx_plugins/plugins/parse_dom_outlinks/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/parse_dom_outlinks/templates/full.html
+  h_923c208e183a7b 1-77
+abx_plugins/plugins/parse_html_urls/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/parse_html_urls/templates/full.html
+  h_923c208e183a7b 1-77
+abx_plugins/plugins/parse_jsonl_urls/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/parse_jsonl_urls/templates/full.html
+  h_923c208e183a7b 1-77
+abx_plugins/plugins/parse_netscape_urls/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/parse_netscape_urls/templates/full.html
+  h_923c208e183a7b 1-77
+abx_plugins/plugins/parse_rss_urls/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/parse_rss_urls/templates/full.html
+  h_923c208e183a7b 1-77
+abx_plugins/plugins/parse_txt_urls/templates/card.html
+  h_923c208e183a7b 1-2
+abx_plugins/plugins/parse_txt_urls/templates/full.html
+  h_923c208e183a7b 1-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e769e52216231db488854b66ea34551605b1983a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
