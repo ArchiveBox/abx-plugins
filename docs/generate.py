@@ -58,6 +58,7 @@ PLUGIN_SCREENSHOTS = {
     "parse_txt_urls": [("69-snapshot-view-parse-txt-urls", "Snapshot view")],
     "parse_dom_outlinks": [("70-snapshot-view-parse-dom-outlinks", "Snapshot view")],
     "hashes": [("71-snapshot-view-hashes", "Snapshot view")],
+    "opentimestamps": [("snapshot-view-opentimestamps", "Timestamp proof")],
     "opencode": [("07-ai-agent", "AI agent")],
 }
 
@@ -570,7 +571,10 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
     index_path = output_dir / "index.html"
     index_path.write_text(html + "\n", encoding="utf-8")
     copy_assets(output_dir)
-    (output_dir / "CNAME").write_text((SITE_DIR / "CNAME").read_text(), encoding="utf-8")
+    (output_dir / "CNAME").write_text(
+        (SITE_DIR / "CNAME").read_text(),
+        encoding="utf-8",
+    )
     (output_dir / ".nojekyll").write_text("", encoding="utf-8")
     return index_path
 

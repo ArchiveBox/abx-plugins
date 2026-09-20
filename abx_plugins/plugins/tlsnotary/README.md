@@ -136,3 +136,11 @@ Replace the real public Hacker News fixture path with your snapshot's
 This checks the real signature and response and also asserts that five altered
 versions are rejected. The public key is pinned in `server/web/verify.mjs`; do not trust
 code or keys supplied only by the archive you are investigating.
+
+## Hashing and timestamping the evidence
+
+The foreground snapshot hook runs at order `92`, before `hashes` at `93` and
+optional [OpenTimestamps](../opentimestamps/README.md) at `99`. Hashes includes the
+real `capture-*` files behind `current`, so the Merkle tree covers both the signed
+receipt and authenticated response. OpenTimestamps stamps the completed manifest;
+its pending calendar proof still needs later Bitcoin upgrade and verification.

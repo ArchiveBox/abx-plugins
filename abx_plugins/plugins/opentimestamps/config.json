@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenTimestamps",
+  "description": "Submit the completed hash manifest, including saved TLSNotary evidence, to OpenTimestamps calendars. Saves a detached proof pending Bitcoin confirmation; does not authenticate page origin.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["hashes"],
+  "required_binaries": [
+    {
+      "name": "{OPENTIMESTAMPS_BINARY}",
+      "binproviders": "env,uv",
+      "min_version": null,
+      "overrides": {
+        "uv": {
+          "install_args": ["opentimestamps-client==0.7.2"],
+          "postinstall_scripts": true
+        }
+      }
+    }
+  ],
+  "output_mimetypes": ["application/vnd.opentimestamps.ots", "application/json", "text/html"],
+  "category": "metadata",
+  "display_order": 110,
+  "properties": {
+    "OPENTIMESTAMPS_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Submit a blinded commitment of hashes.json to calendar servers. No API key is required."
+    },
+    "OPENTIMESTAMPS_BINARY": {
+      "type": "string",
+      "default": "ots",
+      "description": "Path to the OpenTimestamps Python client CLI."
+    },
+    "OPENTIMESTAMPS_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "description": "Total hook budget in seconds; submission reserves two seconds for publishing outputs."
+    },
+    "OPENTIMESTAMPS_CALENDARS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": ["https://alice.btc.calendar.opentimestamps.org", "https://bob.btc.calendar.opentimestamps.org"],
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Calendar URLs to submit to. Use HTTPS for public services or HTTP for a local calendar."
+    },
+    "OPENTIMESTAMPS_REQUIRED_CALENDARS": {
+      "type": "integer",
+      "default": 2,
+      "minimum": 1,
+      "description": "Minimum successful calendar replies required to save a proof. Must not exceed the number of distinct configured calendars."
+    }
+  }
+}

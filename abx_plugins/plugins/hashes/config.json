@@ -28,5 +28,16 @@
     }
   },
   "category": "metadata",
-  "display_order": 100
+  "display_order": 100,
+  "wait_for_plugins": [
+    "ytdlp",
+    "gallerydl",
+    "forumdl",
+    "git",
+    "wget",
+    "archivedotorg",
+    "favicon",
+    "papersdl",
+    "tlsnotary"
+  ]
 }
