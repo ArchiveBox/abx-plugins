@@ -183,6 +183,81 @@
         line-height: 1.45;
       }
 
+      .hero__quickstart {
+        min-width: 0;
+      }
+
+      .plugin-stack {
+        display: grid;
+        grid-template-columns: repeat(5, 54px);
+        justify-content: center;
+        gap: 12px 0;
+        margin: 0 0 12px auto;
+        width: fit-content;
+        padding: 12px 20px 12px 0;
+        list-style: none;
+      }
+
+      .plugin-stack li:nth-child(4n + 1) { --tilt: -10deg; }
+      .plugin-stack li:nth-child(4n + 2) { --tilt: 6deg; }
+      .plugin-stack li:nth-child(4n + 3) { --tilt: -5deg; }
+      .plugin-stack li:nth-child(4n) { --tilt: 10deg; }
+
+      .plugin-stack a {
+        position: relative;
+        display: grid;
+        width: 68px;
+        height: 68px;
+        place-items: center;
+        border: 1px solid hsl(339 7% 94%);
+        border-radius: 20px;
+        background: #fff;
+        box-shadow: 0 7px 18px #21192114;
+        transform: rotate(var(--tilt));
+      }
+
+      .plugin-stack li:nth-child(n + 6) a {
+        left: 12px;
+      }
+
+      .plugin-stack a:hover,
+      .plugin-stack a:focus-visible {
+        z-index: 1;
+        outline: 2px solid #9b2854;
+        outline-offset: 3px;
+        transform: translateY(-4px);
+      }
+
+      .plugin-stack img {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+      }
+
+      @media (max-width: 980px) {
+        .plugin-stack {
+          grid-template-columns: repeat(10, 26px);
+          justify-content: start;
+          padding: 10px 0 16px;
+          margin-left: 0;
+        }
+
+        .plugin-stack a {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+        }
+
+        .plugin-stack li:nth-child(n + 6) a {
+          left: 0;
+        }
+
+        .plugin-stack img {
+          width: 28px;
+          height: 28px;
+        }
+      }
+
       .hero-example {
         border: 1px solid var(--ab-rule-strong);
         border-radius: var(--ab-r-3);
@@ -1074,57 +1149,71 @@
               </div>
             </div>
 
-            <section class="hero-example" aria-labelledby="quickstart-heading">
-              <div class="hero-example-header">
-                <div>
-                  <h2 class="hero-example-title" id="quickstart-heading">Try a plugin in one command</h2>
-                  <p class="hero-example-copy">
-                    Click a plugin card below and this example updates with the selected plugin.
-                  </p>
+            <div class="hero__quickstart">
+              <ul class="plugin-stack" aria-label="Featured plugins">
+                <li><a href="#chrome" aria-label="Chrome plugin" title="Chrome"><img src="./assets/plugins/chrome.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="#ublock" aria-label="uBlock Origin plugin" title="uBlock Origin"><img src="./assets/plugins/ublock.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="#git" aria-label="GitHub / Git plugin" title="GitHub / Git"><img src="./assets/plugins/github.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="#archivedotorg" aria-label="Internet Archive plugin" title="Internet Archive"><img src="./assets/plugins/archive-org.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="#claudecode" aria-label="Claude / Anthropic plugin" title="Claude / Anthropic"><img src="./assets/plugins/claude.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="#archivewebpage" aria-label="Webrecorder plugin" title="Webrecorder"><img src="./assets/plugins/webrecorder.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="#singlefile" aria-label="SingleFile plugin" title="SingleFile"><img src="./assets/plugins/singlefile.png" width="44" height="44" alt=""></a></li>
+                <li><a href="#ytdlp" aria-label="YouTube / yt-dlp plugin" title="YouTube / yt-dlp"><img src="./assets/plugins/youtube.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="https://tailscale.com/" aria-label="Tailscale" title="Tailscale"><img src="./assets/plugins/tailscale.svg" width="44" height="44" alt=""></a></li>
+                <li><a href="https://tlsnotary.zervice.io/" aria-label="TLSNotary" title="TLSNotary"><img src="./assets/plugins/tlsnotary.svg" width="44" height="44" alt=""></a></li>
+              </ul>
+              <section class="hero-example" aria-labelledby="quickstart-heading">
+                <div class="hero-example-header">
+                  <div>
+                    <h2 class="hero-example-title" id="quickstart-heading">Try a plugin in one command</h2>
+                    <p class="hero-example-copy">
+                      Click a plugin card below and this example updates with the selected plugin.
+                    </p>
+                  </div>
+                  <div class="hero-runner-links">
+                    <span>Install:</span>
+                    <a class="runner-link" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">abx-dl</a>
+                    <a class="runner-link" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">ArchiveBox</a>
+                  </div>
                 </div>
-                <div class="hero-runner-links">
-                  <span>Install:</span>
-                  <a class="runner-link" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">abx-dl</a>
-                  <a class="runner-link" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">ArchiveBox</a>
-                </div>
-              </div>
 
-              <div class="hero-code-block">
-                <div class="hero-code-toolbar">
-                  <div class="hero-code-meta">
-                    <span class="hero-code-kicker">Quick start</span>
-                    <code id="selected-plugin-name">abx-dl</code>
+                <div class="hero-code-block">
+                  <div class="hero-code-toolbar">
+                    <div class="hero-code-meta">
+                      <span class="hero-code-kicker">Quick start</span>
+                      <code id="selected-plugin-name">abx-dl</code>
+                    </div>
+                    <button type="button" class="copy-button" id="copy-example-button">Copy</button>
                   </div>
-                  <button type="button" class="copy-button" id="copy-example-button">Copy</button>
+                  <div class="ab-terminal">
+                    <div class="ab-terminal__bar">
+                      <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
+                      <span>~/archive · abx-dl · quickstart</span>
+                    </div>
+                    <div class="ab-terminal__body">
+                      <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+                    </div>
+                  </div>
                 </div>
-                <div class="ab-terminal">
-                  <div class="ab-terminal__bar">
-                    <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
-                    <span>~/archive · abx-dl · quickstart</span>
-                  </div>
-                  <div class="ab-terminal__body">
-                    <pre><code id="hero-command-example" aria-live="polite"></code></pre>
-                  </div>
-                </div>
-              </div>
 
-              <details class="install-details">
-                <summary>Expand to see pip install details</summary>
-                <div class="ab-terminal">
-                  <div class="ab-terminal__bar">
-                    <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
-                    <span>~/archive · setup · pip install details</span>
-                  </div>
-                  <div class="ab-terminal__body">
-                    <pre><code data-highlight-shell>pip install abx-dl
+                <details class="install-details">
+                  <summary>Expand to see pip install details</summary>
+                  <div class="ab-terminal">
+                    <div class="ab-terminal__bar">
+                      <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
+                      <span>~/archive · setup · pip install details</span>
+                    </div>
+                    <div class="ab-terminal__body">
+                      <pre><code data-highlight-shell>pip install abx-dl
 abx-dl install
 mkdir archive
 cd archive
 abx-dl 'https://example.com'</code></pre>
+                    </div>
                   </div>
-                </div>
-              </details>
-            </section>
+                </details>
+              </section>
+            </div>
           </div>
 
           <ol class="hero__workflow" aria-label="How the plugin gallery works">
