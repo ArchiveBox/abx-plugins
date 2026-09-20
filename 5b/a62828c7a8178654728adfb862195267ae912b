@@ -1,0 +1,22 @@
+abx_plugins/plugins/opentimestamps/README.md
+  h_923c208e183a7b 108-110
+abx_plugins/plugins/opentimestamps/on_Snapshot__99_opentimestamps.py
+  h_923c208e183a7b 110
+abx_plugins/plugins/opentimestamps/templates/full.html
+  h_923c208e183a7b 6-7,10
+abx_plugins/plugins/opentimestamps/templates/viewer.html
+  h_923c208e183a7b 1-23
+abx_plugins/plugins/opentimestamps/tests/test_opentimestamps.py
+  h_923c208e183a7b 48-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5ba62828c7a8178654728adfb862195267ae912b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
