@@ -9,12 +9,12 @@
     {
       "name": "{YTDLP_BINARY}",
       "binproviders": "env,uv,apt,brew",
-      "min_version": null,
+      "min_version": "2026.08.19",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "yt-dlp[default]"
+            "yt-dlp[default]>=2026.8.19"
           ]
         }
       }
