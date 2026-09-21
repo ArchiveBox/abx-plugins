@@ -13,15 +13,12 @@
 import signal
 import sys
 
-# Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
-# shutdown signal before the hard SIGKILL deadline. This hook is a finite
-# downloader, so treating SIGTERM as "stop now" corrupts the normal contract:
-# an in-flight download becomes a failed ArchiveResult even though cleanup would
-# have allowed it to finish within the hook timeout. Installing SIG_IGN before
-# any heavy imports or subprocess creation also makes downloader children inherit
-# the same disposition across exec, so the whole process group either finishes
-# its work and exits normally or is stopped by the later SIGKILL deadline.
-signal.signal(signal.SIGTERM, signal.SIG_IGN)
+# Snapshot cleanup sends SIGTERM before the hard SIGKILL deadline. This finite
+# downloader must finish within its hook timeout instead of corrupting a fetch
+# or checkout during polite cleanup. Git installs its own SIGTERM handlers, so
+# SIG_IGN does not survive inside Git: block the signal across child execs.
+# The runner's hard SIGKILL deadline still applies to the entire process tree.
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
 
 if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("git clone started", flush=True)
@@ -189,7 +186,11 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                         and "not found" in output.lower()
                     ):
                         return True, "No git repository found", ""
-                    return False, None, f"{error_prefix} (exit={result.returncode})"
+                    return (
+                        False,
+                        None,
+                        f"{error_prefix} (exit={result.returncode}): {output.strip()}",
+                    )
             return True, str(repo_dir), ""
         return False, None, "git init failed"
 
