@@ -19,7 +19,7 @@
     }
   ],
   "output_mimetypes": ["application/vnd.opentimestamps.ots", "application/json", "text/html"],
-  "category": "metadata",
+  "category": "postprocessing",
   "display_order": 110,
   "properties": {
     "OPENTIMESTAMPS_ENABLED": {
