@@ -31,8 +31,9 @@
     const makeNode=(icon,title)=>{const node=el('div',null,'node'),heading=el('div',null,'session-heading');heading.append(el('span',icon,'node-icon'),el('strong',title));node.append(heading);return node};
     const fields=(node,rows)=>{const dl=el('dl');for(const [label,value] of rows){if(value!==null&&value!==undefined&&value!=='')dl.append(el('dt',label),el('dd',typeof value==='object'?JSON.stringify(value,null,2):value))}if(dl.childElementCount)node.append(dl)};
     const browserNode=makeNode('🖥','Browser');
-    fields(browserNode,[['Ready at capture',browser?.ready],['PID',pid],['CDP endpoint',endpoint]]);
-    for(const binary of binaries)fields(browserNode,[['Binary',binary.name],['Version',binary.version],['Executable',binary.abspath],['Provider',binary.binprovider],['Binary ID',binary.id],['SHA-256',binary.sha256]]);
+    if(typeof browser?.ready==='boolean'){const status=el('span',browser.ready?'●':'○',browser.ready?'status-good':'muted');status.title=browser.ready?'Ready at capture':'Not ready at capture';status.setAttribute('role','img');status.setAttribute('aria-label',status.title);browserNode.querySelector('.session-heading').append(status)}
+    fields(browserNode,[['PID',pid],['CDP endpoint',endpoint]]);
+    for(const binary of binaries)fields(browserNode,[['Binary',[binary.name,binary.version].filter(Boolean).join(' · ')],['Executable',binary.abspath],['Provider',binary.binprovider],['Binary ID',binary.id],['SHA-256',binary.sha256]]);
     fields(browserNode,Object.entries(browser||{}).filter(([key])=>!['extensions','ready'].includes(key)));
     const tabNode=makeNode('▱',host);fields(tabNode,[['Target ID',target]]);
     const flow=el('div',null,'navigation-flow');
