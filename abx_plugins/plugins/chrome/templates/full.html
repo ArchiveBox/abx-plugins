@@ -16,6 +16,11 @@
   document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=output.href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
   const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=String(text);if(cls)n.className=cls;return n};const summary=document.getElementById('card-summary'),content=document.getElementById('content');
   const safeLink=(value,label)=>{const a=el('a',label||value);try{const u=new URL(value);if(['https:','http:'].includes(u.protocol)){a.href=u.href;a.target='_blank';a.rel='noopener noreferrer'}}catch{}return a};
+  // Older extension caches omit the name segment required by Chrome Web Store.
+  const webstoreURL=extension=>{
+    const slug=String(extension.name||'extension').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'extension';
+    return extension.webstore_url?.replace(/^(https:\/\/chromewebstore\.google\.com\/detail\/)([a-p]{32})(?=[/?#]|$)/,(_,base,id)=>`${base}${slug}/${id}`);
+  };
   const get=async(name,json=false)=>{try{const url=new URL(name,folder);url.searchParams.set('raw','1');const r=await fetch(url);if(!r.ok)return null;return json?await r.json():await r.text()}catch{return null}};
   const short=value=>{const s=String(value||'').trim();return s.length>24?`${s.slice(0,12)}…${s.slice(-8)}`:s};
   Promise.all([get('navigation.json',true),get('browser.json',true),get('target_id.txt'),get('cdp_url.txt'),get('chrome.pid'),get('url.txt'),get('../index.jsonl')]).then(([nav,browser,target,endpoint,pid,savedURL,index])=>{
@@ -78,7 +83,7 @@
       }
       lifecycle.append(timeline);viewport.append(lifecycle);
     }
-    const extensions=Array.isArray(browser?.extensions)?browser.extensions:[];if(extensions.length){const panel=el('section',null,'panel');panel.append(el('h2',`Extensions · ${extensions.length}`));const list=el('div',null,'extensions');extensions.forEach((extension,index)=>{const row=el('div',null,'extension');row.append(el('span','🧩'),el('span',null));const body=row.children[1],name=extension.name||extension.id||`Extension ${index+1}`;body.append(extension.webstore_url?safeLink(extension.webstore_url,name):el('strong',name));const extensionPath=extension.unpacked_path||extension.crx_path||extension.path;if(extensionPath)body.append(el('code',extensionPath));const metadata=[extension.version&&`v${extension.version}`,extension.manifest_version&&`MV${extension.manifest_version}`,short(extension.id)].filter(Boolean).join(' · ');row.append(el('span',metadata,'badge'));list.append(row)});panel.append(list);content.append(panel)}
+    const extensions=Array.isArray(browser?.extensions)?browser.extensions:[];if(extensions.length){const panel=el('section',null,'panel');panel.append(el('h2',`Extensions · ${extensions.length}`));const list=el('div',null,'extensions');extensions.forEach((extension,index)=>{const row=el('div',null,'extension');row.append(el('span','🧩'),el('span',null));const body=row.children[1],name=extension.name||extension.id||`Extension ${index+1}`;body.append(extension.webstore_url?safeLink(webstoreURL(extension),name):el('strong',name));const extensionPath=extension.unpacked_path||extension.crx_path||extension.path;if(extensionPath)body.append(el('code',extensionPath));const metadata=[extension.version&&`v${extension.version}`,extension.manifest_version&&`MV${extension.manifest_version}`,short(extension.id)].filter(Boolean).join(' · ');row.append(el('span',metadata,'badge'));list.append(row)});panel.append(list);content.append(panel)}
   });
 })();
 </script></body></html>
