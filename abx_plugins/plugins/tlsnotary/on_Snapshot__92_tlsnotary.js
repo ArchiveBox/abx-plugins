@@ -9,6 +9,7 @@ const {
   ensureNodeModuleResolution,
   loadConfig,
   emitArchiveResultRecord,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const chrome = require("../chrome/chrome_utils.js");
@@ -229,14 +230,11 @@ async function capture() {
   const verified = await verifyReceipt(receipt, response, trustedKey);
   if (verified.server_name !== new URL(url).hostname)
     throw new Error("Signed server identity differs from Chrome document");
-  // Stage all files before publishing a matching response/receipt pair. Response
-  // bytes occur once, in response.http, never in receipt.json or metadata.json.
   if (stopped) throw new Error("Capture cancelled");
-  const stage = fs.mkdtempSync(path.join(output, ".capture-"));
-  fs.writeFileSync(path.join(stage, "response.http"), response);
-  fs.writeFileSync(path.join(stage, "receipt.json"), JSON.stringify(receipt));
-  fs.writeFileSync(
-    path.join(stage, "metadata.json"),
+  writeFileAtomic(path.join(output, "response.http"), response);
+  writeFileAtomic(path.join(output, "receipt.json"), JSON.stringify(receipt));
+  writeFileAtomic(
+    path.join(output, "metadata.json"),
     JSON.stringify({
       server_name: verified.server_name,
       time: verified.time,
@@ -244,16 +242,12 @@ async function capture() {
       bytes: response.length,
       receipt_bytes: Buffer.byteLength(JSON.stringify(receipt)),
       extension_version: prepared.version,
+      verifier_url: verifierUrl,
+      receipt_id: receiptId,
+      mode: "Mpc",
     })
   );
-  const generation =
-    "capture-" +
-    crypto.createHash("sha256").update(receipt.payload).digest("hex");
-  fs.renameSync(stage, path.join(output, generation));
-  const pending = path.join(output, ".current-" + process.pid);
-  fs.symlinkSync(generation, pending);
-  fs.renameSync(pending, path.join(output, "current"));
-  emitArchiveResultRecord("succeeded", "tlsnotary/current/receipt.json");
+  emitArchiveResultRecord("succeeded", "tlsnotary/receipt.json");
 }
 (async () => {
   if (!config.TLSNOTARY_ENABLED) {

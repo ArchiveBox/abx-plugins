@@ -1,5 +1,5 @@
 import test from "node:test";
-// Real capture acceptance: node check_capture.mjs /path/to/tlsnotary/current KEY
+// Real capture acceptance: node check_capture.mjs /path/to/tlsnotary KEY
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";

@@ -28,10 +28,10 @@ def run_plugin(name: str, snap: Path, **config: str):
 
 
 def capture_files(snap):
-    # Preserve an actual signed capture, including the same symlink layout as TLSNotary.
-    target = snap / "tlsnotary" / "capture-fixture"
-    shutil.copytree(PLUGINS / "tlsnotary/tests/fixtures/hacker-news", target)
-    (target.parent / "current").symlink_to(target.name, target_is_directory=True)
+    shutil.copytree(
+        PLUGINS / "tlsnotary/tests/fixtures/hacker-news",
+        snap / "tlsnotary",
+    )
 
 
 def test_evidence_hooks_run_in_order():
@@ -52,10 +52,13 @@ def test_host_card_opens_dynamic_preview():
         loader=FileSystemLoader(PLUGINS / "opentimestamps/templates"),
         autoescape=True,
     )
-    output_path = "/archive/output/opentimestamps/current/hashes.json.ots"
+    output_path = "/archive/output/opentimestamps/hashes.json.ots"
     rendered = templates.get_template("card.html").render(output_path=output_path)
     assert f'src="{output_path}?preview=1&amp;card=1"' in rendered
-    assert 'sandbox="allow-scripts allow-same-origin"' in rendered
+    assert (
+        'sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"'
+        in rendered
+    )
 
 
 def test_hashes_publishes_completion_and_covers_tlsnotary(tmp_path):
@@ -75,8 +78,8 @@ def test_hashes_publishes_completion_and_covers_tlsnotary(tmp_path):
         )
     paths = {item["path"] for item in data["files"]}
     assert {
-        "tlsnotary/capture-fixture/receipt.json",
-        "tlsnotary/capture-fixture/response.http",
+        "tlsnotary/receipt.json",
+        "tlsnotary/response.http",
     } <= paths
     # Timestamp output must not recursively enter future Merkle trees.
     shutil.copytree(tmp_path / "tlsnotary", tmp_path / "opentimestamps", symlinks=True)
@@ -98,7 +101,7 @@ def test_disabled_and_missing_or_unfinished_hashes(tmp_path):
         OPENTIMESTAMPS_ENABLED="false",
     )
     assert code == 0 and record["status"] == "skipped", stderr
-    assert not (tmp_path / "opentimestamps/current").exists()
+    assert not (tmp_path / "opentimestamps/hashes.json.ots").exists()
     code, record, stderr = run_plugin(
         "opentimestamps",
         tmp_path,
@@ -117,7 +120,7 @@ def test_disabled_and_missing_or_unfinished_hashes(tmp_path):
     )
     assert code != 0 and record["status"] == "failed", stderr
     assert "completion checksum" in record["output_str"]
-    assert not (tmp_path / "opentimestamps/current").exists()
+    assert not (tmp_path / "opentimestamps/hashes.json.ots").exists()
 
 
 def test_hash_failure_invalidates_completion_and_preserves_manifest(tmp_path):
@@ -159,8 +162,7 @@ def test_live_stamp_and_failed_rerun_preserves_evidence(tmp_path):
     manifest = (tmp_path / "hashes/hashes.json").read_bytes()
     code, record, stderr = run_plugin("opentimestamps", tmp_path, **config)
     assert code == 0 and record["status"] == "succeeded", stderr
-    current = tmp_path / "opentimestamps/current"
-    generation = current.resolve()
+    current = tmp_path / "opentimestamps"
     assert (current / "hashes.json").read_bytes() == manifest
     proof = (current / "hashes.json.ots").read_bytes()
     info = subprocess.run(
@@ -172,11 +174,33 @@ def test_live_stamp_and_failed_rerun_preserves_evidence(tmp_path):
     assert info.returncode == 0, info.stderr
     assert f"File sha256 hash: {hashlib.sha256(manifest).hexdigest()}" in info.stdout
     assert "PendingAttestation" in info.stdout
-    assert record["output_str"] == "opentimestamps/current/hashes.json.ots"
+    assert record["output_str"] == "opentimestamps/hashes.json.ots"
     assert {path.name for path in current.iterdir()} == {
         "hashes.json",
         "hashes.json.ots",
+        "submission.json",
+        "proof-info.txt",
     }
+
+    submission = json.loads((current / "submission.json").read_text())
+    assert submission["manifest_sha256"] == hashlib.sha256(manifest).hexdigest()
+    assert (
+        submission["submitted_digest"]
+        == hashlib.sha256(
+            bytes.fromhex(submission["manifest_sha256"] + submission["nonce_hex"]),
+        ).hexdigest()
+    )
+    assert f"append {submission['nonce_hex']}" in info.stdout
+    assert len(submission["pending_attestations"]) >= 2
+    assert (current / "hashes.json").is_symlink()
+    assert os.readlink(current / "hashes.json") == "../hashes/hashes.json"
+    assert not any(path.is_dir() for path in current.iterdir())
+    # A successful second invocation silently replaces the fixed proof path.
+    code, record, stderr = run_plugin("opentimestamps", tmp_path, **config)
+    assert code == 0 and record["status"] == "succeeded", stderr
+    replacement = (current / "hashes.json.ots").read_bytes()
+    assert replacement != proof  # The real client generates a fresh random nonce.
+    proof = replacement
 
     # The real client must reject altered manifest bytes before network verification.
     altered = tmp_path / "altered.json"
@@ -208,7 +232,8 @@ def test_live_stamp_and_failed_rerun_preserves_evidence(tmp_path):
         )
         code, record, stderr = run_plugin("opentimestamps", tmp_path, **config)
     assert code != 0 and record["status"] == "failed", stderr
-    assert current.resolve() == generation
     assert (current / "hashes.json.ots").read_bytes() == proof
     assert (current / "hashes.json").read_bytes() == manifest
-    assert not list(current.parent.glob(".stamp-*"))
+    assert not any(path.is_dir() for path in current.iterdir())
+    assert (current / "hashes.json").is_symlink()
+    assert os.readlink(current / "hashes.json") == "../hashes/hashes.json"

@@ -6,18 +6,23 @@
 
 import hashlib
 import json
-import os
-from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import rich_click as click
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    load_config,
+    write_text_atomic,
+)
 
 
 def read_manifest(snap_dir: Path) -> bytes:
@@ -41,7 +46,6 @@ def read_manifest(snap_dir: Path) -> bytes:
 def main(url: str) -> None:
     """Run after hashes finishes; no runner APIs or database access are needed."""
     stage = None
-    pending = None
     try:
         config = load_config()
         if not config.OPENTIMESTAMPS_ENABLED:
@@ -72,8 +76,9 @@ def main(url: str) -> None:
             raise ValueError("Invalid Merkle root in hashes.json")
         output = snap_dir / "opentimestamps"
         output.mkdir(parents=True, exist_ok=True)
-        stage = Path(tempfile.mkdtemp(prefix=".stamp-", dir=output))
-        (stage / "hashes.json").write_bytes(manifest)
+        # ots refuses an existing proof; work outside the snapshot until success.
+        stage = Path(tempfile.mkdtemp(prefix="abx-opentimestamps-"))
+        (stage / "hashes.json").symlink_to(snap_dir / "hashes/hashes.json")
         command = [
             config.OPENTIMESTAMPS_BINARY,
             "--no-cache",
@@ -88,6 +93,7 @@ def main(url: str) -> None:
         for calendar in calendars:
             command.extend(["-c", calendar])
         command.append("hashes.json")
+        submitted_at = datetime.now(UTC).isoformat()
         result = subprocess.run(
             command,
             cwd=stage,
@@ -107,17 +113,55 @@ def main(url: str) -> None:
         if read_manifest(snap_dir) != manifest:
             raise ValueError("Hashes changed during submission; rerun OpenTimestamps")
 
-        # Publish matching manifest/proof together, retaining earlier evidence.
-        generation = output / stage.name.removeprefix(".")
-        stage.rename(generation)
-        stage = None
-        pending = output / f".current-{os.getpid()}"
-        pending.symlink_to(generation.name, target_is_directory=True)
-        pending.replace(output / "current")
-        emit_archive_result_record(
-            "succeeded",
-            "opentimestamps/current/hashes.json.ots",
+        # Preserve the real client's proof path and submission metadata. The pinned
+        # CLI stamps one file by appending a 16-byte nonce to its binary digest.
+        info = subprocess.run(
+            [config.OPENTIMESTAMPS_BINARY, "info", str(proof)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=max(0.1, deadline - time.monotonic()),
+        ).stdout
+        manifest_hash = hashlib.sha256(manifest).hexdigest()
+        initial_ops = re.match(
+            rf"File sha256 hash: {manifest_hash}\nTimestamp:\nappend ([0-9a-f]{{32}})\nsha256\n",
+            info,
         )
+        if not initial_ops:
+            raise ValueError("Unexpected OpenTimestamps single-file commitment path")
+        nonce = initial_ops.group(1)
+        write_text_atomic(output / "proof-info.txt", info)
+        write_text_atomic(
+            output / "submission.json",
+            json.dumps(
+                {
+                    "submitted_at": submitted_at,
+                    "completed_at": datetime.now(UTC).isoformat(),
+                    "configured_calendars": calendars,
+                    "required_calendar_replies": config.OPENTIMESTAMPS_REQUIRED_CALENDARS,
+                    "manifest_sha256": manifest_hash,
+                    "nonce_hex": nonce,
+                    "submitted_digest": hashlib.sha256(
+                        bytes.fromhex(manifest_hash + nonce),
+                    ).hexdigest(),
+                    "pending_attestations": re.findall(
+                        r"PendingAttestation\('([^']+)'\)",
+                        info,
+                    ),
+                    "proof_bytes": proof.stat().st_size,
+                },
+                indent=2,
+            ),
+        )
+
+        pending_manifest = output / ".hashes.json.tmp"
+        pending_manifest.unlink(missing_ok=True)
+        pending_manifest.symlink_to("../hashes/hashes.json")
+        pending_manifest.replace(output / "hashes.json")
+        pending_proof = output / ".hashes.json.ots.tmp"
+        pending_proof.write_bytes(proof.read_bytes())
+        pending_proof.replace(output / "hashes.json.ots")
+        emit_archive_result_record("succeeded", "opentimestamps/hashes.json.ots")
     except Exception as error:
         print(f"[opentimestamps] {type(error).__name__}: {error}", file=sys.stderr)
         emit_archive_result_record("failed", str(error))
@@ -125,8 +169,6 @@ def main(url: str) -> None:
     finally:
         if stage is not None:
             shutil.rmtree(stage)
-        if pending is not None:
-            pending.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

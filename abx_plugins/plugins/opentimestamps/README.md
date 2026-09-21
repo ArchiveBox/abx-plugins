@@ -57,12 +57,9 @@ already-started downloads without enabling them.
 It declares `wait_for_background_cleanup` so supported runners flush and stop
 snapshot monitors after TLSNotary finishes and before the manifest is generated.
 
-TLSNotary publishes real files under `tlsnotary/capture-*/` before atomically
-switching its `current` symlink. Hashes walks those real directories, including
-`receipt.json`, `response.http`, and viewer assets; it does not need to follow
-`current`. An old retained capture may also appear in the manifest. Check the
-TLSNotary hook result to distinguish a new successful capture from retained
-outputs after a failure.
+TLSNotary writes `tlsnotary/receipt.json`, `response.http`, and `metadata.json`
+directly. Hashes includes those files after capture finishes. Runner command,
+PID, and stdout/stderr artifacts are execution bookkeeping and are excluded.
 
 Hashes removes `hashes.sha256` when it starts (including disabled/failed runs),
 then atomically replaces `hashes.json` and finally publishes its SHA-256 in
@@ -98,19 +95,25 @@ OpenTimestamps emits `skipped`; missing prerequisites and network errors emit
 
 ## Outputs and verification
 
-`opentimestamps/current/` points to an atomically published generation containing:
+`opentimestamps/` contains:
 
-- `hashes.json`: exact bytes of the submitted manifest, retained for verification.
-- `hashes.json.ots`: detached OpenTimestamps proof.
+- `hashes.json`: relative symlink to `../hashes/hashes.json`; no copied manifest.
+- `hashes.json.ots`: detached proof for the exact manifest file bytes.
+- `submission.json`: local submission times, configured calendars, required replies,
+  manifest digest, random nonce, submitted digest, pending attestation URIs, proof size.
+- `proof-info.txt`: the upstream client's saved proof operation tree.
 
-Successful reruns publish a new generation and retain previous evidence. A failed
-rerun leaves the previous generation intact. The result points to
-`opentimestamps/current/hashes.json.ots`. `card.html`, `full.html`, and `icon.html`
-provide the dynamic card, full preview, and plugin icon without host imports.
-The full template reads the saved manifest and computes its SHA-256 in the browser;
-the hook writes no HTML. Template updates take effect without regenerating proofs.
+The result points to `opentimestamps/hashes.json.ots`. Outputs use fixed paths and
+successful reruns overwrite them silently. Temporary stamping happens outside the
+snapshot; failed submissions preserve previous outputs. Normal capture ordering
+finalizes producer outputs before hashing and stamping. Changing the hashes
+manifest afterward invalidates its timestamp proof; the symlink tracks that same file.
 
-After Bitcoin confirmation, from `opentimestamps/current/`:
+The full template shows the actual manifest fields, hash inputs, recipients and
+local submission metadata. It verifies the local digest calculation, not Bitcoin
+confirmation. `submission.json` is a local record, not a signed calendar receipt.
+
+To inspect, upgrade and verify with the upstream client from `opentimestamps/`:
 
 ```console
 ots info hashes.json.ots

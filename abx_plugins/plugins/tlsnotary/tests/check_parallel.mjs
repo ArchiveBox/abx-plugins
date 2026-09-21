@@ -84,7 +84,7 @@ await test(
       const exits = await Promise.all(jobs);
       assert.deepEqual(exits, [0, 0]);
       for (let i = 0; i < urls.length; i++) {
-        const dir = path.join(root, String(i), "tlsnotary/current");
+        const dir = path.join(root, String(i), "tlsnotary");
         const result = await verifyReceipt(
           JSON.parse(fs.readFileSync(path.join(dir, "receipt.json"))),
           new Uint8Array(fs.readFileSync(path.join(dir, "response.http"))),

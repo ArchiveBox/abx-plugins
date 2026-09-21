@@ -22,7 +22,7 @@ uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with abx-dl==1.12.2
 TLSNOTARY_ENABLED=true uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with abx-dl==1.12.276 abx-dl dl \
   --plugins=title,screenshot,tlsnotary --dir="$capture_dir" 'https://news.ycombinator.com/'
 node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs \
-  "$capture_dir/tlsnotary/current" MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=
+  "$capture_dir/tlsnotary" MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=
 ```
 
 Run these source-checkout examples from the abx-plugins repository root. The
@@ -46,7 +46,7 @@ result; other archiving outputs remain available.
 
 ## Output and verification
 
-The snapshot's `tlsnotary/current/` points to an atomically published capture:
+The snapshot's `tlsnotary/` contains:
 
 - `response.http`: the exact authenticated response bytes, stored once.
 - `receipt.json`: signed hash, hostname, range, time and local opening; no response copy.
@@ -135,7 +135,7 @@ node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs \
 ```
 
 Replace the real public Hacker News fixture path with your snapshot's
-`tlsnotary/current` directory. Replace the key for a different trusted server.
+`tlsnotary` directory. Replace the key for a different trusted server.
 
 This checks the real signature and response and also asserts that five altered
 versions are rejected. The public key is pinned in `server/web/verify.mjs`; do not trust
@@ -145,6 +145,6 @@ code or keys supplied only by the archive you are investigating.
 
 The foreground snapshot hook runs at order `92`, before `hashes` at `93` and
 optional [OpenTimestamps](../opentimestamps/README.md) at `99`. Hashes includes the
-real `capture-*` files behind `current`, so the Merkle tree covers both the signed
+files directly in `tlsnotary/`, so the Merkle tree covers both the signed
 receipt and authenticated response. OpenTimestamps stamps the completed manifest;
 its pending calendar proof still needs later Bitcoin upgrade and verification.

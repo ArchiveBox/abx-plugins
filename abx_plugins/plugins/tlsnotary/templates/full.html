@@ -4,7 +4,14 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>TLSNotary proof</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#fff;color:#243443;font:14px/1.6 system-ui,sans-serif}header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #e2e6eb}h1{font-size:17px;margin:0}nav{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}nav a,button{padding:6px 9px;border:1px solid #e2e6eb;border-radius:6px;background:white;color:inherit;text-decoration:none;font:inherit}main{max-width:900px;padding:12px 16px}.status{background:#edf1f5;padding:8px 12px;border-radius:8px}.verified{background:#e4f5e9}.failed{background:#ffe8e8}dt{font-weight:600}dd{margin:0 0 12px;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf1f5;padding:12px;border-radius:8px;max-height:500px;overflow:auto}a{color:#245c93}.note{color:#64748b}input{width:100%;padding:8px;font:12px monospace}.card-view{font-size:11px;overflow:hidden;background:#f8fafc}.card-view header{padding:6px 10px;border:0}.card-view h1{font-size:13px}.card-view main{padding:0 10px}.card-view .status{margin:0;padding:4px 8px}.card-view nav,.card-view .details{display:none}#summary{overflow-wrap:anywhere}@media(max-width:600px){header{flex-wrap:wrap}nav{margin-left:0}nav a{font-size:12px;padding:4px 6px}}
+    *{box-sizing:border-box}body{margin:0;background:#fff;color:#243443;font:14px/1.6 system-ui,sans-serif}header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #e2e6eb}h1{font-size:17px;margin:0}nav{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}nav a,button{padding:6px 9px;border:1px solid #e2e6eb;border-radius:6px;background:white;color:inherit;text-decoration:none;font:inherit}main{max-width:900px;padding:12px 16px}.status{background:#edf1f5;padding:8px 12px;border-radius:8px}.verified{background:#e4f5e9}.failed{background:#ffe8e8}dt{font-weight:600}dd{margin:0 0 12px;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf1f5;padding:12px;border-radius:8px;max-height:500px;overflow:auto}a{color:#245c93}.note{color:#64748b}input{width:100%;padding:8px;font:12px monospace}.card-view{font-size:11px;overflow:hidden;background:#f8fafc}.card-view header{padding:6px 10px;border:0}.card-view h1{font-size:13px}.card-view main{padding:0 10px}.card-view .status{margin:0;padding:4px 8px}.card-view header,.card-view nav,.card-view .details{display:none}.card-view main{padding:8px 10px}#summary{overflow-wrap:anywhere}@media(max-width:600px){header{flex-wrap:wrap}nav{margin-left:0}nav a{font-size:12px;padding:4px 6px}}
+
+    .proof-tree,.proof-tree ul{list-style:none;margin:0;padding:0}.proof-tree{margin:16px 0;font-size:13px}.proof-tree ul{margin-left:10px;padding-left:20px;border-left:1px solid #cbd5e1}.proof-tree li{position:relative;padding:6px 0;min-width:0}.proof-tree ul>li:before{content:"";position:absolute;left:-20px;top:18px;width:14px;border-top:1px solid #cbd5e1}.proof-tree summary{cursor:pointer}.proof-tree code{font:12px/1.6 ui-monospace,monospace;overflow-wrap:anywhere}.proof-tree .value{display:block;color:#475569;margin:3px 0 0 16px;overflow-wrap:anywhere}.proof-tree a{color:#245c93;text-decoration:underline;text-underline-offset:3px}.proof-tree summary:hover{background:#f1f5f9}.proof-tree .operation{font-weight:600}.proof-tree .hint{color:#64748b;font-size:12px;margin-left:6px}@media(max-width:500px){.proof-tree ul{padding-left:12px;margin-left:5px}.proof-tree ul>li:before{left:-12px;width:8px}}
+    .participants{display:grid;grid-template-columns:minmax(0,1fr) 35px minmax(0,1fr) 35px minmax(0,1fr);align-items:center;gap:6px}.info-card{background:#f8fafc;border:1px solid #dce3eb;border-radius:8px;padding:14px;min-width:0;overflow-wrap:anywhere}.participants .info-card{align-self:stretch}.info-card h3{margin:0 0 8px;font-size:14px}.info-card p{font-size:12px;margin:6px 0}.arrow{text-align:center;font-size:24px;color:#245c93}.timeline{list-style:none;border-left:2px solid #cbd5e1;margin:18px 0 24px 6px;padding:0}.timeline-entry{position:relative;padding:0 0 20px 20px}.timeline-entry:before{content:'';position:absolute;left:-6px;top:6px;width:10px;height:10px;background:#245c93;border-radius:50%;border:2px solid white}.timeline-entry p{margin:5px 0}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:12px 0}.facts dt{font-size:12px;color:#64748b}.facts dd{margin:6px 0 0}.hash-inputs{margin:14px 0}code{overflow-wrap:anywhere}h2{font-size:17px;margin-top:24px}@media(max-width:500px){.participants{grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr) 20px minmax(0,1fr);gap:2px}.info-card{padding:8px}.facts{grid-template-columns:minmax(0,1fr)}}
+    .fact-row{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;margin:0;padding:6px 0;border-bottom:1px solid #edf1f5}.fact-row dt{font-size:12px;color:#64748b}.fact-row dd{margin:0;font-size:12px;overflow-wrap:anywhere}.facts{display:block;margin:8px 0}.timeline{margin:12px 0}.timeline-entry{padding-bottom:10px}.timeline-entry p{font-size:13px;margin:2px 0}.evidence-details{margin:12px 0;padding:8px 0;border-top:1px solid #e2e6eb}.evidence-details>summary{cursor:pointer;font-weight:600}h2{margin:16px 0 8px}.participants .info-card{padding:10px}@media(max-width:500px){.fact-row{grid-template-columns:110px minmax(0,1fr)}}
+    .verifier-badge{display:inline-block;padding:1px 8px;margin:0 3px;border:1px solid #93b8df;border-radius:5px;background:#e8f2ff;color:#174b7c;font-weight:650;text-decoration:none;overflow-wrap:anywhere}
+    .card-time{display:block;margin-top:8px;font:11px/1.5 ui-monospace,monospace;color:#475569;overflow-wrap:anywhere}
+    .status-hash{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px/1.6 ui-monospace,monospace;margin-top:2px}.card-view .status-hash{font-size:10px}
   </style>
 </head>
 <body>
@@ -13,11 +20,14 @@
     <p id="status" class="status" role="status">Checking signature and archived response…</p>
     <p id="summary"></p>
     <div class="details">
+      <section id="proof-tree" aria-label="TLSNotary proof"></section><section id="capture-metadata"></section>
       <dl id="details"></dl>
-      <p class="note">Verification runs locally against the trusted verifier key below. Only this saved response is authenticated; other snapshot outputs are not certified. The verifier and its clock are trusted.</p>
-      <details><summary>Verifier key</summary><p>For a self-hosted verifier, enter its public key obtained from an independently trusted source.</p><label>Ed25519 public key (SPKI, base64)<input id="key" autocomplete="off" spellcheck="false"></label><button id="verify" type="button">Verify again</button></details>
+      <h2>Verify authenticity</h2>
+      <p>The remote verifier signs an attestation that this HTTP response came from the named website over TLS, recording the time on its own clock. TLSNotary uses secure multiparty computation (MPC) to authenticate the response while keeping its contents private from the verifier; this browser checks the signature and matches the saved response to the signed fingerprint.</p>
+      <p>When OpenTimestamps is also enabled, its Bitcoin timestamp covers this receipt and saved response, proving that the attestation and content fingerprints existed by the confirmed block’s timestamp.</p>
+      <details id="verifier-key" open><summary>Verifier signing key</summary><p>ArchiveBox includes the public signing key for tlsnotary.zervice.io with its TLSNotary plugin. This browser used that key to check the verifier’s signature. For a self-hosted verifier, enter the public key supplied by its operator through a trusted channel.</p><label>Ed25519 public key (SPKI, base64)<input id="key" autocomplete="off" spellcheck="false"></label><button id="verify" type="button">Verify again</button></details>
       <details id="content" hidden><summary>Authenticated response content</summary><pre id="body"></pre></details>
-      <p>To verify independently, download both files and open <a href="https://tlsnotary.zervice.io/" target="_blank" rel="noopener noreferrer">tlsnotary.zervice.io</a>. This preview does not load that site or upload your files.</p>
+      <p>To verify independently, download both files and open <a href="https://tlsnotary.zervice.io/" target="_blank" rel="noopener noreferrer">tlsnotary.zervice.io</a>. This preview verifies the saved files in your browser.</p>
     </div>
   </main>
   <script type="module">
@@ -30,22 +40,76 @@
     byId('files').href = new URL('./?files=1', output).href;
     byId('receipt').href = receiptURL.href; byId('response').href = responseURL.href;
     byId('key').value = TRUSTED_PUBLIC_KEY;
+    const keyDetails = byId('verifier-key'), contentDetails = byId('content'), captureMetadata = byId('capture-metadata');
+    const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = String(text); if (cls) node.className = cls; return node; };
+    function savedLink(text, url) { const a = el('a', text), target = new URL(url); target.search = '?preview=1&raw=1'; a.href = target.href; return a; }
+    function leaf(label, value, url) { const li = el('li'); li.append(el('code', label)); const content = el('code', null, 'value'); content.append(url ? savedLink(value, url) : document.createTextNode(String(value))); li.append(content); return li; }
+    function branch(label, children, open = true) { const li = el('li'), details = el('details'); details.open = open; details.append(el('summary', label, 'operation')); const list = el('ul'); list.append(...children); details.append(list); li.append(details); return li; }
+    function fact(label, value, url) { const card = el('dl', null, 'fact-row'); card.append(el('dt', label)); const dd = el('dd'); dd.append(url ? savedLink(value, url) : document.createTextNode(String(value))); card.append(dd); return card; }
+    function renderTopology(receipt, result, response, key, metadata, navigation) {
+      const panel = byId('proof-tree');
+      const flow = el('div', null, 'participants');
+      const formatTime = value => new Date(value).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
+      const verifierHost = new URL(metadata.verifier_url).host;
+      const hookStart = '{{ result.start_ts|date:"c"|escapejs }}';
+      for (const [index, [title, text]] of [
+        ['🌐 Source website', `${result.server_name} served the response over TLS.`],
+        ['🗄 Your ArchiveBox server', 'Saved the response and computed its private fingerprint.'],
+        ['🔏 Verifier server', 'Authenticated the response and returned a signed attestation.'],
+      ].entries()) {
+        if (index) flow.append(el('div', index === 1 ? '→' : '⇄', 'arrow'));
+        const card = el('article', null, 'info-card'); card.append(el('h3', title));
+        if (index === 2) { const badge = el('span', verifierHost, 'verifier-badge'); badge.id = 'verifier-card-domain'; card.append(badge); }
+        card.append(el('p', text));
+        const time = el('time', index === 0 ? 'Page loaded · ' + formatTime(navigation.timestamp) : index === 1 ? 'Hook started · ' + formatTime(hookStart) : 'Signed · ' + formatTime(new Date(result.time * 1000).toISOString()), 'card-time');
+        if (index === 0) time.id = 'source-response-time'; card.append(time); flow.append(card);
+      }
+      const visibility = el('div', null, 'facts');
+      visibility.append(fact('Full response available to', 'The source website, your ArchiveBox server, and readers you share response.http with.'), fact('Verifier receives', 'Response fingerprint, hostname, byte ranges, MPC messages and encrypted TLS traffic; connection IP and timing.'));
+      const timeline = el('ol', null, 'timeline');
+      const step = (title, text) => { const li = el('li', null, 'timeline-entry'); li.append(el('strong', title), el('p', text)); timeline.append(li); return li; };
+      const captured = step('1 · Response captured', `Saved one complete HTTP response: ${response.length.toLocaleString()} bytes of headers and body in response.http.`);
+      const authenticated = step('2 · Response authenticated privately', '');
+      const verifierBadge = el('span', verifierHost, 'verifier-badge'); verifierBadge.id = 'verifier-domain';
+      authenticated.querySelector('p').append('The verifier ', verifierBadge, ' attested to the encrypted response (without seeing any of its contents in cleartext).');
+      const signed = step('3 · Verifier signed the attestation', `Verifier time: ${new Date(result.time * 1000).toISOString()}. Signed the hostname, response fingerprint, byte range and timestamp.`);
+      signed.append(savedLink('View signed receipt.json', receiptURL));
+      const verified = step('4 · Saved evidence verified ✓', 'This browser checked the signature and matched the saved response to the signed fingerprint.');
+      const inputs = el('ul', null, 'proof-tree hash-inputs');
+      inputs.append(branch('SHA-256(response.http ∥ blinder)', [
+        leaf('Complete HTTP response · response.http', `${response.length.toLocaleString()} bytes · headers + body`, responseURL),
+        branch('Your ArchiveBox server generates 16 random hiding bytes (“blinder”)', [leaf('Saved in receipt.json', receipt.blinder, receiptURL), leaf('Purpose', 'Makes the fingerprint private by mixing random bytes with the response before hashing')]),
+      ]));
+      const digest = fact('Response fingerprint sent to the verifier (“commitment”)', result.hash, receiptURL);
+      const receiptFacts = el('div', null, 'facts'); receiptFacts.append(fact('Website · server_name', result.server_name), fact('Signed response byte range', `${result.start} → ${result.end} (end excluded)`), fact('Signature · Ed25519', receipt.signature, receiptURL));
+      const evidence = el('details', null, 'evidence-details'); evidence.open = true; evidence.append(el('summary', 'Response fingerprint and inputs'), digest, inputs, visibility);
+      authenticated.append(evidence);
+      const attestation = el('details', null, 'evidence-details'); attestation.open = true; attestation.append(el('summary', 'Signed receipt'), receiptFacts, captureMetadata); signed.append(attestation);
+      captured.append(contentDetails); verified.append(keyDetails);
+      panel.replaceChildren(flow, el('h2', 'Capture and verification'), timeline);
+      const metadataURL = new URL('metadata.json?preview=1&raw=1', output);
+      captureMetadata.replaceChildren(fact('Verifier server', metadata.verifier_url, metadataURL), fact('Receipt ID', metadata.receipt_id, metadataURL));
+    }
     let generation = 0;
     async function verify() {
       const current = ++generation, key = byId('key').value.trim();
       byId('status').textContent = 'Checking signature and archived response…'; byId('status').className = 'status';
-      byId('details').replaceChildren(); byId('summary').textContent = ''; byId('content').hidden = true; byId('body').textContent = '';
+      byId('proof-tree').before(keyDetails, contentDetails, captureMetadata); captureMetadata.replaceChildren(); byId('proof-tree').replaceChildren(); byId('details').replaceChildren(); byId('summary').textContent = ''; byId('content').hidden = true; byId('body').textContent = '';
       try {
-        const [receiptResponse, responseResponse] = await Promise.all([fetch(receiptURL, {cache: 'no-store'}), fetch(responseURL, {cache: 'no-store'})]);
+        const metadataURL = new URL('metadata.json?raw=1', output), navigationURL = new URL('../chrome/navigation.json?raw=1', output);
+        const [receiptResponse, responseResponse, metadataResponse, navigationResponse] = await Promise.all([receiptURL, responseURL, metadataURL, navigationURL].map(url => fetch(url, {cache: 'no-store'})));
+        if (!metadataResponse.ok || !navigationResponse.ok) throw new Error('Unable to read capture metadata');
+        const metadata = await metadataResponse.json(), navigation = await navigationResponse.json();
+        if (!metadata.verifier_url || !metadata.receipt_id || !navigation.timestamp) throw new Error('Incomplete capture metadata');
+        if (!['https:', 'http:'].includes(new URL(metadata.verifier_url).protocol)) throw new Error('Invalid verifier URL');
         if (!receiptResponse.ok || !responseResponse.ok) throw new Error(`Unable to read proof files (HTTP ${receiptResponse.status}/${responseResponse.status})`);
         const receipt = await receiptResponse.json(), response = new Uint8Array(await responseResponse.arrayBuffer());
         const result = await verifyReceipt(receipt, response, key);
         if (current !== generation) return;
-        byId('status').textContent = 'Verified · signature and archived response match'; byId('status').className = 'status verified';
-        byId('summary').textContent = `${result.server_name} · HTTP ${result.status} · ${response.length.toLocaleString()} bytes`;
-        for (const [label, value] of Object.entries({'Authenticated server': result.server_name, 'Verifier time': new Date(result.time * 1000).toISOString(), 'HTTP status': result.status, 'Authenticated bytes': response.length.toLocaleString(), 'Signed range': `${result.start}–${result.end}`, 'Commitment': result.hash})) {
-          const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = label; dd.textContent = value; byId('details').append(dt, dd);
-        }
+        const statusHash = el('code', result.hash, 'status-hash'); statusHash.title = result.hash;
+        byId('status').replaceChildren(el('span', 'Content signed + attested to by ' + new URL(metadata.verifier_url).host)); byId('status').className = 'status verified';
+        byId('summary').replaceChildren(statusHash);
+        renderTopology(receipt, result, response, key, metadata, navigation);
         byId('body').textContent = new TextDecoder().decode(result.body); byId('content').hidden = false;
       } catch (error) {
         if (current !== generation) return;

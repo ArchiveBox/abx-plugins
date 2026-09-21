@@ -9,13 +9,14 @@
 # Usage:
 #     ./on_Snapshot__93_hashes.py [...] > events.jsonl
 
-import sys
-import os
-import json
 import hashlib
+import json
+import os
+import re
 import stat
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 from typing import Any
 
 import click
@@ -25,7 +26,6 @@ from abx_plugins.plugins.base.utils import (
     load_config,
     write_text_atomic,
 )
-
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG = load_config()
@@ -71,6 +71,12 @@ def collect_files(
             # The runner keeps appending lifecycle records after hashing. These
             # are execution bookkeeping, not archived content or evidence.
             if rel_path == Path("index.jsonl"):
+                continue
+
+            if len(rel_path.parts) == 2 and re.fullmatch(
+                r"on_[A-Za-z]+__.+\.[0-9a-f]{32}\.(?:sh|pid|stdout\.log|stderr\.log)(?:\.\d+)?",
+                filename,
+            ):
                 continue
 
             if filepath.is_symlink():
@@ -129,7 +135,7 @@ def create_hashes(snapshot_dir: Path) -> dict[str, Any]:
         "tree_levels": tree_levels,
         "files": file_list,
         "metadata": {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "file_count": len(files),
             "total_size": total_size,
             "tree_depth": len(tree_levels),
