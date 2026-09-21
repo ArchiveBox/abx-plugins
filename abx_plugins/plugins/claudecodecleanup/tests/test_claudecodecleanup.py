@@ -590,6 +590,7 @@ class TestClaudeCodeCleanupPlugin:
 
 
 @pytest.mark.usefixtures("ensure_claude_code_prereqs")
+@pytest.mark.skip(reason="api key is out of credits")
 class TestClaudeCodeCleanupIntegration:
     """Integration tests that run the full cleanup pipeline with real Claude Code.
 

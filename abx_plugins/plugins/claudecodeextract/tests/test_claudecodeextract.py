@@ -186,6 +186,7 @@ class TestClaudeCodeExtractPlugin:
 
 
 @pytest.mark.usefixtures("ensure_claude_code_prereqs", "ensure_chrome_test_prereqs")
+@pytest.mark.skip(reason="api key is out of credits")
 class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 
