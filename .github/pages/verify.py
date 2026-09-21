@@ -217,6 +217,24 @@ def verify(output, evidence):
                     if route == "" and page.locator("#resources").count():
                         page.goto(f"{origin}/#resources")
                         expect(page.locator("#resources")).to_be_visible()
+                    if route == "" and page.locator("#plugin-modal").count():
+                        # Fragment navigation can natively expand <details> even when
+                        # its summary click is handled by the plugin dialog.
+                        page.goto(f"{origin}/#git")
+                        expect(page.locator("#plugin-modal")).to_be_visible()
+                        expect(page.locator("#plugin-modal-title")).to_have_text("Git")
+                        page.locator("#plugin-modal-close").click()
+                        expect(page.locator("#git > .plugin-body")).to_be_hidden()
+                        expect(page.locator(".plugin-card[open]")).to_have_count(0)
+                        page.locator("#git summary").click()
+                        expect(page.locator("#plugin-modal")).to_be_visible()
+                        page.keyboard.press("Escape")
+                        expect(page.locator("#plugin-modal")).to_be_hidden()
+                        expect(page.locator("#git > .plugin-body")).to_be_hidden()
+                        page.goto(f"{origin}/#wget")
+                        expect(page.locator("#plugin-modal-title")).to_have_text("wget")
+                        page.locator("#plugin-modal-close").click()
+                        expect(page.locator(".plugin-card[open]")).to_have_count(0)
                 assert not errors, errors
                 assert not missing, missing
                 page.close()
@@ -232,6 +250,9 @@ def verify(output, evidence):
                 plain.locator(".abx-apps summary").click()
                 expect(plain.locator(".abx-app-links a").first).to_be_visible()
                 expect(plain.locator(".abx-footer-column a").first).to_be_visible()
+                if plain.locator("#git.plugin-card").count():
+                    plain.locator("#git summary").click()
+                    expect(plain.locator("#git > .plugin-body")).to_be_visible()
                 if not route and "screenshots/index.html" in config["pages"]:
                     assert plain.locator(".abx-marquee-card").count() > 0
                     for strip in plain.locator(".abx-marquee").all():

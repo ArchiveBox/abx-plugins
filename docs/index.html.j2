@@ -2020,6 +2020,14 @@ abx-dl 'https://example.com'</code></pre>
       for (const card of cards) {
         const summary = card.querySelector("summary");
         if (summary) {
+          // Browsers can expand <details> during fragment navigation or Find.
+          // With dialogs enabled, this body is only a source for the modal;
+          // leave native inline expansion available only without JavaScript.
+          card.querySelector(".plugin-body").hidden = true;
+          card.open = false;
+          card.addEventListener("toggle", () => {
+            if (card.open) card.open = false;
+          });
           summary.addEventListener("click", (event) => {
             event.preventDefault();
             if (event.target.closest("a, button, input, textarea, select")) return;
