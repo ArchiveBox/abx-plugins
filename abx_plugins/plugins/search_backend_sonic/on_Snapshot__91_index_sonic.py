@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -29,6 +29,7 @@ from typing import Any
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    load_required_binary_from_config,
 )
 from abx_plugins.plugins.search_backend_sonic.daemon import (
     is_sonic_backend_enabled,
@@ -253,6 +254,15 @@ def main() -> None:
             snapshot_id = args.snapshot_id
             if not snapshot_id:
                 raise RuntimeError("missing --snapshot-id")
+
+            # Reject invalid inputs before installing the plugin's dependencies.
+            # Valid invocations retain the same config-owned auto-install path.
+            load_required_binary_from_config(
+                config.SONIC_BINARY,
+                Path(__file__).with_name("config.json"),
+                global_config=vars(config),
+                install=True,
+            )
 
             contents = []
             metadata_content = build_metadata_content(args.url, snapshot_id)

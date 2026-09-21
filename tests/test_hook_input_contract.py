@@ -42,6 +42,7 @@ def test_search_hooks_require_explicit_id_even_when_context_contains_one(
             **os.environ,
             "SNAP_DIR": str(tmp_path),
             "DATA_DIR": str(tmp_path),
+            "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
             f"SEARCH_BACKEND_{backend.upper()}_ENABLED": "true",
             "EXTRA_CONTEXT": json.dumps({"snapshot_id": "not-an-input"}),
         },
@@ -51,6 +52,7 @@ def test_search_hooks_require_explicit_id_even_when_context_contains_one(
     )
     assert result.returncode == 1
     assert "missing --snapshot-id" in result.stderr
+    assert "Installing sonic" not in result.stderr
     assert not (tmp_path / "search.sqlite3").exists()
 
 
