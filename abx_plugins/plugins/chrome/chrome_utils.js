@@ -3529,11 +3529,41 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
     throw new Error(`Failed to read cookies: ${e.message}`);
   }
 
-  const { cookies, skipped } = cookiesFile.endsWith(".json")
-    ? { cookies: JSON.parse(contents).cookies, skipped: 0 }
+  const auth = cookiesFile.endsWith(".json") ? JSON.parse(contents) : null;
+  let { cookies, skipped } = auth
+    ? { cookies: auth.cookies, skipped: 0 }
     : parseCookiesTxt(contents);
   if (!Array.isArray(cookies)) throw new Error("Cookie export must contain a cookies array");
-  if (cookies.length === 0) {
+  const extensionSync = auth?.SOURCE === "archivebox-browser-extension";
+  if (extensionSync) {
+    // WebExtensions cookies use different field names / enum values than CDP.
+    cookies = cookies.map(cookie => {
+      if (!cookie || typeof cookie.domain !== "string" || !cookie.domain ||
+          typeof cookie.name !== "string" || typeof cookie.value !== "string") {
+        throw new Error("Invalid extension cookie: domain, name and value are required");
+      }
+      if (cookie.partitionKey) {
+        throw new Error("Partitioned extension cookies are not supported; existing cookies were left unchanged");
+      }
+      const imported = {
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path || "/",
+        secure: Boolean(cookie.secure),
+        httpOnly: Boolean(cookie.httpOnly),
+      };
+      if (cookie.expirationDate != null) imported.expires = cookie.expirationDate;
+      const sameSite = String(cookie.sameSite || "").toLowerCase();
+      if (sameSite && sameSite !== "unspecified") {
+        const normalized = { no_restriction: "None", none: "None", lax: "Lax", strict: "Strict" }[sameSite];
+        if (!normalized) throw new Error(`Invalid cookie sameSite value: ${sameSite}`);
+        imported.sameSite = normalized;
+      }
+      return imported;
+    });
+  }
+  if (cookies.length === 0 && !extensionSync) {
     console.error("[!] No cookies found to import");
     return;
   }
@@ -3552,23 +3582,61 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
 
   const page = await browser.newPage();
   const client = await page.target().createCDPSession();
-  await client.send("Network.enable");
+  try {
+    await client.send("Network.enable");
 
-  const chunkSize = 200;
-  let imported = 0;
-  for (let i = 0; i < cookies.length; i += chunkSize) {
-    const chunk = cookies.slice(i, i + chunkSize);
-    try {
-      await client.send("Network.setCookies", { cookies: chunk });
-      imported += chunk.length;
-    } catch (e) {
-      await page.close();
-      throw new Error(`Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
+    // Extension exports are the complete cookie set for their selected domains.
+    // Remember domains only (never values) so removing a domain or clearing the
+    // export also removes its old cookies from a reused persistent profile.
+    const syncStateFile = extensionSync && userDataDir
+      ? path.join(userDataDir, ".archivebox-extension-cookie-domains.json")
+      : null;
+    const previousDomains = syncStateFile && fs.existsSync(syncStateFile)
+      ? JSON.parse(fs.readFileSync(syncStateFile, "utf8"))
+      : [];
+    const syncedDomains = extensionSync
+      ? [...new Set(cookies.map(cookie => cookie.domain.replace(/^\./, "")))]
+      : [];
+    if (!Array.isArray(previousDomains) || previousDomains.some(domain => typeof domain !== "string")) {
+      throw new Error("Invalid extension cookie domain state");
     }
-  }
+    const managedDomains = new Set([...previousDomains, ...syncedDomains]);
+    const cookieKey = cookie => JSON.stringify([cookie.domain, cookie.path || "/", cookie.name]);
+    const incomingKeys = new Set(cookies.map(cookieKey));
+    const staleCookies = extensionSync
+      ? (await client.send("Network.getAllCookies")).cookies.filter(cookie =>
+          managedDomains.has(cookie.domain.replace(/^\./, "")) &&
+          (cookie.partitionKey || !incomingKeys.has(cookieKey(cookie))))
+      : [];
 
-  await page.close();
-  console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+    const chunkSize = 200;
+    let imported = 0;
+    for (let i = 0; i < cookies.length; i += chunkSize) {
+      const chunk = cookies.slice(i, i + chunkSize);
+      try {
+        await client.send("Network.setCookies", { cookies: chunk });
+        imported += chunk.length;
+      } catch (e) {
+        throw new Error(`Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
+      }
+    }
+
+    // Import first: a rejected payload must never clear the previous login.
+    for (const cookie of staleCookies) {
+      await client.send("Network.deleteCookies", {
+        name: cookie.name,
+        domain: cookie.domain,
+        path: cookie.path,
+        ...(cookie.partitionKey ? { partitionKey: cookie.partitionKey } : {}),
+      });
+    }
+    if (syncStateFile) {
+      writeFileAtomic(syncStateFile, JSON.stringify(syncedDomains));
+    }
+    console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+  } finally {
+    await page.close();
+  }
 }
 
 async function waitForBrowserEndpointGone(
@@ -3736,7 +3804,7 @@ async function ensureChromeSession(options = {}) {
     !existingSession.stale &&
     existingSession.state?.cdpUrl
   ) {
-    if (installedExtensions.length > 0) {
+    if (installedExtensions.length > 0 || cookiesFile) {
       let browser = null;
       try {
         browser = await connectToBrowserEndpoint(
@@ -3744,11 +3812,12 @@ async function ensureChromeSession(options = {}) {
           existingSession.state.cdpUrl,
           { defaultViewport: null }
         );
-        await loadUnpackedExtensionsIntoBrowser(
-          browser,
-          installedExtensions,
-          timeoutMs
-        );
+        if (installedExtensions.length > 0) {
+          await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
+        }
+        if (cookiesFile) {
+          await importCookiesFromFile(browser, cookiesFile, userDataDir);
+        }
         writeBrowserMetadata(outputDir, installedExtensions);
       } finally {
         if (browser) {

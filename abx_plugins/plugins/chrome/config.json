@@ -55,7 +55,7 @@
     {
       "name": "{CHROME_BINARY}",
       "binproviders": "env,playwright,puppeteer",
-      "min_version": "149.0.0",
+      "min_version": "153.0.8010.36",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
@@ -142,6 +142,12 @@
       "pattern": "^\\d+,\\d+$",
       "x-fallback": "RESOLUTION",
       "description": "Browser viewport resolution (width,height)"
+    },
+    "BROWSER_COLOR_SCHEME": {
+      "type": "string",
+      "pattern": "^(light|dark)?$",
+      "default": "",
+      "description": "Preferred page color scheme (empty uses the browser default)"
     },
     "CHROME_USER_AGENT": {
       "type": "string",

@@ -191,6 +191,11 @@ async function startTargetMonitor() {
   });
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
+  if (hookConfig.BROWSER_COLOR_SCHEME) {
+    await monitorPage.emulateMediaFeatures([
+      { name: "prefers-color-scheme", value: hookConfig.BROWSER_COLOR_SCHEME },
+    ]);
+  }
   monitorPage.once("close", async () => {
     if (shuttingDown) {
       return;
@@ -228,6 +233,7 @@ async function startTargetMonitorBestEffort() {
     const message = error?.message || String(error);
     console.error(`[*] Skipping target monitor setup: ${message}`);
     await stopTargetMonitor();
+    if (hookConfig.BROWSER_COLOR_SCHEME) throw error;
   }
 }
 
@@ -385,8 +391,8 @@ async function main() {
         output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
         releaseLock();
         releaseLock = null;
-        publishSuccess(output, version || "");
         await startTargetMonitorBestEffort();
+        publishSuccess(output, version || "");
         keepAliveTimer = setInterval(() => {}, 1000);
         await new Promise(() => {});
       }
@@ -446,8 +452,8 @@ async function main() {
       console.error(`[+] Page target ID: ${targetId}`);
       releaseLock();
       releaseLock = null;
-      publishSuccess(output, version || "");
       await startTargetMonitorBestEffort();
+      publishSuccess(output, version || "");
     } else {
       const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
@@ -525,8 +531,8 @@ async function main() {
       console.error(`[+] Page target ID: ${targetId}`);
       releaseLock();
       releaseLock = null;
-      publishSuccess(output, version || "");
       await startTargetMonitorBestEffort();
+      publishSuccess(output, version || "");
     }
   } catch (e) {
     error = `${e.name}: ${e.message}`;

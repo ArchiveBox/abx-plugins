@@ -14,3 +14,29 @@ test5/
 tmp/
 
 /_site/
+
+# Standalone hook runs belong in data/ or a temporary capture directory.
+# Ignore accidental outputs at repository root, not plugin source directories.
+/index.jsonl
+/ArchiveBox.conf
+/.archivebox_id
+/chrome/
+/chromium/
+/responses/
+/dom/
+/title/
+/gallerydl/
+/defuddle/
+/wget/
+/favicon/
+/twocaptcha/
+/singlefile/
+/parse_rss_urls/
+/search_backend_sonic/
+/personas/
+/archive/
+/lib/
+/dist/
+/build/
+.pytest_cache/
+.ruff_cache/

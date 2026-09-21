@@ -4190,3 +4190,108 @@ def test_kill_zombie_chrome_does_not_kill_its_launcher(tmp_path):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_extension_cookie_sync_reconciles_removed_domains(tmp_path, chrome_test_url):
+    """Real Chrome preserves other domains while synced cookies change and clear."""
+    with chrome_session(tmp_path, test_url=chrome_test_url, navigate=False) as (
+        _,
+        _,
+        chrome_dir,
+        env,
+    ):
+        script = r"""
+const fs = require('fs');
+const assert = require('node:assert/strict');
+const utils = require(process.argv[1]);
+(async () => {
+  const browser = await utils.resolvePuppeteerModule().connect({browserWSEndpoint: fs.readFileSync(process.argv[2], 'utf8').trim()});
+  const authFile = process.argv[3];
+  const userDataDir = process.argv[4];
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const cookie = (domain, name, value, sameSite = 'lax') => ({domain, name, value, path: '/', expirationDate: expires, sameSite, secure: true, httpOnly: true});
+  try {
+    await browser.setCookie({domain: 'other.example', name: 'unrelated', value: 'keep', path: '/'});
+    const sync = async (cookies) => {
+      fs.writeFileSync(authFile, JSON.stringify({SOURCE: 'archivebox-browser-extension', cookies}));
+      const session = await utils.ensureChromeSession({outputDir: process.argv[5], cookiesFile: authFile, CHROME_USER_DATA_DIR: userDataDir});
+      assert.equal(session.reusedExisting, true);
+    };
+    await sync([cookie('first.example', 'session', 'old'), cookie('removed.example', 'session', 'remove'), cookie('first.example', 'cross-site', 'allowed', 'no_restriction'), cookie('first.example', 'strict', 'strict', 'strict'), {...cookie('first.example', 'unspecified', 'default', 'unspecified'), expirationDate: null}]);
+    let imported = await browser.cookies();
+    assert.equal(imported.find(c => c.name === 'session' && c.domain === 'first.example').sameSite, 'Lax');
+    assert.equal(imported.find(c => c.name === 'cross-site').sameSite, 'None');
+    assert.equal(imported.find(c => c.name === 'strict').sameSite, 'Strict');
+    assert.equal(imported.find(c => c.name === 'unspecified').sameSite, undefined);
+    assert.equal(imported.find(c => c.name === 'unspecified').session, true);
+    assert.equal(imported.find(c => c.name === 'cross-site').expires, expires);
+    assert.equal(imported.find(c => c.name === 'cross-site').httpOnly, true);
+    assert.equal(imported.find(c => c.name === 'cross-site').secure, true);
+    await assert.rejects(sync([cookie('first.example', 'session', 'bad', 'invalid')]), /Invalid cookie sameSite/);
+    assert.equal((await browser.cookies()).find(c => c.name === 'session' && c.domain === 'first.example').value, 'old');
+    await assert.rejects(sync([{...cookie('first.example', 'session', 'bad'), partitionKey: {topLevelSite: 'https://example.com'}}]), /Partitioned extension cookies/);
+    assert.equal((await browser.cookies()).find(c => c.name === 'session' && c.domain === 'first.example').value, 'old');
+    await sync([cookie('first.example', 'session', 'new')]);
+    let cookies = await browser.cookies();
+    assert.equal(cookies.find(c => c.domain === 'first.example').value, 'new');
+    assert.equal(cookies.some(c => c.domain === 'removed.example'), false);
+    assert.equal(cookies.find(c => c.domain === 'other.example').value, 'keep');
+    await sync([]);
+    cookies = await browser.cookies();
+    assert.equal(cookies.some(c => c.domain === 'first.example'), false);
+    assert.equal(cookies.find(c => c.domain === 'other.example').value, 'keep');
+  } finally { browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(chrome_dir / "cdp_url.txt"),
+                str(tmp_path / "auth.json"),
+                str(tmp_path / "personas" / "Default" / "chrome_profile"),
+                str(Path(env["CRAWL_DIR"]) / "chrome"),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("color_scheme", ["dark", "light"])
+def test_snapshot_uses_synced_color_scheme(tmp_path, color_scheme, chrome_test_url):
+    with chrome_session(
+        tmp_path,
+        test_url=chrome_test_url,
+        env_overrides={"BROWSER_COLOR_SCHEME": color_scheme},
+    ) as (_, _, chrome_dir, env):
+        script = r"""
+const assert = require('node:assert/strict');
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2], requireTargetId: true});
+  try {
+    const actual = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    assert.equal(actual, process.argv[3]);
+  } finally { browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(chrome_dir),
+                color_scheme,
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
