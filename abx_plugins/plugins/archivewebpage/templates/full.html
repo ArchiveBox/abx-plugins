@@ -2,10 +2,14 @@
 <html>
 <head>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>{{ output_path_raw }}</title>
     <style>
         html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
         #replay-root, replay-web-page { display: block; width: 100%; height: 100%; }
+        .replay-error { box-sizing:border-box;max-width:640px;margin:32px auto;padding:24px;font:15px/1.5 system-ui,sans-serif;color:#334155;overflow-wrap:anywhere; }
+        .replay-error h1 { font-size:20px; }
+        .replay-error a { color:#315c83; }
     </style>
     <script>
     async function activateReplayWorker() {
@@ -53,6 +57,22 @@
             .then(mountReplay)
             .catch((error) => {
                 window.archiveboxReplayError = String(error);
+                const root = document.getElementById('replay-root');
+                const message = document.createElement('section');
+                message.className = 'replay-error';
+                message.setAttribute('role', 'alert');
+                const title = document.createElement('h1');
+                title.textContent = window.isSecureContext ? 'Replay unavailable' : 'Replay requires a secure connection';
+                const detail = document.createElement('p');
+                detail.textContent = window.isSecureContext
+                    ? 'This browser could not start the replay service worker. Open this capture in a browser with service worker support.'
+                    : 'Connect to this ArchiveBox server over HTTPS to replay WACZ captures. Service workers are unavailable on plain HTTP network addresses.';
+                const download = document.createElement('a');
+                download.href = root.dataset.source;
+                download.download = '';
+                download.textContent = 'Download WACZ';
+                message.append(title, detail, download);
+                root.replaceChildren(message);
                 window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
             });
     }, {once: true});
