@@ -314,12 +314,15 @@ async function setupListener() {
     }
   }
 
-  // Puppeteer emits responses concurrently. Materialize one body at a time so
-  // large pages cannot retain many complete response buffers simultaneously.
-  responseListener = (response) => {
+  // Queue only completed requests: the response event fires at headers, and
+  // its body promise can remain unresolved if Chrome closes before completion.
+  // Materialize one body at a time to bound retained response buffers.
+  responseListener = (request) => {
+    const response = request.response();
+    if (!response) return;
     pendingResponseWork = pendingResponseWork.then(() => captureResponse(response));
   };
-  page.on("response", responseListener);
+  page.on("requestfinished", responseListener);
 
   return { browser, page };
 }
@@ -340,7 +343,7 @@ function emitResult(
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
   if (page && responseListener) {
-    page.off("response", responseListener);
+    page.off("requestfinished", responseListener);
   }
   await pendingResponseWork;
   await emitResult("succeeded");
