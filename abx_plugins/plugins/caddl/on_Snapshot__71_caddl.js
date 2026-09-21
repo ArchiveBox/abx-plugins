@@ -280,12 +280,21 @@ async function main() {
     const assetDir = path.join(OUTPUT_DIR, "assets");
     const oldAssetDir = path.join(OUTPUT_DIR, ".assets-previous");
     await fs.promises.rm(oldAssetDir, { recursive: true, force: true });
+    let movedPreviousAssets = false;
     try {
       await fs.promises.rename(assetDir, oldAssetDir);
+      movedPreviousAssets = true;
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
-    await fs.promises.rename(stagedAssets, assetDir);
+    try {
+      await fs.promises.rename(stagedAssets, assetDir);
+    } catch (error) {
+      if (movedPreviousAssets) {
+        await fs.promises.rename(oldAssetDir, assetDir).catch(() => {});
+      }
+      throw error;
+    }
     await fs.promises.rm(oldAssetDir, { recursive: true, force: true });
     await fs.promises.rm(downloadDir, { recursive: true, force: true });
     writeFileAtomic(path.join(OUTPUT_DIR, "index.json"), JSON.stringify(manifest, null, 2));
