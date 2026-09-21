@@ -107,20 +107,17 @@ def main(url: str) -> None:
         if read_manifest(snap_dir) != manifest:
             raise ValueError("Hashes changed during submission; rerun OpenTimestamps")
 
-        page = (Path(__file__).parent / "templates/viewer.html").read_text()
-        page = page.replace("$ROOT_HASH", root_hash).replace(
-            "$MANIFEST_SHA256",
-            hashlib.sha256(manifest).hexdigest(),
-        )
-        (stage / "index.html").write_text(page)
-        # Publish matching manifest/proof/viewer together, retaining earlier evidence.
+        # Publish matching manifest/proof together, retaining earlier evidence.
         generation = output / stage.name.removeprefix(".")
         stage.rename(generation)
         stage = None
         pending = output / f".current-{os.getpid()}"
         pending.symlink_to(generation.name, target_is_directory=True)
         pending.replace(output / "current")
-        emit_archive_result_record("succeeded", "opentimestamps/current/index.html")
+        emit_archive_result_record(
+            "succeeded",
+            "opentimestamps/current/hashes.json.ots",
+        )
     except Exception as error:
         print(f"[opentimestamps] {type(error).__name__}: {error}", file=sys.stderr)
         emit_archive_result_record("failed", str(error))

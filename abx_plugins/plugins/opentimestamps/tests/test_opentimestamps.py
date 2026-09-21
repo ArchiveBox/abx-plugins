@@ -45,19 +45,17 @@ def test_evidence_hooks_run_in_order():
     assert all(".bg." not in name for name in names)
 
 
-def test_host_preview_embeds_the_generated_viewer():
+def test_host_card_opens_dynamic_preview():
     from jinja2 import Environment, FileSystemLoader
 
     templates = Environment(
         loader=FileSystemLoader(PLUGINS / "opentimestamps/templates"),
         autoescape=True,
     )
-    output_path = "/archive/output/opentimestamps/current/index.html"
-    for name in ("card.html", "full.html"):
-        rendered = templates.get_template(name).render(output_path=output_path)
-        assert f'src="{output_path}"' in rendered
-        assert "$ROOT_HASH" not in rendered
-        assert "$MANIFEST_SHA256" not in rendered
+    output_path = "/archive/output/opentimestamps/current/hashes.json.ots"
+    rendered = templates.get_template("card.html").render(output_path=output_path)
+    assert f'src="{output_path}?preview=1&amp;card=1"' in rendered
+    assert 'sandbox="allow-scripts allow-same-origin"' in rendered
 
 
 def test_hashes_publishes_completion_and_covers_tlsnotary(tmp_path):
@@ -174,11 +172,11 @@ def test_live_stamp_and_failed_rerun_preserves_evidence(tmp_path):
     assert info.returncode == 0, info.stderr
     assert f"File sha256 hash: {hashlib.sha256(manifest).hexdigest()}" in info.stdout
     assert "PendingAttestation" in info.stdout
-    page = (current / "index.html").read_text()
-    assert json.loads(manifest)["root_hash"] in page
-    assert "$ROOT_HASH" not in page and "$MANIFEST_SHA256" not in page
-    assert 'class="status">Hashes submitted to blockchain' in page
-    assert 'href="https://tlsnotary.zervice.io/"' in page
+    assert record["output_str"] == "opentimestamps/current/hashes.json.ots"
+    assert {path.name for path in current.iterdir()} == {
+        "hashes.json",
+        "hashes.json.ots",
+    }
 
     # The real client must reject altered manifest bytes before network verification.
     altered = tmp_path / "altered.json"

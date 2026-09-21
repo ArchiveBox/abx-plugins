@@ -233,17 +233,8 @@ async function capture() {
   // bytes occur once, in response.http, never in receipt.json or metadata.json.
   if (stopped) throw new Error("Capture cancelled");
   const stage = fs.mkdtempSync(path.join(output, ".capture-"));
-  fs.cpSync(path.join(__dirname, "server/web"), stage, { recursive: true });
   fs.writeFileSync(path.join(stage, "response.http"), response);
   fs.writeFileSync(path.join(stage, "receipt.json"), JSON.stringify(receipt));
-  const verifierCode = fs.readFileSync(path.join(stage, "verify.mjs"), "utf8");
-  fs.writeFileSync(
-    path.join(stage, "verify.mjs"),
-    verifierCode.replace(
-      JSON.stringify(TRUSTED_PUBLIC_KEY),
-      JSON.stringify(trustedKey)
-    )
-  );
   fs.writeFileSync(
     path.join(stage, "metadata.json"),
     JSON.stringify({
@@ -262,7 +253,7 @@ async function capture() {
   const pending = path.join(output, ".current-" + process.pid);
   fs.symlinkSync(generation, pending);
   fs.renameSync(pending, path.join(output, "current"));
-  emitArchiveResultRecord("succeeded", "tlsnotary/current/index.html");
+  emitArchiveResultRecord("succeeded", "tlsnotary/current/receipt.json");
 }
 (async () => {
   if (!config.TLSNOTARY_ENABLED) {

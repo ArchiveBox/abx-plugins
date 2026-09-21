@@ -51,7 +51,11 @@ The snapshot's `tlsnotary/current/` points to an atomically published capture:
 - `response.http`: the exact authenticated response bytes, stored once.
 - `receipt.json`: signed hash, hostname, range, time and local opening; no response copy.
 - `metadata.json`: display metadata, never a substitute for signature verification.
-- `index.html` and local viewer assets: verify the receipt against the response.
+
+The hook writes no HTML or viewer assets. Its result points to `receipt.json`;
+ArchiveBox renders `templates/full.html` dynamically, with the shared verifier
+module included from the installed plugin. The preview links to
+https://tlsnotary.zervice.io/ for independent verification without embedding it.
 
 The viewer checks Ed25519, the blinded SHA-256 commitment, response length,
 authenticated hostname and HTTP framing. It displays only the authenticated

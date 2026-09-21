@@ -102,13 +102,13 @@ OpenTimestamps emits `skipped`; missing prerequisites and network errors emit
 
 - `hashes.json`: exact bytes of the submitted manifest, retained for verification.
 - `hashes.json.ots`: detached OpenTimestamps proof.
-- `index.html`: offline summary, downloads, and verification instructions.
 
 Successful reruns publish a new generation and retain previous evidence. A failed
-rerun leaves the previous generation intact. `card.html`, `full.html`, and `icon.html` provide
-the card, full preview wrapper, and plugin icon without host imports. The hook
-renders `viewer.html` into each generation's standalone `index.html`; the host
-templates embed that completed output instead of trying to reconstruct its data.
+rerun leaves the previous generation intact. The result points to
+`opentimestamps/current/hashes.json.ots`. `card.html`, `full.html`, and `icon.html`
+provide the dynamic card, full preview, and plugin icon without host imports.
+The full template reads the saved manifest and computes its SHA-256 in the browser;
+the hook writes no HTML. Template updates take effect without regenerating proofs.
 
 After Bitcoin confirmation, from `opentimestamps/current/`:
 
