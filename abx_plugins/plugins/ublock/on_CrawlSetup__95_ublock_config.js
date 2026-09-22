@@ -40,9 +40,6 @@ async function main() {
   ensureNodeModuleResolution(module);
   const { disableStrictBlocking } = require("./ublock_internal.js");
   await disableStrictBlocking(CHROME_SESSION_DIR);
-  console.error(
-    "[+] Disabled uBlock top-level strict blocking; subresource filtering remains enabled",
-  );
 }
 
 main().catch((error) => {

@@ -27,9 +27,6 @@ async function main() {
   const snapshotDir = path.resolve((hookConfig.SNAP_DIR || ".").trim());
   const { disableStrictBlocking } = require("./ublock_internal.js");
   await disableStrictBlocking(path.join(snapshotDir, "chrome"));
-  console.error(
-    "[+] Disabled uBlock top-level strict blocking; subresource filtering remains enabled",
-  );
 }
 
 main().catch((error) => {
