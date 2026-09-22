@@ -14,8 +14,9 @@
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/defuddle",
           "install_args": [
-            "defuddle"
-          ]
+            "defuddle@0.14.0"
+          ],
+          "version": "0.14.0"
         }
       }
     }
