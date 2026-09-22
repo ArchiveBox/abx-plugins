@@ -18,7 +18,7 @@
   document.getElementById('download').href=raw(output);
   document.getElementById('raw').href=raw(output);
   const knownFiles=[{% for file_path, file_info in result.output_files.items %}'{{ file_path|escapejs }}',{% endfor %}];
-  const sources=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
+  const sources=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
   const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!=null)node.textContent=String(text);if(cls)node.className=cls;return node};
   const safeFile=(path,root)=>{if(typeof path!=='string'||!path||path.startsWith('/')||path.includes('\\')||/^[a-z]+:/i.test(path))return null;const parts=path.split('/').filter(part=>part&&part!=='.');if(!parts.length||parts.includes('..'))return null;return new URL(parts.map(encodeURIComponent).join('/'),root)};
   const basename=path=>path.split('/').pop();
@@ -103,7 +103,20 @@
       entry.preview.textContent=text.trim()?text:'No text detected.';
     }catch{entry.preview.textContent='Unable to read parsed text. Open the saved file below.'}
   }
-  for(const document of [...documents.values()].sort((a,b)=>a.name.localeCompare(b.name))){
+  // Match the responses gallery: type, original bytes descending, then path.
+  const sourceRank=file=>{
+    const mime=file.mime.toLowerCase().split(';')[0],ext=file.path.split('.').pop().toLowerCase();
+    if(mime.startsWith('video/'))return 0;
+    if(mime.startsWith('audio/'))return 1;
+    if(mime==='application/pdf'||mime==='application/epub+zip'||/officedocument|opendocument|msword|ms-excel|ms-powerpoint/.test(mime)||['pdf','epub','doc','docx','ppt','pptx','xls','xlsx','odt','ods','odp','rtf','md','markdown'].includes(ext)||['text/markdown','text/x-markdown'].includes(mime))return 2;
+    if(mime.startsWith('image/')||isImage(file.path))return 3;
+    if(mime==='text/html'||mime==='application/xhtml+xml'||['html','htm'].includes(ext))return 4;
+    if(mime.startsWith('font/')||/font|woff/.test(mime)||['woff','woff2','ttf','otf','eot','ttc'].includes(ext))return 6;
+    if((mime.startsWith('application/')&&!/json|xml|javascript|ecmascript|sql|yaml|toml|graphql/.test(mime))||/zip|compressed|archive|wasm|executable/.test(mime))return 5;
+    return 7;
+  };
+  const ordered=[...documents.values()].map(document=>({document,source:findSource(document.name)||{path:document.name,mime:'',size:0}})).sort((a,b)=>sourceRank(a.source)-sourceRank(b.source)||(Number(b.source.size)||0)-(Number(a.source.size)||0)||a.source.path.localeCompare(b.source.path));
+  for(const {document} of ordered){
     const tile=el('figure',null,'tile'),comparison=el('div',null,'comparison');
     const left=el('div',null,'pane'),right=el('div',null,'pane'),original=el('div',null,'original'),preview=el('pre','Loading parsed text…','text-preview');
     preview.tabIndex=0;preview.setAttribute('aria-label','Parsed text: '+basename(document.name));
