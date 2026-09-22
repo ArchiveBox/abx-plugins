@@ -45,20 +45,40 @@ def test_evidence_hooks_run_in_order():
     assert all(".bg." not in name for name in names)
 
 
-def test_host_card_opens_dynamic_preview():
+def test_host_card_contains_standalone_preview():
+    from html import unescape
     from jinja2 import Environment, FileSystemLoader
+    from markupsafe import escape
 
     templates = Environment(
         loader=FileSystemLoader(PLUGINS / "opentimestamps/templates"),
         autoescape=True,
     )
+    templates.filters["force_escape"] = escape
     output_path = "/archive/output/opentimestamps/hashes.json.ots"
     rendered = templates.get_template("card.html").render(output_path=output_path)
-    assert f'src="{output_path}?preview=1&amp;card=1"' in rendered
-    assert (
-        'sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"'
-        in rendered
-    )
+    assert 'srcdoc="' in rendered
+    assert f'data-output="{output_path}"' in unescape(rendered)
+    assert "Submission commitment mismatch" in unescape(rendered)
+    assert "card=1" not in rendered
+    assert 'sandbox="allow-scripts allow-same-origin"' in rendered
+
+
+def test_proof_cards_keep_full_viewers_separate():
+    for plugin in ("git", "tlsnotary", "opentimestamps"):
+        card = (PLUGINS / plugin / "templates/card.html").read_text()
+        full = (PLUGINS / plugin / "templates/full.html").read_text()
+        assert "srcdoc=" in card
+        assert "card=1" not in card
+        assert "card-view" not in full
+        assert "if(compact)" not in full
+        assert "if(!compact)" not in full
+
+
+def test_tlsnotary_card_keeps_complete_receipt_verification():
+    verifier = (PLUGINS / "tlsnotary/server/web/verify.mjs").read_text().strip()
+    card = (PLUGINS / "tlsnotary/templates/card.html").read_text()
+    assert verifier in card
 
 
 def test_hashes_publishes_completion_and_covers_tlsnotary(tmp_path):
