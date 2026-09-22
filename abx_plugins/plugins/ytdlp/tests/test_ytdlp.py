@@ -135,25 +135,17 @@ def test_hook_script_exists():
     assert YTDLP_HOOK.exists(), f"Hook not found: {YTDLP_HOOK}"
 
 
-def test_card_template_loads_browser_media_on_click():
-    """Card template should not fetch archived media until the user asks to play it."""
+def test_card_template_lists_files_without_links_or_eager_players():
+    """The card lists filenames without individual links or eager media downloads."""
     template = (PLUGIN_DIR / "templates" / "card.html").read_text()
-
-    assert "ytdlp-load-player" in template
-    assert 'data-src="{{ file.url|default:file.path|urlencode }}"' in template
-    assert "media.src = src" in template
+    assert 'class="thumbnail-wrapper"' not in template
+    assert 'class="ytdlp-file-badge"' in template
+    assert "<a " not in template
+    assert '<span class="ytdlp-file-name">{{ file.name }}</span>' in template
+    assert "text-overflow: ellipsis" in template
+    assert "white-space: nowrap" in template
     assert "<video" not in template
     assert "<audio" not in template
-
-
-def test_card_template_links_non_browser_media_without_player():
-    """Non-browser-playable yt-dlp outputs should stay as regular file links."""
-    template = (PLUGIN_DIR / "templates" / "card.html").read_text()
-
-    assert "{% if file.is_browser_playable %}" in template
-    assert "{% else %}" in template
-    assert "Download file" in template
-    assert 'href="{{ file.url|default:file.path|urlencode }}"' in template
 
 
 def test_verify_deps_with_abxpkg(ytdlp_runtime_env):

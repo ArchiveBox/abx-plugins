@@ -1,59 +1,17 @@
-<!-- YT-DLP output list -->
+<!-- One badge per archived media file, shared by stack and tray. -->
 {% if media_files %}
-    <div class="ytdlp-media-card" style="pointer-events: auto;">
-        {% for file in media_files %}
-            {% if file.is_browser_playable %}
-                <div class="ytdlp-media-item" style="margin-bottom: 6px;">
-                    <button
-                        type="button"
-                        class="ytdlp-load-player"
-                        data-src="{{ file.url|default:file.path|urlencode }}"
-                        data-media-type="{{ file.media_type }}"
-                        data-name="{{ file.name }}"
-                        style="cursor: pointer; width: 100%; text-align: left; border: 1px solid #ddd; border-radius: 4px; background: #f8f8f8; padding: 6px 8px;"
-                    >
-                        {% if file.is_video %}🎬{% else %}🎧{% endif %} Play {{ file.name }}
-                    </button>
-                    <a href="{{ file.url|default:file.path|urlencode }}" target="preview" title="{{ file.name }}">
-                        Download file
-                    </a>
+    <style>
+        .ytdlp-file-list { box-sizing: border-box; padding: 6px; overflow: auto; min-width: 0; width: 100%; }
+        .ytdlp-file-badge { display: flex; align-items: center; gap: 5px; box-sizing: border-box; width: 100%; min-width: 0; margin-bottom: 4px; padding: 5px 7px; border: 1px solid #ddd; border-radius: 5px; background: #f8f8fa; color: #333; font: 12px/1.4 system-ui, sans-serif; }
+        .ytdlp-file-icon { flex: 0 0 auto; }
+        .ytdlp-file-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    </style>
+        <div class="ytdlp-file-list">
+            {% for file in media_files %}
+                <div class="ytdlp-file-badge" title="{{ file.name }}">
+                    <span class="ytdlp-file-icon" aria-hidden="true">{% if file.is_video %}🎬{% elif file.is_audio %}🎧{% else %}📄{% endif %}</span>
+                    <span class="ytdlp-file-name">{{ file.name }}</span>
                 </div>
-            {% else %}
-                <div class="loose-items" style="pointer-events: auto;">
-                    <a href="{{ file.url|default:file.path|urlencode }}" target="preview" title="{{ file.name }}">
-                        {% if file.is_video %}🎬{% elif file.is_audio %}🎧{% else %}📄{% endif %} {{ file.name }}
-                    </a>
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-    <script>
-        (function () {
-            if (window.__archiveboxYtdlpCardLoader) return;
-            window.__archiveboxYtdlpCardLoader = true;
-
-            document.addEventListener("click", function (event) {
-                var button = event.target.closest && event.target.closest(".ytdlp-load-player");
-                if (!button) return;
-
-                var src = button.getAttribute("data-src");
-                var mediaType = button.getAttribute("data-media-type");
-                var name = button.getAttribute("data-name") || "archived media";
-                if (!src) return;
-
-                var media = document.createElement(mediaType === "audio" ? "audio" : "video");
-                media.setAttribute("controls", "controls");
-                media.setAttribute("preload", "none");
-                media.setAttribute("data-no-preview", "1");
-                media.setAttribute("aria-label", name);
-                media.src = src;
-                media.style.width = "100%";
-                media.style.maxHeight = mediaType === "audio" ? "" : "220px";
-                media.style.background = "#000";
-                media.style.display = "block";
-
-                button.replaceWith(media);
-            });
-        }());
-    </script>
+            {% endfor %}
+        </div>
 {% endif %}
