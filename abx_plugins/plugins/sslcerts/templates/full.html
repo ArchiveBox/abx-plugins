@@ -41,7 +41,7 @@
         title.append(el('strong',cert.commonName||cert.subjectText||record.subjectName||'Unnamed certificate'),el('span',info[1],'muted'));
         const actions=el('div',null,'actions'),pem=pathLink(cert.pemPath);
         if(pem){const link=el('a','⤓ PEM','button');link.href=pem.href;link.download='';actions.append(link)}
-        let ct=cert.ctSearchUrl;if(!ct&&/^[a-f0-9:]{32,}$/i.test(cert.fingerprint256||''))ct='https://crt.sh/?q='+encodeURIComponent(String(cert.fingerprint256).replace(/:/g,''));
+        let ct=cert.ctSearchUrl;const fingerprint=String(cert.fingerprint256||'').replace(/:/g,'').trim().toLowerCase();if(/^[a-f0-9]{64}$/.test(fingerprint))ct='https://ctlogs.dev/search?q='+encodeURIComponent(fingerprint);
         if(ct)actions.append(safeLink(ct,'◫ CT logs'));head.append(icon,title,actions);card.append(head);
         const fields=el('dl');
         const add=(label,value,kind)=>{if(value===undefined||value===null||value==='')return;fields.append(el('dt',label));const dd=el('dd');if(kind==='hash')appendCopy(dd,value);else dd.textContent=kind==='date'?fmtDate(value):String(value);fields.append(dd)};

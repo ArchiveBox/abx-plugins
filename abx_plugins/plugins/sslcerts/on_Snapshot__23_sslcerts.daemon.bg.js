@@ -115,7 +115,7 @@ function tlsDateToEpochSeconds(value) {
 function buildCtSearchUrl(fingerprint256) {
   const normalized = normalizeFingerprint(fingerprint256);
   return normalized
-    ? `https://crt.sh/?q=${encodeURIComponent(normalized)}`
+    ? `https://ctlogs.dev/search?q=${encodeURIComponent(normalized)}`
     : null;
 }
 

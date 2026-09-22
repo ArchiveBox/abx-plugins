@@ -52,9 +52,14 @@ class TestSSLWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_ssl_extracts_certificate_from_https_url(self, chrome_test_https_url):
+    @pytest.mark.parametrize("use_public_url", [False, True])
+    def test_ssl_extracts_certificate_from_https_url(
+        self,
+        chrome_test_https_url,
+        use_public_url,
+    ):
         """SSL hook should extract certificate info from a real HTTPS URL."""
-        test_url = chrome_test_https_url
+        test_url = "https://example.com" if use_public_url else chrome_test_https_url
         snapshot_id = "test-ssl-snapshot"
 
         with chrome_session(
@@ -142,6 +147,14 @@ class TestSSLWithChrome:
             assert ssl_data["protocol"].startswith("TLS") or ssl_data[
                 "protocol"
             ].startswith("SSL"), f"Unexpected protocol: {ssl_data['protocol']}"
+
+            if use_public_url:
+                assert ssl_data["certificateChain"]
+                for certificate in ssl_data["certificateChain"]:
+                    fingerprint = certificate["fingerprint256"].replace(":", "").lower()
+                    assert certificate["ctSearchUrl"] == (
+                        f"https://ctlogs.dev/search?q={fingerprint}"
+                    )
 
 
 if __name__ == "__main__":
