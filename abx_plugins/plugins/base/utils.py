@@ -14,11 +14,14 @@ Import directly via the package path::
 
 from __future__ import annotations
 
+import html
 import json
+import re
+from html.parser import HTMLParser
 import os
 import stat
 import sys
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
@@ -1282,6 +1285,89 @@ def find_html_source(*, prefer_dom: bool = False) -> str | None:
                     return str(match)
 
     return None
+
+
+def preserve_article_image_dimensions(content: str, source: str, url: str) -> str:
+    """Keep explicit image sizes lost by article parsers, using their existing input.
+
+    Only copy simple CSS dimensions, not arbitrary source styles. Ambiguous uses
+    of the same image retain the extractor's output rather than guessing a size.
+    """
+    dimensions = ("width", "height", "max-width", "max-height")
+
+    def sizes(attrs: dict[str, str | None]) -> dict[str, str]:
+        styles = {
+            key.strip().lower(): value.strip()
+            for declaration in (attrs.get("style") or "").split(";")
+            if ":" in declaration
+            for key, value in [declaration.split(":", 1)]
+        }
+        result = {}
+        for name in dimensions:
+            value = styles.get(name, attrs.get(name) or "")
+            value = re.sub(r"\s*!important\s*$", "", value, flags=re.I)
+            if re.fullmatch(
+                r"(?:\d+(?:\.\d+)?|\.\d+)(?:px|%|em|rem|vw|vh)?",
+                value,
+                re.I,
+            ):
+                result[name] = value + "px" if re.fullmatch(r"[\d.]+", value) else value
+        return result
+
+    originals: dict[str, dict[str, str] | None] = {}
+
+    class ImageParser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag != "img":
+                return
+            attrs = dict(attrs)
+            src = urljoin(url, attrs.get("src") or "")
+            size = sizes(attrs)
+            if src not in originals:
+                originals[src] = size
+            elif originals[src] != size:
+                originals[src] = None
+
+    ImageParser().feed(source)
+
+    def restore(match: re.Match) -> str:
+        tag = match.group(0)
+        parsed_attrs = {}
+
+        class TagParser(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                parsed_attrs.update(attrs)
+
+        TagParser().feed(tag)
+        attrs = parsed_attrs
+        original = originals.get(urljoin(url, attrs.get("src") or "")) or {}
+        size = {**sizes(attrs), **original}
+        if not size:
+            return tag
+        style = attrs.get("style") or ""
+        style = (
+            style.rstrip(";")
+            + ";"
+            + ";".join(f"{key}:{value}" for key, value in size.items())
+        )
+        tag = re.sub(
+            r"\sstyle\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)",
+            "",
+            tag,
+            flags=re.I,
+        )
+        return re.sub(
+            r"\s*/?>$",
+            lambda _: f' style="{html.escape(style.lstrip(";"), quote=True)}">',
+            tag,
+        )
+
+    return re.sub(
+        r"<img\b(?:[^>\"']|\"[^\"]*\"|'[^']*')*>",
+        restore,
+        content,
+        flags=re.I,
+    )
 
 
 def find_article_html_source() -> str | None:

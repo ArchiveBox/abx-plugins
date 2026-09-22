@@ -19,6 +19,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     write_text_atomic,
     find_article_html_source,
+    preserve_article_image_dimensions,
 )
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
@@ -103,6 +104,11 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
         if not text_content and not html_content:
             return "noresults", "No content extracted"
 
+        html_content = preserve_article_image_dimensions(
+            html_content,
+            Path(html_source).read_text(encoding="utf-8", errors="replace"),
+            url,
+        )
         write_text_atomic(output_dir / HTML_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
         write_text_atomic(output_dir / METADATA_FILE, json.dumps(metadata, indent=2))

@@ -1,9 +1,2 @@
-<!-- Readability thumbnail - shows reader-mode extracted article content -->
-<div class="extractor-thumbnail readability-thumbnail" style="width: 100%; height: 100px; overflow: hidden; background: #fefefe; padding: 8px; font-family: Georgia, serif; font-size: 11px; line-height: 1.4; color: #333;">
-    <iframe src="{{ output_path }}"
-            style="width: 100%; height: 300px; border: none; pointer-events: none;"
-            loading="lazy"
-            fetchpriority="low"
-            sandbox="allow-same-origin">
-    </iframe>
-</div>
+<!-- Compact cleaned-article preview: one row of the snapshot grid. -->
+<iframe data-compact="1" data-plugin="readability" src="{{ output_path }}?preview=1&amp;card=1" title="Readability preview" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" style="width:100% !important;height:20px !important;transform:none !important;border:0;pointer-events:none"></iframe>

@@ -33,6 +33,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     write_text_atomic,
     find_article_html_source,
+    preserve_article_image_dimensions,
 )
 
 from urllib.parse import unquote, urljoin, urlparse
@@ -126,7 +127,7 @@ main {{ width: 100%; min-height: 100vh; margin: 0; padding: clamp(1.5rem, 4vw, 4
 article {{ width: min(100%, 72rem); margin: 0 auto; font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }}
 article > :first-child {{ margin-top: 0 }}
 h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
-a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; height: auto; margin: 1.5rem auto }}
+a {{ color: #0369a1 }} img {{ max-width: 100%; vertical-align: middle }} svg, video {{ max-width: 100%; height: auto }}
 article > *, article section, article div, article figure {{ max-width: 100% !important }}
 article table {{ width: 100% !important; max-width: 100% !important; border-collapse: collapse }}
 article td, article th {{ max-width: 100%; vertical-align: top }}
@@ -199,6 +200,11 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         if not text_content and not html_content:
             return "noresults", "No content extracted"
 
+        html_content = preserve_article_image_dimensions(
+            html_content,
+            Path(html_source).read_text(encoding="utf-8", errors="replace"),
+            url,
+        )
         html_content = render_readability_document(
             html_content,
             result_json,
