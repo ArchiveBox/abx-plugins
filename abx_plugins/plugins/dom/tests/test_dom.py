@@ -151,6 +151,55 @@ def test_config_save_dom_false_skips():
         assert result_json["output_str"] == "DOM_ENABLED=False", result_json
 
 
+def test_preserves_stylesheet_image_sizes(require_chrome_runtime, httpserver, tmp_path):
+    """A real browser must retain different CSS sizes before extraction strips CSS."""
+    from html.parser import HTMLParser
+    from abx_plugins.plugins.base.utils import preserve_article_image_dimensions
+
+    httpserver.expect_request("/").respond_with_data(
+        "<!doctype html><html><head><style>.icon{width:36px;height:36px}"
+        ".photo{width:640px;height:320px}</style></head><body>"
+        '<img class="icon" src="/icon.svg"><img class="photo" src="/photo.svg">'
+        "</body></html>",
+        content_type="text/html",
+    )
+    for name in ("icon", "photo"):
+        httpserver.expect_request(f"/{name}.svg").respond_with_data(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400">'
+            '<rect width="800" height="400" fill="blue"/></svg>',
+            content_type="image/svg+xml",
+        )
+    url = httpserver.url_for("/")
+    with chrome_session(tmp_path, test_url=url, timeout=45) as (_, _, chrome_dir, env):
+        dom_dir = chrome_dir.parent / "dom"
+        dom_dir.mkdir(exist_ok=True)
+        result = subprocess.run(
+            [str(DOM_HOOK), f"--url={url}"],
+            cwd=dom_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        source = (dom_dir / "output.html").read_text()
+    restored = preserve_article_image_dimensions(
+        '<img src="/icon.svg"><img src="/photo.svg">',
+        source,
+        url,
+    )
+    images = []
+
+    class Images(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag == "img":
+                images.append(dict(attrs))
+
+    Images().feed(restored)
+    assert "width:36px;height:36px" in images[0]["style"]
+    assert "width:640px;height:320px" in images[1]["style"]
+
+
 def test_staticfile_present_skips(real_staticfile_output, local_staticfile_urls):
     """Test that dom returns noresults when staticfile already downloaded."""
     with tempfile.TemporaryDirectory() as tmpdir:

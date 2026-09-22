@@ -4,7 +4,7 @@
   "description": "Extract article HTML, text, and metadata using the Postlight Mercury parser.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [],
+  "required_plugins": ["dom"],
   "required_binaries": [
     {
       "name": "{MERCURY_BINARY}",

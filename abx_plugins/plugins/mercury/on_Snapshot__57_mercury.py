@@ -22,6 +22,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from abx_plugins.plugins.base.utils import (
+    find_article_html_source,
+    preserve_article_image_dimensions,
     emit_archive_result_record,
     write_text_atomic,
 )
@@ -143,6 +145,13 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
             tag_count = html_content.count("<")
             if escaped_count and escaped_count > tag_count * 2:
                 html_content = html.unescape(html_content)
+        source = find_article_html_source()
+        if source:
+            html_content = preserve_article_image_dimensions(
+                html_content,
+                Path(source).read_text(encoding="utf-8", errors="replace"),
+                url,
+            )
         write_text_atomic(output_dir / HTML_FILE, html_content)
 
         text_content = " ".join(
