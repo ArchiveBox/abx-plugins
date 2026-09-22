@@ -64,14 +64,18 @@
                 const title = document.createElement('h1');
                 title.textContent = window.isSecureContext ? 'Replay unavailable' : 'Replay requires a secure connection';
                 const detail = document.createElement('p');
-                detail.textContent = window.isSecureContext
-                    ? 'This browser could not start the replay service worker. Open this capture in a browser with service worker support.'
-                    : 'Connect to this ArchiveBox server over HTTPS to replay WACZ captures. Service workers are unavailable on plain HTTP network addresses.';
+                detail.textContent = !window.isSecureContext
+                    ? 'This ArchiveBox address does not provide a secure context for replay. Configure HTTPS on the server and open its HTTPS address. Plain HTTP is supported on localhost, but not on network addresses. An insecure parent page can also block embedded replay.'
+                    : !('serviceWorker' in navigator)
+                        ? 'Service workers are unavailable in this browser context. Check browser restrictions or open this capture in a browser with service worker support.'
+                        : 'ArchiveBox could not start its replay service worker. Check the server replay files, routing, and security headers. The underlying error is shown below.';
+                const cause = document.createElement('p');
+                cause.textContent = String(error);
                 const download = document.createElement('a');
                 download.href = root.dataset.source;
                 download.download = '';
                 download.textContent = 'Download WACZ';
-                message.append(title, detail, download);
+                message.append(title, detail, cause, download);
                 root.replaceChildren(message);
                 window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
             });

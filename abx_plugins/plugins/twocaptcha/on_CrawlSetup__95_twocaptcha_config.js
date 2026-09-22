@@ -304,7 +304,7 @@ async function configure2Captcha() {
         }, config, twoCaptchaLoginTimeoutMs());
 
         if (result.success) {
-          console.error(`Configured via ${result.method}`);
+          console.log(`Configured via ${result.method}`);
 
           // Verify the extension's persisted configuration after its login and
           // Config.set APIs have both completed.
@@ -337,7 +337,7 @@ async function configure2Captcha() {
             };
           }
 
-          console.error("Ready.");
+          console.log("Ready.");
 
           fs.writeFileSync(
             CONFIG_MARKER,

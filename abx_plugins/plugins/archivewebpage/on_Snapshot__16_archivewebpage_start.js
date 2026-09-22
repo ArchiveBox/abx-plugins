@@ -349,7 +349,7 @@ async function main() {
       `archiveweb.page recording started (coll=${handshake.collId}, tab=${handshake.targetTabId}, ${elapsed}ms)`
     );
     emitArchiveResultRecord(
-      "succeeded",
+      "noresults",
       `recording started coll=${handshake.collId} tab=${handshake.targetTabId}`
     );
     process.exit(0);
