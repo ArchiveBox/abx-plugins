@@ -348,6 +348,11 @@ async function main() {
     console.log(
       `archiveweb.page recording started (coll=${handshake.collId}, tab=${handshake.targetTabId}, ${elapsed}ms)`
     );
+    // This hook only attaches the recorder and saves its identity for the stop
+    // hook. recording.json is coordination metadata, not captured content.
+    // Keep the stdout above, but do not call startup a successful archive:
+    // interruption before export would leave a succeeded DB row without a WACZ.
+    // The separate stop hook owns success after downloading the actual archive.
     emitArchiveResultRecord(
       "noresults",
       `recording started coll=${handshake.collId} tab=${handshake.targetTabId}`

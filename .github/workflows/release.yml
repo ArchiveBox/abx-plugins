@@ -19,6 +19,11 @@ jobs:
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     outputs:
       ready: ${{ steps.owner.outputs.ready }}
     steps:
@@ -32,6 +37,31 @@ jobs:
           VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
           TARGET="$(git ls-remote origin "refs/tags/release-candidate/$VERSION" | awk '{print $1}')"
           [[ "$TARGET" == "${{ github.event.workflow_run.head_sha }}" ]] && echo 'ready=true' >> "$GITHUB_OUTPUT" || echo 'ready=false' >> "$GITHUB_OUTPUT"
+
+      - name: Require successful full CI for this commit
+        id: verified
+        if: steps.owner.outputs.ready == 'true'
+        timeout-minutes: 40
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          CI_RUN_ID=''
+          for _ in {1..12}; do
+            CI_RUN_ID="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow test-parallel.yml \
+              --commit "$RELEASE_SHA" \
+              --event push \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // empty')"
+            [[ -n "$CI_RUN_ID" ]] && break
+            sleep 5
+          done
+          [[ -n "$CI_RUN_ID" ]]
+          gh run watch "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
 
   release-state:
     needs: candidate

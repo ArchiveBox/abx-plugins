@@ -282,6 +282,9 @@ async function main() {
         destPath
       )} (${outputSize} bytes)`
     );
+    // Stopping recording alone does not produce a usable archive. Report
+    // success only after downloadExactWacz has saved this recording's WACZ;
+    // the start hook's handshake/recording.json cannot establish this result.
     emitArchiveResultRecord("succeeded", `${PLUGIN_DIR}/${OUTPUT_FILENAME}`, {
       output_size: outputSize,
     });
