@@ -208,12 +208,22 @@ function emitResult(
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
+  if (page) {
+    try {
+      // A navigation hook can finish before this CDP client receives its last
+      // console event. A round trip on the same page session drains those
+      // events before we close the connection and collect pending writes.
+      await page.evaluate(() => undefined);
+    } catch (e) {
+      // The tab may already be closed during crawl shutdown.
+    }
+  }
+  await Promise.allSettled([...pendingConsoleWrites]);
   if (browser) {
     try {
       browser.disconnect();
     } catch (e) {}
   }
-  await Promise.allSettled([...pendingConsoleWrites]);
   await emitResult("succeeded");
   process.exit(0);
 }
