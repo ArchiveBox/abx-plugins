@@ -147,6 +147,64 @@ jobs:
           name: python-distributions-${{ github.sha }}
           path: ${{ runner.temp }}/python-distributions
 
+      - name: Wait for exact pinned internal artifacts on PyPI
+        run: |
+          uv run --no-cache --no-project python - <<'PY'
+          import json
+          import time
+          import tomllib
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.parse import urlsplit
+          from urllib.request import Request, urlopen
+
+          metadata = tomllib.loads(Path("pyproject.toml").read_text())["project"]
+          locked = {item["name"]: item for item in tomllib.loads(Path("uv.lock").read_text())["package"]}
+          expected = {}
+          for name in ("abxbus", "abxpkg"):
+              package = locked[name]
+              version = package["version"]
+              if f"{name}=={version}" not in metadata["dependencies"]:
+                  raise SystemExit(f"Project dependencies do not pin locked {name}=={version}")
+              artifacts = [package["sdist"], *package["wheels"]]
+              expected[name] = {
+                  Path(urlsplit(item["url"]).path).name: item["hash"].removeprefix("sha256:")
+                  for item in artifacts
+              }
+          # The Simple API advertises max-age=600; a newly published pin can
+          # remain absent from a cached response for that full interval.
+          for attempt in range(73):
+              missing = []
+              for name, artifacts in expected.items():
+                  request = Request(
+                      f"https://pypi.org/simple/{name}/",
+                      headers={"Accept": "application/vnd.pypi.simple.v1+json"},
+                  )
+                  try:
+                      with urlopen(request, timeout=15) as response:
+                          files = json.load(response)["files"]
+                  except HTTPError as error:
+                      if error.code != 404:
+                          raise
+                      files = []
+                  published = {
+                      item["filename"]: item["hashes"].get("sha256")
+                      for item in files
+                      if item["filename"] in artifacts
+                  }
+                  missing.extend(f"{name}/{filename}" for filename in artifacts.keys() - published.keys())
+                  for filename in artifacts.keys() & published.keys():
+                      if published[filename] != artifacts[filename]:
+                          raise SystemExit(f"Public {name} artifact {filename} differs from uv.lock")
+              if not missing:
+                  print("Public PyPI lists the exact locked internal artifacts")
+                  break
+              if attempt == 72:
+                  raise SystemExit(f"Timed out waiting for public PyPI artifacts: {sorted(missing)}")
+              print(f"Waiting for public PyPI artifacts: {sorted(missing)}", flush=True)
+              time.sleep(10)
+          PY
+
       - name: Install package and run an installed hook
         shell: bash
         run: |
