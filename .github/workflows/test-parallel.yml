@@ -151,6 +151,9 @@ jobs:
         run: |
           uv run --no-cache --no-project python - <<'PY'
           import json
+          import os
+          import subprocess
+          import sys
           import time
           import tomllib
           from pathlib import Path
@@ -161,11 +164,13 @@ jobs:
           metadata = tomllib.loads(Path("pyproject.toml").read_text())["project"]
           locked = {item["name"]: item for item in tomllib.loads(Path("uv.lock").read_text())["package"]}
           expected = {}
+          requirements = []
           for name in ("abxbus", "abxpkg"):
               package = locked[name]
               version = package["version"]
               if f"{name}=={version}" not in metadata["dependencies"]:
                   raise SystemExit(f"Project dependencies do not pin locked {name}=={version}")
+              requirements.append(f"{name}=={version}")
               artifacts = [package["sdist"], *package["wheels"]]
               expected[name] = {
                   Path(urlsplit(item["url"]).path).name: item["hash"].removeprefix("sha256:")
@@ -197,8 +202,28 @@ jobs:
                       if published[filename] != artifacts[filename]:
                           raise SystemExit(f"Public {name} artifact {filename} differs from uv.lock")
               if not missing:
-                  print("Public PyPI lists the exact locked internal artifacts")
-                  break
+                  command = [
+                      "uv", "run", "--no-cache", "--isolated", "--no-project", "--no-config",
+                      "--no-sources", "--default-index", "https://pypi.org/simple",
+                      "--python", sys.executable,
+                  ]
+                  for requirement in requirements:
+                      command.extend(("--with", requirement))
+                  command.extend(("python", "-c", "from importlib.metadata import version; import sys; "
+                                  "assert all(version(name) == expected for name, expected in "
+                                  "(item.split('==') for item in sys.argv[1:]))", *requirements))
+                  result = subprocess.run(
+                      command, capture_output=True, text=True,
+                      env={**os.environ, "UV_NO_COLOR": "1"}, check=False,
+                  )
+                  if result.returncode == 0:
+                      print("Public PyPI and uv resolve the exact locked internal artifacts")
+                      break
+                  if any(f"there is no version of {requirement}" in result.stderr
+                         for requirement in requirements):
+                      missing.append("uv resolver still sees a stale Simple API response")
+                  else:
+                      raise SystemExit(result.stderr)
               if attempt == 72:
                   raise SystemExit(f"Timed out waiting for public PyPI artifacts: {sorted(missing)}")
               print(f"Waiting for public PyPI artifacts: {sorted(missing)}", flush=True)
