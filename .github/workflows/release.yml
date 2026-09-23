@@ -195,7 +195,7 @@ jobs:
 
   cascade:
     name: Cascade verified release
-    needs: release-state
+    needs: [candidate, release-state]
     if: needs.release-state.outputs.cascade_ready == 'true'
     permissions:
       actions: read
@@ -205,5 +205,6 @@ jobs:
       upstream_package: abx-plugins
       upstream_version: ${{ needs.release-state.outputs.version }}
       upstream_artifact_name: python-distributions-${{ github.event.workflow_run.head_sha }}
+      upstream_run_id: ${{ needs.candidate.outputs.candidate_run_id }}
     secrets:
       release_token: ${{ secrets.RELEASE_GH_TOKEN }}
