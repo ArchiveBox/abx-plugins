@@ -294,5 +294,154 @@ def test_extracts_without_local_html_source(httpserver):
         ), f"Expected extracted article content missing. Output: {extracted_html[:500]}"
 
 
+def test_keeps_first_page_when_following_page_fails(httpserver):
+    """A broken pagination target must not discard a parsed first page."""
+    binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/")
+    httpserver.expect_request("/", query_string="").respond_with_data(
+        "<html><head><title>First Page Article</title></head><body>"
+        "<article><h1>First Page Article</h1><p>Durable first page article content.</p></article>"
+        f'<a href="{test_url}?p=2" class="morelink" rel="next">More</a>'
+        "</body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/", query_string="p=2").respond_with_data(
+        "Second page unavailable",
+        status=503,
+        content_type="text/plain",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = os.environ.copy()
+        env["SNAP_DIR"] = tmpdir
+        env["MERCURY_BINARY"] = binary_path
+        result = subprocess.run(
+            [str(MERCURY_HOOK), "--url", test_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        record = parse_jsonl_output(result.stdout)
+        assert result.returncode == 0, result.stderr
+        assert record is not None, result.stdout
+        assert record["status"] == "succeeded", record
+        assert "saved the requested page only" in result.stderr
+        assert (
+            "Durable first page article content"
+            in (Path(tmpdir) / "mercury" / "content.txt").read_text()
+        )
+        assert any(request.query_string == b"p=2" for request, _ in httpserver.log)
+
+
+def test_successful_pagination_still_collects_following_page(httpserver):
+    binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/")
+    httpserver.expect_request("/", query_string="").respond_with_data(
+        "<html><head><title>Two Page Article</title></head><body>"
+        "<article><p>Durable first page article content.</p></article>"
+        f'<a href="{test_url}?p=2" class="morelink" rel="next">More</a>'
+        "</body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/", query_string="p=2").respond_with_data(
+        "<html><head><title>Two Page Article</title></head><body>"
+        "<article><p>Durable second page article content.</p></article>"
+        "</body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = os.environ.copy()
+        env["SNAP_DIR"] = tmpdir
+        env["MERCURY_BINARY"] = binary_path
+        result = subprocess.run(
+            [str(MERCURY_HOOK), "--url", test_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record is not None, result.stdout
+        assert record["status"] == "succeeded"
+        assert "saved the requested page only" not in result.stderr
+        content = (Path(tmpdir) / "mercury" / "content.txt").read_text()
+        assert "Durable first page article content" in content
+        assert "Durable second page article content" in content
+        metadata = json.loads((Path(tmpdir) / "mercury" / "article.json").read_text())
+        assert metadata["total_pages"] == 2
+        assert any(request.query_string == b"p=2" for request, _ in httpserver.log)
+
+
+def test_primary_page_failure_is_not_fallback_success(httpserver):
+    binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/unavailable")
+    httpserver.expect_request("/unavailable").respond_with_data(
+        "Unavailable",
+        status=503,
+        content_type="text/plain",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = os.environ.copy()
+        env["SNAP_DIR"] = tmpdir
+        env["MERCURY_BINARY"] = binary_path
+        result = subprocess.run(
+            [str(MERCURY_HOOK), "--url", test_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        record = parse_jsonl_output(result.stdout)
+        assert record is not None, result.stdout
+        assert record["status"] != "succeeded"
+        assert "saved the requested page only" not in result.stderr
+        assert not (Path(tmpdir) / "mercury" / "content.html").exists()
+
+
+def test_custom_mercury_args_are_not_dropped_on_pagination_failure(httpserver):
+    binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/")
+    httpserver.expect_request("/", query_string="").respond_with_data(
+        "<html><head><title>Custom Arguments Article</title></head><body>"
+        "<article><p>Custom argument first page content.</p></article>"
+        f'<a href="{test_url}?p=2" class="morelink" rel="next">More</a>'
+        "</body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/", query_string="p=2").respond_with_data(
+        "Unavailable",
+        status=503,
+        content_type="text/plain",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = os.environ.copy()
+        env["SNAP_DIR"] = tmpdir
+        env["MERCURY_BINARY"] = binary_path
+        env["MERCURY_ARGS_EXTRA"] = json.dumps(["--header.X-Test=custom"])
+        result = subprocess.run(
+            [str(MERCURY_HOOK), "--url", test_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert result.returncode == 1
+        record = parse_jsonl_output(result.stdout)
+        assert record is not None, result.stdout
+        assert record["status"] == "failed"
+        assert "TypeError: $.html is not a function" in result.stderr
+        assert "saved the requested page only" not in result.stderr
+        assert not (Path(tmpdir) / "mercury" / "content.html").exists()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

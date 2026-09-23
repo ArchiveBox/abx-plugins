@@ -195,7 +195,13 @@ def render_preview_html(
     wacz_path: Path | None = None,
     fallback_url: str = "",
 ) -> str:
-    """Render the plugin's ``full.html`` template as the WACZ preview body.
+    """Render the plugin's private replay template as the WACZ preview body.
+
+    This deliberately is not templates/full.html: that public template is used
+    for every output of a plugin, including recording.json. Metadata is not a
+    replay archive, and the generic renderer cannot supply the inspected page
+    URL or replay_base. Using it would request sw.js beneath the capture path
+    and report a misleading service-worker error for the resulting server 404.
 
     If recorded, prefer ``fallback_url`` over incidental pages in the WACZ.
     Otherwise use the first archived URL to support redirects. Falls back to
@@ -213,7 +219,7 @@ def render_preview_html(
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
     )
     return (
-        (_PLUGIN_DIR / "templates" / "full.html")
+        (_PLUGIN_DIR / "templates" / "replay.html")
         .read_text(encoding="utf-8")
         .replace(
             '{% if archived_url %}url="{{ archived_url }}"{% endif %}',

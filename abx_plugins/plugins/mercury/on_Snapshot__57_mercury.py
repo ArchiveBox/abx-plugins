@@ -16,7 +16,9 @@ import os
 import argparse
 import re
 import shlex
+import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -104,7 +106,7 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
     """
     Extract article using Mercury Parser.
 
-    Returns: (success, output_path, error_message)
+    Returns: (status, output_path_or_error)
     """
     timeout = config.MERCURY_TIMEOUT
     mercury_args = config.MERCURY_ARGS
@@ -112,6 +114,7 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
     binary = config.MERCURY_BINARY
 
     try:
+        deadline = time.monotonic() + timeout
         cmd_html = [binary, *mercury_args, *mercury_args_extra, url, "--format=html"]
         result_html = subprocess.run(
             cmd_html,
@@ -119,6 +122,46 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
             timeout=timeout,
             text=True,
         )
+        # Postlight 2.2.3 can parse the requested page, then crash when a
+        # linked page fails to load: _collectAllPages calls $.html() on the
+        # error object. Keep the requested page using its official API. A
+        # configured CLI invocation keeps its own arguments and failure.
+        if (
+            result_html.returncode == 1
+            and not mercury_args
+            and not mercury_args_extra
+            and "TypeError: $.html is not a function" in result_html.stderr
+            and "dist/mercury.js:8012:" in result_html.stderr
+        ):
+            parser_module = Path(binary).resolve().parent / "dist" / "mercury.js"
+            node = shutil.which("node")
+            if parser_module.is_file() and node:
+                fallback = subprocess.run(
+                    [
+                        node,
+                        "-e",
+                        "const Parser = require(process.argv[1]); "
+                        "Parser.parse(process.argv[2], {contentType: 'html', fetchAllPages: false})"
+                        ".then(result => console.log(JSON.stringify(result)))"
+                        ".catch(error => { console.error(error); process.exit(1); });",
+                        str(parser_module),
+                        url,
+                    ],
+                    capture_output=True,
+                    timeout=max(deadline - time.monotonic(), 0),
+                    text=True,
+                )
+                if fallback.returncode == 0:
+                    try:
+                        first_page = json.loads(fallback.stdout)
+                    except json.JSONDecodeError:
+                        first_page = None
+                    if isinstance(first_page, dict) and not first_page.get("failed"):
+                        print(
+                            "Mercury could not load a linked page; saved the requested page only.",
+                            file=sys.stderr,
+                        )
+                        result_html = fallback
         if result_html.stdout:
             sys.stderr.write(result_html.stdout)
             sys.stderr.flush()
