@@ -3,13 +3,13 @@ revision = 3
 requires-python = ">=3.12, <3.15"
 
 [options]
-exclude-newer = "2026-09-18T00:43:49.365904776Z"
+exclude-newer = "2026-09-18T01:50:25.94564445Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-09-23T00:43:48.365915437Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-23T01:50:24.945658238Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
@@ -56,7 +56,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abxbus", specifier = "==2.5.58" },
-    { name = "abxpkg", specifier = "==1.13.3" },
+    { name = "abxpkg", specifier = "==1.13.7" },
     { name = "httpx", marker = "extra == 'opencode'", specifier = ">=0.28.1" },
     { name = "imagesize", specifier = ">=2.0.0" },
     { name = "requests", marker = "extra == 'opencode'", specifier = ">=2.32.3" },
@@ -105,7 +105,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.13.3"
+version = "1.13.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
@@ -113,9 +113,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/fd/03819f26dec350a11a13ade68a816983c3290c83d9b5634686f6874aaf9d/abxpkg-1.13.3.tar.gz", hash = "sha256:6235960b09e6f968194cd93484893d7199b254956d6845d7a4925a43580f329b", size = 242742 }
+sdist = { url = "https://files.pythonhosted.org/packages/a6/31/41635dcab52ae4edbc99c446ad155278f27523f40f05f23bfb6142de6ded/abxpkg-1.13.7.tar.gz", hash = "sha256:1d6ecc1b8f069d6c07540cba9b55ad636ef0dd14adf5c0331b741fe5d8557322", size = 242741 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/01/99/ead8aeed3b68cc4e59859bd35db0906b1b1db71abc15c84b80915d76e086/abxpkg-1.13.3-py3-none-any.whl", hash = "sha256:f5255e90f366e790ef5a7ecfe1af194b3c5666e48c9c3c86153cb48c30f4fa66", size = 254142 },
+    { url = "https://files.pythonhosted.org/packages/01/3d/240e872ce9ce3a144ca1aed19488e65c36f9d60a2bb01011c5f540af7e34/abxpkg-1.13.7-py3-none-any.whl", hash = "sha256:e077c890bc65caac3f31a24fa6e18a83566531c5817cd1a7e9d9c674641b1720", size = 254143 },
 ]
 
 [[package]]
