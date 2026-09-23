@@ -2,7 +2,7 @@ name: Release State
 
 on:
   workflow_run:
-    workflows: [Release candidate]
+    workflows: [Release candidate, Parallel Tests]
     types: [completed]
     branches: [main]
 
@@ -25,7 +25,8 @@ jobs:
     env:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     outputs:
-      ready: ${{ steps.owner.outputs.ready }}
+      ready: ${{ steps.verified.outputs.ready }}
+      candidate_run_id: ${{ steps.verified.outputs.candidate_run_id }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -41,27 +42,26 @@ jobs:
       - name: Require successful full CI for this commit
         id: verified
         if: steps.owner.outputs.ready == 'true'
-        timeout-minutes: 40
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          CI_RUN_ID=''
-          for _ in {1..12}; do
-            CI_RUN_ID="$(gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow test-parallel.yml \
-              --commit "$RELEASE_SHA" \
-              --event push \
-              --limit 1 \
-              --json databaseId \
-              --jq '.[0].databaseId // empty')"
-            [[ -n "$CI_RUN_ID" ]] && break
-            sleep 5
-          done
-          [[ -n "$CI_RUN_ID" ]]
-          gh run watch "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+          CANDIDATE_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release-candidate.yml \
+            --commit "$RELEASE_SHA" --event push --limit 1 \
+            --json databaseId,status,conclusion \
+            --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
+          CI_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test-parallel.yml \
+            --commit "$RELEASE_SHA" --event push --limit 1 \
+            --json databaseId,status,conclusion \
+            --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
+          [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
+          PRIOR_SUCCESS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+            --commit "$RELEASE_SHA" --limit 20 --json status,conclusion \
+            --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
+          [[ "$PRIOR_SUCCESS" == 0 ]] || exit 0
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+          echo "candidate_run_id=$CANDIDATE_RUN_ID" >> "$GITHUB_OUTPUT"
 
   release-state:
     needs: candidate
@@ -78,7 +78,7 @@ jobs:
     env:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       RELEASE_BRANCH: main
-      TEST_RUN_ID: ${{ github.event.workflow_run.id }}
+      TEST_RUN_ID: ${{ needs.candidate.outputs.candidate_run_id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
