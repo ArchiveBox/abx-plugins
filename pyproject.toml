@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.13.22"
+version = "1.13.23"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
