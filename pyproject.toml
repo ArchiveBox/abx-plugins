@@ -19,8 +19,8 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abxbus==2.5.62",
-    "abxpkg==1.13.8",
+    "abxbus==2.5.64",
+    "abxpkg==1.13.9",
     "imagesize>=2.0.0",
     "rich-click>=1.9.7",
     "uv>=0.8.22",
