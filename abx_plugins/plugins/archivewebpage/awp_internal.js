@@ -48,8 +48,10 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
   const targetId = chromeUtils.getTargetIdFromPage(page);
   if (!targetId) return null;
 
+  console.error("[archivewebpage] start phase=opening tab-id popup");
   const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
   try {
+    console.error("[archivewebpage] start phase=querying debugger targets");
     return await helperPage.evaluate(async (idToFind) => {
       const targets = await new Promise((resolve, reject) => {
         chrome.debugger.getTargets((targetInfos) => {
@@ -68,6 +70,7 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
     }, targetId);
   } finally {
     try {
+      console.error("[archivewebpage] start phase=closing tab-id popup");
       if (helperPage && !helperPage.isClosed()) {
         await helperPage.close({ runBeforeUnload: false });
       }

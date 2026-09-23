@@ -65,16 +65,19 @@ async function runStartHandshake(
   options
 ) {
   const { autorun, collectionTitle, timeoutMs } = options;
+  console.error("[archivewebpage] start phase=opening popup");
   const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
   try {
     // Puppeteer cannot serialize a Node closure into evaluate(). Expose the
     // shared selector as a page binding so production and the real-browser
     // regression execute exactly the same implementation.
+    console.error("[archivewebpage] start phase=binding collection selector");
     await helperPage.exposeFunction(
       "__abxResolveCreatedCollectionId",
       (message, title, existingCollectionIds) =>
         resolveCreatedCollectionId(message, title, existingCollectionIds)
     );
+    console.error("[archivewebpage] start phase=popup-port handshake");
     const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
         let handshakeStage = "connect";
@@ -222,6 +225,7 @@ async function runStartHandshake(
     return { ...result, targetTabId };
   } finally {
     try {
+      console.error("[archivewebpage] start phase=closing popup");
       await helperPage.close({ runBeforeUnload: false });
     } catch (error) {}
   }
@@ -274,6 +278,7 @@ async function main() {
 
   let browser = null;
   try {
+    console.error("[archivewebpage] start phase=connecting to Chrome");
     const connection = await chromeUtils.connectToPage({
       chromeSessionDir,
       timeoutMs: overallTimeoutMs,
@@ -287,6 +292,7 @@ async function main() {
       throw new Error("Chrome target_id.txt did not resolve to a page");
     }
 
+    console.error("[archivewebpage] start phase=resolving snapshot tab id");
     const chromeTabId = await getChromeTabIdForPage(
       browser,
       page,
@@ -313,6 +319,7 @@ async function main() {
         timeoutMs: overallTimeoutMs,
       }
     );
+    console.error("[archivewebpage] start phase=refocusing snapshot tab");
     await page.bringToFront();
     if (handshake.status?.failureMsg) {
       throw new Error(
