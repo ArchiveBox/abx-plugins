@@ -26,30 +26,120 @@
 <script>
 (() => {
     const grid = document.currentScript.previousElementSibling;
+    const fallbackItems = Array.from(grid.children);
     const normalizePath = path => path.replace(/^\.\//, '').replace(/^responses\//, '');
-    const sourceName = (item, metadata) => {
-        try { return new URL(metadata?.url).pathname.split('/').pop(); }
-        catch { return normalizePath(item.dataset.name).replace(/^all\/\d{8}T\d{6}__[^_]+__/, ''); }
+    const captureKey = path => normalizePath(path).replace(/^all\/\d{8}T\d{6}__[^_]+__/, '');
+    const infoFor = (path, metadata) => metadata.get(normalizePath(path)) || metadata.get(captureKey(path));
+    const sourceName = (path, info) => {
+        try { return new URL(info?.url).pathname.split('/').pop(); }
+        catch { return captureKey(path); }
     };
-    const fallbackKey = item => normalizePath(item.dataset.name).replace(/^all\/\d{8}T\d{6}__[^_]+__/, '');
-    const render = metadata => {
-        const items = Array.from(grid.children).sort((a, b) => {
-            const aInfo = metadata.get(normalizePath(a.dataset.name));
-            const bInfo = metadata.get(normalizePath(b.dataset.name));
-            return Number(b.dataset.size) - Number(a.dataset.size)
-                || sourceName(a, aInfo).localeCompare(sourceName(b, bInfo))
-                || fallbackKey(a).localeCompare(fallbackKey(b));
-        });
+    const render = (metadata, orderedSources = []) => {
         const seen = new Set();
-        let selected = 0;
-        items.forEach(item => {
-            const info = metadata.get(normalizePath(item.dataset.name));
-            const key = info?.responseSha256 || info?.url || fallbackKey(item);
-            if (selected >= 9 || seen.has(key)) item.remove();
-            else { seen.add(key); selected++; grid.appendChild(item); }
+        const selected = [];
+        const add = (item, info, sourceKey) => {
+            const hash = info?.responseSha256;
+            const url = info?.url || sourceKey || captureKey(item.dataset.name);
+            const keys = [hash, url].filter(Boolean);
+            if (keys.some(key => seen.has(key))) return;
+            keys.forEach(key => seen.add(key));
+            selected.push(item);
+        };
+
+        // LiteParse maps parsed output back to original files by source name
+        // and URL. Render those same originals in that order; response capture
+        // paths can have several timestamped copies of a single URL.
+        if (orderedSources.length) {
+            for (const source of orderedSources.slice(0, 9)) {
+                const info = [...metadata.values()].find(item => item.url === source.url.href);
+                const identity = info?.responseSha256 || source.url.href;
+                if (seen.has(identity)) continue;
+                seen.add(identity);
+                const extension = source.name.split('.').pop();
+                let item;
+                if (source.mime.startsWith('image/') || /\.(png|jpe?g|gif|bmp|tiff?|webp|svg)$/i.test(source.name)) {
+                    item = window.document.createElement('img');
+                    item.src = raw(source.url);
+                    item.alt = source.name;
+                    item.loading = 'lazy';
+                    item.decoding = 'async';
+                    item.style.cssText = 'display:block;width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;background:white;';
+                } else {
+                    item = window.document.createElement('span');
+                    item.title = source.name;
+                    item.setAttribute('aria-label', `Document: ${source.name}`);
+                    item.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:0;overflow:hidden;background:white;font:10px system-ui;';
+                    item.innerHTML = `<span style="font-size:24px">📄</span>${extension.toUpperCase()}`;
+                }
+                item.dataset.name = source.name;
+                selected.push(item);
+            }
+            grid.replaceChildren(...selected);
+            return;
+        }
+
+        // On snapshots without LiteParse, keep the existing size-sorted preview.
+        const fallback = fallbackItems.sort((a, b) => {
+            const aPath = normalizePath(a.dataset.name), bPath = normalizePath(b.dataset.name);
+            const aInfo = infoFor(aPath, metadata), bInfo = infoFor(bPath, metadata);
+            return Number(b.dataset.size) - Number(a.dataset.size)
+                || sourceName(aPath, aInfo).localeCompare(sourceName(bPath, bInfo))
+                || captureKey(aPath).localeCompare(captureKey(bPath));
         });
+        for (const item of fallback) {
+            if (selected.length >= 9) break;
+            add(item, infoFor(item.dataset.name, metadata));
+        }
+        grid.replaceChildren(...selected);
     };
     const indexUrl = '{{ responses_index_url|cut:"?preview=1"|escapejs }}?raw=1';
+    const raw = url => { const value = new URL(url); value.searchParams.set('raw', '1'); return value.href; };
+    const snapshotRoot = new URL('../', indexUrl);
+    const safeFile = (path, root) => {
+        if (!path || path.startsWith('/') || path.includes('\\') || /^[a-z]+:/i.test(path)) return null;
+        const parts = path.split('/').filter(part => part && part !== '.');
+        return parts.length && !parts.includes('..') ? new URL(parts.map(encodeURIComponent).join('/'), root) : null;
+    };
+    const sources = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
+    const originals = new Map();
+    for (const source of sources) {
+        const path = source.path.replace(/^\.\//, '');
+        if (source.plugin === 'responses' && !path.replace(/^responses\//, '').startsWith('all/')) continue;
+        const url = safeFile(source.root ? path : source.plugin + '/' + path, snapshotRoot);
+        if (url) originals.set(url.href, {...source, name: path.split('/').pop(), url});
+    }
+    const sanitized = name => name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 96) || 'source';
+    const match = (name, hint) => {
+        const values = [...originals.values()];
+        const named = hint ? values.filter(file => file.name === hint) : [];
+        const matches = named.length ? named : values.filter(file => sanitized(file.name) === name);
+        return matches.length === 1 ? matches[0] : null;
+    };
+    const liteparseFiles = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'liteparse' %}{% for path, info in capture.output_files.items %}'{{ path|escapejs }}',{% endfor %}{% endif %}{% endfor %}];
+    const documents = new Map();
+    const pluginRoot = new URL('liteparse/', snapshotRoot);
+    for (const path of liteparseFiles) {
+        const relative = path.replace(/^\.\//, '').replace(/^liteparse\//, '');
+        if (!/\.(txt|json)$/i.test(relative)) continue;
+        const url = safeFile(relative, pluginRoot), name = relative.replace(/\.(txt|json)$/i, '');
+        if (!url) continue;
+        if (!documents.has(name) || /\.txt$/i.test(relative)) documents.set(name, {name, url, json: /\.json$/i.test(relative)});
+    }
+    const orderedDocs = [...documents.values()].sort((a, b) => (Number(match(b.name)?.size) || 0) - (Number(match(a.name)?.size) || 0) || a.name.localeCompare(b.name));
+    const resolveLiteparseOrder = async () => {
+        const orderedSources = [];
+        for (const document of orderedDocs) {
+            try {
+                const response = await fetch(raw(document.url));
+                if (!response.ok) continue;
+                const value = await response.text();
+                const source = value.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/);
+                const original = match(document.name, source?.[1]);
+                if (original) orderedSources.push(original);
+            } catch {}
+        }
+        return orderedSources;
+    };
     fetch(indexUrl).then(response => {
         if (!response.ok) throw new Error(`responses index HTTP ${response.status}`);
         return response.text();
@@ -58,10 +148,13 @@
         for (const line of text.split('\n')) {
             try {
                 const item = JSON.parse(line);
-                if (item.path) metadata.set(normalizePath(item.path), item);
+                if (item.path) {
+                    metadata.set(normalizePath(item.path), item);
+                    metadata.set(captureKey(item.path), item);
+                }
             } catch {}
         }
-        render(metadata);
+        return resolveLiteparseOrder().then(orderedSources => render(metadata, orderedSources));
     }).catch(() => render(new Map()));
 })();
 </script>

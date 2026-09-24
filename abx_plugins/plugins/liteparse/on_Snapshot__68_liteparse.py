@@ -167,7 +167,6 @@ def find_document_sources(
         "wget",
         "*_wget",
         "papersdl",
-        "*_papersdl",
         "liteparse_input",
     )
 

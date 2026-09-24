@@ -102,7 +102,6 @@ def find_pdf_sources() -> list[Path]:
         "*_wget/**/*.pdf",
         # Scientific papers downloaded by papersdl
         "papersdl/**/*.pdf",
-        "*_papersdl/**/*.pdf",
     ]
 
     found: list[Path] = []

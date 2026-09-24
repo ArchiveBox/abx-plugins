@@ -333,7 +333,7 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
-@pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl", "66_papersdl"])
+@pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl"])
 def test_extract_single_pdf(source_dir):
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()

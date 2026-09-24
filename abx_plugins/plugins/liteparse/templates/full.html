@@ -18,7 +18,7 @@
   document.getElementById('download').href=raw(output);
   document.getElementById('raw').href=raw(output);
   const knownFiles=[{% for file_path, file_info in result.output_files.items %}'{{ file_path|escapejs }}',{% endfor %}];
-  const sources=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
+  const sources=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' or capture.plugin == 'papersdl' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
   const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!=null)node.textContent=String(text);if(cls)node.className=cls;return node};
   const safeFile=(path,root)=>{if(typeof path!=='string'||!path||path.startsWith('/')||path.includes('\\')||/^[a-z]+:/i.test(path))return null;const parts=path.split('/').filter(part=>part&&part!=='.');if(!parts.length||parts.includes('..'))return null;return new URL(parts.map(encodeURIComponent).join('/'),root)};
   const basename=path=>path.split('/').pop();

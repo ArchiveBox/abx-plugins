@@ -373,7 +373,7 @@ def test_noresults_without_sources():
 
 @pytest.mark.parametrize(
     "source_dir",
-    ["responses/application/pdfobject.com", "papersdl", "66_papersdl"],
+    ["responses/application/pdfobject.com", "papersdl"],
 )
 def test_extract_single_pdf(source_dir):
     """End-to-end extraction on PDF_URL_B (pdfobject.com sample.pdf).
