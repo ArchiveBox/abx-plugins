@@ -188,6 +188,19 @@ def build_metadata_content(
     return "\n".join(dict.fromkeys(values))
 
 
+def escape_sonic_backslashes(text: str) -> str:
+    """Preserve existing backslashes through sonic-client's quote escaping.
+
+    sonic-client escapes double quotes but leaves backslashes untouched. A
+    source sequence of backslash + quote therefore becomes an even number of
+    escapes on the wire, which Sonic reads as the end of the text argument and
+    parses any remaining content as metadata. Double existing backslashes
+    first; sonic-client then escapes quotes, producing the correct odd escape
+    count at embedded quotes.
+    """
+    return text.replace("\\", "\\\\")
+
+
 def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
     """Index texts in Sonic."""
     try:
@@ -219,7 +232,7 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                 config.SEARCH_BACKEND_SONIC_COLLECTION,
                 config.SEARCH_BACKEND_SONIC_BUCKET,
                 snapshot_id,
-                chunk,
+                escape_sonic_backslashes(chunk),
             )
 
 

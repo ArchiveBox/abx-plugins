@@ -30,7 +30,10 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
     worker = get_sonic_supervisord_worker(config)
     assert worker is not None
     title = (
-        "archived " * 20000 + "metatitleuniqueneedle $(touch injected) `touch injected`"
+        "archived " * 20000
+        + "metatitleuniqueneedle $(touch injected) `touch injected` "
+        + chr(92)
+        + '" afterescapeuniqueneedle'
     )
     manifest = (
         json.dumps(
@@ -89,6 +92,9 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert record["snapshot_id"] == "reflection-only"
             assert record["trace_id"] == ["keep", 3]
             assert search("metatitleuniqueneedle", environ=env) == ["explicit-sonic-id"]
+            assert search("afterescapeuniqueneedle", environ=env) == [
+                "explicit-sonic-id",
+            ]
             assert search("metataguniqueneedle", environ=env) == ["explicit-sonic-id"]
             assert search("forbiddencontextneedle", environ=env) == []
             assert search("forbiddencontexttag", environ=env) == []
