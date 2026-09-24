@@ -533,8 +533,8 @@ Move to `on_AfterSnapshot__...` if they should run after all snapshot outputs ex
 - `abx_plugins/plugins/htmltotext/on_Snapshot__58_htmltotext.py`
 - `abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py`
 - `abx_plugins/plugins/trafilatura/on_Snapshot__59_trafilatura.py`
-- `abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py`
-- `abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py`
+- `abx_plugins/plugins/opendataloader/on_Snapshot__67_opendataloader.py`
+- `abx_plugins/plugins/liteparse/on_Snapshot__68_liteparse.py`
 - `abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py`
 - `abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py`
 - `abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py`

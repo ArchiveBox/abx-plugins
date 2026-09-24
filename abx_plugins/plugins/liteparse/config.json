@@ -5,6 +5,9 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
+  "wait_for_plugins": [
+    "papersdl"
+  ],
   "required_binaries": [
     {
       "name": "{LITEPARSE_BINARY}",

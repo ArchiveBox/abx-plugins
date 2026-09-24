@@ -7,7 +7,7 @@ Extract text from PDFs, Office documents, and images using LiteParse
 (the ``lit`` CLI by LlamaIndex, v2+).
 
 Scans the snapshot directory for downloaded documents produced by other plugins
-(``responses``, ``staticfile``, ``wget``) and runs ``lit batch-parse``
+(``responses``, ``staticfile``, ``wget``, ``papersdl``) and runs ``lit batch-parse``
 on each supported file. Each source produces one ``<source-stem>.txt`` and
 ``<source-stem>.json`` directly in the plugin output dir — no merged
 ``content.txt`` or manifest. Search backends (ripgrep / sqlite FTS / sonic)
@@ -23,7 +23,7 @@ PDFs for ordinary webpages.
 Tiny images (favicons, sprite thumbnails, etc.) are filtered out by
 ``LITEPARSE_MIN_IMAGE_DIMENSION`` so we don't waste OCR time on them.
 
-Usage: on_Snapshot__61_liteparse.py --url=<url> > events.jsonl
+Usage: on_Snapshot__68_liteparse.py --url=<url> > events.jsonl
 
 Environment variables: see config.json (LITEPARSE_* settings).
 """
@@ -146,8 +146,8 @@ def find_document_sources(
 ) -> list[tuple[Path, str]]:
     """Find documents produced by upstream plugins that LiteParse can parse.
 
-    Looks for LiteParse-supported file types under responses/, staticfile/, and
-    wget/ trees (where downloaded documents land regardless of MIME). Filters:
+    Looks for LiteParse-supported file types under responses/, staticfile/, wget/, and
+    papersdl/ trees (where downloaded documents land regardless of MIME). Filters:
       - resolved-path dedup (drops symlink duplicates)
       - content-hash dedup (drops same-bytes-different-paths duplicates)
       - image dimension filter (drops favicons/sprites/tracking pixels)
@@ -166,6 +166,8 @@ def find_document_sources(
         "*_staticfile",
         "wget",
         "*_wget",
+        "papersdl",
+        "*_papersdl",
         "liteparse_input",
     )
 

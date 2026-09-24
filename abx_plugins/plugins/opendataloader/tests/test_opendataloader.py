@@ -216,6 +216,13 @@ def test_hook_script_exists():
     assert OPENDATALOADER_HOOK.exists(), f"Hook script not found: {OPENDATALOADER_HOOK}"
 
 
+def test_parser_runs_after_papersdl_finishes():
+    papers_hook = next((PLUGINS_ROOT / "papersdl").glob("on_Snapshot__*.py"))
+    assert papers_hook.name < OPENDATALOADER_HOOK.name
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert "papersdl" in config["wait_for_plugins"]
+
+
 def test_verify_deps_with_install_hooks():
     binary_path = require_opendataloader_binary()
     assert Path(binary_path).is_file(), (
@@ -233,7 +240,7 @@ def test_install_hook_requests_java_dependency():
 
 
 def test_opendataloader_env_executes_exact_abxpkg_selected_java():
-    from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
+    from abx_plugins.plugins.opendataloader.on_Snapshot__67_opendataloader import (
         _opendataloader_env,
     )
 
@@ -326,7 +333,8 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
-def test_extract_single_pdf():
+@pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl", "66_papersdl"])
+def test_extract_single_pdf(source_dir):
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
     java_binary = require_java_binary()
@@ -336,8 +344,8 @@ def test_extract_single_pdf():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place PDF as if wget saved the original response body.
-        wget_dir = snap_dir / "wget" / "example.com"
+        # Place a real PDF in an upstream downloader output directory.
+        wget_dir = snap_dir / source_dir
         wget_dir.mkdir(parents=True, exist_ok=True)
         (wget_dir / "output.pdf").write_bytes(pdf_content)
 

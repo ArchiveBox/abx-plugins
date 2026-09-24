@@ -12,7 +12,7 @@ found, combining results into content.md, content.txt, and metadata.json.
 For scanned/image-based PDFs, set OPENDATALOADER_FORCE_OCR=true to use the
 hybrid OCR backend (requires opendataloader-pdf-hybrid server running).
 
-Usage: on_Snapshot__60_opendataloader.py --url=<url> > events.jsonl
+Usage: on_Snapshot__67_opendataloader.py --url=<url> > events.jsonl
 
 Environment variables:
     OPENDATALOADER_BINARY: Path to opendataloader-pdf binary
@@ -87,7 +87,7 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
 def find_pdf_sources() -> list[Path]:
     """Find all PDF files from sibling plugin output directories.
 
-    Searches for original PDF responses/static files and wget downloads. Browser-rendered
+    Searches for original PDF responses/static files, wget downloads, and papersdl downloads. Browser-rendered
     pdf/output.pdf exists for most HTML pages and is not a useful input here.
     """
     search_patterns = [
@@ -100,6 +100,9 @@ def find_pdf_sources() -> list[Path]:
         # Wget plugin output (original response bytes)
         "wget/**/*.pdf",
         "*_wget/**/*.pdf",
+        # Scientific papers downloaded by papersdl
+        "papersdl/**/*.pdf",
+        "*_papersdl/**/*.pdf",
     ]
 
     found: list[Path] = []

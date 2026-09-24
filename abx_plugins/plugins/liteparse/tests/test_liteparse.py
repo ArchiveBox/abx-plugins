@@ -290,6 +290,13 @@ def test_hook_scripts_exist():
     assert LITEPARSE_HOOK.exists(), f"Snapshot hook not found: {LITEPARSE_HOOK}"
 
 
+def test_parser_runs_after_papersdl_finishes():
+    papers_hook = next((PLUGINS_ROOT / "papersdl").glob("on_Snapshot__*.py"))
+    assert papers_hook.name < LITEPARSE_HOOK.name
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert "papersdl" in config["wait_for_plugins"]
+
+
 def test_crawl_hook_emits_lit_binary_request_record():
     binary = get_hydrated_required_binary(PLUGIN_DIR, "lit", env={})
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
@@ -364,7 +371,11 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
-def test_extract_single_pdf():
+@pytest.mark.parametrize(
+    "source_dir",
+    ["responses/application/pdfobject.com", "papersdl", "66_papersdl"],
+)
+def test_extract_single_pdf(source_dir):
     """End-to-end extraction on PDF_URL_B (pdfobject.com sample.pdf).
 
     Asserts the per-source flat layout (``<input-name>.txt`` directly in
@@ -376,7 +387,7 @@ def test_extract_single_pdf():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "responses" / "application" / "pdfobject.com"
+        pdf_dir = snap_dir / source_dir
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_content)
 
