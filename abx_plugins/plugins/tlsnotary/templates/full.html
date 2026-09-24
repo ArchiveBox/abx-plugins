@@ -50,7 +50,7 @@
       const panel = byId('proof-tree');
       const flow = el('div', null, 'participants');
       const formatTime = value => new Date(value).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
-      const verifierHost = new URL(metadata.verifier_url).host;
+      const verifierHost = metadata.verifier_url ? new URL(metadata.verifier_url).host : 'Trusted verifier key';
       const hookStart = '{{ result.start_ts|date:"c"|escapejs }}';
       for (const [index, [title, text]] of [
         ['🌐 Source website', `${result.server_name} served the response over TLS.`],
@@ -61,7 +61,7 @@
         const card = el('article', null, 'info-card'); card.append(el('h3', title));
         if (index === 2) { const badge = el('span', verifierHost, 'verifier-badge'); badge.id = 'verifier-card-domain'; card.append(badge); }
         card.append(el('p', text));
-        const time = el('time', index === 0 ? 'Page loaded · ' + formatTime(navigation.timestamp) : index === 1 ? 'Hook started · ' + formatTime(hookStart) : 'Signed · ' + formatTime(new Date(result.time * 1000).toISOString()), 'card-time');
+        const time = el('time', index === 0 ? (navigation?.timestamp ? 'Page loaded · ' + formatTime(navigation.timestamp) : 'Page load time unavailable') : index === 1 ? 'Hook started · ' + formatTime(hookStart) : 'Signed · ' + formatTime(new Date(result.time * 1000).toISOString()), 'card-time');
         if (index === 0) time.id = 'source-response-time'; card.append(time); flow.append(card);
       }
       const visibility = el('div', null, 'facts');
@@ -88,7 +88,9 @@
       captured.append(contentDetails); verified.append(keyDetails);
       panel.replaceChildren(flow, el('h2', 'Capture and verification'), timeline);
       const metadataURL = new URL('metadata.json?preview=1&raw=1', output);
-      captureMetadata.replaceChildren(fact('Verifier server', metadata.verifier_url, metadataURL), fact('Receipt ID', metadata.receipt_id, metadataURL));
+      if (metadata.verifier_url && metadata.receipt_id) {
+        captureMetadata.replaceChildren(fact('Verifier server', metadata.verifier_url, metadataURL), fact('Receipt ID', metadata.receipt_id, metadataURL));
+      }
     }
     let generation = 0;
     async function verify() {
@@ -98,16 +100,18 @@
       try {
         const metadataURL = new URL('metadata.json?raw=1', output), navigationURL = new URL('../chrome/navigation.json?raw=1', output);
         const [receiptResponse, responseResponse, metadataResponse, navigationResponse] = await Promise.all([receiptURL, responseURL, metadataURL, navigationURL].map(url => fetch(url, {cache: 'no-store'})));
-        if (!metadataResponse.ok || !navigationResponse.ok) throw new Error('Unable to read capture metadata');
-        const metadata = await metadataResponse.json(), navigation = await navigationResponse.json();
-        if (!metadata.verifier_url || !metadata.receipt_id || !navigation.timestamp) throw new Error('Incomplete capture metadata');
-        if (!['https:', 'http:'].includes(new URL(metadata.verifier_url).protocol)) throw new Error('Invalid verifier URL');
+        if (!metadataResponse.ok) throw new Error('Unable to read capture metadata');
+        const metadata = await metadataResponse.json();
+        const legacyMetadata = !metadata.verifier_url && !metadata.receipt_id && Number.isSafeInteger(metadata.bytes) && metadata.server_name;
+        const navigation = navigationResponse.ok ? await navigationResponse.json() : null;
+        if (!legacyMetadata && (!metadata.verifier_url || !metadata.receipt_id || !navigation?.timestamp)) throw new Error('Incomplete capture metadata');
+        if (metadata.verifier_url && !['https:', 'http:'].includes(new URL(metadata.verifier_url).protocol)) throw new Error('Invalid verifier URL');
         if (!receiptResponse.ok || !responseResponse.ok) throw new Error(`Unable to read proof files (HTTP ${receiptResponse.status}/${responseResponse.status})`);
         const receipt = await receiptResponse.json(), response = new Uint8Array(await responseResponse.arrayBuffer());
         const result = await verifyReceipt(receipt, response, key);
         if (current !== generation) return;
         const statusHash = el('code', result.hash, 'status-hash'); statusHash.title = result.hash;
-        byId('status').replaceChildren(el('span', 'Content signed + attested to by ' + new URL(metadata.verifier_url).host)); byId('status').className = 'status verified';
+        byId('status').replaceChildren(el('span', 'Content signed + attested to by ' + (metadata.verifier_url ? new URL(metadata.verifier_url).host : 'trusted verifier key'))); byId('status').className = 'status verified';
         byId('summary').replaceChildren(statusHash);
         renderTopology(receipt, result, response, key, metadata, navigation);
         byId('body').textContent = new TextDecoder().decode(result.body); byId('content').hidden = false;

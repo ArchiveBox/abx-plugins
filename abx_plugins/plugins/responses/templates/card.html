@@ -1,15 +1,12 @@
 {% load core_tags %}
-<div class="responses-thumbnail" aria-label="Captured documents and images" style="width:100%;height:100px;overflow:hidden;background:#f5f6f8;">
-<div class="responses-document-thumbnails" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;">
+<div class="responses-thumbnail" aria-label="Captured documents and images" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:3px;width:100%;height:100%;overflow:hidden;background:#f5f6f8;">
 {% for path, info in result.output_files.items %}
     {% if info.mimetype == 'application/pdf' or info.extension == 'pdf' or 'officedocument' in info.mimetype or 'opendocument' in info.mimetype or info.mimetype == 'application/epub+zip' or info.mimetype == 'application/msword' or info.mimetype == 'application/vnd.ms-excel' or info.mimetype == 'application/vnd.ms-powerpoint' or info.mimetype == 'text/markdown' or info.mimetype == 'text/x-markdown' or info.extension == 'epub' or info.extension == 'doc' or info.extension == 'docx' or info.extension == 'ppt' or info.extension == 'pptx' or info.extension == 'xls' or info.extension == 'xlsx' or info.extension == 'odt' or info.extension == 'ods' or info.extension == 'odp' or info.extension == 'rtf' or info.extension == 'md' or info.extension == 'markdown' %}
         {% if path|slice:':4' == 'all/' or path|slice:':14' == 'responses/all/' %}
-            <span title="{{ path }}" aria-label="Document: {{ path }}" style="order:-{{ info.size|default:0 }};display:flex;align-items:center;justify-content:center;gap:3px;height:46px;background:white;font:10px system-ui;"><span style="font-size:24px;">📄</span>{{ info.extension|upper }}</span>
+            <span title="{{ path }}" aria-label="Document: {{ path }}" data-kind="0" data-size="{{ info.size|default:0 }}" style="display:flex;align-items:center;justify-content:center;gap:3px;min-height:0;background:white;font:10px system-ui;"><span style="font-size:24px;">📄</span>{{ info.extension|upper }}</span>
         {% endif %}
     {% endif %}
 {% endfor %}
-</div>
-<div class="responses-image-thumbnails" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:46px;gap:3px;width:100%;height:100px;overflow:hidden;background:#f5f6f8;">
 {% for path, info in result.output_files.items %}
     {% if info.mimetype|slice:':6' == 'image/' %}
         {% if path|slice:':4' == 'all/' or path|slice:':14' == 'responses/all/' %}
@@ -19,10 +16,17 @@
                 {% else %}
                     {% snapshot_preview_url snapshot image_path as image_url %}
                 {% endif %}
-                <img src="{{ image_url|cut:"?preview=1" }}?raw=1" alt="{{ path }}" loading="lazy" decoding="async" fetchpriority="low" style="order:-{{ info.size|default:0 }};display:block;width:100%;height:46px;object-fit:contain;background:white;">
+                <img src="{{ image_url|cut:"?preview=1" }}?raw=1" alt="{{ path }}" loading="lazy" decoding="async" fetchpriority="low" data-kind="1" data-size="{{ info.size|default:0 }}" style="display:block;width:100%;height:100%;min-height:0;object-fit:contain;background:white;">
             {% endwith %}
         {% endif %}
     {% endif %}
 {% endfor %}
 </div>
-</div>
+<script>
+(() => {
+    const grid = document.currentScript.previousElementSibling;
+    Array.from(grid.children)
+        .sort((a, b) => Number(a.dataset.kind) - Number(b.dataset.kind) || Number(b.dataset.size) - Number(a.dataset.size))
+        .forEach(item => grid.appendChild(item));
+})();
+</script>

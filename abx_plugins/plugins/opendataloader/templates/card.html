@@ -1,2 +1,13 @@
-<!-- Compact extracted-document preview: one row of the snapshot grid. -->
-<iframe data-plugin="opendataloader" src="{{ output_path }}?preview=1" title="OpenDataLoader preview" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" style="border:0;pointer-events:none"></iframe>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}body{padding:8px 10px;background:#f8fafc;color:#243443;font:12px/1.4 system-ui,-apple-system,sans-serif}.card{display:flex;flex-direction:column;gap:5px;min-width:0;height:100%;overflow:hidden}.title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;max-height:42px}.badge{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid #dce3eb;border-radius:5px;background:#fff;padding:1px 5px;color:#526477;font-size:11px}.excerpt{color:#526477;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}.error{color:#a52e39}
+</style></head><body data-output="{{ output_path }}"><div class="card"><div class="title" id="title">Loading Opendataloader…</div><div class="meta" id="meta"></div><div class="excerpt" id="excerpt"></div></div><script>
+(async()=>{
+const title=document.getElementById('title'),meta=document.getElementById('meta'),excerpt=document.getElementById('excerpt');
+const output=new URL(document.body.dataset.output,document.baseURI);output.searchParams.set('raw','1');
+const show=(heading,badges=[],detail='')=>{title.textContent=String(heading||'Opendataloader');meta.replaceChildren(...badges.filter(value=>value!==undefined&&value!==null&&value!=='').map(value=>{const badge=document.createElement('span');badge.className='badge';badge.textContent=String(value);return badge}));excerpt.textContent=String(detail||'')};
+const jsonl=text=>text.split(/\r?\n/).flatMap(line=>{try{const value=JSON.parse(line);return value&&typeof value==='object'?[value]:[]}catch{return []}});
+const words=text=>{const clean=String(text||'').trim();return clean?clean.split(/\s+/).length:0};
+try{const response=await fetch(output);if(!response.ok)throw new Error(`HTTP ${response.status}`);const text=await response.text();let clean=text;try{const data=JSON.parse(text);clean=Array.isArray(data.files)?data.files.map(file=>file.source_file||file.source_path||'Document').join(' · '):data.text||data.content||data.body||text}catch{}show(clean.slice(0,100)||'Extracted document',[`${words(clean)} words`],clean);}
+catch(error){title.textContent='Opendataloader preview unavailable';title.classList.add('error');excerpt.textContent=error.message}
+})();
+</script></body></html>

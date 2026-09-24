@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OpenTimestamps proof</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;color:#243443;background:#fff;font:14px/1.6 system-ui,sans-serif}header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #e2e6eb}h1{font-size:17px;margin:0}nav{display:flex;gap:6px;margin-left:auto}nav a{padding:6px 9px;border:1px solid #e2e6eb;border-radius:6px;text-decoration:none;color:inherit}main{max-width:800px;padding:12px 16px}a{color:#245c93}code{overflow-wrap:anywhere}pre{white-space:pre-wrap;padding:12px;background:#edf1f5;border-radius:8px}.status{background:#edf1f5;padding:8px 12px;border-radius:8px}.status.submitted{background:#e4f5e9;color:#176335}dt{font-weight:600}dd{margin:0 0 16px}@media(max-width:500px){header{flex-wrap:wrap}nav{margin-left:0}nav a{padding:4px 6px;font-size:12px}}
+    *{box-sizing:border-box}body{margin:0;color:#243443;background:#fff;font:14px/1.6 system-ui,sans-serif}header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #e2e6eb}h1{font-size:17px;margin:0}nav{display:flex;gap:6px;margin-left:auto}nav a{padding:6px 9px;border:1px solid #e2e6eb;text-decoration:none;color:inherit}main{max-width:800px;padding:12px 16px}a{color:#245c93}code{overflow-wrap:anywhere}pre{white-space:pre-wrap;padding:12px;background:#edf1f5;border-radius:8px}.status{background:#edf1f5;padding:8px 12px;border-radius:8px}.status.submitted{background:#e4f5e9;color:#176335}.status.legacy{background:#fff1cf;color:#604511}dt{font-weight:600}dd{margin:0 0 16px}@media(max-width:500px){header{flex-wrap:wrap}nav{margin-left:0}nav a{padding:4px 6px;font-size:12px}}
 
     .proof-tree,.proof-tree ul{list-style:none;margin:0;padding:0}.proof-tree{margin:16px 0;font-size:13px}.proof-tree ul{margin-left:10px;padding-left:20px;border-left:1px solid #cbd5e1}.proof-tree li{position:relative;padding:6px 0;min-width:0}.proof-tree ul>li:before{content:"";position:absolute;left:-20px;top:18px;width:14px;border-top:1px solid #cbd5e1}.proof-tree summary{cursor:pointer}.proof-tree code{font:12px/1.6 ui-monospace,monospace;overflow-wrap:anywhere}.proof-tree .value{display:block;color:#475569;margin:3px 0 0 16px;overflow-wrap:anywhere}.proof-tree a{color:#245c93;text-decoration:underline;text-underline-offset:3px}.proof-tree summary:hover{background:#f1f5f9}.proof-tree .operation{font-weight:600}.proof-tree .hint{color:#64748b;font-size:12px;margin-left:6px}@media(max-width:500px){.proof-tree ul{padding-left:12px;margin-left:5px}.proof-tree ul>li:before{left:-12px;width:8px}}
     .publication-flow{display:grid;grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr) 72px minmax(0,1fr);align-items:center;margin:16px 0;gap:6px}.flow-block{align-self:stretch;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;padding:12px;min-width:0}.flow-block h3{margin:0 0 8px;font-size:14px}.flow-block p{margin:8px 0;font-size:12px}.flow-arrow{text-align:center;font-size:11px;color:#475569;overflow-wrap:anywhere}.flow-arrow b{display:block;font-size:26px;color:#245c93}@media(max-width:600px){.publication-flow{grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr) 26px minmax(0,1fr);gap:2px}.flow-block{padding:6px}.flow-block h3{font-size:12px}.flow-block p{font-size:11px}.flow-arrow span{display:none}}
@@ -72,6 +72,18 @@ ots verify hashes.json.ots</pre>
         const digest = await crypto.subtle.digest('SHA-256', bytes);
         const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
         const submissionResponse = await fetch(new URL('submission.json?raw=1', output), {cache: 'no-store'});
+        if (submissionResponse.status === 404) {
+          const proofResponse = await fetch(proof, {cache: 'no-store'});
+          if (!proofResponse.ok) throw new Error(`Unable to read timestamp proof (HTTP ${proofResponse.status})`);
+          const proofBytes = new Uint8Array(await proofResponse.arrayBuffer());
+          const magic = new TextEncoder().encode('\0OpenTimestamps\0\0Proof\0');
+          if (proofBytes.length < 65 || !magic.every((byte, index) => proofBytes[index] === byte) || proofBytes[32] !== 8 || Array.from(proofBytes.slice(33, 65), byte => byte.toString(16).padStart(2, '0')).join('') !== hash) throw new Error('Saved proof does not match this manifest');
+          document.getElementById('status').textContent = 'Legacy timestamp proof saved · verify with OpenTimestamps';
+          document.getElementById('status').classList.add('legacy');
+          document.getElementById('summary').replaceChildren(el('code', hash, 'status-hash'));
+          tree.replaceChildren(el('h2', 'Saved timestamp proof'), el('p', 'This older capture does not contain submission.json. Its .ots proof contains the saved manifest fingerprint; use the OpenTimestamps client to verify calendar or Bitcoin attestations.'));
+          return;
+        }
         if (!submissionResponse.ok) throw new Error(`Unable to read submission.json (HTTP ${submissionResponse.status})`);
         const submission = await submissionResponse.json();
         if (submission.manifest_sha256 !== hash || !/^[0-9a-f]{32}$/.test(submission.nonce_hex) || !/^[0-9a-f]{64}$/.test(submission.submitted_digest)) throw new Error('Submission metadata does not match this manifest');

@@ -1,7 +1,7 @@
-<iframe title="OpenTimestamps proof" loading="lazy" sandbox="allow-scripts allow-same-origin"
-  style="width:100% !important;height:130px !important;transform:none !important;border:0;pointer-events:none"
-  srcdoc="{% filter force_escape %}<!doctype html><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 system-ui,sans-serif}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
+<!doctype html><!-- Trusted card code runs inside this snapshot's origin. It
+reads only local proof files; web.* keeps the collection UI, and admin.* keeps
+the host-only session/CSRF cookies. --><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 system-ui,sans-serif}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.legacy{background:#fff1cf;color:#604511}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
 </style></head><body data-output="{{ output_path }}"><p id="status" class="status" role="status">Loading timestamp manifest…</p><code id="hash" class="hash"></code><script type="module">
 
 const output=new URL(document.body.dataset.output,document.baseURI);output.search='';output.hash='';
@@ -9,16 +9,27 @@ const status=document.getElementById('status'),hash=document.getElementById('has
 const hex=bytes=>Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
 try {
   const [manifestResponse,submissionResponse]=await Promise.all(['hashes.json','submission.json'].map(path=>fetch(new URL(path+'?raw=1',output))));
-  if (!manifestResponse.ok||!submissionResponse.ok) throw Error('Unable to read timestamp files');
-  const bytes=await manifestResponse.arrayBuffer(),manifest=JSON.parse(new TextDecoder().decode(bytes)),submission=await submissionResponse.json();
+  if (!manifestResponse.ok) throw Error('Unable to read timestamp manifest');
+  const bytes=await manifestResponse.arrayBuffer(),manifest=JSON.parse(new TextDecoder().decode(bytes));
   if (!/^[0-9a-f]{64}$/.test(manifest.root_hash)) throw Error('Invalid Merkle root');
   const digest=await crypto.subtle.digest('SHA-256',bytes);
-  if (submission.manifest_sha256!==hex(digest)||!/^[0-9a-f]{32}$/.test(submission.nonce_hex)) throw Error('Submission metadata does not match this manifest');
-  const combined=new Uint8Array(48);combined.set(new Uint8Array(digest));combined.set(Uint8Array.from(submission.nonce_hex.match(/../g),v=>parseInt(v,16)),32);
-  const commitment=hex(await crypto.subtle.digest('SHA-256',combined));
-  if (commitment!==submission.submitted_digest) throw Error('Submission commitment mismatch');
-  if (!Array.isArray(submission.configured_calendars)||!submission.configured_calendars.length||Number.isNaN(new Date(submission.submitted_at).getTime())) throw Error('Invalid submission metadata');
-  status.textContent='Hashes submitted to opentimestamps.org';status.classList.add('success');hash.textContent=commitment;hash.title=commitment;
+  if (submissionResponse.status===404) {
+    const proofResponse=await fetch(new URL('hashes.json.ots?raw=1',output));
+    if (!proofResponse.ok) throw Error('Unable to read saved timestamp proof');
+    const proof=new Uint8Array(await proofResponse.arrayBuffer());
+    const magic=new TextEncoder().encode('\0OpenTimestamps\0\0Proof\0');
+    if (proof.length<65||!magic.every((byte,index)=>proof[index]===byte)||proof[32]!==8||hex(proof.slice(33,65))!==hex(digest)) throw Error('Saved proof does not match this manifest');
+    status.textContent='Legacy timestamp proof saved · verify with OpenTimestamps';status.classList.add('legacy');hash.textContent=hex(digest);hash.title=hex(digest);
+  } else {
+    if (!submissionResponse.ok) throw Error('Unable to read submission metadata');
+    const submission=await submissionResponse.json();
+    if (submission.manifest_sha256!==hex(digest)||!/^[0-9a-f]{32}$/.test(submission.nonce_hex)) throw Error('Submission metadata does not match this manifest');
+    const combined=new Uint8Array(48);combined.set(new Uint8Array(digest));combined.set(Uint8Array.from(submission.nonce_hex.match(/../g),v=>parseInt(v,16)),32);
+    const commitment=hex(await crypto.subtle.digest('SHA-256',combined));
+    if (commitment!==submission.submitted_digest) throw Error('Submission commitment mismatch');
+    if (!Array.isArray(submission.configured_calendars)||!submission.configured_calendars.length||Number.isNaN(new Date(submission.submitted_at).getTime())) throw Error('Invalid submission metadata');
+    status.textContent='Hashes submitted to opentimestamps.org';status.classList.add('success');hash.textContent=commitment;hash.title=commitment;
+  }
 } catch(error) {status.textContent='Unable to read timestamp manifest: '+error.message;status.classList.add('failed');}
 
-</script></body></html>{% endfilter %}"></iframe>
+</script></body></html>

@@ -15,6 +15,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { spawnSync } = require("child_process");
 const {
   ensureNodeModuleResolution,
   getEnvBool,
@@ -51,7 +52,26 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = "output.pdf";
+const PREVIEW_FILE = "preview.png";
 const CHROME_SESSION_DIR = "../chrome";
+
+function renderFirstPage(outputPath, timeoutMs) {
+  // Native PDF viewers can download instead of painting inside a small nested
+  // card iframe. Save an actual first-page raster while capturing the PDF.
+  const previewPath = path.join(OUTPUT_DIR, PREVIEW_FILE);
+  const tempBase = path.join(OUTPUT_DIR, `.preview.${process.pid}`);
+  const tempPreview = `${tempBase}.png`;
+  fs.rmSync(previewPath, { force: true });
+  const result = spawnSync(hookConfig.PDFTOPPM_BINARY || "pdftoppm", [
+    "-f", "1", "-l", "1", "-singlefile", "-scale-to", "640", "-png",
+    outputPath, tempBase,
+  ], { encoding: "utf8", timeout: Math.min(timeoutMs, 30000) });
+  if (result.error || result.status !== 0 || !fs.existsSync(tempPreview)) {
+    fs.rmSync(tempPreview, { force: true });
+    throw new Error(result.error?.message || result.stderr?.trim() || "PDF first-page renderer failed");
+  }
+  fs.renameSync(tempPreview, previewPath);
+}
 
 async function printToPdf(url, timeoutMs) {
   // Output directory is current directory (hook already runs in output dir)
@@ -88,6 +108,13 @@ async function printToPdf(url, timeoutMs) {
     fs.renameSync(tempOutputPath, outputPath);
 
     if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+      try {
+        renderFirstPage(outputPath, timeoutMs);
+      } catch (error) {
+        // The PDF is still a valid capture. The card uses the sibling page
+        // screenshot when a thumbnail cannot be rendered on this machine.
+        console.error(`PDF thumbnail unavailable: ${error.message}`);
+      }
       return { success: true, output: OUTPUT_FILE };
     } else {
       return { success: false, error: "PDF file not created" };

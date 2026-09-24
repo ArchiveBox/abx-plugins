@@ -46,29 +46,30 @@ def test_evidence_hooks_run_in_order():
 
 
 def test_host_card_contains_standalone_preview():
-    from html import unescape
     from jinja2 import Environment, FileSystemLoader
-    from markupsafe import escape
 
     templates = Environment(
         loader=FileSystemLoader(PLUGINS / "opentimestamps/templates"),
         autoescape=True,
     )
-    templates.filters["force_escape"] = escape
     output_path = "/archive/output/opentimestamps/hashes.json.ots"
     rendered = templates.get_template("card.html").render(output_path=output_path)
-    assert 'srcdoc="' in rendered
-    assert f'data-output="{output_path}"' in unescape(rendered)
-    assert "Submission commitment mismatch" in unescape(rendered)
+    assert f'data-output="{output_path}"' in rendered
+    assert "Submission commitment mismatch" in rendered
     assert "card=1" not in rendered
-    assert 'sandbox="allow-scripts allow-same-origin"' in rendered
+    assert "<!doctype html>" in rendered
 
 
 def test_proof_cards_keep_full_viewers_separate():
     for plugin in ("git", "tlsnotary", "opentimestamps"):
         card = (PLUGINS / plugin / "templates/card.html").read_text()
         full = (PLUGINS / plugin / "templates/full.html").read_text()
-        assert "srcdoc=" in card
+        if plugin == "git":
+            assert "srcdoc=" in card
+        else:
+            assert "<!doctype html>" in card
+            assert "srcdoc=" not in card
+            assert not (PLUGINS / plugin / "templates/card_frame.html").exists()
         assert "card=1" not in card
         assert "card-view" not in full
         assert "if(compact)" not in full

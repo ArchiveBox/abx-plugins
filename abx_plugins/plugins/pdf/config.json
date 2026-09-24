@@ -7,9 +7,20 @@
   "required_plugins": [
     "chrome"
   ],
-  "required_binaries": [],
+  "required_binaries": [
+    {
+      "name": "{PDFTOPPM_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {"install_args": ["poppler-utils"]},
+        "brew": {"install_args": ["poppler"]}
+      }
+    }
+  ],
   "output_mimetypes": [
-    "application/pdf"
+    "application/pdf",
+    "image/png"
   ],
   "properties": {
     "PDF_ENABLED": {
@@ -27,6 +38,11 @@
       "minimum": 5,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for PDF generation in seconds"
+    },
+    "PDFTOPPM_BINARY": {
+      "type": "string",
+      "default": "pdftoppm",
+      "description": "Poppler PDF renderer used for the first-page card thumbnail."
     },
     "PDF_RESOLUTION": {
       "type": "string",

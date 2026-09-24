@@ -1,6 +1,6 @@
-<iframe title="TLSNotary proof" loading="lazy" sandbox="allow-scripts allow-same-origin"
-  style="width:100% !important;height:130px !important;transform:none !important;border:0;pointer-events:none"
-  srcdoc="{% filter force_escape %}<!doctype html><html><head><meta charset="utf-8"><style>
+<!doctype html><!-- Trusted card code runs on this snapshot's origin, so proof
+files are same-origin. The admin session stays host-only on admin.*, and raw
+archived HTML/JS/CSS never executes on the web.* collection page. --><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 system-ui,sans-serif}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
 </style></head><body><p id="status" class="status" role="status">Checking signature and archived response…</p><code id="hash" class="hash"></code><script type="module">
 
@@ -218,11 +218,11 @@ try {
   const [receiptResponse,responseResponse,metadataResponse]=await Promise.all(urls.map(url=>fetch(url)));
   if (![receiptResponse,responseResponse,metadataResponse].every(response=>response.ok)) throw Error('Unable to read proof files');
   const receipt=await receiptResponse.json(),response=new Uint8Array(await responseResponse.arrayBuffer()),metadata=await metadataResponse.json();
-  const verifier=new URL(metadata.verifier_url);
-  if (!['http:','https:'].includes(verifier.protocol)) throw Error('Invalid verifier URL');
+  const verifier=metadata.verifier_url ? new URL(metadata.verifier_url) : null;
+  if (verifier && !['http:','https:'].includes(verifier.protocol)) throw Error('Invalid verifier URL');
   const result=await verifyReceipt(receipt,response,TRUSTED_PUBLIC_KEY);
-  status.textContent='Content signed + attested to by '+verifier.host;status.classList.add('success');
+  status.textContent='Content signed + attested to by '+(verifier?.host || 'trusted verifier key');status.classList.add('success');
   hash.textContent=result.hash;hash.title=result.hash;
 } catch(error) {status.textContent='Verification failed: '+error.message;status.classList.add('failed');}
 
-</script></body></html>{% endfilter %}"></iframe>
+</script></body></html>
