@@ -519,7 +519,7 @@ ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
 
 
 @pytest.fixture
-def chrome_test_urls(request, httpserver, tmp_path_factory):
+def chrome_test_urls(request, httpserver_ipv4, tmp_path_factory):
     """Provide deterministic test URLs from pytest-httpserver."""
     for fixture_name in _ROOT_URL_FIXTURE_NAMES:
         try:
@@ -530,7 +530,7 @@ def chrome_test_urls(request, httpserver, tmp_path_factory):
         if urls:
             return urls
 
-    urls = _configure_chrome_httpserver(httpserver)
+    urls = _configure_chrome_httpserver(httpserver_ipv4)
     https_server = _create_https_test_server(tmp_path_factory)
     https_server.start()
     request.addfinalizer(https_server.stop)
