@@ -128,6 +128,12 @@ def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
                 and time.monotonic() < kill_deadline
             ):
                 time.sleep(0.05)
+    elif owned_process.poll() is None:
+        # A caller may supply a process without its own process group.  In that
+        # case there is no group to signal, but the process still needs to be
+        # resumed before SIGTERM can take effect if it was stopped.
+        owned_process.send_signal(signal.SIGCONT)
+        owned_process.terminate()
     owned_process.wait(timeout=1)
     if _PROCESS is owned_process:
         _PROCESS = None
