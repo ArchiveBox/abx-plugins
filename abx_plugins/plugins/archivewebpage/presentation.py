@@ -189,13 +189,13 @@ def _replay_base_for_output_path(output_path: str) -> str:
     return "/replay/"
 
 
-def render_preview_html(
+def render_replay_html(
     filename: str,
     output_path: str,
     wacz_path: Path | None = None,
     fallback_url: str = "",
 ) -> str:
-    """Render the plugin's private replay template as the WACZ preview body.
+    """Render the plugin's private replay template for a saved WACZ.
 
     This deliberately is not templates/full.html: that public template is used
     for every output of a plugin, including recording.json. Metadata is not a
@@ -232,7 +232,7 @@ def render_preview_html(
     )
 
 
-def render_preview_response(
+def render_replay_response(
     filename: str,
     output_path: str,
     *,
@@ -242,10 +242,13 @@ def render_preview_response(
     etag: str = "",
     cache_control: str = "",
     content_encoding: str = "",
-) -> tuple[str, str, dict[str, str]]:
+) -> tuple[str, str, dict[str, str]] | None:
+    if not is_replay_target(filename):
+        return None
+
     headers = {
         "Content-Disposition": f'inline; filename="{Path(filename).stem}.html"',
-        **preview_response_headers(),
+        **replay_response_headers(),
     }
     if last_modified:
         headers["Last-Modified"] = last_modified
@@ -256,7 +259,7 @@ def render_preview_response(
     if content_encoding:
         headers["Content-Encoding"] = content_encoding
     return (
-        render_preview_html(
+        render_replay_html(
             filename,
             output_path,
             wacz_path=wacz_path,
@@ -267,8 +270,8 @@ def render_preview_response(
     )
 
 
-def preview_response_headers() -> dict[str, str]:
-    """Headers ArchiveBox should attach to the rendered preview HTML."""
+def replay_response_headers() -> dict[str, str]:
+    """Headers ArchiveBox should attach to the rendered replay HTML."""
     return {
         "Content-Security-Policy": (
             "default-src 'self' data: blob:; "

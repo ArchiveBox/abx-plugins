@@ -23,7 +23,7 @@ def test_replay_prefers_requested_page_over_unrelated_first_page(
                 ]
             ),
         )
-    html = presentation.render_preview_html(
+    html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
         wacz_path=wacz_path,
@@ -32,7 +32,7 @@ def test_replay_prefers_requested_page_over_unrelated_first_page(
     assert 'data-url="https://x.com/theSquashSH"' in html
 
 
-def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
+def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     tmp_path: Path,
 ) -> None:
     wacz_path = tmp_path / "capture.wacz"
@@ -46,7 +46,7 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
             "\n".join(json.dumps(page) for page in pages),
         )
 
-    html = presentation.render_preview_html(
+    html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
         wacz_path=wacz_path,
@@ -63,7 +63,7 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     assert '<script src="/replay/ui.js"></script>' in html
     assert "#replay-root, replay-web-page" in html
 
-    onedomain_html = presentation.render_preview_html(
+    onedomain_html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/snapshot/06a219240eb5778d8000f850baa5d427/archivewebpage/archivewebpage.wacz",
         wacz_path=wacz_path,
