@@ -197,11 +197,10 @@ def render_replay_html(
 ) -> str:
     """Render the plugin's private replay template for a saved WACZ.
 
-    This deliberately is not templates/full.html: that public template is used
-    for every output of a plugin, including recording.json. Metadata is not a
-    replay archive, and the generic renderer cannot supply the inspected page
-    URL or replay_base. Using it would request sw.js beneath the capture path
-    and report a misleading service-worker error for the resulting server 404.
+    ``templates/full.html`` owns the replay document. This response hook limits
+    it to replay archives and supplies the inspected page URL and replay asset
+    base. Other outputs from the plugin, such as ``recording.json``, continue
+    through their ordinary MIME-specific renderer.
 
     If recorded, prefer ``fallback_url`` over incidental pages in the WACZ.
     Otherwise use the first archived URL to support redirects. Falls back to
