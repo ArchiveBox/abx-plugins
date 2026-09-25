@@ -29,6 +29,9 @@ loopback callback is not the ArchiveBox HTTP proxy. Anthropic uses an API key.
 
 The wrapper preserves existing browser-side servers and projects. Unavailable
 or full browser storage cannot suppress the access warning or block dismissal.
+The authenticated Agent wrapper renders before a cold OpenCode start. Its iframe
+request starts the server, reuses or creates the collection's default session,
+and redirects to that session; the welcome panel is available while it loads.
 
 OpenCode works directly in the collection directory without initializing Git.
 Git discovery is disabled for its process, including ancestor and nested repos.

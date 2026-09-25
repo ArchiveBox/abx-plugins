@@ -2,6 +2,7 @@ import json
 import os
 import socket
 import subprocess
+import time
 from pathlib import Path
 
 import requests
@@ -32,6 +33,74 @@ def rg_binary(opencode_env):
     )
     assert binary.abspath and binary.version, "Failed to install ripgrep"
     return str(binary.abspath)
+
+
+def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
+    tmp_path,
+    opencode_env,
+):
+    """The wrapper loads before the real server, while its frame gets a session."""
+    from abx_plugins.plugins.opencode import runtime
+
+    collection = tmp_path / "collection"
+    collection.mkdir()
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    settings = runtime._settings(
+        {
+            "DATA_DIR": str(collection),
+            "OPENCODE_PORT": port,
+            "ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"],
+        },
+    )
+    frame_url = runtime._project_route(collection)
+    try:
+        started = time.monotonic()
+        context = runtime.agent_context(settings)
+        assert time.monotonic() - started < 1
+        assert context["proxy_url"] == frame_url
+        assert not runtime._owned_process_running()
+
+        path = frame_url.removeprefix(runtime._PROXY_PREFIX + "/")
+        status, headers, body = runtime.proxy(settings, "GET", path, (), {}, b"")
+        assert status == 302
+        assert headers["Location"].startswith(frame_url + "/")
+        assert body == b""
+        session_id = headers["Location"].rsplit("/", 1)[-1]
+        sessions = requests.get(
+            settings["origin"] + "/session",
+            params={"directory": str(collection), "roots": "true", "limit": 55},
+            timeout=settings["timeout"],
+        )
+        sessions.raise_for_status()
+        assert any(
+            item["id"] == session_id and item["directory"] == str(collection)
+            for item in sessions.json()
+        )
+        again_status, again_headers, _ = runtime.proxy(
+            settings,
+            "GET",
+            path,
+            (),
+            {},
+            b"",
+        )
+        assert again_status == 302
+        assert again_headers["Location"] == headers["Location"]
+        status, _, html = runtime.proxy(
+            settings,
+            "GET",
+            headers["Location"].removeprefix(runtime._PROXY_PREFIX + "/"),
+            (),
+            {},
+            b"",
+        )
+        assert status == 200
+        assert isinstance(html, bytes)
+        assert b"<html" in html.lower()
+    finally:
+        runtime._stop_owned_process()
 
 
 @pytest.mark.parametrize("collection_is_repo", [False, True])

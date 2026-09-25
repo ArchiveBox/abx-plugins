@@ -563,17 +563,14 @@ atexit.register(_stop_owned_process)
 
 
 def agent_context(settings: dict) -> dict:
-    ok, error = _ensure_opencode(settings)
-    if not ok:
-        raise RuntimeError(error)
-    with _SESSION_LOCK:
-        session_id = _ensure_default_session(settings)
     return {
         "title": "Agent",
-        "proxy_url": _project_route(settings["workdir"], session_id),
+        # The authenticated iframe request resolves the default session. Do not
+        # hold the wrapper response open while OpenCode starts on a cold visit.
+        "proxy_url": _project_route(settings["workdir"]),
         "proxy_prefix": _PROXY_PREFIX,
         "workdir": str(settings["workdir"].resolve()),
-        "recent_session_id": session_id,
+        "recent_session_id": "",
     }
 
 
@@ -675,6 +672,26 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
                 "X-Accel-Buffering": "no",
             },
             _event_chunks(settings, path, method, params, forwarded),
+        )
+
+    # This entry route belongs to the wrapper iframe. Resolve its collection
+    # session here so the welcome panel and admin navigation load immediately.
+    session_entry = _project_route(settings["workdir"]).removeprefix(
+        _PROXY_PREFIX + "/",
+    )
+    if method == "GET" and path == session_entry:
+        ok, error = _ensure_opencode(settings)
+        if not ok:
+            raise RuntimeError(error)
+        with _SESSION_LOCK:
+            session_id = _ensure_default_session(settings)
+        return (
+            302,
+            {
+                "Location": _project_route(settings["workdir"], session_id),
+                "Cache-Control": "no-store",
+            },
+            b"",
         )
 
     if path == "global/health" or not _owned_process_ready():
