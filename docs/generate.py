@@ -60,6 +60,7 @@ PLUGIN_SCREENSHOTS = {
     "hashes": [("71-snapshot-view-hashes", "Snapshot view")],
     "opentimestamps": [("snapshot-view-opentimestamps", "Timestamp proof")],
     "opencode": [("07-ai-agent", "AI agent")],
+    "tlsnotary": [("snapshot-view-tlsnotary", "Snapshot view")],
 }
 
 
