@@ -49,7 +49,12 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
   if (!targetId) return null;
 
   console.error("[archivewebpage] start phase=opening tab-id popup");
-  const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
+  // The debugger query does not use AWP's popup port. During concurrent
+  // collection starts the popup UI may be waiting on its own extension work;
+  // waiting for that port here can block tab-id resolution indefinitely.
+  const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs, {
+    requirePopupPort: false,
+  });
   try {
     console.error("[archivewebpage] start phase=querying debugger targets");
     return await helperPage.evaluate(async (idToFind) => {
@@ -85,7 +90,12 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
  * tabs opened while a recording is running as candidates for auto-recording,
  * which triggers a Page.reload that destroys our evaluate() context.
  */
-async function openAwpHelperTab(browser, extensionId, timeoutMs = 5000) {
+async function openAwpHelperTab(
+  browser,
+  extensionId,
+  timeoutMs = 5000,
+  { requirePopupPort = true } = {}
+) {
   const helperUrl = `chrome-extension://${extensionId}/popup.html`;
   const result = await chromeUtils.sendBrowserCommand(
     browser,
@@ -93,6 +103,7 @@ async function openAwpHelperTab(browser, extensionId, timeoutMs = 5000) {
     { url: helperUrl }
   );
   const targetId = result.targetId;
+  console.error("[archivewebpage] helper phase=target created");
   if (!targetId) {
     throw new Error("Target.createTarget did not return a targetId");
   }
@@ -104,20 +115,24 @@ async function openAwpHelperTab(browser, extensionId, timeoutMs = 5000) {
     (await browser.waitForTarget(matchesTarget, {
       timeout: Math.max(250, timeoutMs),
     }));
+  console.error("[archivewebpage] helper phase=target discovered");
   const page = await target.page();
   if (!page) {
     throw new Error(`Helper target ${targetId} is not a page`);
   }
   await page.waitForFunction(
-    (expectedUrl) =>
+    (expectedUrl, needsPopupPort) =>
       location.href === expectedUrl &&
       document.readyState !== "loading" &&
       typeof chrome !== "undefined" &&
       Boolean(chrome.runtime?.connect) &&
-      Boolean(document.querySelector("wr-popup-viewer")?.port),
+      Boolean(chrome.debugger?.getTargets) &&
+      (!needsPopupPort || Boolean(document.querySelector("wr-popup-viewer")?.port)),
     { timeout: Math.max(250, timeoutMs) },
-    helperUrl
+    helperUrl,
+    requirePopupPort
   );
+  console.error("[archivewebpage] helper phase=extension ready");
   return page;
 }
 
