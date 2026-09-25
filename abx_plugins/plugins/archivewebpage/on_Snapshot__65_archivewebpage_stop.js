@@ -252,9 +252,13 @@ async function main() {
       );
     }
 
-    // AWP serves exports from one extension worker shared by every snapshot
-    // in this crawl. Keep its stop and download sequence single-flight while
-    // leaving the recordings themselves concurrent.
+    // All snapshots in a crawl use the same AWP extension worker and virtual
+    // /w/api/c/<collId>/dl route. Recordings can run concurrently, and each
+    // hook still reads its own recording.json/collId and saves its own
+    // snapshot-local archivewebpage.wacz. Only stop+export needs this shared
+    // lock: overlapping exports produced a Page.navigate result of
+    // net::ERR_FILE_NOT_FOUND with no browser download events for one WACZ.
+    // The lock is crawl-scoped so separate hook subprocesses use one gate.
     const lockRoot = hookConfig.CRAWL_DIR
       ? path.resolve(hookConfig.CRAWL_DIR)
       : SNAP_DIR;
