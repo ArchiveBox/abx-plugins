@@ -21,5 +21,6 @@
   },
   "x-accepts-internal-input": true,
   "category": "postprocessing",
-  "display_order": 30
+  "display_order": 30,
+  "snapshot_output_group": "metadata"
 }

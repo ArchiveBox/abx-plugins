@@ -47,5 +47,13 @@
     }
   },
   "category": "main",
-  "display_order": 20
+  "display_order": 20,
+  "snapshot_output_group": "raster",
+  "snapshot_output_order": 0,
+  "default_output_path": "screenshot.png",
+  "archive_result_aliases": ["chrome_extension_screenshot"],
+  "snapshot_thumbnail_cards": [
+    {"archive_result_name": "screenshot", "order": 0},
+    {"archive_result_name": "chrome_extension_screenshot", "order": 1}
+  ]
 }

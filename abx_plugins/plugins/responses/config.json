@@ -36,5 +36,9 @@
     }
   },
   "category": "media",
-  "display_order": 20
+  "display_order": 20,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_thumbnail_cards": [
+    {"archive_result_name": "responses", "order": 4}
+  ]
 }

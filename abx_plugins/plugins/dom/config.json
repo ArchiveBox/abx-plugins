@@ -30,5 +30,7 @@
     }
   },
   "category": "main",
-  "display_order": 10
+  "display_order": 10,
+  "snapshot_output_group": "html",
+  "snapshot_output_order": 4
 }

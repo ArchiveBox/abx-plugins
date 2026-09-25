@@ -26,6 +26,8 @@ Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
 - optional generic catalog metadata in `config.json`: `category`, `display_order`, `hidden`, and `x-auto-run` (set false for hooks that require explicit host selection)
+- optional `snapshot_thumbnail_cards` declarations in `config.json` identify ArchiveResult names whose existing `card.html` may represent a snapshot in list and grid views, with an explicit `order`
+- optional presentation metadata includes `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name`, `archive_result_aliases`, `default_output_path`, `icon_hidden`, `card_hidden`, `card_interactive`, and `output_extension_preference`; hosts consume these declarations generically while the plugin templates retain the rendering behavior
 - `config.json > required_binaries` binary dependency declarations (optional)
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
 - `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`

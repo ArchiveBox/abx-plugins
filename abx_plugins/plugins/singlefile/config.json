@@ -44,5 +44,8 @@
     }
   },
   "category": "main",
-  "display_order": 40
+  "display_order": 40,
+  "snapshot_output_group": "html",
+  "snapshot_output_order": 1,
+  "snapshot_display_name": "SingleFile"
 }

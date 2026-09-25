@@ -29,5 +29,8 @@
     }
   },
   "category": "main",
-  "display_order": 60
+  "display_order": 60,
+  "snapshot_output_group": "other",
+  "icon_hidden": true,
+  "card_hidden": true
 }

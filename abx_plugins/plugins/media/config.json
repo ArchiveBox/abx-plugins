@@ -8,5 +8,6 @@
   "required_binaries": [],
   "output_mimetypes": [],
   "properties": {},
-  "hidden": true
+  "hidden": true,
+  "snapshot_output_group": "embedded_media"
 }

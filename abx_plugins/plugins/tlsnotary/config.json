@@ -66,5 +66,6 @@
       "description": "Maximum authenticated request bytes including Chrome cookies/headers."
     }
   },
-  "x-install-in-docker": true
+  "x-install-in-docker": true,
+  "snapshot_output_group": "metadata"
 }

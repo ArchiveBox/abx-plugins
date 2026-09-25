@@ -28,5 +28,7 @@
     }
   },
   "category": "text",
-  "display_order": 20
+  "display_order": 20,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 4
 }

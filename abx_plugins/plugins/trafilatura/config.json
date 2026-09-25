@@ -60,5 +60,7 @@
     }
   },
   "category": "text",
-  "display_order": 60
+  "display_order": 60,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 3
 }

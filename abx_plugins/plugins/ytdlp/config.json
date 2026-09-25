@@ -158,5 +158,17 @@
     }
   },
   "category": "media",
-  "display_order": 40
+  "display_order": 40,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "YouTube-DL",
+  "archive_result_aliases": ["yt-dlp", "youtube-dl"],
+  "card_interactive": true,
+  "output_extension_preference": [
+    [".mp4", ".webm", ".m4v", ".ogv"],
+    [".mp3", ".m4a", ".aac", ".opus", ".ogg", ".wav", ".flac"],
+    [".mkv", ".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".3gp", ".3g2"],
+    [".html", ".htm", ".mhtml", ".mht", ".pdf"],
+    [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"],
+    [".json", ".jsonl", ".txt", ".md", ".csv", ".tsv", ".srt", ".vtt"]
+  ]
 }

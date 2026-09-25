@@ -34,5 +34,11 @@
     }
   },
   "category": "metadata",
-  "display_order": 20
+  "display_order": 20,
+  "snapshot_output_group": "metadata",
+  "default_output_path": "favicon.ico",
+  "card_hidden": true,
+  "snapshot_thumbnail_cards": [
+    {"archive_result_name": "favicon", "order": 5}
+  ]
 }

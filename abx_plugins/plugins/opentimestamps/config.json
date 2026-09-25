@@ -52,5 +52,6 @@
       "minimum": 1,
       "description": "Minimum successful calendar replies required to save a proof. Must not exceed the number of distinct configured calendars."
     }
-  }
+  },
+  "snapshot_output_group": "metadata"
 }

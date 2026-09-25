@@ -68,5 +68,8 @@
     }
   },
   "category": "main",
-  "display_order": 80
+  "display_order": 80,
+  "snapshot_output_group": "html",
+  "snapshot_output_order": 0,
+  "snapshot_display_name": "ArchiveWebpage"
 }

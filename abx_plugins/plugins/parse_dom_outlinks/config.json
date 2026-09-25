@@ -30,5 +30,6 @@
     }
   },
   "category": "postprocessing",
-  "display_order": 10
+  "display_order": 10,
+  "snapshot_output_group": "metadata"
 }

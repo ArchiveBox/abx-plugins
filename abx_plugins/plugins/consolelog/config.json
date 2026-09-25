@@ -30,5 +30,6 @@
     }
   },
   "category": "metadata",
-  "display_order": 60
+  "display_order": 60,
+  "snapshot_output_group": "metadata"
 }

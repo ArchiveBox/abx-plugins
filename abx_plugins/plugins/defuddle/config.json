@@ -72,5 +72,7 @@
     }
   },
   "category": "text",
-  "display_order": 30
+  "display_order": 30,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 1
 }

@@ -40,5 +40,6 @@
     "favicon",
     "papersdl",
     "tlsnotary"
-  ]
+  ],
+  "snapshot_output_group": "metadata"
 }

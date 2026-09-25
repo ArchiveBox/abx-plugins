@@ -75,5 +75,7 @@
     }
   },
   "category": "media",
-  "display_order": 60
+  "display_order": 60,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Git"
 }

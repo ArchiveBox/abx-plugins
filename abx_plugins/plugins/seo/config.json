@@ -30,5 +30,9 @@
     }
   },
   "category": "metadata",
-  "display_order": 90
+  "display_order": 90,
+  "snapshot_output_group": "metadata",
+  "snapshot_thumbnail_cards": [
+    {"archive_result_name": "seo", "order": 3}
+  ]
 }

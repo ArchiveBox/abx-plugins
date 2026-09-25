@@ -87,5 +87,7 @@
     }
   },
   "category": "media",
-  "display_order": 50
+  "display_order": 50,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Gallery-DL"
 }

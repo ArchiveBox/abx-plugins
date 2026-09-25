@@ -109,5 +109,7 @@
   },
   "category": "text",
   "display_order": 80,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 5,
   "x-install-in-docker": true
 }
