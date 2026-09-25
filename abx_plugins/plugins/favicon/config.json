@@ -37,6 +37,7 @@
   "display_order": 20,
   "snapshot_output_group": "metadata",
   "default_output_path": "favicon.ico",
+  "snapshot_list_icon": true,
   "card_hidden": true,
   "snapshot_thumbnail_cards": [
     {"archive_result_name": "favicon", "order": 5}

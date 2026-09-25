@@ -4,7 +4,7 @@ import json
 import zipfile
 from pathlib import Path
 
-from abx_plugins.plugins.archivewebpage import replay_preview
+from abx_plugins.plugins.archivewebpage import presentation
 
 
 def test_replay_prefers_requested_page_over_unrelated_first_page(
@@ -23,7 +23,7 @@ def test_replay_prefers_requested_page_over_unrelated_first_page(
                 ]
             ),
         )
-    html = replay_preview.render_preview_html(
+    html = presentation.render_preview_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
         wacz_path=wacz_path,
@@ -46,7 +46,7 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
             "\n".join(json.dumps(page) for page in pages),
         )
 
-    html = replay_preview.render_preview_html(
+    html = presentation.render_preview_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
         wacz_path=wacz_path,
@@ -63,7 +63,7 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     assert '<script src="/replay/ui.js"></script>' in html
     assert "#replay-root, replay-web-page" in html
 
-    onedomain_html = replay_preview.render_preview_html(
+    onedomain_html = presentation.render_preview_html(
         "archivewebpage.wacz",
         "/snapshot/06a219240eb5778d8000f850baa5d427/archivewebpage/archivewebpage.wacz",
         wacz_path=wacz_path,

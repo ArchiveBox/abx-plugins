@@ -31,5 +31,6 @@
   },
   "category": "metadata",
   "display_order": 10,
-  "snapshot_output_group": "metadata"
+  "snapshot_output_group": "metadata",
+  "snapshot_title_source": true
 }

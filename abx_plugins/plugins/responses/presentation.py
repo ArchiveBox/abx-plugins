@@ -2,7 +2,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 
-def extra_snapshot_output_card(outputs: list[dict[str, Any]]) -> dict[str, Any] | None:
+def extra_snapshot_output_cards(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Build the Responses HTML card alongside the plugin's media gallery."""
     for output in outputs:
         if output["name"] != "responses" or not (result := output.get("result")):
@@ -19,15 +19,17 @@ def extra_snapshot_output_card(outputs: list[dict[str, Any]]) -> dict[str, Any] 
             path,
         ).suffix.lower() not in {".html", ".htm"}:
             continue
-        return {
-            "name": "responses_html",
-            "path": path,
-            "folder_path": "responses",
-            "ts": output.get("ts"),
-            "size": 0,
-            "result": None,
-            "direct_preview_path": f"{path}?card=responses_html",
-            "output_group": "html",
-            "output_order": 1000,
-        }
-    return None
+        return [
+            {
+                "name": "responses_html",
+                "path": path,
+                "folder_path": "responses",
+                "ts": output.get("ts"),
+                "size": 0,
+                "result": None,
+                "direct_preview_path": f"{path}?card=responses_html",
+                "output_group": "html",
+                "output_order": 1000,
+            },
+        ]
+    return []

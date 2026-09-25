@@ -38,6 +38,7 @@
   "category": "media",
   "display_order": 20,
   "snapshot_output_group": "embedded_media",
+  "presentation_module": "abx_plugins.plugins.responses.presentation",
   "snapshot_thumbnail_cards": [
     {"archive_result_name": "responses", "order": 4}
   ]
