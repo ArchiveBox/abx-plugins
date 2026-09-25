@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+import psutil
 import requests
 
 _PROCESS: subprocess.Popen | None = None
@@ -94,19 +95,40 @@ def _signal_owned_process(process: subprocess.Popen, sig: signal.Signals) -> Non
             pass
 
 
+def _owned_process_group_running(process: subprocess.Popen) -> bool:
+    for member in psutil.process_iter(["pid", "status"]):
+        if member.info["status"] == psutil.STATUS_ZOMBIE:
+            continue
+        try:
+            if os.getpgid(member.pid) == process.pid:
+                return True
+        except (OSError, psutil.Error):
+            continue
+    return False
+
+
 def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
     global _PROCESS, _PROCESS_READY
     owned_process = process or _PROCESS
     if owned_process is None:
         return
-    if owned_process.poll() is None:
+    if _owned_process_group_running(owned_process):
         _signal_owned_process(owned_process, signal.SIGCONT)
         _signal_owned_process(owned_process, signal.SIGTERM)
-        try:
-            owned_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+        deadline = time.monotonic() + 5
+        while (
+            _owned_process_group_running(owned_process) and time.monotonic() < deadline
+        ):
+            time.sleep(0.05)
+        if _owned_process_group_running(owned_process):
             _signal_owned_process(owned_process, signal.SIGKILL)
-            owned_process.wait()
+            kill_deadline = time.monotonic() + 1
+            while (
+                _owned_process_group_running(owned_process)
+                and time.monotonic() < kill_deadline
+            ):
+                time.sleep(0.05)
+    owned_process.wait(timeout=1)
     if _PROCESS is owned_process:
         _PROCESS = None
     if _PROCESS_READY is owned_process:
