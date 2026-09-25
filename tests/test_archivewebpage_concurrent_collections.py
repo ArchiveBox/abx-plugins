@@ -55,23 +55,39 @@ def _run_start_hook(
 ) -> subprocess.CompletedProcess[str]:
     output_dir = snapshot_dir / "archivewebpage"
     output_dir.mkdir(parents=True, exist_ok=True)
-    return subprocess.run(
-        [
-            str(ARCHIVEWEBPAGE_START_HOOK),
-            f"--url={url}",
-            # Keep the model identity deliberately different from the output
-            # directory name. parseArgs normalizes --snapshot-id to
-            # args.snapshot_id; if the hook accidentally reads snapshotId, its
-            # directory fallback masks the bug unless these values differ.
-            f"--snapshot-id=model-{snapshot_dir.name}",
-            "--crawl-id=test-archivewebpage-concurrent-collections",
-        ],
-        cwd=output_dir,
-        capture_output=True,
-        text=True,
-        timeout=60,
-        env=env,
-    )
+    try:
+        return subprocess.run(
+            [
+                str(ARCHIVEWEBPAGE_START_HOOK),
+                f"--url={url}",
+                # Keep the model identity deliberately different from the output
+                # directory name. parseArgs normalizes --snapshot-id to
+                # args.snapshot_id; if the hook accidentally reads snapshotId, its
+                # directory fallback masks the bug unless these values differ.
+                f"--snapshot-id=model-{snapshot_dir.name}",
+                "--crawl-id=test-archivewebpage-concurrent-collections",
+            ],
+            cwd=output_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as error:
+        stdout = (
+            error.stdout.decode(errors="replace")
+            if isinstance(error.stdout, bytes)
+            else error.stdout
+        )
+        stderr = (
+            error.stderr.decode(errors="replace")
+            if isinstance(error.stderr, bytes)
+            else error.stderr
+        )
+        raise AssertionError(
+            f"ArchiveWebPage start timed out for {snapshot_dir.name}:\n"
+            f"stdout={stdout or ''}\nstderr={stderr or ''}",
+        ) from error
 
 
 def _run_navigate_hook(

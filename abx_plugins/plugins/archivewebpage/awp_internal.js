@@ -117,6 +117,7 @@ async function openAwpHelperTab(
     }));
   console.error("[archivewebpage] helper phase=target discovered");
   const page = await target.page();
+  console.error("[archivewebpage] helper phase=page attached");
   if (!page) {
     throw new Error(`Helper target ${targetId} is not a page`);
   }
