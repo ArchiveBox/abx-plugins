@@ -72,6 +72,5 @@
   "snapshot_output_group": "html",
   "snapshot_output_order": 0,
   "snapshot_display_name": "ArchiveWebpage",
-  "snapshot_replay": true,
   "presentation_module": "abx_plugins.plugins.archivewebpage.presentation"
 }

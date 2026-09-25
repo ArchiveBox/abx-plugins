@@ -219,7 +219,7 @@ def render_replay_html(
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
     )
     return (
-        (_PLUGIN_DIR / "templates" / "replay.html")
+        (_PLUGIN_DIR / "templates" / "full.html")
         .read_text(encoding="utf-8")
         .replace(
             '{% if archived_url %}url="{{ archived_url }}"{% endif %}',
@@ -232,7 +232,7 @@ def render_replay_html(
     )
 
 
-def render_replay_response(
+def render_full_response(
     filename: str,
     output_path: str,
     *,
