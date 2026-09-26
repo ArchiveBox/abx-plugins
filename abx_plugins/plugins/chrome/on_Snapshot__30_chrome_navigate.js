@@ -29,7 +29,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule } = require("./chrome_utils.js");
+const { connectToPage, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "chrome_navigate";
@@ -126,7 +126,14 @@ async function navigate(url) {
     const status = response ? response.status() : null;
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
-    const contentType = await page.evaluate(() => document.contentType).catch(() => null);
+    const mimeTimeoutMs = Math.max(0, Math.min(1000, hookBudget - (Date.now() - navStartTime)));
+    const contentType = mimeTimeoutMs > 0
+      ? await withTimeout(
+          () => page.evaluate(() => document.contentType),
+          mimeTimeoutMs,
+          "Document MIME lookup timed out"
+        ).catch(() => null)
+      : null;
     const elapsed = Date.now() - navStartTime;
 
     // Write navigation state as JSON

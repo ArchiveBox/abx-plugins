@@ -4127,6 +4127,7 @@ async function getCookiesViaCdp(port, options = {}) {
 
 // Export all functions
 module.exports = {
+  withTimeout,
   // Environment helpers
   getEnv,
   getEnvBool,
