@@ -41,7 +41,7 @@ def summarize_error(detail: str) -> str:
 def save_singlefile_with_extension(
     url: str,
     timeout: int,
-) -> tuple[bool, str | None, str]:
+) -> tuple[str, str | None, str]:
     output_path = OUTPUT_DIR / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
     result = subprocess.run(
@@ -60,14 +60,17 @@ def save_singlefile_with_extension(
     if result.stderr:
         print(result.stderr, end="", file=sys.stderr)
 
+    if result.returncode == 3:
+        return "skipped", None, summarize_error(result.stderr or result.stdout)
+
     if (
         result.returncode == 0
         and temp_output_path.exists()
         and temp_output_path.stat().st_size > 0
     ):
         temp_output_path.replace(output_path)
-        return True, f"{PLUGIN_DIR}/{OUTPUT_FILE}", ""
-    return False, None, summarize_error(result.stderr or result.stdout)
+        return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}", ""
+    return "failed", None, summarize_error(result.stderr or result.stdout)
 
 
 @click.command(
@@ -83,11 +86,10 @@ def main(url: str) -> None:
     try:
         print("SingleFile extraction started", flush=True)
         print("generating singlefile.html...")
-        success, output, error = save_singlefile_with_extension(
+        status, output, error = save_singlefile_with_extension(
             url,
             int(config.SINGLEFILE_TIMEOUT),
         )
-        status = "succeeded" if success else "failed"
     except subprocess.TimeoutExpired:
         output = None
         error = f"Timed out after {config.SINGLEFILE_TIMEOUT} seconds"
@@ -97,10 +99,10 @@ def main(url: str) -> None:
         error = f"{type(exc).__name__}: {exc}"
         status = "failed"
 
-    if error:
+    if error and status == "failed":
         print(f"ERROR: {error}", file=sys.stderr)
     emit_archive_result_record(status, output or error or "")
-    raise SystemExit(0 if status == "succeeded" else 1)
+    raise SystemExit(0 if status in ("succeeded", "skipped") else 1)
 
 
 if __name__ == "__main__":
