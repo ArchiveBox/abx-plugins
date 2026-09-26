@@ -89,8 +89,15 @@ const chrome = require(process.argv[1]);
   try {
     const extensions = chrome.getExtensionTargets(browser)
       .filter(target => target.extensionId === process.argv[3]);
-    const pageUrls = (await browser.pages()).map(page => page.url());
-    process.stdout.write(JSON.stringify({extensionTargets: extensions.length, pageUrls}));
+    const pages = await Promise.all((await browser.pages()).map(async page => {
+      const target = page.target();
+      const targetId = chrome.getTargetIdFromTarget(target);
+      const window = await chrome.sendBrowserCommand(browser, 'Browser.getWindowForTarget', {targetId});
+      return {url: page.url(), targetId, windowId: window.windowId};
+    }));
+    process.stdout.write(JSON.stringify({
+      extensionTargets: extensions.length, pageUrls: pages.map(page => page.url), pages,
+    }));
   } finally {
     await browser.disconnect();
   }
@@ -341,7 +348,8 @@ def test_real_hook_terminal_result_and_cleanup(tmp_path):
         assert browser_state["pageUrls"].count(TARGET_URL) == 1, browser_state
 
 
-def test_cancelled_hook_closes_its_managed_window(tmp_path):
+@pytest.mark.parametrize("unrelated_tab", [False, True])
+def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab):
     """Cancelling a real proof must not leave its separate auth page in Chrome."""
 
     url = "https://news.ycombinator.com/"
@@ -352,7 +360,7 @@ def test_cancelled_hook_closes_its_managed_window(tmp_path):
         timeout=45,
         env_overrides={"TLSNOTARY_ENABLED": "true", "TLSNOTARY_TIMEOUT": "25"},
         crawl_setup=_install_and_prepare,
-    ) as (_process, _pid, _snapshot_chrome_dir, env):
+    ) as (_process, _pid, snapshot_chrome_dir, env):
         output_dir = Path(env["SNAP_DIR"]) / "tlsnotary"
         output_dir.mkdir()
         extension = json.loads(
@@ -360,11 +368,15 @@ def test_cancelled_hook_closes_its_managed_window(tmp_path):
                 Path(env["CRAWL_DIR"]) / "tlsnotary" / "loaded-extension.json"
             ).read_text(),
         )
+        extension_id = extension["id"]
         cdp_url = (
             (Path(env["CRAWL_DIR"]) / "chrome" / "cdp_url.txt").read_text().strip()
         )
+        original_target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
         stdout_path = tmp_path / "cancelled.stdout"
         stderr_path = tmp_path / "cancelled.stderr"
+        unrelated_target_id = None
+        state_before_cancel = None
         with stdout_path.open("w") as stdout, stderr_path.open("w") as stderr:
             hook = subprocess.Popen(
                 [env["NODE_BINARY"], str(SNAPSHOT_HOOK), f"--url={url}"],
@@ -376,11 +388,60 @@ def test_cancelled_hook_closes_its_managed_window(tmp_path):
             try:
                 deadline = time.monotonic() + 15
                 while time.monotonic() < deadline and hook.poll() is None:
-                    state = _inspect_browser(env, cdp_url, extension["id"])
+                    state = _inspect_browser(env, cdp_url, extension_id)
                     if (
                         "capture correlation" in stderr_path.read_text()
                         and state["pageUrls"].count(url) == 2
                     ):
+                        if unrelated_tab:
+                            script = r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const browser = await chrome.connectToBrowserEndpoint(
+    chrome.resolvePuppeteerModule(), process.argv[2], {defaultViewport: null},
+  );
+  try {
+    const page = await browser.newPage();
+    await page.goto(process.argv[3]);
+    process.stdout.write(chrome.getTargetIdFromTarget(page.target()));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+                            opened = subprocess.run(
+                                [
+                                    env["NODE_BINARY"],
+                                    "-e",
+                                    script,
+                                    str(CHROME_UTILS),
+                                    cdp_url,
+                                    url,
+                                ],
+                                env=env,
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                                check=False,
+                            )
+                            assert opened.returncode == 0, opened.stderr
+                            unrelated_target_id = opened.stdout.strip()
+                            assert unrelated_target_id
+                            inspect_args = (env, cdp_url, extension_id)
+                            state_before_cancel = _inspect_browser(*inspect_args)
+                            windows = {
+                                page["targetId"]: page["windowId"]
+                                for page in state_before_cancel["pages"]
+                            }
+                            assert (
+                                windows[unrelated_target_id]
+                                == windows[original_target_id]
+                            )
+                            assert any(
+                                page["url"] == url
+                                and page["windowId"] != windows[original_target_id]
+                                for page in state_before_cancel["pages"]
+                            )
                         hook.send_signal(signal.SIGTERM)
                         break
                     time.sleep(0.1)
@@ -392,8 +453,18 @@ def test_cancelled_hook_closes_its_managed_window(tmp_path):
                     hook.kill()
                     hook.wait(timeout=10)
 
-        state = _inspect_browser(env, cdp_url, extension["id"])
+        state = _inspect_browser(env, cdp_url, extension_id)
         assert state["extensionTargets"] == 0, state
-        assert state["pageUrls"].count(url) == 1, state
+        assert state["pageUrls"].count(url) == 1 + int(unrelated_tab), (
+            state_before_cancel,
+            state,
+        )
+        assert original_target_id in {page["targetId"] for page in state["pages"]}, (
+            state
+        )
+        if unrelated_tab:
+            assert unrelated_target_id in {
+                page["targetId"] for page in state["pages"]
+            }, state
         assert not (Path(env["CRAWL_DIR"]) / "tlsnotary" / "capture.lock").exists()
         assert not (output_dir / "receipt.json").exists()

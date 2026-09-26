@@ -16,7 +16,7 @@ const chrome = require("../chrome/chrome_utils.js");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
-let captureUrl, existingTargets, managedTarget;
+let captureUrl, existingTargets, existingWindowIds, managedTarget;
 let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
@@ -35,6 +35,26 @@ function captureFailureMessage(error) {
     return `The TLSNotary proof connection closed; this can happen when the proof needs more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
   return "TLSNotary extension capture failed; see hook log";
 }
+async function windowIdFor(target) {
+  const targetId = chrome.getTargetIdFromTarget(target);
+  if (!targetId) return null;
+  const window = await chrome.sendBrowserCommand(browser, "Browser.getWindowForTarget", {
+    targetId,
+  });
+  return window.windowId;
+}
+async function isManagedWindowTarget(target) {
+  if (
+    !existingTargets ||
+    !existingWindowIds ||
+    existingTargets.has(target) ||
+    target.type() !== "page" ||
+    target.url() !== captureUrl
+  )
+    return false;
+  const windowId = await windowIdFor(target).catch(() => null);
+  return windowId != null && !existingWindowIds.has(windowId);
+}
 function cleanup() {
   if (!cleanupPromise) {
     // Deadline cleanup closes the caller, which rejects the in-flight execCode
@@ -44,12 +64,10 @@ function cleanup() {
       if (browser && existingTargets) {
         // The extension opens a separate authenticated page. Its normal done()
         // path closes that window, but an interrupted proof leaves it behind.
+        // A concurrent tab can have the same URL; only the new popup window
+        // belongs to this capture.
         for (const target of browser.targets()) {
-          if (
-            !existingTargets.has(target) &&
-            target.type() === "page" &&
-            (target === managedTarget || target.url() === captureUrl)
-          ) {
+          if (target === managedTarget || (await isManagedWindowTarget(target))) {
             await target.page().then((page) => page?.close()).catch(() => {});
           }
         }
@@ -204,6 +222,12 @@ async function capture() {
     crypto.createHash("sha256").update(receiptId).digest("hex").slice(0, 12)
   );
   existingTargets = new Set(browser.targets());
+  existingWindowIds = new Set();
+  for (const target of existingTargets) {
+    if (target.type() !== "page") continue;
+    const windowId = await windowIdFor(target).catch(() => null);
+    if (windowId != null) existingWindowIds.add(windowId);
+  }
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
@@ -246,15 +270,16 @@ async function capture() {
   // The extension captures request headers only from a network request. A
   // cached managed-window navigation has no headers event, leaving prove()
   // waiting until the hook deadline. Reload only that window from the network.
-  managedTarget = await browser
-    .waitForTarget(
-      (target) =>
-        !existingTargets.has(target) &&
-        target.type() === "page" &&
-        target.url() === url,
-      { timeout: 10000 }
-    )
-    .catch(() => null);
+  const managedDeadline = Date.now() + 10000;
+  while (Date.now() < managedDeadline && !stopped && !managedTarget) {
+    for (const target of browser.targets()) {
+      if (await isManagedWindowTarget(target)) {
+        managedTarget = target;
+        break;
+      }
+    }
+    if (!managedTarget) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   if (managedTarget) {
     const managedPage = await managedTarget.page();
     const cached = await managedPage
