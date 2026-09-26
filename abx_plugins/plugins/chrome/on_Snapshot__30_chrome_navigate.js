@@ -88,18 +88,40 @@ async function navigate(url) {
     });
     browser = conn.browser;
     const page = conn.page;
-    page.on("response", (response) => {
-      const request = response.request();
-      if (
-        request.isNavigationRequest?.() !== true ||
-        request.frame?.() !== page.mainFrame() ||
-        response.status() < 200 || response.status() >= 300
-      ) return;
-      observedResponse = {
-        status: response.status(),
-        contentType: response.headers()["content-type"] || null,
+    const network = await page.createCDPSession();
+    const { frameTree } = await network.send("Page.getFrameTree");
+    let mainRequestId = null;
+    const earlyResponses = new Map();
+    const rememberResponse = (requestId, status, headers, mimeType = null) => {
+      if (status < 200 || status >= 300) return;
+      const response = {
+        status,
+        contentType: Object.entries(headers || {}).find(
+          ([name]) => name.toLowerCase() === "content-type"
+        )?.[1] || mimeType,
       };
+      if (requestId === mainRequestId) observedResponse = response;
+      else if (mainRequestId === null) earlyResponses.set(requestId, response);
+    };
+    network.on("Network.requestWillBeSent", (event) => {
+      if (event.type !== "Document" || event.frameId !== frameTree.frame.id) return;
+      mainRequestId = event.requestId;
+      observedResponse = earlyResponses.get(mainRequestId) || null;
+      earlyResponses.clear();
     });
+    network.on("Network.responseReceived", ({ requestId, response }) => {
+      rememberResponse(requestId, response.status, response.headers, response.mimeType);
+    });
+    // Downloads abort page navigation and may never become Puppeteer Response
+    // objects. ExtraInfo still carries their actual HTTP status and headers.
+    // Correlate by the main document request, not URL suffix or another tab's
+    // download. Buffer metadata until its request is identified instead of
+    // assigning responses by arrival order. HTML-only hooks need this metadata to
+    // avoid treating the leftover about:blank document as the downloaded page.
+    network.on("Network.responseReceivedExtraInfo", (event) => {
+      rememberResponse(event.requestId, event.statusCode, event.headers);
+    });
+    await network.send("Network.enable");
 
     const remainingBudget = hookBudget - (Date.now() - navStartTime);
     if (remainingBudget <= 0) {
