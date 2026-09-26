@@ -179,6 +179,7 @@ async function capture() {
     "[tlsnotary] capture correlation",
     crypto.createHash("sha256").update(receiptId).digest("hex").slice(0, 12)
   );
+  const existingTargets = new Set(browser.targets());
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
@@ -217,6 +218,40 @@ async function capture() {
       throw new Error("Extension approval RPC failed");
   } finally {
     await approvalSession.detach();
+  }
+  // The extension captures request headers only from a network request. A
+  // cached managed-window navigation has no headers event, leaving prove()
+  // waiting until the hook deadline. Reload only that window from the network.
+  const managedTarget = await browser
+    .waitForTarget(
+      (target) =>
+        !existingTargets.has(target) &&
+        target.type() === "page" &&
+        target.url() === url,
+      { timeout: 10000 }
+    )
+    .catch(() => null);
+  if (managedTarget) {
+    const managedPage = await managedTarget.page();
+    const cached = await managedPage
+      .evaluate(() => {
+        const navigation = performance.getEntriesByType("navigation")[0];
+        return (
+          navigation?.transferSize === 0 &&
+          navigation?.encodedBodySize > 0 &&
+          navigation?.workerStart === 0
+        );
+      })
+      .catch(() => false);
+    if (cached) {
+      console.error("[tlsnotary] reloading cached managed page from network");
+      const session = await managedTarget.createCDPSession();
+      try {
+        await session.send("Page.reload", { ignoreCache: true });
+      } finally {
+        await session.detach();
+      }
+    }
   }
   const raw = await resultPromise;
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
