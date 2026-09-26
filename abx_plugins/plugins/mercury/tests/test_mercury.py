@@ -12,7 +12,9 @@ Tests verify:
 """
 
 import json
+import gzip
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -32,6 +34,7 @@ _MERCURY_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_mercury.*")
 if _MERCURY_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 MERCURY_HOOK = _MERCURY_HOOK
+CAPTURE_FIXTURES = PLUGIN_DIR / "tests" / "fixtures"
 TEST_URL = "https://example.com"
 
 # Module-level cache for binary path
@@ -133,6 +136,109 @@ def test_extracts_with_mercury_parser(httpserver):
         assert article_json.exists(), "article.json not created"
         metadata = json.loads(article_json.read_text())
         assert metadata.get("title") == "Example Article", metadata
+
+
+def test_extracts_owned_cookie_dilemma_from_captured_rendered_dom(httpserver):
+    """Use the owned site's archived DOM instead of re-fetching its raw Markdown."""
+    binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/cookie-dilemma")
+    with gzip.open(
+        CAPTURE_FIXTURES / "docs-sweeting-cookie-dilemma-dom.html.gz",
+        "rt",
+        encoding="utf-8",
+    ) as fixture:
+        captured_html = fixture.read()
+    httpserver.expect_request("/cookie-dilemma").respond_with_data(
+        captured_html,
+        content_type="text/html; charset=utf-8",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snapshot_dir = Path(tmpdir)
+        dom_dir = snapshot_dir / "dom"
+        dom_dir.mkdir()
+        (dom_dir / "output.html").write_text(captured_html, encoding="utf-8")
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snapshot_dir)
+        env["MERCURY_BINARY"] = binary_path
+        result = subprocess.run(
+            [str(MERCURY_HOOK), "--url", test_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+
+        record = parse_jsonl_output(result.stdout)
+        assert result.returncode == 0, result.stderr
+        assert record is not None, result.stdout
+        assert record["status"] == "succeeded", record
+
+        content = (snapshot_dir / "mercury" / "content.html").read_text()
+        metadata = json.loads((snapshot_dir / "mercury" / "article.json").read_text())
+        assert (
+            metadata["title"]
+            == "The Scraping & Internet Archiving Cookie Dilemma - HedgeDoc"
+        )
+        assert "Archiving Approaches" in content
+        assert re.search(
+            r"<h[1-6]\b[^>]*>.*?Archiving Approaches.*?</h[1-6]>",
+            content,
+            re.S,
+        )
+        assert "<ul" in content and "<li" in content
+        assert (
+            "docs.monadical.com/uploads/ffdbd213-5b16-4742-8b61-c779a9636ab8.png"
+            in content
+        )
+        assert "width:727.984px" in content
+        assert "# The Scraping-With-Cookies Dilemma" not in content
+        assert not any(
+            request.path == "/cookie-dilemma" for request, _ in httpserver.log
+        )
+
+
+def test_mercury_handles_legacy_resolver_invalid_link_in_captured_wikipedia_dom():
+    """A real captured MediaWiki template-style link must not crash URL.resolve."""
+    binary_path = require_mercury_binary()
+    test_url = "https://en.wikipedia.org/wiki/Commitment_scheme"
+    with gzip.open(
+        CAPTURE_FIXTURES / "wikipedia-commitment-scheme-dom.html.gz",
+        "rt",
+        encoding="utf-8",
+    ) as fixture:
+        captured_html = fixture.read()
+    assert 'href="mw-data:TemplateStyles:r1364180890"' in captured_html
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snapshot_dir = Path(tmpdir)
+        dom_dir = snapshot_dir / "dom"
+        dom_dir.mkdir()
+        (dom_dir / "output.html").write_text(captured_html, encoding="utf-8")
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snapshot_dir)
+        env["MERCURY_BINARY"] = binary_path
+        result = subprocess.run(
+            [str(MERCURY_HOOK), "--url", test_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+
+        record = parse_jsonl_output(result.stdout)
+        assert result.returncode == 0, result.stderr
+        assert record is not None, result.stdout
+        assert record["status"] == "succeeded", record
+        content = (snapshot_dir / "mercury" / "content.html").read_text()
+        assert "Commitment scheme" in content
+        assert re.search(
+            r'Removed unresolvable URL attributes: \{"href":[1-9]\d*,"src":0,"srcset":0\}',
+            result.stderr,
+        ), result.stderr
 
 
 def test_extracts_from_served_test_url_html(httpserver):
