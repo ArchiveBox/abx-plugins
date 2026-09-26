@@ -7,6 +7,7 @@ certificate information extraction.
 
 import json
 import shutil
+import socket
 import subprocess
 import tempfile
 from pathlib import Path
@@ -51,6 +52,67 @@ class TestSSLWithChrome:
     def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_failed_https_navigation_does_not_report_certificate_success(self):
+        """A real failed Chrome navigation cannot produce a successful SSL result."""
+        with socket.socket() as closed_socket:
+            closed_socket.bind(("127.0.0.1", 0))
+            closed_port = closed_socket.getsockname()[1]
+        test_url = f"https://127.0.0.1:{closed_port}/"
+        snapshot_id = "test-ssl-unreachable"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-ssl-unreachable-crawl",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=30,
+        ) as (_, _, snapshot_chrome_dir, env):
+            ssl_dir = snapshot_chrome_dir.parent / "sslcerts"
+            ssl_dir.mkdir(exist_ok=True)
+            ssl_output = ssl_dir / "sslcerts.jsonl"
+            listener = start_process_and_wait_for_file(
+                [
+                    str(SSLCERTS_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                ssl_output,
+                cwd=ssl_dir,
+                env=env,
+            )
+            try:
+                navigation = subprocess.run(
+                    [
+                        str(CHROME_NAVIGATE_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
+                    cwd=snapshot_chrome_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env=env,
+                )
+                assert navigation.returncode != 0
+                navigation_state = json.loads(
+                    (snapshot_chrome_dir / "navigation.json").read_text(),
+                )
+                assert "ERR_CONNECTION_REFUSED" in navigation_state["error"]
+            finally:
+                listener.terminate()
+                stdout, stderr = listener.communicate(timeout=30)
+
+            assert listener.returncode == 0, stderr
+            assert ssl_output.read_text() == ""
+            records = [
+                json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+            ]
+            assert len(records) == 1
+            assert records[0]["type"] == "ArchiveResult"
+            assert records[0]["status"] == "failed"
+            assert "ERR_CONNECTION_REFUSED" in records[0]["output_str"]
 
     @pytest.mark.parametrize("use_public_url", [False, True])
     def test_ssl_extracts_certificate_from_https_url(

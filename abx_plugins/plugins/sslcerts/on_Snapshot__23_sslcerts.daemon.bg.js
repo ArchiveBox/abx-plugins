@@ -249,6 +249,14 @@ async function setupListener(url) {
     }
 
     const record = { url: resolvedUrl, ...sslInfo };
+    if (
+      !record.protocol &&
+      !record.subjectName &&
+      !record.issuer &&
+      !record.certificateChain?.length
+    ) {
+      return;
+    }
     const sanList = Array.isArray(record.subjectAlternativeNames)
       ? record.subjectAlternativeNames
       : [];
@@ -514,7 +522,26 @@ function responseHostFromUrl(url) {
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
-  await emitResult("succeeded");
+  // The runner stops listeners even after navigation fails. A clean listener
+  // shutdown is not evidence that Chrome captured a certificate.
+  const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+  const navigationPath = path.join(CHROME_SESSION_DIR, "navigation.json");
+  if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+    await emitResult("succeeded");
+  } else {
+    let navigationError = "";
+    if (fs.existsSync(navigationPath)) {
+      try {
+        navigationError = JSON.parse(fs.readFileSync(navigationPath, "utf8")).error || "";
+      } catch (error) {
+        navigationError = `Invalid navigation state: ${error.message}`;
+      }
+    }
+    await emitResult(
+      navigationError ? "failed" : "noresults",
+      navigationError || "No SSL certificate captured"
+    );
+  }
   if (browser) {
     try {
       browser.disconnect();
