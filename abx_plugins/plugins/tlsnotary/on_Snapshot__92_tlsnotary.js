@@ -20,10 +20,19 @@ let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
 let terminalRecordEmitted = false;
+const STREAM_CAPACITY_ISSUE = "https://github.com/tlsnotary/tlsn/issues/new";
 function emitTerminalArchiveResult(status, outputStr) {
   if (terminalRecordEmitted) return;
   terminalRecordEmitted = true;
   emitArchiveResultRecord(status, outputStr);
+}
+function captureFailureMessage(error) {
+  const message = String(error.message || error);
+  if (/maximum number of streams reached|TooManyStreams/i.test(message))
+    return `TLSNotary couldn’t verify this response: generating its proof required more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
+  if (/proving failed during zk execution[\s\S]*connection is closed/i.test(message))
+    return `The TLSNotary proof connection closed; this can happen when the proof needs more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
+  return "TLSNotary extension capture failed; see hook log";
 }
 function cleanup() {
   if (!cleanupPromise) {
@@ -338,7 +347,7 @@ async function capture() {
     if (!deadlineExceeded)
       emitTerminalArchiveResult(
         "failed",
-        "TLSNotary extension capture failed; see hook log",
+        captureFailureMessage(error)
       );
     process.exitCode = 1;
   } finally {
