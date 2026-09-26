@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["chrome"],
+  "x-chrome-extension-load": "on-demand",
   "required_binaries": [
     {
       "name": "tlsnotary",

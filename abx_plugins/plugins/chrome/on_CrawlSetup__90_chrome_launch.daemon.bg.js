@@ -221,9 +221,9 @@ async function main() {
 
     for (const extension of session.installedExtensions) {
       console.error(
-        `loading extension: ${
+        `${extension.load_on_demand ? "extension available on demand" : "loading extension"}: ${
           extension.name || extension.id || extension.unpacked_path
-        }...`
+        }${extension.load_on_demand ? "" : "..."}`
       );
     }
     if (session.reusedExisting) {

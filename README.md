@@ -109,6 +109,7 @@ Lifecycle:
 - optional binary preflight can run before crawl setup, but hook scripts also resolve declared binaries through shared config helpers when run directly
 - `on_CrawlSetup__*` runs before snapshot extraction; background setup hooks use their first stdout line as readiness and emit no stdout JSONL records
 - Extension setup hooks can publish `CRAWL_DIR/chrome/extensions/<name>.extension.json` with `name`, matching installed `version`, and a prepared `unpacked_path`. Chrome uses that copy only when the installed extension is selected and enabled; setup must leave the shared package cache unchanged.
+- Plugins whose snapshot hook owns the extension lifecycle may set `x-chrome-extension-load: on-demand` in `config.json`. Chrome keeps the installed extension available and enables CDP extension loading, but the hook loads and unloads it around each capture.
 - `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
 - `wait_for_plugins` lists optional producers that must finish before a consumer hook runs; it does not enable them. Final-file consumers may also declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
 

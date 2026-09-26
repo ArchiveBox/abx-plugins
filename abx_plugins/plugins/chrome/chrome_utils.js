@@ -3433,6 +3433,8 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
         const enabled = config.properties?.[enabledKey];
         if (enabled && !getEnvBool(enabledKey, enabled.default !== false)) continue;
         if (hasSelection && !selectedPlugins.has(pluginName)) continue;
+        extData.load_on_demand =
+          config["x-chrome-extension-load"] === "on-demand";
       }
       if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path))
         continue;
@@ -3811,6 +3813,9 @@ async function ensureChromeSession(options = {}) {
   const { installedExtensions } = loadInstalledExtensionsFromCache(
     extensionsDir
   );
+  const eagerExtensions = installedExtensions.filter(
+    (extension) => !extension.load_on_demand
+  );
 
   const existingSession = await inspectChromeSessionArtifacts(outputDir, {
     processIsLocal,
@@ -3827,7 +3832,7 @@ async function ensureChromeSession(options = {}) {
     !existingSession.stale &&
     existingSession.state?.cdpUrl
   ) {
-    if (installedExtensions.length > 0 || cookiesFile) {
+    if (eagerExtensions.length > 0 || cookiesFile) {
       let browser = null;
       try {
         browser = await connectToBrowserEndpoint(
@@ -3835,8 +3840,8 @@ async function ensureChromeSession(options = {}) {
           existingSession.state.cdpUrl,
           { defaultViewport: null }
         );
-        if (installedExtensions.length > 0) {
-          await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
+        if (eagerExtensions.length > 0) {
+          await loadUnpackedExtensionsIntoBrowser(browser, eagerExtensions, timeoutMs);
         }
         if (cookiesFile) {
           await importCookiesFromFile(browser, cookiesFile, userDataDir);
@@ -3913,9 +3918,9 @@ async function ensureChromeSession(options = {}) {
     if (!resolvedBinary) {
       throw new Error("CHROME_BINARY was not resolved by abxpkg");
     }
-    if (installedExtensions.length > 0) {
+    if (eagerExtensions.length > 0) {
       console.error(
-        `[*] Loading ${installedExtensions.length} extension(s) after Chrome launch with CDP Extensions.loadUnpacked`
+        `[*] Loading ${eagerExtensions.length} extension(s) after Chrome launch with CDP Extensions.loadUnpacked`
       );
     }
 
@@ -3925,7 +3930,7 @@ async function ensureChromeSession(options = {}) {
       ...chromeLaunchOptions,
       CHROME_USER_DATA_DIR: userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
-      extensionPaths: getExtensionPaths(installedExtensions),
+      extensionPaths: getExtensionPaths(eagerExtensions),
       timeoutMs,
       onSpawn,
     });
@@ -3996,14 +4001,14 @@ async function ensureChromeSession(options = {}) {
         createPageIfMissing: true,
       });
 
-      if (installedExtensions.length > 0) {
+      if (eagerExtensions.length > 0) {
         // Keep this existing browser connection after Extensions.loadUnpacked.
         // A fresh Puppeteer connect enumerates extension targets and can lose a
         // race against short-lived MV3/archiveweb.page targets that close after
         // Chrome reports them but before Target.attachToTarget runs.
         await loadUnpackedExtensionsIntoBrowser(
           browser,
-          installedExtensions,
+          eagerExtensions,
           timeoutMs
         );
       }

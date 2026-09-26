@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -10,7 +11,12 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
+    kill_chromium_session,
+    launch_chromium_session,
+    setup_test_env,
+)
 
 PLUGIN_DIR = Path(__file__).resolve().parents[1]
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
@@ -100,6 +106,51 @@ const chrome = require(process.argv[1]);
     )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
+
+
+def test_tlsnotary_extension_loads_only_for_capture(tmp_path):
+    """Selected TLSNotary remains available without a large idle renderer."""
+
+    env = setup_test_env(tmp_path)
+    env.update({"PLUGINS": "tlsnotary", "TLSNOTARY_ENABLED": "true"})
+    install_required_binary_from_config(PLUGIN_DIR, "tlsnotary", env=env)
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    launch, cdp_url = launch_chromium_session(env, chrome_dir, "test-crawl")
+    try:
+        metadata = json.loads((chrome_dir / "browser.json").read_text())
+        extension = next(
+            item for item in metadata["extensions"] if item["name"] == "tlsnotary"
+        )
+        assert extension["load_on_demand"] is True
+        assert not extension.get("id"), extension
+        assert (
+            "--enable-unsafe-extension-debugging" in (chrome_dir / "cmd.sh").read_text()
+        )
+        script = r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const browser = await chrome.connectToBrowserEndpoint(
+    chrome.resolvePuppeteerModule(), process.argv[2], {defaultViewport: null},
+  );
+  try {
+    process.stdout.write(JSON.stringify(chrome.getExtensionTargets(browser)));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), cdp_url],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == []
+    finally:
+        kill_chromium_session(launch, chrome_dir)
 
 
 def test_extension_reports_real_main_request_headers_before_proof(tmp_path):
@@ -287,4 +338,62 @@ def test_real_hook_terminal_result_and_cleanup(tmp_path):
             extension["id"],
         )
         assert browser_state["extensionTargets"] == 0, browser_state
-        assert TARGET_URL in browser_state["pageUrls"], browser_state
+        assert browser_state["pageUrls"].count(TARGET_URL) == 1, browser_state
+
+
+def test_cancelled_hook_closes_its_managed_window(tmp_path):
+    """Cancelling a real proof must not leave its separate auth page in Chrome."""
+
+    url = "https://news.ycombinator.com/"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=True,
+        timeout=45,
+        env_overrides={"TLSNOTARY_ENABLED": "true", "TLSNOTARY_TIMEOUT": "25"},
+        crawl_setup=_install_and_prepare,
+    ) as (_process, _pid, _snapshot_chrome_dir, env):
+        output_dir = Path(env["SNAP_DIR"]) / "tlsnotary"
+        output_dir.mkdir()
+        extension = json.loads(
+            (
+                Path(env["CRAWL_DIR"]) / "tlsnotary" / "loaded-extension.json"
+            ).read_text(),
+        )
+        cdp_url = (
+            (Path(env["CRAWL_DIR"]) / "chrome" / "cdp_url.txt").read_text().strip()
+        )
+        stdout_path = tmp_path / "cancelled.stdout"
+        stderr_path = tmp_path / "cancelled.stderr"
+        with stdout_path.open("w") as stdout, stderr_path.open("w") as stderr:
+            hook = subprocess.Popen(
+                [env["NODE_BINARY"], str(SNAPSHOT_HOOK), f"--url={url}"],
+                cwd=output_dir,
+                env=env,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            try:
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline and hook.poll() is None:
+                    state = _inspect_browser(env, cdp_url, extension["id"])
+                    if (
+                        "capture correlation" in stderr_path.read_text()
+                        and state["pageUrls"].count(url) == 2
+                    ):
+                        hook.send_signal(signal.SIGTERM)
+                        break
+                    time.sleep(0.1)
+                else:
+                    raise AssertionError("Real TLSNotary managed window did not open")
+                assert hook.wait(timeout=15) == 1
+            finally:
+                if hook.poll() is None:
+                    hook.kill()
+                    hook.wait(timeout=10)
+
+        state = _inspect_browser(env, cdp_url, extension["id"])
+        assert state["extensionTargets"] == 0, state
+        assert state["pageUrls"].count(url) == 1, state
+        assert not (Path(env["CRAWL_DIR"]) / "tlsnotary" / "capture.lock").exists()
+        assert not (output_dir / "receipt.json").exists()

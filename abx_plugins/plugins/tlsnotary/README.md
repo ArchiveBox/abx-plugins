@@ -40,7 +40,9 @@ alternative prover, or custom MPC implementation is installed. See
 
 The hook uses Chrome's persisted snapshot target and sends the extension's own
 `PLUGIN_CONFIRM_RESPONSE` RPC through its offscreen document over CDP. It uses no
-approval selectors or clicks, and unloads its extension instance when finished or cancelled. It disconnects
+approval selectors or clicks. Chrome keeps the selected extension available but
+loads it only for a TLSNotary capture, then the hook unloads it and closes its
+managed auth window when finished or cancelled. It disconnects
 from the shared browser without closing it. Proof failure produces a failed plugin
 result; other archiving outputs remain available.
 

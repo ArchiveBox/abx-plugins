@@ -16,6 +16,7 @@ const chrome = require("../chrome/chrome_utils.js");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
+let captureUrl, existingTargets, managedTarget;
 let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
@@ -40,6 +41,19 @@ function cleanup() {
     // and lets capture() settle through this same cleanup path.
     cleanupPromise = (async () => {
       if (caller) await caller.close().catch(() => {});
+      if (browser && existingTargets) {
+        // The extension opens a separate authenticated page. Its normal done()
+        // path closes that window, but an interrupted proof leaves it behind.
+        for (const target of browser.targets()) {
+          if (
+            !existingTargets.has(target) &&
+            target.type() === "page" &&
+            (target === managedTarget || target.url() === captureUrl)
+          ) {
+            await target.page().then((page) => page?.close()).catch(() => {});
+          }
+        }
+      }
       // This extension instance belongs to this hook. Unloading also cancels any
       // active WASM proof and its managed auth window on timeout; Chrome stays alive.
       if (browser && extensionId)
@@ -137,6 +151,7 @@ async function capture() {
   });
   browser = connection.browser;
   const url = connection.page.url();
+  captureUrl = url;
   if (new URL(url).protocol !== "https:")
     throw new Error("TLSNotary requires an HTTPS document");
   if (new URL(url).port)
@@ -188,7 +203,7 @@ async function capture() {
     "[tlsnotary] capture correlation",
     crypto.createHash("sha256").update(receiptId).digest("hex").slice(0, 12)
   );
-  const existingTargets = new Set(browser.targets());
+  existingTargets = new Set(browser.targets());
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
@@ -231,7 +246,7 @@ async function capture() {
   // The extension captures request headers only from a network request. A
   // cached managed-window navigation has no headers event, leaving prove()
   // waiting until the hook deadline. Reload only that window from the network.
-  const managedTarget = await browser
+  managedTarget = await browser
     .waitForTarget(
       (target) =>
         !existingTargets.has(target) &&
