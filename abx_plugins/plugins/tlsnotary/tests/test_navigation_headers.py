@@ -89,12 +89,21 @@ const chrome = require(process.argv[1]);
   try {
     const extensions = chrome.getExtensionTargets(browser)
       .filter(target => target.extensionId === process.argv[3]);
-    const pages = await Promise.all((await browser.pages()).map(async page => {
+    const pages = [];
+    for (const page of await browser.pages()) {
       const target = page.target();
       const targetId = chrome.getTargetIdFromTarget(target);
-      const window = await chrome.sendBrowserCommand(browser, 'Browser.getWindowForTarget', {targetId});
-      return {url: page.url(), targetId, windowId: window.windowId};
-    }));
+      let window;
+      try {
+        window = await chrome.sendBrowserCommand(browser, 'Browser.getWindowForTarget', {targetId});
+      } catch (error) {
+        // A page may close after browser.pages() snapshots it, especially while
+        // the test observes the hook's concurrent cancellation cleanup.
+        if (!String(error?.message || error).includes('No target with given id')) throw error;
+        continue;
+      }
+      pages.push({url: page.url(), targetId, windowId: window.windowId});
+    }
     process.stdout.write(JSON.stringify({
       extensionTargets: extensions.length, pageUrls: pages.map(page => page.url), pages,
     }));
