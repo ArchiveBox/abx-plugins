@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -100,6 +102,48 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert search("forbiddencontexttag", environ=env) == []
             assert (tmp_path / "index.jsonl").read_text() == manifest
             assert not list(tmp_path.rglob("injected"))
+
+            # Actual 2026-09-26 defuddle output from the failed
+            # plaintextoffenders.com -> balboaferriswheel.com capture.
+            # The old character-count chunks overflow Sonic's negotiated wire
+            # buffer and silently lose the first part of this mostly Thai text.
+            # A separate unique term checks that its tail remains searchable.
+            fixture = (
+                Path(__file__).parent
+                / "fixtures/plaintextoffenders_defuddle_content.txt.gz"
+            )
+            captured_text = gzip.decompress(fixture.read_bytes())
+            assert (
+                hashlib.sha256(captured_text).hexdigest()
+                == "f158646041729116873422eb771a3c100fc0083435d2f8a5719c1ef8c38519b8"
+            )
+            defuddle = tmp_path / "defuddle/content.txt"
+            defuddle.parent.mkdir()
+            defuddle.write_bytes(captured_text)
+            tail_term = "ระยะเวลารับสิทธิ์"
+            assert captured_text.decode("utf-8").find(tail_term) > 10000
+            assert captured_text.decode("utf-8").count(tail_term) == 1
+            metadata = json.loads(manifest)
+            metadata["title"] = ""
+            metadata["tags"] = ""
+            (tmp_path / "index.jsonl").write_text(json.dumps(metadata) + "\n")
+            result = subprocess.run(
+                [
+                    str(hook),
+                    "--url=https://example.com",
+                    "--snapshot-id=explicit-sonic-id",
+                ],
+                cwd=tmp_path,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout.splitlines()[-1])["status"] == "succeeded"
+            assert search("Lotto889", environ=env) == ["explicit-sonic-id"]
+            assert search(tail_term, environ=env) == ["explicit-sonic-id"]
+            assert "buffer overflow" not in (tmp_path / "sonic-test.log").read_text()
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)

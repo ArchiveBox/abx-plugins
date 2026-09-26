@@ -223,17 +223,71 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
         except Exception:
             pass
 
-        # Index new content in chunks (Sonic has size limits)
+        # Sonic's buffer limit is for the complete UTF-8 command on the wire,
+        # including identifiers and sonic-client's quoting/escaping.
         content = " ".join(texts)
-        chunk_size = 10000
-        for i in range(0, len(content), chunk_size):
-            chunk = content[i : i + chunk_size]
-            ingest.push(
-                config.SEARCH_BACKEND_SONIC_COLLECTION,
-                config.SEARCH_BACKEND_SONIC_BUCKET,
+        # IngestClient.bufsize stays zero; the handshake populates the pooled
+        # connection instead. Reuse its formatter so byte accounting matches
+        # the command that push() actually sends, including its trailing field.
+        connection = ingest.get_active_connection()
+        try:
+            max_command_bytes = int(connection.bufsize)
+            format_command = connection._format_command
+        finally:
+            ingest.pool.release(connection)
+        quote_text = import_module("sonic.client").quote_text
+        collection = config.SEARCH_BACKEND_SONIC_COLLECTION
+        bucket = config.SEARCH_BACKEND_SONIC_BUCKET
+
+        def wire_bytes(chunk: str) -> int:
+            command = format_command(
+                "PUSH",
+                collection,
+                bucket,
                 snapshot_id,
-                escape_sonic_backslashes(chunk),
+                quote_text(escape_sonic_backslashes(chunk)),
+                "",
             )
+            return len(command.encode("utf-8"))
+
+        if max_command_bytes <= wire_bytes(""):
+            raise ValueError("Sonic PUSH identifiers exceed the negotiated buffer")
+        start = 0
+        while start < len(content):
+            low = start + 1
+            high = min(len(content), start + max_command_bytes)
+            end = start
+            while low <= high:
+                middle = (low + high) // 2
+                if wire_bytes(content[start:middle]) <= max_command_bytes:
+                    end = middle
+                    low = middle + 1
+                else:
+                    high = middle - 1
+            if end == start:
+                raise ValueError("A Sonic PUSH character exceeds the negotiated buffer")
+            if end < len(content):
+                # Keep ordinary words intact when a separator already fits.
+                boundary = next(
+                    (i + 1 for i in range(end - 1, start, -1) if content[i].isspace()),
+                    None,
+                )
+                if boundary is not None:
+                    end = boundary
+            # A server closing an overflowing connection can yield an empty
+            # response without raising in sonic-client. Only OK proves that
+            # this chunk was indexed; otherwise we must not report success.
+            if (
+                ingest.push(
+                    collection,
+                    bucket,
+                    snapshot_id,
+                    escape_sonic_backslashes(content[start:end]),
+                )
+                is not True
+            ):
+                raise RuntimeError("Sonic rejected a PUSH command")
+            start = end
 
 
 def main() -> None:
