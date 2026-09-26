@@ -41,6 +41,33 @@ const {
 process.chdir(outputDir);
 const SNAP_DIR = path.resolve(outputDir, "..");
 
+let activePhase = null;
+let activePhaseStartedAt = null;
+
+function beginPhase(name) {
+  activePhase = name;
+  activePhaseStartedAt = Date.now();
+  console.error(`[archivewebpage] phase=${name} started`);
+}
+
+function endPhase(name) {
+  console.error(
+    `[archivewebpage] phase=${name} elapsed_ms=${Date.now() - activePhaseStartedAt}`
+  );
+  activePhase = null;
+  activePhaseStartedAt = null;
+}
+
+function readChromeNavigationState() {
+  const navigationPath = path.join(SNAP_DIR, "chrome", "navigation.json");
+  try {
+    return JSON.parse(fs.readFileSync(navigationPath, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 async function moveAcrossMounts(src, dest) {
   try {
     await fs.promises.rename(src, dest);
@@ -238,6 +265,7 @@ async function main() {
     if (!chromeSessionDir) {
       throw new Error("Chrome target_id.txt is missing for this snapshot");
     }
+    beginPhase("connect");
     const connection = await chromeUtils.connectToPage({
       chromeSessionDir,
       timeoutMs,
@@ -251,6 +279,7 @@ async function main() {
         `Chrome target identity changed: expected ${state.snapshotTargetId}, got ${connectedTargetId}`
       );
     }
+    endPhase("connect");
 
     // All snapshots in a crawl use the same AWP extension worker and virtual
     // /w/api/c/<collId>/dl route. Recordings can run concurrently, and each
@@ -262,23 +291,31 @@ async function main() {
     const lockRoot = hookConfig.CRAWL_DIR
       ? path.resolve(hookConfig.CRAWL_DIR)
       : SNAP_DIR;
+    beginPhase("lock");
     releaseExportLock = await chromeUtils.acquireSessionLock(
       path.join(lockRoot, "archivewebpage", ".stop_export.lock"),
       timeoutMs
     );
+    endPhase("lock");
 
+    beginPhase("helper");
     const helperPage = await openAwpHelperTab(
       browser,
       state.extensionId,
       timeoutMs
     );
+    endPhase("helper");
     let outputSize;
+    let finalStatus;
     try {
-      await stopExactRecording(helperPage, state, timeoutMs);
+      beginPhase("stop");
+      finalStatus = await stopExactRecording(helperPage, state, timeoutMs);
+      endPhase("stop");
       // Keep AWP's popup port connected while its service worker serves the
       // virtual WACZ download URL. Closing it first can leave Page.navigate
       // with net::ERR_FILE_NOT_FOUND before a download begins.
       const destPath = path.join(outputDir, OUTPUT_FILENAME);
+      beginPhase("export");
       outputSize = await downloadExactWacz(
         browser,
         state.extensionId,
@@ -286,10 +323,22 @@ async function main() {
         destPath,
         timeoutMs
       );
+      endPhase("export");
     } finally {
       await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }
     const destPath = path.join(outputDir, OUTPUT_FILENAME);
+    const numUrls = finalStatus?.numUrls;
+    const numPages = finalStatus?.numPages;
+    const sizeTotal = finalStatus?.sizeTotal;
+    if (!Number.isSafeInteger(numUrls) || numUrls < 0) {
+      throw new Error(
+        `ArchiveWeb.page stop status has invalid numUrls: ${String(numUrls)}`
+      );
+    }
+    console.error(
+      `[archivewebpage] collection urls=${numUrls} pages=${numPages ?? "unknown"} size_total=${sizeTotal ?? "unknown"}`
+    );
     const elapsed = Date.now() - startedAt;
     if (elapsed > budgetMs) {
       console.error(
@@ -302,14 +351,51 @@ async function main() {
         destPath
       )} (${outputSize} bytes)`
     );
-    // Stopping recording alone does not produce a usable archive. Report
-    // success only after downloadExactWacz has saved this recording's WACZ;
-    // the start hook's handshake/recording.json cannot establish this result.
-    emitArchiveResultRecord("succeeded", `${PLUGIN_DIR}/${OUTPUT_FILENAME}`, {
+    // AWP's status.numUrls counts recorded URLs. Do not use numPages: DNS
+    // failures can create Chrome error-page bookkeeping entries, while a
+    // response-only attachment can have no replayable page. Keep the exported
+    // WACZ for diagnosis even when it contains no recorded URLs.
+    const resultMetadata = {
       output_size: outputSize,
-    });
-    process.exitCode = 0;
+      num_urls: numUrls,
+      num_pages: Number.isSafeInteger(numPages) ? numPages : null,
+      size_total: Number.isSafeInteger(sizeTotal) ? sizeTotal : null,
+    };
+    if (numUrls === 0) {
+      const navigation = readChromeNavigationState();
+      if (navigation?.error) {
+        emitArchiveResultRecord(
+          "failed",
+          `0 URLs recorded; Chrome navigation failed: ${navigation.error} (WACZ saved to ${PLUGIN_DIR}/${OUTPUT_FILENAME})`,
+          resultMetadata
+        );
+        process.exitCode = 1;
+      } else {
+        emitArchiveResultRecord(
+          "noresults",
+          `0 URLs recorded (WACZ saved to ${PLUGIN_DIR}/${OUTPUT_FILENAME})`,
+          resultMetadata
+        );
+        process.exitCode = 0;
+      }
+    } else {
+      // Stopping recording alone does not produce a usable archive. Report
+      // success only after the exact recording has URLs and its WACZ was saved.
+      emitArchiveResultRecord(
+        "succeeded",
+        `${PLUGIN_DIR}/${OUTPUT_FILENAME}`,
+        resultMetadata
+      );
+      process.exitCode = 0;
+    }
   } catch (error) {
+    if (activePhase && activePhaseStartedAt !== null) {
+      console.error(
+        `[archivewebpage] phase=${activePhase} failed elapsed_ms=${Date.now() - activePhaseStartedAt}`
+      );
+      activePhase = null;
+      activePhaseStartedAt = null;
+    }
     const detail = `${error.name || "Error"}: ${error.message || error}`;
     console.error(`ERROR: ${detail}`);
     emitArchiveResultRecord("failed", detail);

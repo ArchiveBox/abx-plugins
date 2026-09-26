@@ -9,7 +9,10 @@ from typing import TypedDict
 
 import pytest
 
-from abx_plugins.plugins.base.testing import install_required_binary_from_config
+from abx_plugins.plugins.base.testing import (
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
     kill_chromium_session,
@@ -41,6 +44,9 @@ class AwpStatus(TypedDict):
     recording: bool
     collId: str
     collectionTitle: str
+    numUrls: int
+    numPages: int
+    sizeTotal: int
 
 
 class CollectionSelection(TypedDict):
@@ -446,11 +452,17 @@ const chromeSessionDir = process.argv[3];
     assert isinstance(status["recording"], bool)
     assert isinstance(status["collId"], str)
     assert isinstance(status["collectionTitle"], str)
+    assert isinstance(status.get("numUrls"), int), status
+    assert isinstance(status.get("numPages"), int), status
+    assert isinstance(status.get("sizeTotal"), int), status
     return AwpStatus(
         type=status["type"],
         recording=status["recording"],
         collId=status["collId"],
         collectionTitle=status["collectionTitle"],
+        numUrls=status["numUrls"],
+        numPages=status["numPages"],
+        sizeTotal=status["sizeTotal"],
     )
 
 
@@ -666,6 +678,8 @@ def test_cowpig_recording_survives_overlapping_snapshot_lifecycles(
         "Cowpig AWP stop lost a live lifecycle-owned target:\n"
         f"stdout={stop.stdout}\nstderr={stop.stderr}"
     )
+    result = parse_jsonl_output(stop.stdout)
+    assert result is not None and result["num_urls"] > 0, (stop.stdout, stop.stderr)
     assert (cowpig_dir / "archivewebpage" / "archivewebpage.wacz").stat().st_size > 0
 
 
@@ -716,8 +730,101 @@ def test_concurrent_stops_each_publish_their_exact_wacz(
             f"Concurrent AWP stop failed for {case[1]}:\n"
             f"stdout={stop.stdout}\nstderr={stop.stderr}"
         )
+        result = parse_jsonl_output(stop.stdout)
+        assert result is not None and result["num_urls"] > 0, (
+            case[1],
+            stop.stdout,
+            stop.stderr,
+        )
         output = run[0] / "archivewebpage" / "archivewebpage.wacz"
         assert output.stat().st_size > 0
+
+
+def test_empty_recordings_are_classified_from_awp_collection_counts(
+    archivewebpage_crawl,
+    tmp_path,
+):
+    """Distinguish empty failed navigation from a real binary response.
+
+    WHY: the real cookie-dilemma crawl produced a successful 2.6 KB WACZ that
+    contained only WARCinfo after DNS failed. AWP's status reports URL and page
+    counts, which let the stop hook reject that empty export without rejecting
+    valid attachment-only captures that may have no page-index entry.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    attachment_url = (
+        "https://docs.monadical.com/uploads/038c6f29-0106-4064-88e2-51affe90bb83.png"
+    )
+    cases = (
+        ("attachment-only", attachment_url, "succeeded"),
+        (
+            "dns-empty",
+            "https://archivebox-awp-empty.invalid/",
+            "failed",
+        ),
+    )
+
+    for snapshot_id, url, expected_status in cases:
+        snapshot_dir = tmp_path / "empty-recording-cases" / snapshot_id
+        chrome_dir = snapshot_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+        snapshot_env = env | {"SNAP_DIR": str(snapshot_dir)}
+        tab_processes.append(
+            launch_snapshot_tab(
+                snapshot_chrome_dir=chrome_dir,
+                tab_env=snapshot_env,
+                test_url=url,
+                snapshot_id=snapshot_id,
+                crawl_id="test-archivewebpage-lifecycle",
+            ),
+        )
+        start = _run_start_hook(snapshot_dir, snapshot_env, url)
+        assert start.returncode == 0, (start.stdout, start.stderr)
+        navigate = _run_navigate_hook(snapshot_dir, snapshot_env, url)
+        if snapshot_id == "dns-empty":
+            assert navigate.returncode != 0, (navigate.stdout, navigate.stderr)
+            navigation = json.loads(
+                (snapshot_dir / "chrome" / "navigation.json").read_text(),
+            )
+            assert "ERR_NAME_NOT_RESOLVED" in navigation["error"]
+        elif snapshot_id == "attachment-only":
+            assert navigate.returncode != 0, (navigate.stdout, navigate.stderr)
+            navigation = json.loads(
+                (snapshot_dir / "chrome" / "navigation.json").read_text(),
+            )
+            assert navigation["status"] == 200
+            assert navigation["content_type"] == "image/png"
+
+        live_status = _read_awp_status(chrome_dir, snapshot_env)
+        if snapshot_id == "dns-empty":
+            assert live_status["numUrls"] == 0, live_status
+        else:
+            assert live_status["numUrls"] > 0, live_status
+
+        stop = _run_stop_hook(snapshot_dir, snapshot_env, url)
+        result = parse_jsonl_output(stop.stdout)
+        assert result is not None, (stop.stdout, stop.stderr)
+        assert stop.returncode == (0 if expected_status != "failed" else 1), (
+            snapshot_id,
+            stop.returncode,
+            stop.stdout,
+            stop.stderr,
+        )
+        assert result["status"] == expected_status, (
+            snapshot_id,
+            result,
+            stop.stderr,
+        )
+        if snapshot_id == "dns-empty":
+            assert "0 URLs recorded; Chrome navigation failed" in result["output_str"]
+            assert "ERR_NAME_NOT_RESOLVED" in result["output_str"]
+        assert result["num_urls"] == live_status["numUrls"], result
+        assert result["num_pages"] == live_status["numPages"], result
+        for phase in ("connect", "lock", "stop", "export"):
+            assert f"phase={phase} elapsed_ms=" in stop.stderr, stop.stderr
+        output = snapshot_dir / "archivewebpage" / "archivewebpage.wacz"
+        assert output.is_file() and output.stat().st_size > 0
+        assert result["output_size"] == output.stat().st_size
 
 
 def test_ublock_never_replaces_the_recorded_page_with_strictblock(
