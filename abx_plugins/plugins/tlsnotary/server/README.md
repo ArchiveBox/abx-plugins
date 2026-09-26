@@ -29,6 +29,11 @@ Open <http://127.0.0.1:7047/> for the verification UI. Select `receipt.json` and
 `response.http` together; signature and response validation run in the browser,
 without uploading those files. `docker compose logs gateway` shows lifecycle
 errors. The upstream verifier's transcript logging is disabled in Compose.
+Gateway lifecycle lines include a random per-session log ID, the control,
+verifier, or proxy channel, socket close direction/code, and byte counts. They
+contain no request or response bytes. Match lines by log ID to distinguish a
+gateway limit, upstream close, and browser close after a failed proof; a close
+code of 1005 alone does not identify the initiator.
 
 `docker compose config --quiet` checks the configuration before startup.
 `docker compose down` stops the service without deleting `state/`.

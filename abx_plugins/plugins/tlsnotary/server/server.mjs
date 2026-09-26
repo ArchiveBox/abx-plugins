@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
 import dns from "node:dns/promises";
-import { createPrivateKey, createPublicKey, sign } from "node:crypto";
+import { createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 const key = createPrivateKey(
   fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem")
@@ -82,17 +82,21 @@ const app = http.createServer((req, res) => {
   }
   fs.createReadStream(path.join(import.meta.dirname, "web", file)).pipe(res);
 });
-function wire(client, backend, session) {
+function wire(client, backend, session, channel) {
   session.sockets.add(client);
   session.sockets.add(backend);
-  let transferred = 0;
+  const bytes = { client: 0, backend: 0 };
   for (const [from, to] of [
     [client, backend],
     [backend, client],
   ]) {
+    const peer = from === client ? "client" : "backend";
     from.on("message", (data, binary) => {
-      transferred += data.length;
-      if (transferred > 512 * 1024 * 1024) return session.close();
+      bytes[peer] += data.length;
+      if (bytes.client + bytes.backend > 512 * 1024 * 1024) {
+        console.error("relay byte cap", session.logId, channel, bytes);
+        return session.close("relay byte cap");
+      }
       if (from === client && backend.url.endsWith("/session")) {
         try {
           const m = JSON.parse(data);
@@ -133,21 +137,23 @@ function wire(client, backend, session) {
           }
           if (hashes !== 1) throw Error();
         } catch {
-          return session.close();
+          return session.close("invalid reveal config");
         }
       }
-      if (to.readyState !== WebSocket.OPEN) return session.close();
+      if (to.readyState !== WebSocket.OPEN)
+        return session.close(`${channel} ${peer} destination not open`);
       to.send(data, { binary }, (error) => {
-        if (error) return session.close();
+        if (error) return session.close(`${channel} ${peer} forwarding error`);
         if (to.bufferedAmount < 1024 * 1024) from.resume();
       });
       if (to.bufferedAmount >= 1024 * 1024) from.pause();
     });
     from.on("error", (error) => {
-      console.error("websocket error", error.code);
-      session.close();
+      console.error("relay error", session.logId, channel, peer, error.code);
+      session.close(`${channel} ${peer} socket error`);
     });
-    from.on("close", () => {
+    from.on("close", (code) => {
+      console.error("relay closed", session.logId, channel, peer, code, bytes);
       to.close();
     });
   }
@@ -162,12 +168,14 @@ app.on("upgrade", async (req, socket, head) => {
         const placeholder = Symbol();
         const session = {
           sockets: new Set(),
+          logId: randomBytes(6).toString("hex"),
           id: null,
           receiptId: null,
           closed: false,
-          close() {
+          close(reason = "unspecified") {
             if (this.closed) return;
             this.closed = true;
+            console.error("session closed", this.logId, reason);
             for (const s of this.sockets) s.terminate?.();
             clearTimeout(this.timer);
             clearTimeout(this.registrationTimer);
@@ -177,17 +185,16 @@ app.on("upgrade", async (req, socket, head) => {
         };
         sessions.set(placeholder, session);
         session.timer = setTimeout(() => {
-          console.error("session deadline");
-          session.close();
+          session.close("session deadline");
         }, lifetime);
         session.sockets.add(client);
-        client.on("error", () => session.close());
+        client.on("error", () => session.close("control client error"));
         client.on("close", (code) => {
-          console.error("control closed", code);
-          session.close();
+          console.error("control closed", session.logId, code);
+          session.close("control closed");
         });
         const registrationTimer = (session.registrationTimer = setTimeout(
-          () => session.close(),
+          () => session.close("registration deadline"),
           5000
         ));
         client.once("message", (data) => {
@@ -224,15 +231,14 @@ app.on("upgrade", async (req, socket, head) => {
               sessionData: { receiptId: d.receiptId, mode: "Mpc" },
             };
           } catch {
-            console.error("registration rejected");
-            return session.close();
+            return session.close("registration rejected");
           }
           const backend = new WebSocket(upstream + "/session", {
             maxPayload: 2 * 1024 * 1024,
           });
           session.sockets.add(backend);
           backend.once("open", () => {
-            wire(client, backend, session);
+            wire(client, backend, session, "control");
             backend.send(JSON.stringify(registration));
           });
           backend.on("message", (data) => {
@@ -243,10 +249,10 @@ app.on("upgrade", async (req, socket, head) => {
                 byId.set(m.sessionId, session);
               }
             } catch {
-              session.close();
+              session.close("invalid control response");
             }
           });
-          backend.on("error", () => session.close());
+          backend.on("error", () => session.close("control backend error"));
         });
       });
       return;
@@ -263,13 +269,13 @@ app.on("upgrade", async (req, socket, head) => {
         );
         session.sockets.add(client);
         session.sockets.add(backend);
-        client.on("error", () => session.close());
+        client.on("error", () => session.close("verifier client error"));
         client.pause();
         backend.once("open", () => {
-          wire(client, backend, session);
+          wire(client, backend, session, "verifier");
           client.resume();
         });
-        backend.on("error", () => session.close());
+        backend.on("error", () => session.close("verifier backend error"));
       });
       return;
     }
@@ -318,23 +324,42 @@ app.on("upgrade", async (req, socket, head) => {
           total = 0;
         client.on("message", (bytes) => {
           total += bytes.length;
-          if (total > 1024 * 1024) return session.close();
+          if (total > 1024 * 1024) return session.close("proxy send cap");
           if (!tcp.write(bytes)) client.pause();
         });
         tcp.on("drain", () => client.resume());
         tcp.on("data", (bytes) => {
           received += bytes.length;
-          if (received > maxRecv + 65536) return session.close();
+          if (received > maxRecv + 65536)
+            return session.close("proxy receive cap");
           client.send(bytes, (error) => {
-            if (error) return session.close();
+            if (error) return session.close("proxy forwarding error");
             if (client.bufferedAmount < 1024 * 1024) tcp.resume();
           });
           if (client.bufferedAmount >= 1024 * 1024) tcp.pause();
         });
-        tcp.on("error", () => client.close());
-        client.on("error", () => tcp.destroy());
-        client.on("close", () => tcp.destroy());
-        tcp.on("close", () => client.close());
+        tcp.on("error", (error) => {
+          console.error("proxy error", session.logId, "server", error.code);
+          client.close();
+        });
+        client.on("error", (error) => {
+          console.error("proxy error", session.logId, "client", error.code);
+          tcp.destroy();
+        });
+        client.on("close", (code) => {
+          console.error("proxy closed", session.logId, "client", code, {
+            sent: total,
+            received,
+          });
+          tcp.destroy();
+        });
+        tcp.on("close", (hadError) => {
+          console.error("proxy closed", session.logId, "server", hadError, {
+            sent: total,
+            received,
+          });
+          client.close();
+        });
       });
       return;
     }
