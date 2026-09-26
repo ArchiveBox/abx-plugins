@@ -126,7 +126,7 @@ async function navigate(url) {
     const status = response ? response.status() : null;
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
-    const mimeTimeoutMs = Math.max(0, Math.min(1000, hookBudget - (Date.now() - navStartTime)));
+    const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));
     const contentType = mimeTimeoutMs > 0
       ? await withTimeout(
           () => page.evaluate(() => document.contentType),
