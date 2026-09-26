@@ -1,11 +1,15 @@
 import json
+import gzip
+import re
 import shutil
 import signal
 import subprocess
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -37,6 +41,12 @@ UBLOCK_CONFIG_HOOK = (
     CHROME_UTILS.parent.parent / "ublock" / "on_CrawlSetup__95_ublock_config.js"
 )
 AWP_INTERNAL = ARCHIVEWEBPAGE_PLUGIN_DIR / "awp_internal.js"
+AWP_PREPARE_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_CrawlSetup__80_archivewebpage_prepare.py"
+)
+INFINISCROLL_HOOK = (
+    CHROME_UTILS.parent.parent / "infiniscroll" / "on_Snapshot__45_infiniscroll.js"
+)
 
 
 class AwpStatus(TypedDict):
@@ -253,6 +263,18 @@ def archivewebpage_crawl(
         assert installed.loaded_abspath is not None
 
     crawl_chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    prepare = subprocess.run(
+        [str(AWP_PREPARE_HOOK)],
+        cwd=crawl_chrome_dir.parent,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert prepare.returncode == 0, (
+        "ArchiveWeb.page crawl preparation failed:\n"
+        f"stdout={prepare.stdout}\nstderr={prepare.stderr}"
+    )
     launch_process, _cdp_url = launch_chromium_session(
         env,
         crawl_chrome_dir,
@@ -860,6 +882,287 @@ def test_ublock_never_replaces_the_recorded_page_with_strictblock(
         f"stdout={stop.stdout}\nstderr={stop.stderr}"
     )
     assert (snapshot_dir / "archivewebpage" / "archivewebpage.wacz").stat().st_size > 0
+
+
+def test_webrecorder_embedded_replay_keeps_worker_response_in_wacz(
+    archivewebpage_crawl,
+    tmp_path,
+):
+    """Keep ReplayWeb.page's service-worker response usable during recording.
+
+    WHY: ArchiveWeb.page's recorder enables CDP service-worker bypass for its
+    own capture bookkeeping. ReplayWeb.page also relies on a service worker to
+    serve its embedded ``/replay/`` application, so recording must not turn that
+    route into recursive copies of the marketing page or omit its response.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    url = "https://webrecorder.net/replaywebpage/"
+    snapshot_dir = tmp_path / "webrecorder-replaywebpage"
+    chrome_dir = snapshot_dir / "chrome"
+    chrome_dir.mkdir(parents=True)
+    infiniscroll_dir = snapshot_dir / "infiniscroll"
+    infiniscroll_dir.mkdir(parents=True)
+    snapshot_env = env | {"SNAP_DIR": str(snapshot_dir)}
+    tab_processes.append(
+        launch_snapshot_tab(
+            snapshot_chrome_dir=chrome_dir,
+            tab_env=snapshot_env,
+            test_url=url,
+            snapshot_id="webrecorder-replaywebpage",
+            crawl_id="test-archivewebpage-lifecycle",
+        ),
+    )
+
+    start = _run_start_hook(snapshot_dir, snapshot_env, url)
+    assert start.returncode == 0, (
+        f"ArchiveWeb.page start failed:\nstdout={start.stdout}\nstderr={start.stderr}"
+    )
+
+    monitor_script = r"""
+const { spawn } = require("child_process");
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+const navigateHook = process.argv[3];
+const url = process.argv[4];
+const cwd = process.argv[5];
+const screenshotPath = process.argv[6];
+const infiniscrollHook = process.argv[7];
+const infiniscrollCwd = process.argv[8];
+
+(async () => {
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 10000,
+    requireTargetId: true,
+    puppeteer,
+  });
+  try {
+    const replayResponses = [];
+    const workerResponse = page.waitForResponse(
+      (response) => {
+        let pathname = "";
+        try { pathname = new URL(response.url()).pathname; } catch {}
+        return pathname === "/replay/" &&
+          response.status() === 200 && response.fromServiceWorker();
+      },
+      { timeout: 30000 }
+    ).then(
+      async (response) => ({
+        status: response.status(),
+        fromServiceWorker: response.fromServiceWorker(),
+        mimeType: response.headers()["content-type"] || "",
+        bodyBytes: (await response.buffer()).byteLength,
+      }),
+      (error) => ({ error: error.message })
+    );
+    page.on("response", (response) => {
+      let parsed;
+      try { parsed = new URL(response.url()); } catch { return; }
+      if (parsed.pathname === "/replay/") {
+        replayResponses.push({
+          path: parsed.pathname,
+          status: response.status(),
+          fromServiceWorker: response.fromServiceWorker(),
+          mimeType: response.headers()["content-type"] || "",
+        });
+      }
+    });
+
+    const navigation = spawn(navigateHook, [`--url=${url}`], {
+      cwd,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const exit = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        navigation.kill("SIGTERM");
+        reject(new Error("Chrome navigation hook exceeded its existing test bound"));
+      }, 65000);
+      navigation.once("error", (error) => { clearTimeout(timeout); reject(error); });
+      navigation.once("exit", (code, signal) => {
+        clearTimeout(timeout);
+        resolve({ code, signal });
+      });
+    });
+    let worker = null;
+    worker = await workerResponse;
+    const scroll = spawn(infiniscrollHook, [`--url=${url}`], {
+      cwd: infiniscrollCwd,
+      env: process.env,
+      stdio: "ignore",
+    });
+    const scrollExit = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        scroll.kill("SIGTERM");
+        reject(new Error("Infiniscroll hook exceeded its configured timeout"));
+      }, 130000);
+      scroll.once("error", (error) => { clearTimeout(timeout); reject(error); });
+      scroll.once("exit", (code, signal) => {
+        clearTimeout(timeout);
+        resolve({ code, signal });
+      });
+    });
+    const frames = await Promise.all(page.frames().map(async (frame) => {
+      try {
+        const parsed = new URL(frame.url());
+        const state = await frame.evaluate(() => ({
+          readyState: document.readyState,
+          bodyBytes: new TextEncoder().encode(document.documentElement?.outerHTML || "").length,
+          textBytes: new TextEncoder().encode(document.body?.innerText || "").length,
+          bodyElements: document.body?.childElementCount || 0,
+          childFrames: document.querySelectorAll("iframe").length,
+        })).catch(() => null);
+        return {
+          pathKind: parsed.pathname === "/replay/"
+            ? "replay-shell"
+            : parsed.pathname.startsWith("/replay/w/")
+              ? "archived-replay"
+              : parsed.pathname.startsWith("/replay/")
+                ? "replay-resource"
+                : "other",
+          state,
+        };
+      } catch { return null; }
+    }));
+    const widgets = await page.evaluate(() => Array.from(
+      document.querySelectorAll("replay-web-page")
+    ).map((widget) => {
+      const rect = widget.getBoundingClientRect();
+      const frame = widget.shadowRoot?.querySelector("iframe");
+      return {
+        visible: Boolean(rect.width && rect.height),
+        framePresent: Boolean(frame),
+        frameReadyState: frame?.contentDocument?.readyState || null,
+        frameBodyBytes: new TextEncoder().encode(frame?.contentDocument?.documentElement?.outerHTML || "").length,
+      };
+    }));
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+    process.stdout.write(JSON.stringify({
+      navigation: exit,
+      infiniscroll: scrollExit,
+      worker,
+      replayResponses: {
+        count: replayResponses.length,
+        statuses: replayResponses.reduce((counts, response) => {
+          const key = `${response.status}:${response.fromServiceWorker}`;
+          counts[key] = (counts[key] || 0) + 1;
+          return counts;
+        }, {}),
+      },
+      frames,
+      widgets,
+    }));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    monitor = subprocess.run(
+        [
+            snapshot_env["NODE_BINARY"],
+            "-e",
+            monitor_script,
+            str(CHROME_UTILS),
+            str(chrome_dir),
+            str(CHROME_NAVIGATE_HOOK),
+            url,
+            str(chrome_dir),
+            str(tmp_path / "webrecorder-replay-captured.png"),
+            str(INFINISCROLL_HOOK),
+            str(infiniscroll_dir),
+        ],
+        cwd=chrome_dir,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        env=snapshot_env,
+    )
+    assert monitor.returncode == 0, monitor.stderr
+    observed = json.loads(monitor.stdout)
+    assert observed["navigation"]["code"] == 0, observed
+    assert observed["infiniscroll"]["code"] == 0, observed
+    assert observed["worker"] is not None, (
+        "ReplayWeb.page's /replay/ application was not served by its service "
+        f"worker with response bytes: {observed}"
+    )
+    assert "error" not in observed["worker"], observed
+    assert observed["worker"]["bodyBytes"] > 0, observed
+    assert observed["worker"]["mimeType"].startswith("text/html"), observed
+    archived_frames = [
+        frame
+        for frame in observed["frames"]
+        if frame and frame["pathKind"] == "archived-replay" and frame["state"]
+    ]
+    assert any(
+        frame["state"]["readyState"] == "complete"
+        and frame["state"]["textBytes"] > 1000
+        and frame["state"]["bodyElements"] > 0
+        for frame in archived_frames
+    ), observed
+    assert any(
+        widget["visible"] and widget["framePresent"] for widget in observed["widgets"]
+    ), observed
+
+    stop = _run_stop_hook(snapshot_dir, snapshot_env, url)
+    assert stop.returncode == 0, (
+        f"ArchiveWeb.page stop failed:\nstdout={stop.stdout}\nstderr={stop.stderr}"
+    )
+    result = parse_jsonl_output(stop.stdout)
+    assert result is not None and result["status"] == "succeeded", (
+        stop.stdout,
+        stop.stderr,
+    )
+    wacz = snapshot_dir / "archivewebpage" / "archivewebpage.wacz"
+    assert wacz.is_file() and wacz.stat().st_size > 0
+    with zipfile.ZipFile(wacz) as archive:
+        warc_bytes = gzip.decompress(archive.read("archive/data.warc.gz"))
+    replay_shell_bodies = []
+    archived_page_bodies = []
+    offset = 0
+    while offset < len(warc_bytes):
+        header_end = warc_bytes.find(b"\r\n\r\n", offset)
+        if header_end < 0:
+            break
+        warc_header = warc_bytes[offset:header_end]
+        length_match = re.search(rb"(?im)^Content-Length:\s*(\d+)", warc_header)
+        assert length_match is not None, f"WARC record lacks Content-Length at {offset}"
+        payload_length = int(length_match.group(1))
+        payload_start = header_end + 4
+        payload_end = payload_start + payload_length
+        payload = warc_bytes[payload_start:payload_end]
+        fields = {}
+        for header in warc_header.split(b"\r\n")[1:]:
+            if b": " in header:
+                key, value = header.split(b": ", 1)
+                fields[key.decode("latin1")] = value.decode("latin1")
+        if fields.get("WARC-Type") == "response":
+            target = urlsplit(fields.get("WARC-Target-URI", ""))
+            http_header_end = payload.find(b"\r\n\r\n")
+            if target.path.startswith("/replay/") and http_header_end >= 0:
+                status_line = payload[:http_header_end].split(b"\r\n", 1)[0]
+                response_headers = payload[:http_header_end].lower()
+                response_body = payload[http_header_end + 4 :]
+                if status_line.startswith(b"HTTP/") and b" 200 " in status_line:
+                    if target.path == "/replay/":
+                        replay_shell_bodies.append(response_body)
+                    elif (
+                        target.path.startswith("/replay/w/")
+                        and b"content-type: text/html" in response_headers
+                    ):
+                        archived_page_bodies.append(response_body)
+        offset = payload_end
+        while warc_bytes[offset : offset + 4] == b"\r\n\r\n":
+            offset += 4
+    assert any(body for body in replay_shell_bodies), (
+        "WACZ has no non-empty HTTP 200 body for the service-worker /replay/ page"
+    )
+    assert any(body for body in archived_page_bodies), (
+        "WACZ has no non-empty HTTP 200 HTML body for the embedded archived page"
+    )
 
 
 def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(

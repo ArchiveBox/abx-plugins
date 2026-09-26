@@ -3448,6 +3448,29 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
     } catch (error) {}
   }
 
+  // Setup hooks may prepare a private copy of an installed extension without
+  // mutating the shared package cache. Only replace extensions selected above:
+  // a preparation file must never enable an otherwise disabled plugin.
+  for (const extension of installedExtensions) {
+    if (!/^[a-z0-9_]+$/.test(extension.name || "")) continue;
+    const preparedPath = path.join(
+      getCrawlDir(), "chrome", "extensions", `${extension.name}.extension.json`
+    );
+    if (!fs.existsSync(preparedPath)) continue;
+    const prepared = JSON.parse(fs.readFileSync(preparedPath, "utf-8"));
+    if (prepared.name !== extension.name || prepared.version !== extension.version ||
+        typeof prepared.unpacked_path !== "string" ||
+        !fs.existsSync(path.join(prepared.unpacked_path, "manifest.json"))) {
+      throw new Error(`Invalid prepared Chrome extension: ${extension.name}`);
+    }
+    const manifest = JSON.parse(fs.readFileSync(
+      path.join(prepared.unpacked_path, "manifest.json"), "utf-8"
+    ));
+    if (manifest.version !== extension.version) {
+      throw new Error(`Prepared Chrome extension version mismatch: ${extension.name}`);
+    }
+    extension.unpacked_path = prepared.unpacked_path;
+  }
   return { installedExtensions };
 }
 

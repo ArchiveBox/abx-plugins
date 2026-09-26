@@ -16,6 +16,7 @@ before snapshot tabs are created.
 """
 
 import json
+import hashlib
 import os
 import signal
 import subprocess
@@ -66,6 +67,9 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 TEST_EXTENSION_NAME = "ublock"
 TEST_EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
 ARCHIVEWEBPAGE_PLUGIN_DIR = CHROME_UTILS.parent.parent / "archivewebpage"
+ARCHIVEWEBPAGE_PREPARE_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_CrawlSetup__80_archivewebpage_prepare.py"
+)
 ARCHIVEWEBPAGE_START_HOOK = (
     ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__16_archivewebpage_start.js"
 )
@@ -395,6 +399,125 @@ def test_cached_extension_respects_plugin_selection_and_enabled_config(tmp_path)
     ]
     assert loaded_names({"PLUGINS": "title,ublock", "UBLOCK_ENABLED": "false"}) == []
     assert loaded_names({"PLUGINS": "", "UBLOCK_ENABLED": "true"}) == ["ublock"]
+
+
+def _hash_extension_tree(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def test_prepared_awp_extension_respects_selection_and_preserves_provider_cache(
+    tmp_path,
+):
+    env = _isolated_test_env(str(tmp_path))
+    extensions_dir = Path(get_extensions_dir(env=env))
+    loaded = install_required_binary_from_config(
+        ARCHIVEWEBPAGE_PLUGIN_DIR,
+        "archivewebpage",
+        env=env,
+    )
+    assert loaded.loaded_abspath is not None
+    cache_file = extensions_dir / "archivewebpage.extension.json"
+    cache_before = cache_file.read_bytes()
+    cache = json.loads(cache_before)
+    source = Path(cache["unpacked_path"])
+    source_digest = _hash_extension_tree(source)
+    source_bg = (source / "bg.js").read_bytes()
+
+    prepared = subprocess.run(
+        [str(ARCHIVEWEBPAGE_PREPARE_HOOK)],
+        cwd=env["CRAWL_DIR"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert prepared.returncode == 0, prepared.stderr
+    prepared_file = (
+        Path(env["CRAWL_DIR"])
+        / "chrome"
+        / "extensions"
+        / "archivewebpage.extension.json"
+    )
+    prepared_data = json.loads(prepared_file.read_text())
+    prepared_path = Path(prepared_data["unpacked_path"])
+    assert prepared_data["name"] == "archivewebpage"
+    assert prepared_data["version"] == cache["version"]
+    assert prepared_path.is_relative_to(Path(env["PERSONAS_DIR"]))
+    prepared_manifest = json.loads((prepared_path / "manifest.json").read_text())
+    assert prepared_manifest["version"] == cache["version"]
+    prepared_bg = (prepared_path / "bg.js").read_text()
+    assert b'"Network.setBypassServiceWorker",{bypass:!0}' in source_bg
+    assert '"Network.setBypassServiceWorker",{bypass:!1}' in prepared_bg
+
+    script = """
+const chrome = require(process.argv[1]);
+const extensions = chrome.loadInstalledExtensionsFromCache().installedExtensions;
+process.stdout.write(JSON.stringify(extensions.map(({name, version, unpacked_path}) => ({name, version, unpacked_path}))));
+"""
+
+    def selected_extensions(**overrides):
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS)],
+            env=env | overrides,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        return result
+
+    selected = selected_extensions(
+        PLUGINS="archivewebpage",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert selected.returncode == 0, selected.stderr
+    selected_data = json.loads(selected.stdout)
+    assert selected_data == [
+        {
+            "name": "archivewebpage",
+            "version": cache["version"],
+            "unpacked_path": str(prepared_path),
+        },
+    ]
+
+    unselected = selected_extensions(
+        PLUGINS="title,screenshot",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert unselected.returncode == 0, unselected.stderr
+    assert json.loads(unselected.stdout) == []
+
+    disabled = selected_extensions(
+        PLUGINS="archivewebpage",
+        ARCHIVEWEBPAGE_ENABLED="false",
+    )
+    assert disabled.returncode == 0, disabled.stderr
+    assert json.loads(disabled.stdout) == []
+
+    prepared_file.write_text("{malformed json")
+    unselected_malformed = selected_extensions(
+        PLUGINS="title,screenshot",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert unselected_malformed.returncode == 0, unselected_malformed.stderr
+    assert json.loads(unselected_malformed.stdout) == []
+
+    selected_malformed = selected_extensions(
+        PLUGINS="archivewebpage",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert selected_malformed.returncode != 0
+    assert "SyntaxError" in selected_malformed.stderr
+
+    assert cache_file.read_bytes() == cache_before
+    assert _hash_extension_tree(source) == source_digest
+    assert (source / "bg.js").read_bytes() == source_bg
 
 
 def _probe_current_snapshot_page(chrome_session_dir: Path, env: dict) -> dict:
