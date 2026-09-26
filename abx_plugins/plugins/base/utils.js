@@ -631,6 +631,18 @@ function writeFileAtomic(filePath, contents) {
 // Sibling plugin output checking
 // ---------------------------------------------------------------------------
 
+// Match Python's is_non_html_document: unknown navigation must not suppress work.
+function isNonHtmlDocument(navigationPath = "../chrome/navigation.json") {
+  try {
+    const navigation = JSON.parse(fs.readFileSync(navigationPath, "utf8"));
+    if (!navigation || navigation.error || typeof navigation.content_type !== "string") return false;
+    const mimetype = navigation.content_type.split(";", 1)[0].trim().toLowerCase();
+    return mimetype.includes("/") && !["text/html", "application/xhtml+xml"].includes(mimetype);
+  } catch (error) {
+    return false;
+  }
+}
+
 function hasStaticFileOutput(staticfileDir = "../staticfile") {
   if (!fs.existsSync(staticfileDir)) return false;
   const stdoutPath = path.join(staticfileDir, "stdout.log");
@@ -688,6 +700,7 @@ module.exports = {
   emitSnapshotRecord,
   writeFileAtomic,
   hasStaticFileOutput,
+  isNonHtmlDocument,
   iterStaticfileTextInputs,
 };
 

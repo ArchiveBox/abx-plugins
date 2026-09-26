@@ -111,6 +111,9 @@ async function navigate(url) {
 
     const finalUrl = page.url();
     const status = response ? response.status() : null;
+    // Use the browser's interpretation, including MIME sniffing, rather than
+    // URL extensions or response headers. Persist once for Python and JS hooks.
+    const contentType = await page.evaluate(() => document.contentType).catch(() => null);
     const elapsed = Date.now() - navStartTime;
 
     // Write navigation state as JSON
@@ -120,6 +123,7 @@ async function navigate(url) {
       url,
       finalUrl,
       status,
+      content_type: contentType,
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(

@@ -13,6 +13,8 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     find_article_html_source,
     load_config,
     write_text_atomic,
@@ -124,6 +126,11 @@ def run_trafilatura(
 
 
 def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     config = load_config()
     timeout = config.TRAFILATURA_TIMEOUT
     html_source = find_article_html_source()

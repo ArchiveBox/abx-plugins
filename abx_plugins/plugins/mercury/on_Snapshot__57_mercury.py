@@ -27,6 +27,8 @@ from abx_plugins.plugins.base.utils import (
     find_article_html_source,
     preserve_article_image_dimensions,
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     write_text_atomic,
 )
 
@@ -108,6 +110,11 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
 
     Returns: (status, output_path_or_error)
     """
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     timeout = config.MERCURY_TIMEOUT
     mercury_args = config.MERCURY_ARGS
     mercury_args_extra = config.MERCURY_ARGS_EXTRA

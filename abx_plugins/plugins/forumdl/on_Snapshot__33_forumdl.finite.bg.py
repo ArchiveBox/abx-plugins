@@ -35,6 +35,8 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     load_config,
 )
 
@@ -199,6 +201,14 @@ def main(url: str):
         if not config.FORUMDL_ENABLED:
             print("Skipping forum-dl (FORUMDL_ENABLED=False)", file=sys.stderr)
             emit_archive_result_record("skipped", "FORUMDL_ENABLED=False")
+            sys.exit(0)
+
+        if has_staticfile_output():
+            emit_archive_result_record("noresults", "staticfile already handled")
+            sys.exit(0)
+
+        if is_non_html_document():
+            emit_archive_result_record("noresults", "Browser document is not HTML")
             sys.exit(0)
 
         # Get binary from environment

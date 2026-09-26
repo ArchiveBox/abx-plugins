@@ -43,6 +43,8 @@ const {
   getEnvInt,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -341,6 +343,17 @@ async function main() {
 
   let browser = null;
   try {
+    if (hasStaticFileOutput()) {
+      console.error("Skipping infiniscroll - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
+      process.exit(0);
+    }
+
     const connectTimeoutMs = Math.min(timeout, getEnvInt("TIMEOUT", 30) * 1000);
     const connection = await connectToPage({
       chromeSessionDir: CHROME_SESSION_DIR,

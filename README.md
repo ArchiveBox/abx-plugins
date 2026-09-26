@@ -156,7 +156,8 @@ from abx_plugins.plugins.base.utils import (
 - `emit_snapshot_record(record)` — emit `{"type":"Snapshot",...}` JSONL to stdout
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)
 - `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
-- `has_staticfile_output(snap_dir, path)` — check if a sibling plugin produced a file
+- `has_staticfile_output(staticfile_dir="../staticfile")` / `hasStaticFileOutput()` — check for a successful staticfile download; pending or failed downloads do not suppress other extractors
+- `is_non_html_document(navigation_path="../chrome/navigation.json")` / `isNonHtmlDocument()` — let HTML-only hooks skip a known non-HTML browser document. Chrome navigation records `document.contentType` before post-navigation hooks run; HTML and XHTML remain eligible. Missing, failed, or older navigation records leave extraction enabled. This does not depend on staticfile completion.
 - `enforce_lib_permissions()` — lock down `ABXPKG_LIB_DIR` so snapshot hooks can read/execute but not write
 
 **JS** (`base/utils.js`):

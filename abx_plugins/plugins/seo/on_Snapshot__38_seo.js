@@ -28,6 +28,8 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -157,6 +159,17 @@ async function main() {
     if (!getEnvBool("SEO_ENABLED", true)) {
       console.log("Skipping SEO (SEO_ENABLED=False)");
       emitArchiveResultRecord("skipped", "SEO_ENABLED=False");
+      process.exit(0);
+    }
+
+    if (hasStaticFileOutput()) {
+      console.error("Skipping seo - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

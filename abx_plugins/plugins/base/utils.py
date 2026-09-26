@@ -1385,6 +1385,25 @@ def find_article_html_source() -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def is_non_html_document(navigation_path: str = "../chrome/navigation.json") -> bool:
+    """Whether Chrome successfully loaded a document it does not treat as HTML.
+
+    Navigation records document.contentType before post-navigation hooks run.
+    Missing, failed, or older navigation records must not suppress extraction.
+    """
+    try:
+        navigation = json.loads(Path(navigation_path).read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(navigation, dict) or navigation.get("error"):
+        return False
+    content_type = navigation.get("content_type")
+    if not isinstance(content_type, str):
+        return False
+    mimetype = content_type.split(";", 1)[0].strip().lower()
+    return "/" in mimetype and mimetype not in ("text/html", "application/xhtml+xml")
+
+
 def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
     """Check if staticfile extractor already downloaded this URL."""
     sf_dir = Path(staticfile_dir)

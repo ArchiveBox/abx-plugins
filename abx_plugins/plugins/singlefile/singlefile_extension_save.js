@@ -271,13 +271,6 @@ async function main() {
     });
     browser = connection.browser;
 
-    // Chrome exposes its native PDF viewer under the original HTTP URL.
-    // Capturing that document saves the browser's viewer shell, not the PDF.
-    if (await connection.page.evaluate(() => document.contentType === "application/pdf")) {
-      console.error("[singlefile] skipped: native Chrome PDF viewer");
-      process.exit(3);
-    }
-
     const sessionEntry = chromeUtils.findExtensionMetadataByName(
       connection.extensions || [],
       EXTENSION.name

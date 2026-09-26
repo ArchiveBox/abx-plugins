@@ -17,6 +17,8 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     load_config,
     write_text_atomic,
 )
@@ -122,6 +124,11 @@ def extract_htmltotext(url: str) -> tuple[str, str]:
 
     Returns: (success, output_path, error_message)
     """
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     # Find HTML source from other extractors
     html_content = find_html_source()
     if not html_content:

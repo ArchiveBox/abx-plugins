@@ -29,6 +29,8 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
@@ -245,6 +247,17 @@ async function main() {
     if (!getEnvBool("PARSE_DOM_OUTLINKS_ENABLED", true)) {
       console.log("Skipping DOM outlinks (PARSE_DOM_OUTLINKS_ENABLED=False)");
       emitArchiveResultRecord("skipped", "disabled by config");
+      process.exit(0);
+    }
+
+    if (hasStaticFileOutput()) {
+      console.error("Skipping parse_dom_outlinks - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

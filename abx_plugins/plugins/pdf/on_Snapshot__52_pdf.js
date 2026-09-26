@@ -24,6 +24,7 @@ const {
   parseArgs,
   emitArchiveResultRecord,
   hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const { connectToPage } = require("../chrome/chrome_utils.js");
@@ -145,6 +146,11 @@ async function main() {
         `Skipping PDF - staticfile extractor already downloaded this`
       );
       emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

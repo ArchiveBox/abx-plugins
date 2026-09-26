@@ -22,6 +22,8 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
@@ -130,6 +132,17 @@ async function main() {
   }
 
   try {
+    if (hasStaticFileOutput()) {
+      console.error("Skipping chrome_mhtml - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
+      process.exit(0);
+    }
+
     const timeoutMs =
       getEnvInt("CHROME_MHTML_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000;
     const result = await captureMhtml(timeoutMs);

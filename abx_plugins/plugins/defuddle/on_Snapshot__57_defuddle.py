@@ -17,6 +17,8 @@ from pathlib import Path
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     write_text_atomic,
     find_article_html_source,
     preserve_article_image_dimensions,
@@ -34,6 +36,11 @@ METADATA_FILE = "article.json"
 
 
 def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     config = load_config()
     timeout = config.DEFUDDLE_TIMEOUT
     defuddle_args = config.DEFUDDLE_ARGS
