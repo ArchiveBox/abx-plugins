@@ -235,10 +235,14 @@ def test_mercury_handles_legacy_resolver_invalid_link_in_captured_wikipedia_dom(
         assert record["status"] == "succeeded", record
         content = (snapshot_dir / "mercury" / "content.html").read_text()
         assert "Commitment scheme" in content
-        assert re.search(
-            r'Removed unresolvable URL attributes: \{"href":[1-9]\d*,"src":0,"srcset":0\}',
-            result.stderr,
-        ), result.stderr
+        # Older Node versions warn about this URL; newer ones throw. Both
+        # must preserve the article, regardless of whether cleanup was needed.
+        metadata = json.loads((snapshot_dir / "mercury" / "article.json").read_text())
+        assert metadata["title"] == "Commitment scheme"
+        assert metadata["word_count"] > 5000
+        assert "https://en.wikipedia.org/wiki/Cryptographic_primitive" in content
+        assert "commit phase" in content and "reveal phase" in content
+        assert re.search(r"<ol\b[^>]*>.*?<li\b", content, re.S)
 
 
 def test_extracts_from_served_test_url_html(httpserver):
