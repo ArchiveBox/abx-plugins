@@ -306,8 +306,21 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
+      runner: ${{ steps.runner.outputs.use-runner || '["ubuntu-24.04"]' }}
 
     steps:
+      - name: Select available CI capacity
+        id: runner
+        if: vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        uses: mikehardy/runner-fallback-action@dc7732f9e532c451b2527b288ba8d58fd4b0a4ca # v1.1.0
+        with:
+          github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          organization: ArchiveBox
+          primary-runner: self-hosted,ugnas-linux
+          fallback-runner: ubuntu-24.04
+          primaries-required: 1
+          fallback-on-error: true
+
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -326,7 +339,9 @@ jobs:
 
   run-tests:
     name: ${{ matrix.test.path }} / Python ${{ matrix.test.python }} / ${{ matrix.test.os }}
-    runs-on: ${{ matrix.test.os }}
+    # Keep the discovered OS/Python coverage; only proven Linux paths opt in.
+    # Hosted discovery selects GitHub when the NAS is offline/busy or its API fails.
+    runs-on: ${{ matrix.test.os == 'ubuntu-24.04' && contains(fromJSON(vars.UGNAS_CI_TESTS || '[]'), matrix.test.path) && fromJSON(needs.discover-tests.outputs.runner) || matrix.test.os }}
     needs: [discover-tests]
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
