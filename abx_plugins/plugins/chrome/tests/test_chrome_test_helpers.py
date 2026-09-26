@@ -483,8 +483,14 @@ function waitForDownloads(expectedContents) {
         assert Path(payload["twoPath"]).exists()
 
 
-def test_only_archivewebpage_export_enables_browser_download_events():
-    """Plugins must not redirect or observe the shared browser download directory."""
+def test_only_download_consumers_enable_browser_download_events():
+    """Only WACZ exports and attachment captures need browser download events.
+
+    Both retain the shared download directory and match their own download GUID;
+    staticfile also matches the snapshot frame before accepting that GUID. The
+    live download tests cover isolation; this inventory catches other plugins
+    introducing browser-wide download configuration accidentally.
+    """
     plugins_dir = CHROME_UTILS.parent.parent
     callers = [
         script.relative_to(plugins_dir)
@@ -493,7 +499,10 @@ def test_only_archivewebpage_export_enables_browser_download_events():
         and '"Browser.setDownloadBehavior"' in script.read_text()
     ]
 
-    assert callers == [Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js")]
+    assert sorted(callers) == [
+        Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js"),
+        Path("staticfile/on_Snapshot__26_staticfile.daemon.bg.js"),
+    ]
 
 
 def test_set_browser_download_behavior_requires_download_path_with_live_page(
