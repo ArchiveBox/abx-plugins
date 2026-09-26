@@ -20,6 +20,7 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
     start_process_and_wait_for_file,
 )
+from abx_plugins.plugins.base.utils import is_non_html_document
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
@@ -105,6 +106,8 @@ def run_staticfile_capture(
     snapshot_id,
     *,
     start_responses=True,
+    hook_timeout=5,
+    before_navigation=None,
 ):
     """Launch staticfile hook, optionally run responses, navigate, and collect final JSONL."""
     responses_dir = snapshot_chrome_dir.parent / "responses"
@@ -137,6 +140,9 @@ def run_staticfile_capture(
         ready=prenav_is_ready,
     )
 
+    if before_navigation is not None:
+        before_navigation(snapshot_chrome_dir, env)
+
     nav_result = subprocess.run(
         [
             str(CHROME_NAVIGATE_HOOK),
@@ -150,7 +156,7 @@ def run_staticfile_capture(
         env=env,
     )
 
-    stdout, stderr = hook_proc.communicate(timeout=5)
+    stdout, stderr = hook_proc.communicate(timeout=hook_timeout)
     if responses_proc is not None:
         responses_stdout, responses_stderr = terminate_process(responses_proc)
 
@@ -188,6 +194,130 @@ class TestStaticfileWithChrome:
     def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_attachment_png_is_saved_from_browser_download(self):
+        """A main-frame attachment is preserved despite another tab's download."""
+        test_url = "https://docs.monadical.com/uploads/038c6f29-0106-4064-88e2-51affe90bb83.png"
+        source = subprocess.run(
+            [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--location",
+                "--max-time",
+                "20",
+                test_url,
+            ],
+            capture_output=True,
+            timeout=25,
+        )
+        assert source.returncode == 0, source.stderr
+        expected_bytes = source.stdout
+        assert expected_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+        other_url = "https://docs.monadical.com/uploads/3fafb489-d24f-44a1-956d-66e1449a0676.png"
+        other_name = "3fafb489-d24f-44a1-956d-66e1449a0676.png"
+        snapshot_id = "test-staticfile-attachment-png"
+
+        def download_in_other_tab(chrome_dir, chrome_env):
+            script = """
+const fs = require('fs');
+const path = require('path');
+const chrome = require(process.argv[1]);
+(async () => {
+  const {browser} = await chrome.connectToPage({chromeSessionDir: process.argv[2], timeoutMs: 30000});
+  const page = await browser.newPage();
+  const output = path.join(chrome.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR, process.argv[4]);
+  try { await page.goto(process.argv[3], {timeout: 15000}); } catch (error) {
+    if (!error.message.includes('ERR_ABORTED')) throw error;
+  }
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline && (!fs.existsSync(output) || fs.statSync(output).size === 0)) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  if (!fs.existsSync(output) || fs.statSync(output).size === 0) throw new Error('Other-tab download missing');
+  process.stdout.write(String(fs.statSync(output).size));
+  await browser.disconnect();
+})().catch(error => { console.error(error.stack); process.exit(1); });
+"""
+            other_download = subprocess.run(
+                [
+                    "node",
+                    "-e",
+                    script,
+                    str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
+                    str(chrome_dir),
+                    other_url,
+                    other_name,
+                ],
+                cwd=chrome_dir,
+                env=chrome_env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert other_download.returncode == 0, other_download.stderr
+            assert int(other_download.stdout) > 0
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-staticfile-attachment-png-crawl",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_, _, snapshot_chrome_dir, env):
+            staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir(exist_ok=True)
+            (
+                hook_code,
+                stdout,
+                stderr,
+                nav_result,
+                archive_result,
+                responses_dir,
+                responses_stdout,
+                responses_stderr,
+            ) = run_staticfile_capture(
+                staticfile_dir,
+                snapshot_chrome_dir,
+                env,
+                test_url,
+                snapshot_id,
+                hook_timeout=45,
+                before_navigation=download_in_other_tab,
+            )
+
+        assert nav_result.returncode == 1
+        assert "ERR_ABORTED" in nav_result.stderr
+        navigation_path = snapshot_chrome_dir / "navigation.json"
+        navigation_state = json.loads(navigation_path.read_text())
+        assert navigation_state["status"] == 200
+        assert navigation_state["content_type"] == "image/png"
+        assert is_non_html_document(str(navigation_path))
+        js_guard = subprocess.run(
+            [
+                "node",
+                "-e",
+                "process.stdout.write(String(require(process.argv[1]).isNonHtmlDocument(process.argv[2])))",
+                str(PLUGIN_DIR.parent / "base" / "utils.js"),
+                str(navigation_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert js_guard.returncode == 0, js_guard.stderr
+        assert js_guard.stdout == "true"
+        assert hook_code == 0, stderr
+        assert archive_result is not None, stdout
+        assert archive_result["status"] == "succeeded"
+        saved_path = snapshot_chrome_dir.parent / archive_result["output_str"]
+        assert saved_path.read_bytes() == expected_bytes
+        responses_result = parse_jsonl_output(responses_stdout)
+        assert responses_result is not None, responses_stdout
+        assert responses_result["status"] == "noresults", responses_stderr
+        assert (responses_dir / "index.jsonl").read_text() == ""
 
     def test_staticfile_skips_html_pages(self, staticfile_test_urls):
         """Staticfile hook should skip HTML pages (not static files)."""

@@ -76,6 +76,7 @@ async function navigate(url) {
   const waitUntil = getWaitCondition();
 
   let browser = null;
+  let observedResponse = null;
   const navStartTime = Date.now();
 
   try {
@@ -87,6 +88,18 @@ async function navigate(url) {
     });
     browser = conn.browser;
     const page = conn.page;
+    page.on("response", (response) => {
+      const request = response.request();
+      if (
+        request.isNavigationRequest?.() !== true ||
+        request.frame?.() !== page.mainFrame() ||
+        response.status() < 200 || response.status() >= 300
+      ) return;
+      observedResponse = {
+        status: response.status(),
+        contentType: response.headers()["content-type"] || null,
+      };
+    });
 
     const remainingBudget = hookBudget - (Date.now() - navStartTime);
     if (remainingBudget <= 0) {
@@ -140,6 +153,8 @@ async function navigate(url) {
     return {
       success: false,
       error: `${e.name}: ${e.message}`,
+      status: observedResponse?.status || null,
+      contentType: observedResponse?.contentType || null,
       waitUntil,
       elapsed,
     };
@@ -178,6 +193,8 @@ async function main() {
       elapsed: result.elapsed,
       url,
       error: result.error,
+      status: result.status,
+      content_type: result.contentType,
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(

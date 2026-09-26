@@ -346,7 +346,7 @@ async function handleShutdown(signal) {
     page.off("requestfinished", responseListener);
   }
   await pendingResponseWork;
-  await emitResult("succeeded");
+  await emitResult(responseCount > 0 ? "succeeded" : "noresults");
   if (browser) {
     try {
       browser.disconnect();

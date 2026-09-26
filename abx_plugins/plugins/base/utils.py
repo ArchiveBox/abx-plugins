@@ -1386,16 +1386,23 @@ def find_article_html_source() -> str | None:
 
 
 def is_non_html_document(navigation_path: str = "../chrome/navigation.json") -> bool:
-    """Whether Chrome successfully loaded a document it does not treat as HTML.
+    """Whether the main response is known to be a non-HTML document.
 
     Navigation records document.contentType before post-navigation hooks run.
-    Missing, failed, or older navigation records must not suppress extraction.
+    A 2xx attachment may abort browser navigation after its non-HTML response
+    headers arrive. Other failed, missing, or older records do not suppress work.
     """
     try:
         navigation = json.loads(Path(navigation_path).read_text())
     except (OSError, ValueError):
         return False
-    if not isinstance(navigation, dict) or navigation.get("error"):
+    if not isinstance(navigation, dict):
+        return False
+    if navigation.get("error") and not (
+        "ERR_ABORTED" in str(navigation["error"])
+        and isinstance(navigation.get("status"), int)
+        and 200 <= navigation["status"] < 300
+    ):
         return False
     content_type = navigation.get("content_type")
     if not isinstance(content_type, str):

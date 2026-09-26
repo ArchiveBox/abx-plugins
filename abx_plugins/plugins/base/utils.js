@@ -631,11 +631,20 @@ function writeFileAtomic(filePath, contents) {
 // Sibling plugin output checking
 // ---------------------------------------------------------------------------
 
-// Match Python's is_non_html_document: unknown navigation must not suppress work.
+// Match Python's is_non_html_document, including 2xx attachment navigations.
 function isNonHtmlDocument(navigationPath = "../chrome/navigation.json") {
   try {
     const navigation = JSON.parse(fs.readFileSync(navigationPath, "utf8"));
-    if (!navigation || navigation.error || typeof navigation.content_type !== "string") return false;
+    if (!navigation || typeof navigation.content_type !== "string") return false;
+    if (
+      navigation.error &&
+      !(
+        String(navigation.error).includes("ERR_ABORTED") &&
+        Number.isInteger(navigation.status) &&
+        navigation.status >= 200 &&
+        navigation.status < 300
+      )
+    ) return false;
     const mimetype = navigation.content_type.split(";", 1)[0].trim().toLowerCase();
     return mimetype.includes("/") && !["text/html", "application/xhtml+xml"].includes(mimetype);
   } catch (error) {
