@@ -23,10 +23,21 @@
     {% endif %}
 {% endfor %}
 </div>
+<div class="responses-summary" style="padding:12px;font:12px system-ui;color:#475569;">
+    <strong>Captured responses</strong>
+    <div>No document or image thumbnails</div>
+</div>
 <script>
 (() => {
-    const grid = document.currentScript.previousElementSibling;
+    const summary = document.currentScript.previousElementSibling;
+    const grid = summary.previousElementSibling;
     const fallbackItems = Array.from(grid.children);
+    const showItems = items => {
+        grid.replaceChildren(...items);
+        grid.style.display = items.length ? 'grid' : 'none';
+        summary.hidden = items.length > 0;
+    };
+    showItems(fallbackItems);
     const normalizePath = path => path.replace(/^\.\//, '').replace(/^responses\//, '');
     const captureKey = path => normalizePath(path).replace(/^all\/\d{8}T\d{6}__[^_]+__/, '');
     const infoFor = (path, metadata) => metadata.get(normalizePath(path)) || metadata.get(captureKey(path));
@@ -74,7 +85,7 @@
                 item.dataset.name = source.name;
                 selected.push(item);
             }
-            grid.replaceChildren(...selected);
+            showItems(selected);
             return;
         }
 
@@ -90,7 +101,7 @@
             if (selected.length >= 9) break;
             add(item, infoFor(item.dataset.name, metadata));
         }
-        grid.replaceChildren(...selected);
+        showItems(selected);
     };
     const indexUrl = '{{ responses_index_url|cut:"?preview=1"|escapejs }}?raw=1';
     const raw = url => { const value = new URL(url); value.searchParams.set('raw', '1'); return value.href; };

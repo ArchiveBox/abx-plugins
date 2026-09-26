@@ -67,16 +67,20 @@ async function dumpDom(url, timeoutMs) {
 
     // Get the full DOM content
     const domContent = await page.evaluate(() => {
-      // Serialize computed image sizes on a clone: stylesheets are discarded
+      // Serialize computed image and SVG sizes on a clone: stylesheets are discarded
       // by article extractors, and the live page must remain untouched.
       const clone = document.documentElement.cloneNode(true);
-      const originals = document.querySelectorAll('img');
-      clone.querySelectorAll('img').forEach((img, index) => {
+      const originals = document.querySelectorAll('img,svg');
+      clone.querySelectorAll('img,svg').forEach((img, index) => {
         const original = originals[index];
         const style = getComputedStyle(original);
-        if (original.getClientRects().length && parseFloat(style.width) > 0 && parseFloat(style.height) > 0) {
+        if (parseFloat(style.width) > 0 && parseFloat(style.height) > 0) {
           img.style.width = style.width;
           img.style.height = style.height;
+          if (img.tagName.toLowerCase() === 'svg') {
+            img.setAttribute('width', style.width);
+            img.setAttribute('height', style.height);
+          }
         }
       });
       return (document.doctype ? new XMLSerializer().serializeToString(document.doctype) : '') + clone.outerHTML;

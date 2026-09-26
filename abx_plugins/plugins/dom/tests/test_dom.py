@@ -160,6 +160,8 @@ def test_preserves_stylesheet_image_sizes(require_chrome_runtime, httpserver, tm
         "<!doctype html><html><head><style>.icon{width:36px;height:36px}"
         ".photo{width:640px;height:320px}</style></head><body>"
         '<img class="icon" src="/icon.svg"><img class="photo" src="/photo.svg">'
+        '<div style="display:none"><svg class="icon" viewBox="0 0 24 24">'
+        '<path d="M0 0h24v24"/></svg></div>'
         "</body></html>",
         content_type="text/html",
     )
@@ -183,6 +185,7 @@ def test_preserves_stylesheet_image_sizes(require_chrome_runtime, httpserver, tm
         )
         assert result.returncode == 0, result.stderr
         source = (dom_dir / "output.html").read_text()
+    assert 'width="36px" height="36px"' in source
     restored = preserve_article_image_dimensions(
         '<img src="/icon.svg"><img src="/photo.svg">',
         source,
