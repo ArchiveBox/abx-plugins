@@ -175,6 +175,10 @@ async function capture() {
   )
     throw new Error("Verifier endpoint requires HTTPS");
   const receiptId = crypto.randomBytes(32).toString("hex");
+  console.error(
+    "[tlsnotary] capture correlation",
+    crypto.createHash("sha256").update(receiptId).digest("hex").slice(0, 12)
+  );
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&

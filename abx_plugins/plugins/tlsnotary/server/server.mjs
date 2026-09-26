@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
 import dns from "node:dns/promises";
-import { createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 const key = createPrivateKey(
   fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem")
@@ -223,6 +223,11 @@ app.on("upgrade", async (req, socket, head) => {
               )
             )
               throw Error();
+            console.error(
+              "registration accepted",
+              session.logId,
+              createHash("sha256").update(d.receiptId).digest("hex").slice(0, 12)
+            );
             // Forward only the opaque receipt ID and mode, never client metadata.
             registration = {
               type: "register",
