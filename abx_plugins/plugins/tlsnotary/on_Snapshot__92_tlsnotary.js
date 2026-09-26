@@ -17,18 +17,35 @@ const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
 let stopped = false;
-async function cleanup() {
-  if (caller) await caller.close().catch(() => {});
-  // This extension instance belongs to this hook. Unloading also cancels any
-  // active WASM proof and its managed auth window on timeout; Chrome stays alive.
-  if (browser && extensionId)
-    await chrome
-      .sendBrowserCommand(browser, "Extensions.uninstall", { id: extensionId })
-      .catch(() => {});
-  if (browser) await browser.disconnect();
-  server?.closeAllConnections();
-  server?.close();
-  if (releaseLock) await releaseLock();
+let deadlineExceeded = false;
+let cleanupPromise;
+let terminalRecordEmitted = false;
+function emitTerminalArchiveResult(status, outputStr) {
+  if (terminalRecordEmitted) return;
+  terminalRecordEmitted = true;
+  emitArchiveResultRecord(status, outputStr);
+}
+function cleanup() {
+  if (!cleanupPromise) {
+    // Deadline cleanup closes the caller, which rejects the in-flight execCode
+    // and lets capture() settle through this same cleanup path.
+    cleanupPromise = (async () => {
+      if (caller) await caller.close().catch(() => {});
+      // This extension instance belongs to this hook. Unloading also cancels any
+      // active WASM proof and its managed auth window on timeout; Chrome stays alive.
+      if (browser && extensionId)
+        await chrome
+          .sendBrowserCommand(browser, "Extensions.uninstall", {
+            id: extensionId,
+          })
+          .catch(() => {});
+      if (browser) await browser.disconnect();
+      server?.closeAllConnections();
+      server?.close();
+      if (releaseLock) await releaseLock();
+    })();
+  }
+  return cleanupPromise;
 }
 function pluginCode(url, verifierUrl, receiptId) {
   const target = new URL(url);
@@ -247,7 +264,7 @@ async function capture() {
       mode: "Mpc",
     })
   );
-  emitArchiveResultRecord("succeeded", "tlsnotary/receipt.json");
+  emitTerminalArchiveResult("succeeded", "tlsnotary/receipt.json");
 }
 (async () => {
   if (!config.TLSNOTARY_ENABLED) {
@@ -255,10 +272,14 @@ async function capture() {
     return;
   }
   const timer = setTimeout(() => {
+    deadlineExceeded = true;
     stopped = true;
     // Leave the runner time to reap the hook, even if CDP cleanup is stuck.
     const finish = () => {
-      emitArchiveResultRecord("failed", "TLSNotary capture deadline exceeded");
+      emitTerminalArchiveResult(
+        "failed",
+        "TLSNotary capture deadline exceeded",
+      );
       process.exit(1);
     };
     const cleanupDeadline = setTimeout(finish, 1000);
@@ -275,10 +296,11 @@ async function capture() {
     await capture();
   } catch (error) {
     console.error(`[tlsnotary] ${error.message}`);
-    emitArchiveResultRecord(
-      "failed",
-      "TLSNotary extension capture failed; see hook log"
-    );
+    if (!deadlineExceeded)
+      emitTerminalArchiveResult(
+        "failed",
+        "TLSNotary extension capture failed; see hook log",
+      );
     process.exitCode = 1;
   } finally {
     clearTimeout(timer);
