@@ -7,9 +7,12 @@
     <style>
         html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
         #replay-root, replay-web-page { display: block; width: 100%; height: 100%; }
-        .replay-error { box-sizing:border-box;max-width:640px;margin:32px auto;padding:24px;font:15px/1.5 system-ui,sans-serif;color:#334155;overflow-wrap:anywhere; }
+        #replay-root.replay-unavailable { box-sizing:border-box;min-height:100vh;display:grid;place-items:center;padding:24px; }
+        .replay-error { box-sizing:border-box;width:100%;max-width:640px;margin:0 auto;padding:24px;font:15px/1.5 system-ui,sans-serif;color:#334155;overflow-wrap:anywhere;text-align:center; }
         .replay-error h1 { font-size:20px; }
         .replay-error a { color:#315c83; }
+        .replay-open-browser { display:inline-flex;align-items:center;justify-content:center;margin:12px 0 16px;padding:16px 30px;border-radius:8px;background:#315c83;color:#fff!important;font-size:19px;font-weight:650;text-decoration:none; }
+        .replay-open-browser:hover { background:#244867; }
     </style>
     <script>
     async function activateReplayWorker() {
@@ -58,24 +61,25 @@
             .catch((error) => {
                 window.archiveboxReplayError = String(error);
                 const root = document.getElementById('replay-root');
+                root.classList.add('replay-unavailable');
                 const message = document.createElement('section');
                 message.className = 'replay-error';
                 message.setAttribute('role', 'alert');
                 const title = document.createElement('h1');
-                title.textContent = window.isSecureContext ? 'Replay unavailable' : 'Replay requires a secure connection';
+                title.textContent = 'You must view this snapshot in a browser.';
+                const openBrowser = document.createElement('a');
+                openBrowser.className = 'replay-open-browser';
+                openBrowser.href = window.location.href;
+                openBrowser.target = '_blank';
+                openBrowser.rel = 'external noopener';
+                openBrowser.textContent = 'Open in browser';
                 const detail = document.createElement('p');
-                detail.textContent = !window.isSecureContext
-                    ? 'This ArchiveBox address does not provide a secure context for replay. Configure HTTPS on the server and open its HTTPS address. Plain HTTP is supported on localhost, but not on network addresses. An insecure parent page can also block embedded replay.'
-                    : !('serviceWorker' in navigator)
-                        ? 'Service workers are unavailable in this browser context. Check browser restrictions or open this capture in a browser with service worker support.'
-                        : 'ArchiveBox could not start its replay service worker. Check the server replay files, routing, and security headers. The underlying error is shown below.';
-                const cause = document.createElement('p');
-                cause.textContent = String(error);
+                detail.textContent = 'For technical reasons, WACZ requires service workers to view, and some platforms limit where service workers are available. You may need to make sure your ArchiveBox server is hosted with HTTPS and open this output in your default browser instead of within this app.';
                 const download = document.createElement('a');
                 download.href = root.dataset.source;
                 download.download = '';
                 download.textContent = 'Download WACZ';
-                message.append(title, detail, cause, download);
+                message.append(title, openBrowser, detail, download);
                 root.replaceChildren(message);
                 window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
             });

@@ -60,6 +60,19 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     assert ".then(mountReplay)" in html
     assert "rwp-page-loading" in html
     assert "archivebox-replay-ready" in html
+    assert "openBrowser.href = window.location.href" in html
+    assert "openBrowser.target = '_blank'" in html
+    assert "openBrowser.rel = 'external noopener'" in html
+    assert "openBrowser.textContent = 'Open in browser'" in html
+    assert "You must view this snapshot in a browser." in html
+    assert (
+        "For technical reasons, WACZ requires service workers to view, and some platforms limit where service workers are available. "
+        "You may need to make sure your ArchiveBox server is hosted with HTTPS and open this output in your default browser instead of within this app."
+    ) in html
+    assert (
+        "#replay-root.replay-unavailable { box-sizing:border-box;min-height:100vh;display:grid;place-items:center"
+        in html
+    )
     assert '<script src="/replay/ui.js"></script>' in html
     assert "#replay-root, replay-web-page" in html
 
