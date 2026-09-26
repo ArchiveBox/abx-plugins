@@ -4125,6 +4125,64 @@ async function getCookiesViaCdp(port, options = {}) {
   );
 }
 
+async function waitForVisibleImages(page, timeoutMs) {
+  // A navigation marker (even `load`) does not include lazy images in nested
+  // frames. Wait for the pixels we are actually about to capture, not all
+  // network traffic: hidden alternatives, tracking images and offscreen lazy
+  // content must not prevent a screenshot. A completed broken image is also a
+  // settled browser state, whose normal error/fallback should remain visible.
+  const deadline = Date.now() + timeoutMs;
+  const remaining = () => {
+    const ms = deadline - Date.now();
+    if (ms <= 0) throw new Error("Timed out waiting for visible screenshot images");
+    return ms;
+  };
+  const visit = async (frame, waitForDocument) => {
+    await frame.waitForFunction(async (needsDocument) => {
+      if (needsDocument && location.href === "about:blank") return false;
+      if (document.readyState === "loading") return false;
+      const images = [...document.images].filter((img) => {
+        const rect = img.getBoundingClientRect();
+        // An image without explicit dimensions has a zero-size box until its
+        // intrinsic size arrives. Excluding that box would declare it ready
+        // precisely while it is still loading.
+        return rect.bottom >= 0 && rect.right >= 0
+          && rect.top < innerHeight && rect.left < innerWidth
+          && img.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
+      });
+      if (images.some((img) => !img.complete)) return false;
+      // The caller keeps this target paintable during capture. In a hidden
+      // target, decode() can remain pending despite valid natural dimensions.
+      await Promise.all(images.filter((img) => img.naturalWidth > 0).map((img) => img.decode()));
+      return true;
+    }, {timeout: remaining()}, waitForDocument);
+
+    // Inspect each child only after its parent document exists. This includes
+    // cross-origin frames via CDP without changing sandbox or loading policy.
+    const elements = await frame.$$("iframe, frame");
+    await Promise.all(elements.map(async (element) => {
+      try {
+        const state = await element.evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          return {
+            visible: rect.width > 0 && rect.height > 0 && rect.bottom > 0
+              && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth
+              && el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}),
+            waitForDocument: !el.hasAttribute("srcdoc") && Boolean(el.getAttribute("src"))
+              && el.src !== "about:blank",
+          };
+        });
+        if (!state.visible) return;
+        const child = await element.contentFrame();
+        if (child) await visit(child, state.waitForDocument);
+      } finally {
+        await element.dispose();
+      }
+    }));
+  };
+  await visit(page.mainFrame(), false);
+}
+
 // Export all functions
 module.exports = {
   withTimeout,
@@ -4195,6 +4253,7 @@ module.exports = {
   getTargetIdFromPage,
   connectToPage,
   waitForNavigationComplete,
+  waitForVisibleImages,
   setBrowserDownloadBehavior,
   waitForBrowserDownload,
   getCookiesViaCdp,

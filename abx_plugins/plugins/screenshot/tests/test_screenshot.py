@@ -15,11 +15,13 @@ import json
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
 import pytest
 import psutil
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
@@ -225,6 +227,145 @@ def test_waits_for_text_in_delayed_child_frame(chrome_test_urls):
             assert result.returncode == 0, result.stderr
             assert time.monotonic() - started_at >= 0.6
             assert (screenshot_dir / "screenshot.png").is_file()
+
+
+def test_screenshot_waits_for_lazy_image_in_visible_child_frame(
+    chrome_test_urls,
+    httpserver_ipv4,
+):
+    """The real screenshot must include a visible lazy image inside a card frame."""
+    image_path = Path(__file__).parents[4] / "docs/assets/plugins/singlefile.png"
+    image_bytes = image_path.read_bytes()
+    origin = chrome_test_urls["origin"]
+    image_requested = threading.Event()
+    release_image_response = threading.Event()
+
+    def delayed_image_response(_request):
+        image_requested.set()
+        if not release_image_response.wait(timeout=20):
+            return Response("Image fixture timed out", status=504)
+        return Response(image_bytes, content_type="image/png")
+
+    httpserver_ipv4.expect_request("/screenshot-lazy-image.png").respond_with_handler(
+        delayed_image_response,
+    )
+    httpserver_ipv4.expect_request("/screenshot-lazy-frame").respond_with_data(
+        """<!doctype html>
+<html><body style="margin:0">
+  <iframe title="saved page preview" src="/screenshot-lazy-child"
+    style="position:absolute;left:40px;top:40px;width:128px;height:128px;border:0"></iframe>
+</body></html>""",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver_ipv4.expect_request("/screenshot-lazy-child").respond_with_data(
+        """<!doctype html>
+<html><body style="margin:0">
+  <img src="/screenshot-lazy-image.png" loading="lazy">
+</body></html>""",
+        content_type="text/html; charset=utf-8",
+    )
+    test_url = f"{origin}/screenshot-lazy-frame"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snapshot_id = "test-screenshot-lazy-child"
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id="test-screenshot-lazy-child-crawl",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=True,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
+            screenshot_dir.mkdir()
+            process = subprocess.Popen(
+                [
+                    str(SCREENSHOT_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                cwd=str(screenshot_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env | {"SCREENSHOT_RESOLUTION": "800,600"},
+            )
+            try:
+                assert image_requested.wait(timeout=10), (
+                    "Chrome did not request the image"
+                )
+                # Keep the actual image response in flight long enough for the old hook
+                # to take its screenshot, while the fixed hook waits for image decoding.
+                try:
+                    stdout, stderr = process.communicate(timeout=2)
+                except subprocess.TimeoutExpired:
+                    release_image_response.set()
+                    stdout, stderr = process.communicate(timeout=30)
+                result = subprocess.CompletedProcess(
+                    process.args,
+                    process.returncode,
+                    stdout,
+                    stderr,
+                )
+            finally:
+                release_image_response.set()
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate()
+            assert result.returncode == 0, result.stderr
+            screenshot = screenshot_dir / "screenshot.png"
+            assert screenshot.is_file()
+            pixel_script = r"""
+const fs = require("fs");
+const utils = require(process.argv[1]);
+const cdpUrl = fs.readFileSync(process.argv[2], "utf8").trim();
+const screenshot = fs.readFileSync(process.argv[3]).toString("base64");
+const source = fs.readFileSync(process.argv[4]).toString("base64");
+(async () => {
+  const puppeteer = utils.resolvePuppeteerModule();
+  const browser = await utils.connectToBrowserEndpoint(puppeteer, cdpUrl);
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<img id="capture" src="data:image/png;base64,${screenshot}"><img id="source" src="data:image/png;base64,${source}">`);
+    const pixels = await page.evaluate(async () => {
+      const capture = document.querySelector("#capture");
+      const source = document.querySelector("#source");
+      await Promise.all([capture.decode(), source.decode()]);
+      const sample = (image, x, y) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0);
+        return [...context.getImageData(x, y, 1, 1).data];
+      };
+      return { captured: sample(capture, 104, 104), expected: sample(source, 64, 64) };
+    });
+    process.stdout.write(JSON.stringify(pixels));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => { console.error(error.stack || error); process.exit(1); });
+"""
+            pixel_result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    pixel_script,
+                    str(CHROME_PLUGIN_DIR / "chrome_utils.js"),
+                    str(snapshot_chrome_dir / "cdp_url.txt"),
+                    str(screenshot),
+                    str(image_path),
+                ],
+                cwd=str(screenshot_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert pixel_result.returncode == 0, pixel_result.stderr
+            pixels = json.loads(pixel_result.stdout)
+            assert pixels["captured"] == pixels["expected"], pixels
 
 
 def test_skips_when_staticfile_exists(real_staticfile_output, local_staticfile_urls):

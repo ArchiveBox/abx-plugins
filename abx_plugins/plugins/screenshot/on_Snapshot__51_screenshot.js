@@ -30,6 +30,7 @@ const {
   connectToPage,
   resolvePuppeteerModule,
   waitForNavigationComplete,
+  waitForVisibleImages,
 } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
@@ -150,10 +151,17 @@ async function takeScreenshot(url) {
   });
   console.log("Screenshot capture started");
 
+  let captureSession;
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
     const viewport = getScreenshotViewport();
     await page.setViewport(viewport);
+    // Background snapshot targets can finish loading images without decoding
+    // or painting them. Make this target visible to its renderer for capture,
+    // without selecting a different tab or competing with concurrent snapshots
+    // for the browser's active tab. Detaching below restores its prior state.
+    captureSession = await page.target().createCDPSession();
+    await captureSession.send("Emulation.setFocusEmulationEnabled", {enabled: true});
     const waitForText = Object.prototype.hasOwnProperty.call(
       process.env,
       "SCREENSHOT_WAIT_FOR_TEXT"
@@ -172,6 +180,7 @@ async function takeScreenshot(url) {
       String(waitForFrameUrl || ""),
       captureTimeoutMs
     );
+    await waitForVisibleImages(page, captureTimeoutMs);
     await Promise.race([
       page.screenshot({ path: tempOutputPath, fullPage: false }),
       new Promise((_, reject) => {
@@ -206,7 +215,11 @@ async function takeScreenshot(url) {
   } finally {
     // Disconnect from browser (don't close it - we're connected to a shared session)
     // The chrome_launch hook manages the browser lifecycle
-    await browser.disconnect();
+    try {
+      if (captureSession) await captureSession.detach();
+    } finally {
+      await browser.disconnect();
+    }
   }
 }
 
