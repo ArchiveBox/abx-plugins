@@ -500,7 +500,12 @@ const chrome = require(process.argv[1]);
                         break
                     time.sleep(0.1)
                 else:
-                    raise AssertionError("Real TLSNotary managed window did not open")
+                    raise AssertionError(
+                        "Real TLSNotary managed window did not open: "
+                        f"hook exit={hook.poll()}\n"
+                        f"STDOUT:\n{stdout_path.read_text()}\n"
+                        f"STDERR:\n{stderr_path.read_text()}",
+                    )
                 assert hook.wait(timeout=15) == 1
             finally:
                 if hook.poll() is None:
