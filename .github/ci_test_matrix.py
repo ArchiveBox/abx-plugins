@@ -59,7 +59,7 @@ if __name__ == "__main__":
         path = str(test_path)
         if durations.get(path, 60) < 60:
             short_tests.setdefault(
-                (os_name, python_version, path in hosted), []
+                (os_name, python_version, path in hosted), [],
             ).append(path)
             continue
         test_matrix.append(
@@ -86,7 +86,7 @@ if __name__ == "__main__":
                         "os": os_name,
                         "python": python_version,
                         "ugnas": False,
-                    }
+                    },
                 )
                 batch = []
                 batch_seconds = 0
@@ -100,7 +100,7 @@ if __name__ == "__main__":
                     "os": os_name,
                     "python": python_version,
                     "ugnas": False,
-                }
+                },
             )
 
     eligible = [
