@@ -2,7 +2,7 @@ name: Release State
 
 on:
   workflow_run:
-    workflows: [Release candidate, Parallel Tests]
+    workflows: [Parallel Tests]
     types: [completed]
     branches: [main]
 
@@ -26,7 +26,7 @@ jobs:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     outputs:
       ready: ${{ steps.verified.outputs.ready }}
-      candidate_run_id: ${{ steps.verified.outputs.candidate_run_id }}
+      artifact_run_id: ${{ steps.verified.outputs.artifact_run_id }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -48,15 +48,11 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          CANDIDATE_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release-candidate.yml \
-            --commit "$RELEASE_SHA" --event push --limit 1 \
-            --json databaseId,status,conclusion \
-            --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
           CI_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test-parallel.yml \
             --commit "$RELEASE_SHA" --event push --limit 1 \
             --json databaseId,status,conclusion \
             --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
-          [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
+          [[ -n "$CI_RUN_ID" ]] || exit 0
           RELEASE_RUN_IDS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
             --commit "$RELEASE_SHA" --limit 20 --json databaseId,status,conclusion \
             --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId')"
@@ -67,7 +63,7 @@ jobs:
             [[ -z "$PUBLISHED" ]] || exit 0
           done <<< "$RELEASE_RUN_IDS"
           echo 'ready=true' >> "$GITHUB_OUTPUT"
-          echo "candidate_run_id=$CANDIDATE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "artifact_run_id=$CI_RUN_ID" >> "$GITHUB_OUTPUT"
 
   release-state:
     needs: candidate
@@ -84,7 +80,7 @@ jobs:
     env:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       RELEASE_BRANCH: main
-      TEST_RUN_ID: ${{ needs.candidate.outputs.candidate_run_id }}
+      TEST_RUN_ID: ${{ needs.candidate.outputs.artifact_run_id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -122,7 +118,7 @@ jobs:
           artifact_dir="$RUNNER_TEMP/release-dist"
           "${GH_BINARY}" run view "$run_id" --repo "$GITHUB_REPOSITORY" \
             --json workflowName,conclusion,headSha,event \
-            --jq 'if .workflowName == "Release candidate" and .conclusion == "success" and .headSha == env.RELEASE_SHA and .event == "push" then true else error("release candidate run does not prove the requested release SHA") end'
+            --jq 'if .workflowName == "Parallel Tests" and .conclusion == "success" and .headSha == env.RELEASE_SHA and .event == "push" then true else error("full CI run does not prove the requested release SHA") end'
           "${GH_BINARY}" run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir "$artifact_dir"
           shopt -s nullglob
           wheels=("$artifact_dir"/abx_plugins-*.whl)
@@ -205,6 +201,6 @@ jobs:
       upstream_package: abx-plugins
       upstream_version: ${{ needs.release-state.outputs.version }}
       upstream_artifact_name: python-distributions-${{ github.event.workflow_run.head_sha }}
-      upstream_run_id: ${{ needs.candidate.outputs.candidate_run_id }}
+      upstream_run_id: ${{ needs.candidate.outputs.artifact_run_id }}
     secrets:
       release_token: ${{ secrets.RELEASE_GH_TOKEN }}
