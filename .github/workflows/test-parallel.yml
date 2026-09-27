@@ -318,7 +318,7 @@ jobs:
           organization: ArchiveBox
           primary-runner: self-hosted,ugnas-linux
           fallback-runner: ubuntu-24.04
-          primaries-required: 1
+          primaries-required: ${{ vars.UGNAS_CI_MAX_JOBS || 3 }}
           fallback-on-error: true
 
       - name: Checkout repository
@@ -335,15 +335,15 @@ jobs:
       - name: Discover test files
         id: set-matrix
         env:
-          UGNAS_CI_TESTS: ${{ vars.UGNAS_CI_TESTS || '[]' }}
+          UGNAS_CI_MAX_JOBS: ${{ vars.UGNAS_CI_MAX_JOBS || 3 }}
         run: |
           uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
 
   run-tests:
     name: ${{ matrix.test.path }} / Python ${{ matrix.test.python }} / ${{ matrix.test.os }}
-    # Keep the discovered OS/Python coverage; only proven Linux paths opt in.
+    # Ordinary Linux tests are eligible; # ci-runner: hosted declares exceptions.
     # Hosted discovery selects GitHub when the NAS is offline/busy or its API fails.
-    runs-on: ${{ matrix.test.os == 'ubuntu-24.04' && contains(fromJSON(vars.UGNAS_CI_TESTS || '[]'), matrix.test.path) && fromJSON(needs.discover-tests.outputs.runner) || matrix.test.os }}
+    runs-on: ${{ matrix.test.ugnas && fromJSON(needs.discover-tests.outputs.runner) || matrix.test.os }}
     needs: [discover-tests]
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

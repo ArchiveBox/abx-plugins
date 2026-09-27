@@ -38,12 +38,6 @@ def test_shared_pytest_fixtures_import_from_tests_package():
 
 
 def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path):
-    nas_paths = [
-        "abx_plugins/plugins/chrome/tests/test_chrome.py",
-        "abx_plugins/plugins/opencode/tests/test_collection_isolation.py",
-        "abx_plugins/plugins/parse_html_urls/tests/test_parse_html_urls.py",
-        "tests/test_cookie_helpers.py",
-    ]
     result = subprocess.run(
         [
             "uv",
@@ -54,7 +48,7 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path)
             str(REPO_ROOT / ".github/ci_test_matrix.py"),
         ],
         cwd=tmp_path,
-        env={**os.environ, "UGNAS_CI_TESTS": json.dumps(nas_paths)},
+        env={**os.environ, "UGNAS_CI_MAX_JOBS": "3"},
         capture_output=True,
         text=True,
         check=True,
@@ -82,8 +76,15 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path)
     assert sorted(assignments) == [
         (path, *cells[index % len(cells)]) for index, path in enumerate(expected)
     ]
-    for path in nas_paths:
-        assert next(item for item in matrix if path in item["paths"])["path"] == path
+    assert sum(item["ugnas"] for item in matrix) == 3
+    for item in matrix:
+        if item["ugnas"]:
+            assert item["os"] == "ubuntu-24.04"
+            assert all(
+                "# ci-runner: hosted"
+                not in (REPO_ROOT / path).read_text().splitlines()[:5]
+                for path in item["paths"]
+            )
 
 
 @pytest.fixture

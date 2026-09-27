@@ -23,6 +23,7 @@ class TestMatrixItem(TypedDict):
     paths: list[str]
     os: str
     python: str
+    ugnas: bool
 
 
 def discover_tests() -> list[Path]:
@@ -43,15 +44,23 @@ if __name__ == "__main__":
     durations = json.loads((REPO_ROOT / ".github/test-durations.json").read_text())[
         "seconds"
     ]
-    nas_tests = set(json.loads(os.environ.get("UGNAS_CI_TESTS", "[]")))
-    short_tests: dict[tuple[str, str], list[str]] = {}
+    # Ordinary Linux tests can use either runner. Genuine exceptions declare
+    # a # ci-runner: hosted header in the first five lines of the test file.
+    hosted = {
+        str(path)
+        for path in all_tests
+        if "# ci-runner: hosted" in (REPO_ROOT / path).read_text().splitlines()[:5]
+    }
+    short_tests: dict[tuple[str, str, bool], list[str]] = {}
 
     for test_path in all_tests:
         os_name, python_version = next(targets)
         cells_used.add((os_name, python_version))
         path = str(test_path)
-        if durations.get(path, 60) < 60 and path not in nas_tests:
-            short_tests.setdefault((os_name, python_version), []).append(path)
+        if durations.get(path, 60) < 60:
+            short_tests.setdefault(
+                (os_name, python_version, path in hosted), []
+            ).append(path)
             continue
         test_matrix.append(
             {
@@ -59,12 +68,13 @@ if __name__ == "__main__":
                 "paths": [path],
                 "os": os_name,
                 "python": python_version,
+                "ugnas": False,
             },
         )
 
     # Keep the original OS/Python assignment and a separate pytest process per
     # file. Only measured short files share checkout and dependency setup.
-    for (os_name, python_version), paths in short_tests.items():
+    for (os_name, python_version, _), paths in short_tests.items():
         batch: list[str] = []
         batch_seconds = 0
         for path in paths:
@@ -75,6 +85,7 @@ if __name__ == "__main__":
                         "paths": batch,
                         "os": os_name,
                         "python": python_version,
+                        "ugnas": False,
                     }
                 )
                 batch = []
@@ -88,8 +99,23 @@ if __name__ == "__main__":
                     "paths": batch,
                     "os": os_name,
                     "python": python_version,
+                    "ugnas": False,
                 }
             )
+
+    eligible = [
+        item
+        for item in test_matrix
+        if item["os"] == "ubuntu-24.04"
+        and not any(path in hosted for path in item["paths"])
+    ]
+    capacity = int(os.environ.get("UGNAS_CI_MAX_JOBS", "3"))
+    for item in sorted(
+        eligible,
+        key=lambda item: sum(durations.get(path, 60) for path in item["paths"]),
+        reverse=True,
+    )[:capacity]:
+        item["ugnas"] = True
 
     assigned = Counter(Path(path) for item in test_matrix for path in item["paths"])
     if assigned != Counter(all_tests):
