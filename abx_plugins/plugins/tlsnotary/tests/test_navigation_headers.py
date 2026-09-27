@@ -331,6 +331,9 @@ const pathname = new URL(targetUrl).pathname;
 let server;
 let caller;
 let browser;
+const sockets = new Set();
+const started = Date.now();
+const progress = (...args) => console.error(`TLSNotary headers +${Date.now() - started}ms:`, ...args);
 async function approve(browser, extensionId, requestId) {
   const offscreen = await browser.waitForTarget(
     target => target.url() === `chrome-extension://${extensionId}/offscreen.html`,
@@ -354,6 +357,10 @@ async function approve(browser, extensionId, requestId) {
   server = http.createServer((_request, response) => {
     response.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
     response.end('<!doctype html><title>TLSNotary API caller</title>');
+  });
+  server.on('connection', socket => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   caller = await browser.newPage();
@@ -388,10 +395,17 @@ export default {config,main};`;
   const result = await resultPromise;
   const parsed = typeof result === 'string' ? JSON.parse(result) : result;
   process.stdout.write(JSON.stringify(parsed));
+  progress('headers captured');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+  progress('closing caller');
   if (caller) await caller.close().catch(() => {});
+  progress('caller closed; disconnecting browser');
   if (browser) await browser.disconnect().catch(() => {});
+  progress('browser disconnected; closing server', Array.from(sockets, socket => ({
+    bytesRead: socket.bytesRead, bytesWritten: socket.bytesWritten, destroyed: socket.destroyed,
+  })));
   if (server) await new Promise(resolve => server.close(resolve));
+  progress('server closed', process.getActiveResourcesInfo());
 });
 """
         completed = subprocess.run(
@@ -420,6 +434,7 @@ export default {config,main};`;
             check=False,
         )
         assert completed.returncode == 0, completed.stderr
+        print(completed.stderr)
         result = json.loads(completed.stdout)
         assert result["url"] == TARGET_URL
         assert result["method"] == "GET"
