@@ -13,6 +13,7 @@ const {
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const chrome = require("../chrome/chrome_utils.js");
+const { memoryHeadroomBytes } = require("./server/memory.cjs");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
@@ -21,13 +22,36 @@ let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
 let terminalRecordEmitted = false;
+let memoryMonitor, resourceFailure;
 const STREAM_CAPACITY_ISSUE = "https://github.com/tlsnotary/tlsn/issues/new";
+const GIB = 1024 ** 3;
+const PROOF_START_HEADROOM = 2 * GIB;
+const PROOF_STOP_HEADROOM = GIB / 2;
+
+function requireProofMemory(minimum, phase) {
+  let available;
+  try {
+    available = memoryHeadroomBytes();
+  } catch (error) {
+    resourceFailure = "TLSNotary stopped because available memory could not be measured.";
+    throw new Error(resourceFailure, { cause: error });
+  }
+  if (available < minimum) {
+    const amounts = `${(available / GIB).toFixed(2)} GiB available, ${(minimum / GIB).toFixed(2)} GiB required.`;
+    resourceFailure = phase === "start"
+      ? `Not enough memory for TLSNotary: ${amounts}`
+      : `TLSNotary stopped to avoid exhausting memory: ${amounts}`;
+    throw new Error(resourceFailure);
+  }
+}
+
 function emitTerminalArchiveResult(status, outputStr) {
   if (terminalRecordEmitted) return;
   terminalRecordEmitted = true;
   emitArchiveResultRecord(status, outputStr);
 }
 function captureFailureMessage(error) {
+  if (resourceFailure) return resourceFailure;
   const message = String(error.message || error);
   if (/maximum number of streams reached|TooManyStreams/i.test(message))
     return `TLSNotary couldn’t verify this response: generating its proof required more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
@@ -174,6 +198,8 @@ async function capture() {
     throw new Error("TLSNotary requires an HTTPS document");
   if (new URL(url).port)
     throw new Error("TLSNotary supports HTTPS on port 443 only");
+  // A real proof can add roughly 1.6 GiB of client memory before cleanup.
+  requireProofMemory(PROOF_START_HEADROOM, "start");
   const original = chrome.findExtensionMetadataByName(
     connection.extensions || [],
     "tlsnotary"
@@ -229,6 +255,18 @@ async function capture() {
     const windowId = await windowIdFor(target).catch(() => null);
     if (windowId != null) existingWindowIds.add(windowId);
   }
+  requireProofMemory(PROOF_STOP_HEADROOM, "proof");
+  memoryMonitor = setInterval(() => {
+    if (stopped || cleanupPromise) return;
+    try {
+      requireProofMemory(PROOF_STOP_HEADROOM, "proof");
+    } catch (_) {
+      stopped = true;
+      // Closing this hook's caller and extension rejects the active proof;
+      // the shared Chrome browser and original snapshot target remain open.
+      cleanup().catch(() => {});
+    }
+  }, 250);
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
@@ -326,6 +364,7 @@ async function capture() {
       await session.detach();
     }
   } else throw new Error("Extension-managed window did not open");
+  console.error("[tlsnotary] request headers captured; proof in progress");
   const raw = await resultPromise;
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!result.ok)
@@ -416,6 +455,7 @@ async function capture() {
     process.exitCode = 1;
   } finally {
     clearTimeout(timer);
+    if (memoryMonitor) clearInterval(memoryMonitor);
     await cleanup();
   }
 })();

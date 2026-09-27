@@ -46,6 +46,12 @@ managed auth window when finished or cancelled. It disconnects
 from the shared browser without closing it. Proof failure produces a failed plugin
 result; other archiving outputs remain available.
 
+Before loading the prover, the hook requires 2 GiB of available memory within
+the host and container limits, including usable disk-backed swap on Linux. It
+cancels its own proof if that headroom falls below 512 MiB, leaving the original
+snapshot tab and shared browser open. Insufficient memory produces an explicit
+failed TLSNotary result rather than a successful result without a proof.
+
 ## Output and verification
 
 The snapshot's `tlsnotary/` contains:

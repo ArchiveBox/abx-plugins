@@ -5,6 +5,11 @@ import net from "node:net";
 import dns from "node:dns/promises";
 import { createHash, createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
+import memory from "./memory.cjs";
+const MiB = 1024 * 1024;
+const sessionHeadroom = Number(process.env.TLSNOTARY_MIN_AVAILABLE_MEMORY_MB || 1024) * MiB;
+if (!Number.isSafeInteger(sessionHeadroom) || sessionHeadroom < 512 * MiB)
+  throw new Error("TLSNOTARY_MIN_AVAILABLE_MEMORY_MB must be an integer of at least 512");
 const key = createPrivateKey(
   fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem")
 );
@@ -19,6 +24,25 @@ const maxSessions = 2,
   lifetime = 180000,
   maxRecv = 262144,
   maxSent = 16384;
+function proofMemoryAvailable(required) {
+  try {
+    // The MPC verifier is a sibling container. The gateway's own 256 MiB
+    // cgroup is not its proof budget; observe the shared host instead.
+    if (memory.memoryHeadroomBytes({ includeCgroup: false }) >= required) return true;
+    console.error("proof rejected: insufficient available memory");
+  } catch (error) {
+    console.error("proof rejected: cannot determine available memory", error.message);
+  }
+  return false;
+}
+// Session count alone did not protect a shared host: the browser prover and
+// verifier can allocate simultaneously. Cancel proofs while cleanup still has
+// headroom, rather than letting the kernel kill unrelated server processes.
+setInterval(() => {
+  if (sessions.size && !proofMemoryAvailable(512 * MiB)) {
+    for (const session of sessions.values()) session.close("insufficient available memory");
+  }
+}, 250).unref();
 const wsServer = new WebSocketServer({
   noServer: true,
   maxPayload: 2 * 1024 * 1024,
@@ -164,6 +188,9 @@ app.on("upgrade", async (req, socket, head) => {
     const u = new URL(req.url, "http://localhost");
     if (u.pathname === "/session") {
       if (sessions.size >= maxSessions) return reject(socket, 503);
+      // Reserve for admitted sessions that may not have allocated their proof
+      // buffers yet, so simultaneous handshakes cannot all claim the same RAM.
+      if (!proofMemoryAvailable(sessionHeadroom * (sessions.size + 1))) return reject(socket, 503);
       wsServer.handleUpgrade(req, socket, head, (client) => {
         const placeholder = Symbol();
         const session = {

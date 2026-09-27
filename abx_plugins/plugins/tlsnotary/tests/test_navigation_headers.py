@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import signal
 import subprocess
 import time
@@ -15,6 +17,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     kill_chromium_session,
     launch_chromium_session,
+    resolve_node_with_abxpkg,
     setup_test_env,
 )
 
@@ -26,6 +29,48 @@ CHECK_CAPTURE = PLUGIN_DIR / "tests" / "check_capture.mjs"
 TARGET_URL = "https://docs.sweeting.me/s/cookie-dilemma"
 TRUSTED_PUBLIC_KEY = "MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E="
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
+
+def test_real_gateway_refuses_proof_when_host_memory_reserve_is_unavailable(tmp_path):
+    """Run the real gateway admission test with its locked npm dependencies."""
+
+    env = os.environ.copy()
+    node_binary = Path(resolve_node_with_abxpkg(env))
+    npm_binary = node_binary.with_name("npm")
+    assert npm_binary.is_file(), f"npm is missing beside {node_binary}"
+    env["PATH"] = f"{node_binary.parent}{os.pathsep}{env.get('PATH', '')}"
+
+    server_dir = tmp_path / "server"
+    server_dir.mkdir()
+    for name in ("server.mjs", "memory.cjs", "package.json", "package-lock.json"):
+        shutil.copy2(PLUGIN_DIR / "server" / name, server_dir / name)
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    shutil.copy2(
+        PLUGIN_DIR / "tests" / "test_memory_admission.mjs",
+        tests_dir / "test_memory_admission.mjs",
+    )
+
+    install = subprocess.run(
+        [str(npm_binary), "ci", "--omit=dev", "--no-audit", "--no-fund"],
+        cwd=server_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert install.returncode == 0, (install.stdout, install.stderr)
+    result = subprocess.run(
+        [str(node_binary), "--test", str(tests_dir / "test_memory_admission.mjs")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
 
 
 def _install_and_prepare(env: dict[str, str], _chrome_dir: Path) -> None:

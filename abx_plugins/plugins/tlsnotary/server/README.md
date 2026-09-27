@@ -9,7 +9,14 @@ Install Docker with Compose v2, OpenSSL, and curl. The official verifier image i
 currently amd64, so an ARM host needs Docker's amd64 emulation. Allow up to 6 GiB
 for the verifier, 256 MiB for the gateway, and another 128 MiB for cloudflared
 when using the `public` profile, plus memory for the host OS. Two sessions can run concurrently;
-a third receives HTTP 503. This is experimental public-service software.
+a third receives HTTP 503. The gateway also requires 1 GiB of available host RAM
+plus free disk-backed swap per admitted session; increase this reserve with
+`TLSNOTARY_MIN_AVAILABLE_MEMORY_MB` for larger proofs. The verifier runs in a
+separate container, so its budget cannot be inferred from the gateway's cgroup.
+While proofs run, the gateway closes their connections if host headroom drops
+below 512 MiB. Zram is not additional disk-backed capacity. These checks reduce
+host OOM risk; they do not replace container limits or reserve memory against
+unrelated processes. This is experimental public-service software.
 
 ## Start locally
 
