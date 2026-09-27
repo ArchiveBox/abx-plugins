@@ -928,8 +928,11 @@ const cwd = process.argv[5];
 const screenshotPath = process.argv[6];
 const infiniscrollHook = process.argv[7];
 const infiniscrollCwd = process.argv[8];
+const started = Date.now();
+const progress = (...args) => console.error(`Replay probe +${Date.now() - started}ms:`, ...args);
 
 (async () => {
+  progress("connecting");
   const puppeteer = chromeUtils.resolvePuppeteerModule();
   const { browser, page } = await chromeUtils.connectToPage({
     chromeSessionDir,
@@ -948,12 +951,15 @@ const infiniscrollCwd = process.argv[8];
       },
       { timeout: 30000 }
     ).then(
-      async (response) => ({
-        status: response.status(),
-        fromServiceWorker: response.fromServiceWorker(),
-        mimeType: response.headers()["content-type"] || "",
-        bodyBytes: (await response.buffer()).byteLength,
-      }),
+      async (response) => {
+        progress("service-worker response received; reading body");
+        return {
+          status: response.status(),
+          fromServiceWorker: response.fromServiceWorker(),
+          mimeType: response.headers()["content-type"] || "",
+          bodyBytes: (await response.buffer()).byteLength,
+        };
+      },
       (error) => ({ error: error.message })
     );
     page.on("response", (response) => {
@@ -987,9 +993,9 @@ const infiniscrollCwd = process.argv[8];
         resolve({ code, signal });
       });
     });
-    console.error("Replay probe: navigation finished", exit);
+    progress("navigation finished", exit);
     const worker = await workerResponse;
-    console.error("Replay probe: service-worker response body read", worker);
+    progress("service-worker response body read", worker);
     const scroll = spawn(infiniscrollHook, [`--url=${url}`], {
       cwd: infiniscrollCwd,
       env: process.env,
@@ -1007,7 +1013,7 @@ const infiniscrollCwd = process.argv[8];
         resolve({ code, signal });
       });
     });
-    console.error("Replay probe: scrolling finished", scrollExit);
+    progress("scrolling finished", scrollExit);
     const frames = await Promise.all(page.frames().map(async (frame) => {
       try {
         const parsed = new URL(frame.url());
@@ -1030,7 +1036,7 @@ const infiniscrollCwd = process.argv[8];
         };
       } catch { return null; }
     }));
-    console.error("Replay probe: frames inspected");
+    progress("frames inspected");
     const widgets = await page.evaluate(() => Array.from(
       document.querySelectorAll("replay-web-page")
     ).map((widget) => {
@@ -1043,8 +1049,9 @@ const infiniscrollCwd = process.argv[8];
         frameBodyBytes: new TextEncoder().encode(frame?.contentDocument?.documentElement?.outerHTML || "").length,
       };
     }));
-    console.error("Replay probe: widgets inspected; taking screenshot");
+    progress("widgets inspected; taking screenshot");
     await page.screenshot({ path: screenshotPath, fullPage: false });
+    progress("screenshot saved");
     process.stdout.write(JSON.stringify({
       navigation: exit,
       infiniscroll: scrollExit,
@@ -1068,26 +1075,36 @@ const infiniscrollCwd = process.argv[8];
   process.exit(1);
 });
 """
-    monitor = subprocess.run(
-        [
-            snapshot_env["NODE_BINARY"],
-            "-e",
-            monitor_script,
-            str(CHROME_UTILS),
-            str(chrome_dir),
-            str(CHROME_NAVIGATE_HOOK),
-            url,
-            str(chrome_dir),
-            str(tmp_path / "webrecorder-replay-captured.png"),
-            str(INFINISCROLL_HOOK),
-            str(infiniscroll_dir),
-        ],
-        cwd=chrome_dir,
-        capture_output=True,
-        text=True,
-        timeout=180,
-        env=snapshot_env,
-    )
+    command = [
+        snapshot_env["NODE_BINARY"],
+        "-e",
+        monitor_script,
+        str(CHROME_UTILS),
+        str(chrome_dir),
+        str(CHROME_NAVIGATE_HOOK),
+        url,
+        str(chrome_dir),
+        str(tmp_path / "webrecorder-replay-captured.png"),
+        str(INFINISCROLL_HOOK),
+        str(infiniscroll_dir),
+    ]
+    try:
+        monitor = subprocess.run(
+            command,
+            cwd=chrome_dir,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            env=snapshot_env,
+        )
+    except subprocess.TimeoutExpired as error:
+        # TimeoutExpired.__str__ omits captured stderr, which is where the
+        # last completed phase and real hook diagnostics identify the stall.
+        stderr = error.stderr or b""
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        pytest.fail(f"Replay probe exceeded 180s:\n{stderr}")
+    print(monitor.stderr)
     assert monitor.returncode == 0, monitor.stderr
     observed = json.loads(monitor.stdout)
     assert observed["navigation"]["code"] == 0, observed
