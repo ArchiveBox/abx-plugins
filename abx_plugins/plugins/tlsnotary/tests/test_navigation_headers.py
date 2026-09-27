@@ -414,11 +414,13 @@ export default {config,main};`;
   })));
   if (server) {
     const closed = once(server, 'close');
+    const socketsClosed = Array.from(sockets, socket => once(socket, 'close'));
     server.close();
     // A TCP preconnection is active to Node even before its first HTTP request.
     // Stop accepting clients before closing all connections owned by this test.
     server.closeAllConnections();
-    await closed;
+    // The server's close event can precede the sockets' individual close events.
+    await Promise.all([closed, ...socketsClosed]);
     if (sockets.size !== 0) throw new Error(`Server retained ${sockets.size} sockets`);
   }
   progress('server closed', process.getActiveResourcesInfo());
