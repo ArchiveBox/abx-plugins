@@ -45,16 +45,22 @@ if __name__ == "__main__":
         "seconds"
     ]
     # Ordinary Linux tests can use either runner. Genuine exceptions declare
-    # a # ci-runner: hosted header in the first five lines of the test file.
-    hosted = {
-        str(path)
+    # a # ci-runner: hosted[-linux] header in the first five lines.
+    runner_requirements = {
+        str(path): line.removeprefix("# ci-runner: ").strip()
         for path in all_tests
-        if "# ci-runner: hosted" in (REPO_ROOT / path).read_text().splitlines()[:5]
+        for line in (REPO_ROOT / path).read_text().splitlines()[:5]
+        if line.startswith("# ci-runner: ")
     }
+    if set(runner_requirements.values()) - {"hosted", "hosted-linux"}:
+        raise SystemExit("Unknown ci-runner requirement")
+    hosted = set(runner_requirements)
     short_tests: dict[tuple[str, str, bool], list[str]] = {}
 
     for test_path in all_tests:
         os_name, python_version = next(targets)
+        if runner_requirements.get(str(test_path)) == "hosted-linux":
+            os_name = "ubuntu-24.04"
         cells_used.add((os_name, python_version))
         path = str(test_path)
         if durations.get(path, 60) < 60:

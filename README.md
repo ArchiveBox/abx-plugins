@@ -172,6 +172,13 @@ const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResul
 - `emitSnapshotRecord(record)` — emit `Snapshot` JSONL to stdout
 
 **Test helpers** (`base/test_utils.py`):
+
+CI discovers every `test_*.py` automatically. Linux tests can use hosted or ugNAS
+capacity by default. Genuine runner requirements belong in the first five lines
+of the test file: `# ci-runner: hosted` keeps its normal OS assignment, while
+`# ci-runner: hosted-linux` requires a hosted Linux runner (for example, Docker
+integration tests). Add a comment explaining the requirement beside the header.
+
 ```python
 from abx_plugins.plugins.base.testing import (
     get_hook_script,

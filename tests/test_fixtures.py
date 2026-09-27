@@ -73,16 +73,23 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path)
         for os_name in ("ubuntu-24.04", "macos-15")
         for python in ("3.12", "3.13", "3.14")
     ]
-    assert sorted(assignments) == [
-        (path, *cells[index % len(cells)]) for index, path in enumerate(expected)
-    ]
+    expected_assignments = []
+    for index, path in enumerate(expected):
+        os_name, python = cells[index % len(cells)]
+        header = (REPO_ROOT / path).read_text().splitlines()[:5]
+        if "# ci-runner: hosted-linux" in header:
+            os_name = "ubuntu-24.04"
+        expected_assignments.append((path, os_name, python))
+    assert sorted(assignments) == expected_assignments
     assert sum(item["ugnas"] for item in matrix) == 3
     for item in matrix:
         if item["ugnas"]:
             assert item["os"] == "ubuntu-24.04"
             assert all(
-                "# ci-runner: hosted"
-                not in (REPO_ROOT / path).read_text().splitlines()[:5]
+                not any(
+                    line.startswith("# ci-runner: hosted")
+                    for line in (REPO_ROOT / path).read_text().splitlines()[:5]
+                )
                 for path in item["paths"]
             )
 

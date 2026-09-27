@@ -1,13 +1,19 @@
+# ci-runner: hosted-linux
+# Proof tests need Docker for the pinned amd64 verifier, isolated per test.
 """Real Chrome integration coverage for TLSNotary request-header capture."""
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shutil
 import signal
 import subprocess
 import time
+import urllib.error
+import urllib.request
+import uuid
 from pathlib import Path
 
 import pytest
@@ -27,8 +33,98 @@ PREPARE_HOOK = PLUGIN_DIR / "on_CrawlSetup__80_tlsnotary_prepare.py"
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__92_tlsnotary.js"
 CHECK_CAPTURE = PLUGIN_DIR / "tests" / "check_capture.mjs"
 TARGET_URL = "https://docs.sweeting.me/s/cookie-dilemma"
-TRUSTED_PUBLIC_KEY = "MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E="
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
+
+@pytest.fixture
+def verifier(tmp_path):
+    """Each proof owns the shipped gateway, real verifier, key and session state."""
+    state = tmp_path / "verifier-state"
+    state.mkdir()
+    signing_key = state / "signing.pem"
+    subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(signing_key)],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    )
+    signing_key.chmod(0o600)
+    public_key = base64.b64encode(
+        subprocess.check_output(
+            ["openssl", "pkey", "-in", str(signing_key), "-pubout", "-outform", "DER"],
+            timeout=10,
+        ),
+    ).decode()
+    empty_env = tmp_path / "compose.env"
+    empty_env.touch()
+    compose = [
+        "docker",
+        "compose",
+        "--env-file",
+        str(empty_env),
+        "--project-name",
+        f"tlsnotary-test-{uuid.uuid4().hex}",
+        "--file",
+        str(PLUGIN_DIR / "server" / "docker-compose.yml"),
+    ]
+    env = {
+        **os.environ,
+        "TLSNOTARY_STATE_DIR": str(state),
+        "TLSNOTARY_UID": str(os.getuid()),
+        "TLSNOTARY_GID": str(os.getgid()),
+        "TLSNOTARY_PORT": "0",
+        "TLSNOTARY_MIN_AVAILABLE_MEMORY_MB": "1024",
+        "COMPOSE_PROFILES": "",
+    }
+    try:
+        started = subprocess.run(
+            [*compose, "up", "--detach", "--build", "--wait", "verifier", "gateway"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        assert started.returncode == 0, started.stdout + started.stderr
+        binding = subprocess.check_output(
+            [*compose, "port", "gateway", "7047"],
+            env=env,
+            text=True,
+            timeout=10,
+        ).strip()
+        url = f"http://{binding}"
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                with urllib.request.urlopen(f"{url}/key", timeout=1) as response:
+                    assert json.load(response)["publicKey"] == public_key
+                break
+            except urllib.error.URLError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.1)
+        yield {
+            "TLSNOTARY_VERIFIER_URL": url,
+            "TLSNOTARY_TRUSTED_KEY": public_key,
+        }
+    finally:
+        try:
+            logs = subprocess.run(
+                [*compose, "logs", "--no-color"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            print(logs.stdout + logs.stderr)
+        finally:
+            stopped = subprocess.run(
+                [*compose, "down", "--volumes", "--remove-orphans"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert stopped.returncode == 0, stopped.stdout + stopped.stderr
 
 
 def test_real_gateway_refuses_proof_when_host_memory_reserve_is_unavailable(tmp_path):
@@ -330,7 +426,7 @@ export default {config,main};`;
         assert {"accept", "user-agent"}.issubset(set(result["headerNames"]))
 
 
-def test_real_hook_terminal_result_and_cleanup(tmp_path):
+def test_real_hook_terminal_result_and_cleanup(tmp_path, verifier):
     """Verify terminal output and owned cleanup around a real live response."""
 
     with chrome_session(
@@ -339,6 +435,7 @@ def test_real_hook_terminal_result_and_cleanup(tmp_path):
         navigate=True,
         timeout=45,
         env_overrides={
+            **verifier,
             "TLSNOTARY_ENABLED": "true",
             "TLSNOTARY_TIMEOUT": "5",
         },
@@ -366,14 +463,14 @@ def test_real_hook_terminal_result_and_cleanup(tmp_path):
         assert elapsed < 15
         assert len(records) == 1, result.stdout
         if records[0]["status"] == "succeeded":
-            # A faster public proof is valid only with its real signed receipt.
+            # A faster proof is valid only with its real signed receipt.
             assert result.returncode == 0, (result.stdout, result.stderr)
             verification = subprocess.run(
                 [
                     env["NODE_BINARY"],
                     str(CHECK_CAPTURE),
                     str(hook_output_dir),
-                    TRUSTED_PUBLIC_KEY,
+                    verifier["TLSNOTARY_TRUSTED_KEY"],
                 ],
                 cwd=PLUGIN_DIR.parent.parent,
                 env=env,
@@ -403,7 +500,7 @@ def test_real_hook_terminal_result_and_cleanup(tmp_path):
 
 
 @pytest.mark.parametrize("unrelated_tab", [False, True])
-def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab):
+def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab, verifier):
     """Cancelling a real proof must not leave its separate auth page in Chrome."""
 
     url = "https://news.ycombinator.com/"
@@ -412,7 +509,11 @@ def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab):
         test_url=url,
         navigate=True,
         timeout=45,
-        env_overrides={"TLSNOTARY_ENABLED": "true", "TLSNOTARY_TIMEOUT": "25"},
+        env_overrides={
+            **verifier,
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_TIMEOUT": "25",
+        },
         crawl_setup=_install_and_prepare,
     ) as (_process, _pid, snapshot_chrome_dir, env):
         output_dir = Path(env["SNAP_DIR"]) / "tlsnotary"
