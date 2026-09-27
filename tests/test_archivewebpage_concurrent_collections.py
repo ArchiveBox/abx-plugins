@@ -1103,7 +1103,7 @@ const progress = (...args) => console.error(`Replay probe +${Date.now() - starte
         stderr = error.stderr or b""
         if isinstance(stderr, bytes):
             stderr = stderr.decode(errors="replace")
-        pytest.fail(f"Replay probe exceeded 180s:\n{stderr}")
+        raise AssertionError(f"Replay probe exceeded 180s:\n{stderr}") from error
     print(monitor.stderr)
     assert monitor.returncode == 0, monitor.stderr
     observed = json.loads(monitor.stdout)
