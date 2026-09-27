@@ -383,6 +383,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           read -r -a test_paths <<< "$TEST_PATHS"
+          mkdir -p "$RUNNER_TEMP/pytest"
           test_status=0
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
