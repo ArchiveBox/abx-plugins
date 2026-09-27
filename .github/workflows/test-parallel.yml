@@ -334,6 +334,8 @@ jobs:
 
       - name: Discover test files
         id: set-matrix
+        env:
+          UGNAS_CI_TESTS: ${{ vars.UGNAS_CI_TESTS || '[]' }}
         run: |
           uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
 
@@ -377,5 +379,25 @@ jobs:
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/runtime-abx-lib
-        run: uv run --no-cache --no-sync --no-sources pytest -vs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          TEST_PATHS: ${{ join(matrix.test.paths, ' ') }}
+        run: |
+          set -Eeuo pipefail
+          read -r -a test_paths <<< "$TEST_PATHS"
+          test_status=0
+          for test_path in "${test_paths[@]}"; do
+            test -f "$test_path"
+            test_slug="${test_path//[^A-Za-z0-9_.-]/_}"
+            export ABXPKG_LIB_DIR="$RUNNER_TEMP/runtime-abx-lib/$test_slug"
+            uv run --no-cache --no-sync --no-sources pytest -vs -rA "$test_path" --durations=20 \
+              --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
+              --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
+          done
+          exit "$test_status"
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/test-results/*.xml
+          if-no-files-found: error
+          retention-days: 14

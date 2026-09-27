@@ -37,6 +37,55 @@ def test_shared_pytest_fixtures_import_from_tests_package():
     assert CLAUDECODE_CONFIG.is_file()
 
 
+def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path):
+    nas_paths = [
+        "abx_plugins/plugins/chrome/tests/test_chrome.py",
+        "abx_plugins/plugins/opencode/tests/test_collection_isolation.py",
+        "abx_plugins/plugins/parse_html_urls/tests/test_parse_html_urls.py",
+        "tests/test_cookie_helpers.py",
+    ]
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-cache",
+            "--no-project",
+            "python",
+            str(REPO_ROOT / ".github/ci_test_matrix.py"),
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "UGNAS_CI_TESTS": json.dumps(nas_paths)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    matrix = json.loads(result.stdout.removeprefix("test-matrix="))
+    expected = sorted(
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in {
+            *PLUGINS_ROOT.rglob("test_*.py"),
+            *(REPO_ROOT / "tests").rglob("test_*.py"),
+        }
+    )
+    assignments = [
+        (path, item["os"], item["python"]) for item in matrix for path in item["paths"]
+    ]
+    assert sorted(path for path, _, _ in assignments) == expected
+    assert len(assignments) == len({path for path, _, _ in assignments})
+    assert len(matrix) < len(expected)
+    assert all(1 <= len(item["paths"]) <= 8 for item in matrix)
+    cells = [
+        (os_name, python)
+        for os_name in ("ubuntu-24.04", "macos-15")
+        for python in ("3.12", "3.13", "3.14")
+    ]
+    assert sorted(assignments) == [
+        (path, *cells[index % len(cells)]) for index, path in enumerate(expected)
+    ]
+    for path in nas_paths:
+        assert next(item for item in matrix if path in item["paths"])["path"] == path
+
+
 @pytest.fixture
 def real_staticfile_output(ensure_chrome_test_prereqs):
     """Run the shipped staticfile lifecycle and preserve its real hook log."""

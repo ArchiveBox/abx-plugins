@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import Counter
 from itertools import cycle
 from pathlib import Path
@@ -14,22 +15,24 @@ SUPPORTED_CELLS = (
     ("macos-15", "3.13"),
     ("macos-15", "3.14"),
 )
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class TestMatrixItem(TypedDict):
     path: str
+    paths: list[str]
     os: str
     python: str
 
 
 def discover_tests() -> list[Path]:
     tests = {
-        *Path("abx_plugins/plugins").rglob("test_*.py"),
-        *Path("tests").rglob("test_*.py"),
+        *(REPO_ROOT / "abx_plugins/plugins").rglob("test_*.py"),
+        *(REPO_ROOT / "tests").rglob("test_*.py"),
     }
     if not tests:
         raise SystemExit("No test files were discovered")
-    return sorted(tests)
+    return sorted(path.relative_to(REPO_ROOT) for path in tests)
 
 
 if __name__ == "__main__":
@@ -37,19 +40,58 @@ if __name__ == "__main__":
     targets = cycle(SUPPORTED_CELLS)
     test_matrix: list[TestMatrixItem] = []
     cells_used: set[tuple[str, str]] = set()
+    durations = json.loads((REPO_ROOT / ".github/test-durations.json").read_text())[
+        "seconds"
+    ]
+    nas_tests = set(json.loads(os.environ.get("UGNAS_CI_TESTS", "[]")))
+    short_tests: dict[tuple[str, str], list[str]] = {}
 
     for test_path in all_tests:
         os_name, python_version = next(targets)
         cells_used.add((os_name, python_version))
+        path = str(test_path)
+        if durations.get(path, 60) < 60 and path not in nas_tests:
+            short_tests.setdefault((os_name, python_version), []).append(path)
+            continue
         test_matrix.append(
             {
-                "path": str(test_path),
+                "path": path,
+                "paths": [path],
                 "os": os_name,
                 "python": python_version,
             },
         )
 
-    assigned = Counter(Path(item["path"]) for item in test_matrix)
+    # Keep the original OS/Python assignment and a separate pytest process per
+    # file. Only measured short files share checkout and dependency setup.
+    for (os_name, python_version), paths in short_tests.items():
+        batch: list[str] = []
+        batch_seconds = 0
+        for path in paths:
+            if batch and (len(batch) == 8 or batch_seconds + durations[path] > 180):
+                test_matrix.append(
+                    {
+                        "path": f"batch/{batch[0]}",
+                        "paths": batch,
+                        "os": os_name,
+                        "python": python_version,
+                    }
+                )
+                batch = []
+                batch_seconds = 0
+            batch.append(path)
+            batch_seconds += durations[path]
+        if batch:
+            test_matrix.append(
+                {
+                    "path": f"batch/{batch[0]}",
+                    "paths": batch,
+                    "os": os_name,
+                    "python": python_version,
+                }
+            )
+
+    assigned = Counter(Path(path) for item in test_matrix for path in item["paths"])
     if assigned != Counter(all_tests):
         raise SystemExit(
             "Test matrix must contain every discovered test file exactly once",
