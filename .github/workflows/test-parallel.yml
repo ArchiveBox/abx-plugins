@@ -173,19 +173,29 @@ jobs:
           name: python-distributions-${{ github.sha }}
           path: ${{ runner.temp }}/python-distributions
 
-      - name: Wait for exact pinned internal artifacts on PyPI
+      - name: Install the package once its pinned dependencies are visible on PyPI
+        env:
+          ARTIFACT_KIND: ${{ matrix.artifact }}
         run: |
           uv run --no-cache --no-project python - <<'PY'
           import json
           import os
           import subprocess
           import sys
+          import tempfile
           import time
           import tomllib
           from pathlib import Path
           from urllib.error import HTTPError
           from urllib.parse import urlsplit
           from urllib.request import Request, urlopen
+
+          suffix = {"wheel": "whl", "sdist": "tar.gz"}[os.environ["ARTIFACT_KIND"]]
+          candidates = list((Path(os.environ["RUNNER_TEMP"]) / "python-distributions").glob(f"abx_plugins-*.{suffix}"))
+          assert len(candidates) == 1, candidates
+          smoke_root = Path(tempfile.mkdtemp(prefix="abx-plugins-compat.", dir=os.environ["RUNNER_TEMP"]))
+          smoke_env = smoke_root / "env"
+          subprocess.run(["uv", "venv", "--no-cache", "--python", sys.executable, str(smoke_env)], check=True)
 
           metadata = tomllib.loads(Path("pyproject.toml").read_text())["project"]
           locked = {item["name"]: item for item in tomllib.loads(Path("uv.lock").read_text())["package"]}
@@ -228,22 +238,30 @@ jobs:
                       if published[filename] != artifacts[filename]:
                           raise SystemExit(f"Public {name} artifact {filename} differs from uv.lock")
               if not missing:
+                  # Install the actual artifact here. A disposable preflight
+                  # followed by a second resolution can hit a stale PyPI edge
+                  # even when the first resolution saw the new release.
                   command = [
-                      "uv", "run", "--no-cache", "--isolated", "--no-project", "--no-config",
-                      "--no-sources", "--default-index", "https://pypi.org/simple",
-                      "--python", sys.executable,
+                      "uv", "pip", "install", "--no-cache", "--no-config",
+                      "--default-index", "https://pypi.org/simple",
+                      "--python", str(smoke_env), str(candidates[0]),
                   ]
-                  for requirement in requirements:
-                      command.extend(("--with", requirement))
-                  command.extend(("python", "-c", "from importlib.metadata import version; import sys; "
-                                  "assert all(version(name) == expected for name, expected in "
-                                  "(item.split('==') for item in sys.argv[1:]))", *requirements))
                   result = subprocess.run(
                       command, capture_output=True, text=True,
                       env={**os.environ, "UV_NO_COLOR": "1"}, check=False,
                   )
                   if result.returncode == 0:
-                      print("Public PyPI and uv resolve the exact locked internal artifacts")
+                      print(result.stderr, flush=True)
+                      subprocess.run(
+                          ["uv", "run", "--no-cache", "--active", "--no-project", "python", "-c",
+                           "from importlib.metadata import version; import sys; "
+                           "assert all(version(name) == expected for name, expected in "
+                           "(item.split('==') for item in sys.argv[1:]))", *requirements],
+                          cwd=smoke_root, env={**os.environ, "VIRTUAL_ENV": str(smoke_env)}, check=True,
+                      )
+                      with open(os.environ["GITHUB_ENV"], "a") as output:
+                          output.write(f"ABX_PLUGINS_SMOKE_ROOT={smoke_root}\n")
+                      print("Installed the package with the exact published internal dependencies")
                       break
                   if any(f"there is no version of {requirement}" in result.stderr
                          for requirement in requirements):
@@ -256,27 +274,16 @@ jobs:
               time.sleep(10)
           PY
 
-      - name: Install package and run an installed hook
+      - name: Run an installed hook
         shell: bash
         run: |
           set -Eeuo pipefail
-          shopt -s nullglob
-          case "${{ matrix.artifact }}" in
-            wheel) candidates=("$RUNNER_TEMP"/python-distributions/abx_plugins-*.whl) ;;
-            sdist) candidates=("$RUNNER_TEMP"/python-distributions/abx_plugins-*.tar.gz) ;;
-            *) exit 2 ;;
-          esac
-          [[ "${#candidates[@]}" -eq 1 ]]
-
-          smoke_root="$(mktemp -d "$RUNNER_TEMP/abx-plugins-compat.XXXXXX")"
+          smoke_root="$ABX_PLUGINS_SMOKE_ROOT"
           trap 'rm -rf "$smoke_root"' EXIT
           smoke_env="$smoke_root/env"
           data_dir="$smoke_root/data"
           mkdir -p "$data_dir/staticfile"
           printf 'hello' > "$data_dir/staticfile/output.html"
-
-          uv venv --no-cache --python "${{ matrix.python }}" "$smoke_env"
-          uv pip install --python "$smoke_env" --no-cache "${candidates[0]}"
 
           unset PYTHONPATH
           cd "$smoke_root"
