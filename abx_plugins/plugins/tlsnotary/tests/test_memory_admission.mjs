@@ -53,6 +53,12 @@ await test("gateway refuses an unavailable memory reserve before opening a proof
       assert(Date.now() < deadline, `Gateway did not become ready: ${logs}`);
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+    const preflight = await fetch(`${url}/session`);
+    assert.equal(preflight.status, 503, "An unsafe proof must fail the admission preflight");
+    assert.deepEqual(await preflight.json(), {
+      error: "TLSNotary verifier cannot start this proof because its server is low on memory.",
+    });
+    assert.equal((await (await fetch(`${url}/health`)).json()).active, 0);
     const status = await new Promise((resolve, reject) => {
       const request = http.get(`${url}/session`, {
         headers: {
@@ -105,6 +111,9 @@ await test("gateway reports a real verifier connection refusal and releases the 
       assert(Date.now() < deadline, `Gateway did not become ready: ${logs}`);
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+    const preflight = await fetch(`${url}/session`);
+    assert.equal(preflight.status, 200, "A verifier with headroom should pass preflight");
+    assert.deepEqual(await preflight.json(), { ok: true });
 
     client = new WebSocket(`ws://127.0.0.1:${port}/session`);
     await once(client, "open");

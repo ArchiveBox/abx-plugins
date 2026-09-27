@@ -44,6 +44,30 @@ function requireProofMemory(minimum, phase) {
     throw new Error(resourceFailure);
   }
 }
+async function checkVerifierAdmission(verifierUrl) {
+  let response;
+  try {
+    response = await fetch(verifierUrl + "/session", {
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch (error) {
+    // Preserve the existing WebSocket path for old verifiers and temporary
+    // network errors; only an explicit admission response is authoritative.
+    console.error(`[tlsnotary] verifier admission check unavailable: ${error.message}`);
+    return;
+  }
+  if (response.status !== 503) return;
+  let failure;
+  try {
+    failure = await response.json();
+  } catch {
+    return;
+  }
+  if (typeof failure.error === "string") {
+    resourceFailure = failure.error.slice(0, 240);
+    throw new Error(resourceFailure);
+  }
+}
 
 function emitTerminalArchiveResult(status, outputStr) {
   if (terminalRecordEmitted) return;
@@ -198,6 +222,17 @@ async function capture() {
     throw new Error("TLSNotary requires an HTTPS document");
   if (new URL(url).port)
     throw new Error("TLSNotary supports HTTPS on port 443 only");
+  const verifierUrl = config.TLSNOTARY_VERIFIER_URL.replace(/\/$/, "");
+  const endpoint = new URL(verifierUrl);
+  if (
+    endpoint.protocol !== "https:" &&
+    !(endpoint.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "host.docker.internal", "gateway"].includes(
+        endpoint.hostname
+      ))
+  )
+    throw new Error("Verifier endpoint requires HTTPS");
+  await checkVerifierAdmission(verifierUrl);
   // A real proof can add roughly 1.6 GiB of client memory before cleanup.
   requireProofMemory(PROOF_START_HEADROOM, "start");
   const original = chrome.findExtensionMetadataByName(
@@ -231,18 +266,6 @@ async function capture() {
   await caller.goto(`http://127.0.0.1:${server.address().port}/`);
   managedWindowUrl = caller.url();
   await caller.waitForFunction(() => !!window.tlsn, { timeout: 10000 });
-  const verifierUrl = config.TLSNOTARY_VERIFIER_URL.replace(/\/$/, "");
-  const endpoint = new URL(verifierUrl);
-  if (
-    endpoint.protocol !== "https:" &&
-    !(
-      endpoint.protocol === "http:" &&
-      ["localhost", "127.0.0.1", "host.docker.internal", "gateway"].includes(
-        endpoint.hostname
-      )
-    )
-  )
-    throw new Error("Verifier endpoint requires HTTPS");
   const receiptId = crypto.randomBytes(32).toString("hex");
   console.error(
     "[tlsnotary] capture correlation",

@@ -35,6 +35,15 @@ function proofMemoryAvailable(required) {
   }
   return false;
 }
+function admissionError() {
+  if (sessions.size >= maxSessions)
+    return "TLSNotary verifier is at its active proof limit.";
+  // Account for admitted sessions that have not allocated their proof buffers
+  // yet; simultaneous handshakes must not all count the same available RAM.
+  if (!proofMemoryAvailable(sessionHeadroom * (sessions.size + 1)))
+    return "TLSNotary verifier cannot start this proof because its server is low on memory.";
+  return null;
+}
 // Session count alone did not protect a shared host: the browser prover and
 // verifier can allocate simultaneously. Cancel proofs while cleanup still has
 // headroom, rather than letting the kernel kill unrelated server processes.
@@ -65,6 +74,12 @@ const app = http.createServer((req, res) => {
   const u = new URL(req.url, "http://localhost");
   if (u.pathname === "/health")
     return json(res, 200, { ok: true, active: sessions.size });
+  if (req.method === "GET" && u.pathname === "/session") {
+    // Browser WebSocket APIs hide rejected-upgrade response bodies. This
+    // read-only preflight reports a reason; the upgrade repeats admission.
+    const error = admissionError();
+    return error ? json(res, 503, { error }) : json(res, 200, { ok: true });
+  }
   if (u.pathname === "/key")
     return json(res, 200, { algorithm: "Ed25519", publicKey });
   if (u.pathname.startsWith("/receipts/")) {
@@ -191,10 +206,7 @@ app.on("upgrade", async (req, socket, head) => {
   try {
     const u = new URL(req.url, "http://localhost");
     if (u.pathname === "/session") {
-      if (sessions.size >= maxSessions) return reject(socket, 503);
-      // Reserve for admitted sessions that may not have allocated their proof
-      // buffers yet, so simultaneous handshakes cannot all claim the same RAM.
-      if (!proofMemoryAvailable(sessionHeadroom * (sessions.size + 1))) return reject(socket, 503);
+      if (admissionError()) return reject(socket, 503);
       wsServer.handleUpgrade(req, socket, head, (client) => {
         const placeholder = Symbol();
         const session = {
