@@ -21,7 +21,11 @@ import re
 import io
 from pathlib import Path
 
-from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
+from abx_plugins.plugins.base.url_cleaning import (
+    URL_REGEX,
+    fix_url_from_markdown,
+    sanitize_extracted_url,
+)
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -38,52 +42,9 @@ PLUGIN_DIR = Path(__file__).resolve().parent.name
 URLS_FILENAME = "urls.jsonl"
 NORESULTS_OUTPUT = "0 URLs parsed"
 
-# URL regex from archivebox/misc/util.py
-# https://mathiasbynens.be/demo/url-regex
-URL_REGEX = re.compile(
-    r"(?=("
-    r"http[s]?://"  # start matching from allowed schemes
-    r"(?:[a-zA-Z]|[0-9]"  # followed by allowed alphanum characters
-    r"|[-_$@.&+!*\(\),]"  #   or allowed symbols (keep hyphen first to match literal hyphen)
-    r"|[^\u0000-\u007F])+"  #   or allowed unicode bytes
-    r'[^\]\[<>"\'\s]+'  # stop parsing at these symbols
-    r"))",
-    re.IGNORECASE | re.UNICODE,
-)
 SANITIZE_TRIGGER_CHARS = ('"', "'", "`", "&", "“", "”", "‘", "’")
 READ_CHUNK_SIZE = 262144
 URL_SCAN_OVERLAP = 8192
-
-
-def fix_url_from_markdown(url_str: str) -> str:
-    """
-    Cleanup a regex-parsed URL that may contain trailing parens from markdown syntax.
-    Example: https://wiki.org/article_(Disambiguation).html?q=1).text -> https://wiki.org/article_(Disambiguation).html?q=1
-    """
-    if "(" not in url_str and ")" not in url_str:
-        return url_str
-
-    balance = 0
-    last_valid_end = 0
-    for index, char in enumerate(url_str, start=1):
-        if char == "(":
-            balance += 1
-        elif char == ")":
-            balance -= 1
-            if balance < 0:
-                break
-        if balance == 0:
-            last_valid_end = index
-
-    trimmed_url = url_str[:last_valid_end]
-    if not trimmed_url or trimmed_url == url_str:
-        return url_str
-
-    # Verify trimmed URL is still valid
-    if URL_REGEX.match(trimmed_url):
-        return trimmed_url
-
-    return url_str
 
 
 def split_comma_separated_urls(url: str):
@@ -118,9 +79,10 @@ def find_all_urls(text: str):
         if match.start() in skipped_starts:
             continue
 
-        matched_url = match.group(1)
-        if "(" in matched_url or ")" in matched_url:
-            matched_url = fix_url_from_markdown(matched_url)
+        matched_url = fix_url_from_markdown(
+            match.group(1),
+            preceding_text=text[max(0, match.start(1) - 6) : match.start(1)],
+        )
 
         for offset, url in split_comma_separated_urls(matched_url):
             if offset:
@@ -166,17 +128,20 @@ def add_urls_from_text_chunk(
 ) -> str:
     text = carry + chunk
     scan_limit = len(text) if final else max(0, len(text) - URL_SCAN_OVERLAP)
+    carry_start = scan_limit
     for match in re.finditer(URL_REGEX, text):
         start = match.start(1)
         end = match.end(1)
         if not final and start >= scan_limit:
             break
         if not final and end > scan_limit:
+            carry_start = min(carry_start, start)
             continue
 
-        matched_url = match.group(1)
-        if "(" in matched_url or ")" in matched_url:
-            matched_url = fix_url_from_markdown(matched_url)
+        matched_url = fix_url_from_markdown(
+            match.group(1),
+            preceding_text=text[max(0, start - 6) : start],
+        )
 
         for _, found_url in split_comma_separated_urls(matched_url):
             if any(char in found_url for char in SANITIZE_TRIGGER_CHARS):
@@ -185,7 +150,8 @@ def add_urls_from_text_chunk(
                 cleaned_url = found_url.strip()
             if cleaned_url and cleaned_url != source_url:
                 urls_found.add(cleaned_url)
-    return "" if final else text[scan_limit:]
+    # Keep the opening quote (including &apos;) for a URL at the next boundary.
+    return "" if final else text[max(0, carry_start - 6) :]
 
 
 @click.command(

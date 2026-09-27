@@ -23,7 +23,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, urlunparse
 
-from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
+from abx_plugins.plugins.base.url_cleaning import (
+    URL_REGEX,
+    fix_url_from_markdown,
+    sanitize_extracted_url,
+)
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -47,17 +51,6 @@ URLS_FILE = Path("urls.jsonl")
 NORESULTS_OUTPUT = "0 URLs parsed"
 
 
-# URL regex from archivebox/misc/util.py
-URL_REGEX = re.compile(
-    r"(?=("
-    r"http[s]?://"
-    r"(?:[a-zA-Z]|[0-9]"
-    r"|[-_$@.&+!*\(\),]"
-    r"|[^\u0000-\u007F])+"
-    r'[^\]\[<>"\'\s]+'
-    r"))",
-    re.IGNORECASE | re.UNICODE,
-)
 READ_CHUNK_SIZE = 262144
 URL_SCAN_OVERLAP = 8192
 HTTP_PREFIXES = ("http://", "https://")
@@ -92,6 +85,7 @@ class HrefParser(HTMLParser):
     def scan_raw_chunk(self, chunk: str, *, final: bool = False) -> None:
         text = self.raw_tail + chunk
         scan_limit = len(text) if final else max(0, len(text) - URL_SCAN_OVERLAP)
+        carry_start = scan_limit
         if "://" not in text:
             self.raw_tail = "" if final else text[scan_limit:]
             return
@@ -101,9 +95,16 @@ class HrefParser(HTMLParser):
             if not final and start >= scan_limit:
                 break
             if not final and end > scan_limit:
+                carry_start = min(carry_start, start)
                 continue
-            self._add_url(match.group(1))
-        self.raw_tail = "" if final else text[scan_limit:]
+            self._add_url(
+                fix_url_from_markdown(
+                    match.group(1),
+                    preceding_text=text[max(0, start - 6) : start],
+                ),
+            )
+        # Retain the quote before a URL that begins at the next scan boundary.
+        self.raw_tail = "" if final else text[max(0, carry_start - 6) :]
 
 
 def did_urljoin_misbehave(root_url: str, relative_path: str, final_url: str) -> bool:
@@ -220,16 +221,16 @@ def clean_url_candidate(url: str) -> str:
 
     # Strip common wrappers
     cleaned = cleaned.strip(" \t\r\n")
-    cleaned = cleaned.strip("\"''<>[]()")
+    cleaned = cleaned.strip('"<>[]')
 
     # Strip trailing punctuation and escape artifacts
-    cleaned = cleaned.rstrip(".,;:!?)\\'\"")
+    cleaned = cleaned.rstrip('.,;:!?\\"')
     cleaned = cleaned.rstrip('"')
 
     # Strip leading punctuation artifacts
     cleaned = cleaned.lstrip("(\"'<")
 
-    return cleaned
+    return fix_url_from_markdown(cleaned)
 
 
 def _is_obviously_clean_url(url: str) -> bool:

@@ -15,6 +15,54 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_html_urls.*"), None)
 class TestParseHtmlUrls:
     """Test the parse_html_urls extractor CLI."""
 
+    @pytest.mark.parametrize(
+        "padding",
+        [0, 262144 - 8192 - len("<a href='"), 262144 - 8192 - 20, 262144 - 20],
+    )
+    def test_preserves_apostrophes_without_adding_truncated_raw_matches(
+        self,
+        tmp_path,
+        padding,
+    ):
+        url = "https://aaib.gov.in/What's%20New%20Assets/Preliminary%20Report%20VT-EXO.pdf"
+        input_file = tmp_path / "apostrophes.html"
+        input_file.write_text(
+            " " * padding
+            + "<a href='https://example.com/quoted'>Link</a>\n"
+            + f'<a href="{url}">Report</a>\n'
+            + '<a href="https://example.com/What&#39;s">Entity</a>\n'
+            + "<a href=\"https://example.com/?q='word'\">Query</a>\n"
+            + " " * 9000,
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", input_file.as_uri()],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        expected = {
+            url,
+            "https://example.com/quoted",
+            "https://example.com/What's",
+            "https://example.com/?q='word'",
+        }
+        assert {
+            record["url"] for record in records if record["type"] == "Snapshot"
+        } == expected
+        saved = tmp_path / "parse_html_urls" / "urls.jsonl"
+        assert {
+            json.loads(line)["url"] for line in saved.read_text().splitlines()
+        } == expected
+
     def test_parses_real_example_com(self, tmp_path):
         """Test parsing real https://example.com and extracting its links."""
         env = os.environ.copy()

@@ -15,6 +15,54 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_txt_urls.*"), None)
 class TestParseTxtUrls:
     """Test the parse_txt_urls extractor CLI."""
 
+    @pytest.mark.parametrize(
+        "padding",
+        [0, 262144 - 8192 - 1, 262144 - 8192 - 20, 262144 - 20],
+    )
+    def test_distinguishes_apostrophes_from_surrounding_quotes(self, tmp_path, padding):
+        url = "https://aaib.gov.in/What's%20New%20Assets/Preliminary%20Report%20VT-EXO.pdf"
+        input_file = tmp_path / "apostrophes.txt"
+        input_file.write_text(
+            " " * padding
+            + "'https://example.com/quoted'after\n"
+            + f'{url}\n"{url}"\n[Report]({url})\n'
+            + "https://example.com/?q='word'\n"
+            + "https://example.com/What's_(new)).text\n"
+            + "https://example.com/What&#39;s\n"
+            + "https://example.com/trailing'\n"
+            + " " * 9000,
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", input_file.as_uri()],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        expected = {
+            url,
+            "https://example.com/quoted",
+            "https://example.com/?q='word'",
+            "https://example.com/What's_(new)",
+            "https://example.com/What's",
+            "https://example.com/trailing",
+        }
+        assert {
+            record["url"] for record in records if record["type"] == "Snapshot"
+        } == expected
+        saved = tmp_path / "parse_txt_urls" / "urls.jsonl"
+        assert {
+            json.loads(line)["url"] for line in saved.read_text().splitlines()
+        } == expected
+
     def test_extracts_urls_including_real_example_com(self, tmp_path):
         """Test extracting URLs from plain text including real example.com."""
         input_file = tmp_path / "urls.txt"
