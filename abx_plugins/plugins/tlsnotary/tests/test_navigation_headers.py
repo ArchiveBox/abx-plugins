@@ -324,6 +324,8 @@ def test_extension_reports_real_main_request_headers_before_proof(tmp_path):
         cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
         script = r"""
 const http = require('node:http');
+const net = require('node:net');
+const {once} = require('node:events');
 const chrome = require(process.argv[1]);
 const targetUrl = process.argv[3];
 const host = new URL(targetUrl).hostname;
@@ -396,6 +398,12 @@ export default {config,main};`;
   const parsed = typeof result === 'string' ? JSON.parse(result) : result;
   process.stdout.write(JSON.stringify(parsed));
   progress('headers captured');
+  // Exercise a real speculative connection that has not sent an HTTP request.
+  // Chrome may leave these open after the caller tab closes.
+  const accepted = once(server, 'connection');
+  const preconnection = net.createConnection(server.address().port, '127.0.0.1');
+  await Promise.all([once(preconnection, 'connect'), accepted]);
+  progress('unrequested TCP connection accepted');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   progress('closing caller');
   if (caller) await caller.close().catch(() => {});
