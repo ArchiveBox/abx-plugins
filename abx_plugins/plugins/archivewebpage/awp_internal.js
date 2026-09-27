@@ -121,18 +121,37 @@ async function openAwpHelperTab(
   if (!page) {
     throw new Error(`Helper target ${targetId} is not a page`);
   }
-  await page.waitForFunction(
-    (expectedUrl, needsPopupPort) =>
-      location.href === expectedUrl &&
-      document.readyState !== "loading" &&
-      typeof chrome !== "undefined" &&
-      Boolean(chrome.runtime?.connect) &&
-      Boolean(chrome.debugger?.getTargets) &&
-      (!needsPopupPort || Boolean(document.querySelector("wr-popup-viewer")?.port)),
-    { timeout: Math.max(250, timeoutMs) },
-    helperUrl,
-    requirePopupPort
-  );
+  const diagnosticTimer = setTimeout(() => {
+    page.evaluate(() => ({
+      url: location.href,
+      readyState: document.readyState,
+      visibility: document.visibilityState,
+      runtimeReady: Boolean(globalThis.chrome?.runtime?.connect),
+      debuggerReady: Boolean(globalThis.chrome?.debugger?.getTargets),
+      popupPresent: Boolean(document.querySelector("wr-popup-viewer")),
+      portReady: Boolean(document.querySelector("wr-popup-viewer")?.port),
+    })).then(
+      state => console.error("[archivewebpage] pending helper readiness:", JSON.stringify(state)),
+      error => console.error("[archivewebpage] helper readiness inspection failed:", error.message),
+    );
+  }, 5000);
+  diagnosticTimer.unref();
+  try {
+    await page.waitForFunction(
+      (expectedUrl, needsPopupPort) =>
+        location.href === expectedUrl &&
+        document.readyState !== "loading" &&
+        typeof chrome !== "undefined" &&
+        Boolean(chrome.runtime?.connect) &&
+        Boolean(chrome.debugger?.getTargets) &&
+        (!needsPopupPort || Boolean(document.querySelector("wr-popup-viewer")?.port)),
+      { timeout: Math.max(250, timeoutMs) },
+      helperUrl,
+      requirePopupPort
+    );
+  } finally {
+    clearTimeout(diagnosticTimer);
+  }
   console.error("[archivewebpage] helper phase=extension ready");
   return page;
 }

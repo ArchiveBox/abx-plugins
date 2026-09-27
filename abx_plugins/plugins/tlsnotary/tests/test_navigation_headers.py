@@ -412,7 +412,15 @@ export default {config,main};`;
   progress('browser disconnected; closing server', Array.from(sockets, socket => ({
     bytesRead: socket.bytesRead, bytesWritten: socket.bytesWritten, destroyed: socket.destroyed,
   })));
-  if (server) await new Promise(resolve => server.close(resolve));
+  if (server) {
+    const closed = once(server, 'close');
+    server.close();
+    // A TCP preconnection is active to Node even before its first HTTP request.
+    // Stop accepting clients before closing all connections owned by this test.
+    server.closeAllConnections();
+    await closed;
+    if (sockets.size !== 0) throw new Error(`Server retained ${sockets.size} sockets`);
+  }
   progress('server closed', process.getActiveResourcesInfo());
 });
 """
