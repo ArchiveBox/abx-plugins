@@ -16,7 +16,7 @@ const chrome = require("../chrome/chrome_utils.js");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
-let captureUrl, existingTargets, existingWindowIds, managedTarget;
+let managedWindowUrl, existingTargets, existingWindowIds, managedTarget;
 let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
@@ -49,7 +49,7 @@ async function isManagedWindowTarget(target) {
     !existingWindowIds ||
     existingTargets.has(target) ||
     target.type() !== "page" ||
-    target.url() !== captureUrl
+    target.url() !== managedWindowUrl
   )
     return false;
   const windowId = await windowIdFor(target).catch(() => null);
@@ -88,7 +88,7 @@ function cleanup() {
   }
   return cleanupPromise;
 }
-function pluginCode(url, verifierUrl, receiptId) {
+function pluginCode(url, verifierUrl, receiptId, managedWindowUrl) {
   const target = new URL(url);
   const pluginConfig = {
     name: "ArchiveBox private response proof",
@@ -108,7 +108,8 @@ function pluginCode(url, verifierUrl, receiptId) {
           receiptId,
       },
     ],
-    urls: [target.origin + "/*"],
+    // The ephemeral loopback page is the extension-owned window's blank shell.
+    urls: [target.origin + "/*", managedWindowUrl],
     timeout: config.TLSNOTARY_TIMEOUT * 1000,
   };
   const options = {
@@ -135,7 +136,7 @@ const url=${JSON.stringify(url)};
 function main(){
  const [request]=useHeaders(items=>items.filter(h=>h.url===url&&h.method==='GET').slice(-1));
  const running=useState('running',false);
- useEffect(()=>{openWindow(url,{width:1024,height:768}).catch(error=>done(JSON.stringify({ok:false,error:String(error)})));},[]);
+ useEffect(()=>{openWindow(${JSON.stringify(managedWindowUrl)},{width:1024,height:768}).catch(error=>done(JSON.stringify({ok:false,error:String(error)})));},[]);
  useEffect(()=>{if(request&&!running){setState('running',true);run(request);}},[!!request,running]);
  return div({},['Authenticating the main response privately…']);
 }
@@ -169,7 +170,6 @@ async function capture() {
   });
   browser = connection.browser;
   const url = connection.page.url();
-  captureUrl = url;
   if (new URL(url).protocol !== "https:")
     throw new Error("TLSNotary requires an HTTPS document");
   if (new URL(url).port)
@@ -203,6 +203,7 @@ async function capture() {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   caller = await browser.newPage();
   await caller.goto(`http://127.0.0.1:${server.address().port}/`);
+  managedWindowUrl = caller.url();
   await caller.waitForFunction(() => !!window.tlsn, { timeout: 10000 });
   const verifierUrl = config.TLSNOTARY_VERIFIER_URL.replace(/\/$/, "");
   const endpoint = new URL(verifierUrl);
@@ -237,7 +238,7 @@ async function capture() {
   const resultPromise = caller.evaluate(
     (code, receiptId) =>
       window.tlsn.execCode(code, { sessionData: { mode: "Mpc", receiptId } }),
-    pluginCode(url, verifierUrl, receiptId),
+    pluginCode(url, verifierUrl, receiptId, managedWindowUrl),
     receiptId
   );
   resultPromise.catch(() => {});
@@ -282,26 +283,49 @@ async function capture() {
   }
   if (managedTarget) {
     const managedPage = await managedTarget.page();
-    const cached = await managedPage
-      .evaluate(() => {
-        const navigation = performance.getEntriesByType("navigation")[0];
-        return (
-          navigation?.transferSize === 0 &&
-          navigation?.encodedBodySize > 0 &&
-          navigation?.workerStart === 0
-        );
-      })
-      .catch(() => false);
-    if (cached) {
-      console.error("[tlsnotary] reloading cached managed page from network");
-      const session = await managedTarget.createCDPSession();
-      try {
-        await session.send("Page.reload", { ignoreCache: true });
-      } finally {
-        await session.detach();
-      }
+    const session = await managedTarget.createCDPSession();
+    let substituted = false;
+    let interceptionError;
+    try {
+      await session.send("Network.enable");
+      await session.send("Network.setCacheDisabled", { cacheDisabled: true });
+      await session.send("Fetch.enable", {
+        patterns: [{ resourceType: "Document", requestStage: "Response" }],
+      });
+      session.on("Fetch.requestPaused", async (request) => {
+        try {
+          if (request.responseStatusCode >= 300 && request.responseStatusCode < 400) {
+            await session.send("Fetch.continueRequest", { requestId: request.requestId });
+          } else {
+            // The real navigation exposes the browser's cookie/auth headers to
+            // useHeaders(). Its body is unnecessary once the response arrives.
+            await session.send("Fetch.fulfillRequest", {
+              requestId: request.requestId,
+              responseCode: 200,
+              responseHeaders: [
+                { name: "Content-Type", value: "text/html" },
+                { name: "Cache-Control", value: "no-store" },
+              ],
+              body: Buffer.from("<!doctype html><title>TLSNotary</title>").toString("base64"),
+            });
+            substituted = true;
+          }
+        } catch (error) {
+          interceptionError = error;
+          await session.send("Fetch.failRequest", {
+            requestId: request.requestId,
+            errorReason: "Aborted",
+          }).catch(() => {});
+        }
+      });
+      await managedPage.goto(url, { waitUntil: "domcontentloaded" });
+      if (interceptionError) throw interceptionError;
+      if (!substituted) throw new Error("Managed window response was not intercepted");
+    } finally {
+      await session.send("Fetch.disable").catch(() => {});
+      await session.detach();
     }
-  }
+  } else throw new Error("Extension-managed window did not open");
   const raw = await resultPromise;
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!result.ok)
