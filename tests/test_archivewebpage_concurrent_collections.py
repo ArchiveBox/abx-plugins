@@ -974,6 +974,8 @@ const infiniscrollCwd = process.argv[8];
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    navigation.stdout.pipe(process.stderr);
+    navigation.stderr.pipe(process.stderr);
     const exit = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         navigation.kill("SIGTERM");
@@ -985,13 +987,15 @@ const infiniscrollCwd = process.argv[8];
         resolve({ code, signal });
       });
     });
-    let worker = null;
-    worker = await workerResponse;
+    console.error("Replay probe: navigation finished", exit);
+    const worker = await workerResponse;
+    console.error("Replay probe: service-worker response body read", worker);
     const scroll = spawn(infiniscrollHook, [`--url=${url}`], {
       cwd: infiniscrollCwd,
       env: process.env,
-      stdio: "ignore",
+      stdio: ["ignore", "ignore", "pipe"],
     });
+    scroll.stderr.pipe(process.stderr);
     const scrollExit = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         scroll.kill("SIGTERM");
@@ -1003,6 +1007,7 @@ const infiniscrollCwd = process.argv[8];
         resolve({ code, signal });
       });
     });
+    console.error("Replay probe: scrolling finished", scrollExit);
     const frames = await Promise.all(page.frames().map(async (frame) => {
       try {
         const parsed = new URL(frame.url());
@@ -1025,6 +1030,7 @@ const infiniscrollCwd = process.argv[8];
         };
       } catch { return null; }
     }));
+    console.error("Replay probe: frames inspected");
     const widgets = await page.evaluate(() => Array.from(
       document.querySelectorAll("replay-web-page")
     ).map((widget) => {
@@ -1037,6 +1043,7 @@ const infiniscrollCwd = process.argv[8];
         frameBodyBytes: new TextEncoder().encode(frame?.contentDocument?.documentElement?.outerHTML || "").length,
       };
     }));
+    console.error("Replay probe: widgets inspected; taking screenshot");
     await page.screenshot({ path: screenshotPath, fullPage: false });
     process.stdout.write(JSON.stringify({
       navigation: exit,
