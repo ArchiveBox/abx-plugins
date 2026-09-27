@@ -22,7 +22,7 @@ let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
 let terminalRecordEmitted = false;
-let memoryMonitor, resourceFailure;
+let memoryMonitor, verifierMonitor, resourceFailure;
 const STREAM_CAPACITY_ISSUE = "https://github.com/tlsnotary/tlsn/issues/new";
 const GIB = 1024 ** 3;
 const PROOF_START_HEADROOM = 2 * GIB;
@@ -267,6 +267,32 @@ async function capture() {
       cleanup().catch(() => {});
     }
   }, 250);
+  let checkingVerifier = false;
+  verifierMonitor = setInterval(async () => {
+    if (stopped || cleanupPromise || checkingVerifier) return;
+    checkingVerifier = true;
+    try {
+      // A remote verifier may run out of memory while this client has plenty.
+      // Socket termination alone can leave the SDK's execCode unresolved.
+      const response = await fetch(verifierUrl + "/receipts/" + receiptId, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (response.status === 503) {
+        const failure = await response.json();
+        if (typeof failure.error === "string") {
+          resourceFailure = failure.error.slice(0, 240);
+          stopped = true;
+          await cleanup();
+        }
+      }
+    } catch (error) {
+      // This observer does not establish success; signed receipt verification
+      // below remains mandatory even when a status request cannot be read.
+      console.error(`[tlsnotary] verifier status unavailable: ${error.message}`);
+    } finally {
+      checkingVerifier = false;
+    }
+  }, 1000);
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
@@ -456,6 +482,7 @@ async function capture() {
   } finally {
     clearTimeout(timer);
     if (memoryMonitor) clearInterval(memoryMonitor);
+    if (verifierMonitor) clearInterval(verifierMonitor);
     await cleanup();
   }
 })();

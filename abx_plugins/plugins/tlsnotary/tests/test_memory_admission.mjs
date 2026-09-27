@@ -9,6 +9,10 @@ import net from "node:net";
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { createRequire } from "node:module";
+
+const require = createRequire(new URL("../server/package.json", import.meta.url));
+const { WebSocket } = require("ws");
 
 async function freePort() {
   const reservation = net.createServer();
@@ -63,6 +67,74 @@ await test("gateway refuses an unavailable memory reserve before opening a proof
     assert.equal((await (await fetch(`${url}/health`)).json()).active, 0);
     assert.match(logs, /insufficient available memory/i);
   } finally {
+    server.kill("SIGTERM");
+    await exited;
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+await test("gateway reports a real verifier connection refusal and releases the session", { timeout: 15000 }, async () => {
+  const state = await mkdtemp(path.join(tmpdir(), "tlsnotary-verifier-refusal-"));
+  const signingKey = path.join(state, "signing.pem");
+  const { privateKey } = generateKeyPairSync("ed25519");
+  await writeFile(signingKey, privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
+  const port = await freePort();
+  const webhookPort = await freePort();
+  const verifierPort = await freePort();
+  const receiptId = randomBytes(32).toString("hex");
+  const server = spawn(process.execPath, [new URL("../server/server.mjs", import.meta.url).pathname], {
+    env: {
+      ...process.env, SIGNING_KEY: signingKey, PORT: String(port), WEBHOOK_PORT: String(webhookPort),
+      VERIFIER_URL: `ws://127.0.0.1:${verifierPort}`,
+      TLSNOTARY_MIN_AVAILABLE_MEMORY_MB: "512",
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  let logs = "";
+  server.stderr.on("data", (chunk) => { logs += chunk; });
+  const exited = once(server, "exit");
+  let client;
+  try {
+    const url = `http://127.0.0.1:${port}`;
+    const deadline = Date.now() + 5000;
+    while (true) {
+      assert.equal(server.exitCode, null, logs);
+      try {
+        if ((await fetch(`${url}/health`)).ok) break;
+      } catch {}
+      assert(Date.now() < deadline, `Gateway did not become ready: ${logs}`);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    client = new WebSocket(`ws://127.0.0.1:${port}/session`);
+    await once(client, "open");
+    client.send(JSON.stringify({
+      type: "register",
+      maxRecvData: 262144,
+      maxSentData: 16384,
+      sessionData: { mode: "Mpc", receiptId },
+    }));
+
+    let response;
+    const receiptDeadline = Date.now() + 5000;
+    while (Date.now() < receiptDeadline) {
+      response = await fetch(`${url}/receipts/${receiptId}`);
+      if (response.status !== 404) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.equal(response?.status, 503, `Expected explicit verifier failure; gateway logs: ${logs}`);
+    assert.deepEqual(await response.json(), { error: "TLSNotary could not connect to the verifier." });
+
+    const healthDeadline = Date.now() + 3000;
+    let active;
+    do {
+      active = (await (await fetch(`${url}/health`)).json()).active;
+      if (active === 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (Date.now() < healthDeadline);
+    assert.equal(active, 0, "The failed verifier connection must release its active session");
+  } finally {
+    client?.terminate();
     server.kill("SIGTERM");
     await exited;
     await rm(state, { recursive: true, force: true });

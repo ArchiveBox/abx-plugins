@@ -69,9 +69,13 @@ const app = http.createServer((req, res) => {
     return json(res, 200, { algorithm: "Ed25519", publicKey });
   if (u.pathname.startsWith("/receipts/")) {
     const id = u.pathname.slice(10);
-    return receipts.has(id)
-      ? json(res, 200, receipts.get(id))
-      : json(res, 404, { error: "Receipt not ready" });
+    const result = receipts.get(id);
+    if (!result || result.expiresAt <= Date.now()) {
+      receipts.delete(id);
+      return json(res, 404, { error: "Receipt not ready" });
+    }
+    if (result.error) return json(res, 503, { error: result.error });
+    return json(res, 200, result);
   }
   const files = {
     "/": "index.html",
@@ -203,6 +207,21 @@ app.on("upgrade", async (req, socket, head) => {
             if (this.closed) return;
             this.closed = true;
             console.error("session closed", this.logId, reason);
+            const error = reason === "insufficient available memory"
+              ? "TLSNotary verifier stopped this proof because its server is low on memory."
+              : reason === "control backend error"
+              ? "TLSNotary could not connect to the verifier."
+              : null;
+            if (error && this.receiptId && !receipts.has(this.receiptId)) {
+              // The SDK may leave execCode pending after a socket is closed.
+              // Retain a bounded terminal error at the existing receipt URL so
+              // clients can stop promptly, even after memory has recovered.
+              const id = this.receiptId;
+              if (receipts.size >= 1000) receipts.delete(receipts.keys().next().value);
+              // Failed connections can churn faster than completed proofs;
+              // expire on lookup instead of retaining a timer per failure.
+              receipts.set(id, { error, expiresAt: Date.now() + 3600000 });
+            }
             for (const s of this.sockets) s.terminate?.();
             clearTimeout(this.timer);
             clearTimeout(this.registrationTimer);
