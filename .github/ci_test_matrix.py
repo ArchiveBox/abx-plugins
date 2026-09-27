@@ -59,7 +59,8 @@ if __name__ == "__main__":
         path = str(test_path)
         if durations.get(path, 60) < 60:
             short_tests.setdefault(
-                (os_name, python_version, path in hosted), [],
+                (os_name, python_version, path in hosted),
+                [],
             ).append(path)
             continue
         test_matrix.append(
