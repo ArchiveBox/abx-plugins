@@ -196,6 +196,8 @@ jobs:
     permissions:
       actions: read
       contents: read
+    # A successful upload does not mean downstream resolution can see the release.
+    # The coordinator verifies the real lock and both public PyPI metadata APIs.
     uses: ArchiveBox/monorepo/.github/workflows/cascade-release.yml@main
     with:
       upstream_package: abx-plugins
