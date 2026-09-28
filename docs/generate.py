@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import UTC, datetime
@@ -28,40 +29,6 @@ LANGUAGE_NAMES = {
     "sh": "Shell",
 }
 HOOK_PHASES = ("Crawl", "Snapshot")
-
-# Descriptive filenames are resolved in the live gallery, ignoring numeric prefixes.
-# Each plugin can have multiple feature views, each with all three breakpoints.
-PLUGIN_SCREENSHOTS = {
-    "singlefile": [("46-snapshot-view-singlefile", "Snapshot view")],
-    "screenshot": [("47-snapshot-view-screenshot", "Snapshot view")],
-    "wget": [("48-snapshot-view-wget", "Snapshot view")],
-    "dom": [("49-snapshot-view-dom", "Snapshot view")],
-    "pdf": [("50-snapshot-view-pdf", "Snapshot view")],
-    "readability": [("51-snapshot-view-readability", "Snapshot view")],
-    "archivewebpage": [("52-snapshot-view-archivewebpage", "Snapshot view")],
-    "responses": [("53-snapshot-view-responses", "Snapshot view")],
-    "ytdlp": [("54-snapshot-view-ytdlp", "Snapshot view")],
-    "chrome_mhtml": [("55-snapshot-view-chrome-mhtml", "Snapshot view")],
-    "defuddle": [("56-snapshot-view-defuddle", "Snapshot view")],
-    "mercury": [("57-snapshot-view-mercury", "Snapshot view")],
-    "chrome": [("58-snapshot-view-chrome", "Snapshot view")],
-    "consolelog": [("59-snapshot-view-consolelog", "Snapshot view")],
-    "dns": [("60-snapshot-view-dns", "Snapshot view")],
-    "sslcerts": [("61-snapshot-view-sslcerts", "Snapshot view")],
-    "redirects": [("62-snapshot-view-redirects", "Snapshot view")],
-    "headers": [("63-snapshot-view-headers", "Snapshot view")],
-    "seo": [("64-snapshot-view-seo", "Snapshot view")],
-    "accessibility": [("65-snapshot-view-accessibility", "Snapshot view")],
-    "htmltotext": [("66-snapshot-view-htmltotext", "Snapshot view")],
-    "trafilatura": [("67-snapshot-view-trafilatura", "Snapshot view")],
-    "parse_html_urls": [("68-snapshot-view-parse-html-urls", "Snapshot view")],
-    "parse_txt_urls": [("69-snapshot-view-parse-txt-urls", "Snapshot view")],
-    "parse_dom_outlinks": [("70-snapshot-view-parse-dom-outlinks", "Snapshot view")],
-    "hashes": [("71-snapshot-view-hashes", "Snapshot view")],
-    "opentimestamps": [("snapshot-view-opentimestamps", "Timestamp proof")],
-    "opencode": [("07-ai-agent", "AI agent")],
-    "tlsnotary": [("snapshot-view-tlsnotary", "Snapshot view")],
-}
 
 
 def github_tree_url(relative_path: str) -> str:
@@ -454,6 +421,11 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     template_labels = template_badges(plugin_dir)
     display_title = str(config_schema.get("title") or plugin_dir.name)
     description = str(config_schema.get("description") or "").strip()
+    screenshot = {}
+    if config_schema.get("screenshot"):
+        screenshot = json.loads((plugin_dir / config_schema["screenshot"]).read_text())
+    screenshot_view = screenshot.get("view", f"Snapshot View ({plugin_dir.name})")
+    screenshot_slug = re.sub(r"[^a-z0-9]+", "-", screenshot_view.lower()).strip("-")
     required_plugins = as_string_list(config_schema.get("required_plugins"))
     required_binaries = as_required_binary_list(
         config_schema.get("required_binaries"),
@@ -493,7 +465,9 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     return {
         "name": plugin_dir.name,
         "display_title": display_title,
-        "screenshots": PLUGIN_SCREENSHOTS.get(plugin_dir.name, []),
+        "screenshots": [(screenshot_slug, screenshot.get("view", "Snapshot view"))]
+        if template_labels or screenshot
+        else [],
         "description": description,
         "phases": phases,
         "primary_language": primary_language,

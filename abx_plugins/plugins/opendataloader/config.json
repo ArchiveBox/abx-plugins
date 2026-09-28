@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenDataLoader",
   "description": "Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],

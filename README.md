@@ -25,6 +25,7 @@ without symlinks or environment-variable tricks.
 Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
+- optional `config.json > screenshot` points to a plugin-owned JSON recipe, such as `"screenshot": "screenshot.json"`
 - optional generic catalog metadata in `config.json`: `category`, `display_order`, `hidden`, and `x-auto-run` (set false for hooks that require explicit host selection)
 - optional `snapshot_thumbnail_cards` declarations in `config.json` identify ArchiveResult names whose existing `card.html` may represent a snapshot in list and grid views, with an explicit `order`
 - optional presentation metadata includes `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name`, `archive_result_aliases`, `default_output_path`, `icon_hidden`, `card_hidden`, `card_interactive`, `output_extension_preference`, `presentation_module`, and boolean `snapshot_<role>` declarations such as `snapshot_list_icon`, `snapshot_primary_preview`, and `snapshot_title_source`; hosts consume these declarations generically while plugin templates and presentation modules retain the rendering behavior
@@ -39,6 +40,35 @@ Hooks run with:
 - **Snapshot hook output** = `SNAP_DIR/<plugin>/...`
 - **Crawl hook output** = `CRAWL_DIR/<plugin>/...`
 - **Other plugin outputs** can be read via `../<other-plugin>/...` from your own output dir
+
+### Gallery screenshots
+
+Plugins need no screenshot registration. ArchiveBox captures the selectable outputs
+of its default example snapshot at desktop, tablet, and mobile sizes. The marketplace
+automatically uses `snapshot-view-<plugin-name>-<profile>.png` (underscores become
+hyphens). Enabled plugins with fullscreen templates must appear in the gallery.
+
+For a plugin that needs a different source, add `"screenshot": "screenshot.json"`
+to its `config.json` and keep the recipe beside it:
+
+```json
+{
+  "url": "https://news.ycombinator.com/item?id=41860909",
+  "wait_for_text": "ArchiveBox is evolving: the future of self-hosted internet archives"
+}
+```
+
+`url` overrides the default snapshot source. The capture runs the real plugin and
+opens its output in the snapshot detail page; `wait_for_text` waits inside that
+preview before taking the screenshots. Optional `prepare_plugins` runs those
+plugins first on the source, then extracts the owning plugin from the saved files
+(for example, `wget` before a PDF text extractor). Recipes sharing a URL and
+preparation reuse one snapshot. An optional `view` selects an existing application
+gallery view instead, such as `"AI agent"`. Set `"enabled": true` to include an
+optional plugin in the default capture. Ordinary plugins need no recipe.
+
+Recipes travel in the plugin package. Neither website needs a plugin allowlist,
+and adding an example requires no workflow changes or separate screenshot job.
 
 ### Key environment variables
 

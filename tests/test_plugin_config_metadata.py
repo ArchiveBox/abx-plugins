@@ -145,6 +145,36 @@ def test_plugin_presentation_metadata_is_generic_and_well_formed() -> None:
     )
 
 
+def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
+    for plugin_dir in _iter_plugin_dirs():
+        config = json.loads((plugin_dir / "config.json").read_text())
+        if "screenshot" not in config:
+            continue
+        recipe_path = (plugin_dir / config["screenshot"]).resolve()
+        assert recipe_path.is_relative_to(plugin_dir.resolve()), plugin_dir.name
+        recipe = json.loads(recipe_path.read_text())
+        assert recipe.keys() <= {
+            "url",
+            "wait_for_text",
+            "prepare_plugins",
+            "view",
+            "enabled",
+        }, recipe_path
+        assert not (recipe.get("url") and recipe.get("view")), recipe_path
+        assert isinstance(recipe.get("enabled", True), bool), recipe_path
+        for key in ("url", "view", "wait_for_text"):
+            if key in recipe:
+                assert _is_non_empty_string(recipe[key]), recipe_path
+                assert not any(character in recipe[key] for character in "\n\r|"), (
+                    recipe_path
+                )
+        if "url" in recipe:
+            assert recipe["url"].startswith(("https://", "http://")), recipe_path
+        assert isinstance(recipe.get("prepare_plugins", []), list), recipe_path
+        for dependency in recipe.get("prepare_plugins", []):
+            assert (PLUGINS_ROOT / dependency / "config.json").is_file(), recipe_path
+
+
 def test_required_binary_configs_follow_provider_policy() -> None:
     failures: list[str] = []
 

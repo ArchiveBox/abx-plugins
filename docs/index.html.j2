@@ -1941,6 +1941,12 @@ abx-dl 'https://example.com'</code></pre>
         if (!images.length) return;
         const galleryUrl = "https://archivebox.io/screenshots/";
         const imageName = (url) => new URL(url, galleryUrl).pathname.split("/").pop().replace(/^\d+-/, "");
+        // Stable image URLs work even if the optional gallery lookup fails.
+        images.forEach((img) => {
+          img.addEventListener("error", () => { img.closest("a").hidden = true; });
+          img.addEventListener("load", () => { img.closest("a").hidden = false; });
+          img.src = img.dataset.screenshotSrc;
+        });
         try {
           screenshotGallery ??= fetch(galleryUrl).then((response) => {
             if (!response.ok) throw new Error("Screenshot gallery unavailable");
@@ -1959,13 +1965,13 @@ abx-dl 'https://example.com'</code></pre>
           const screenshots = await screenshotGallery;
           images.forEach((img) => {
             const url = screenshots.get(imageName(img.dataset.screenshotSrc));
-            if (!url) { img.closest("a").remove(); return; }
-            img.addEventListener("error", () => img.closest("a").remove());
+            if (!url) return;
             img.closest("a").href = url.link;
             img.src = url.src;
           });
         } catch {
-          images.forEach((img) => img.closest("a").remove());
+          // A rejected request must not disable screenshots for every later popup.
+          screenshotGallery = undefined;
         }
       };
 

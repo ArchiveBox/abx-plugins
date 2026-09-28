@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TLSNotary",
   "description": "Opt-in private TLSNotary browser-extension capture. Adds MPC computation, bandwidth and seconds or minutes to archiving. The public verifier sees destination hostname, sizes and timing, plus a fixed HTTP protocol marker, but receives no URL path/query, cookies or page content. A compact signed receipt authenticates the separately replayed main response saved by this plugin; other archive outputs are not automatically certified.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["chrome"],

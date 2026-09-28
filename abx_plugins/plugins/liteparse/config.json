@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "LiteParse",
   "description": "Extract text and metadata from PDFs, Office documents, and images using LiteParse (by LlamaIndex). Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
