@@ -659,6 +659,75 @@ def _publish_child_snapshot_session(
     )
 
 
+def test_helper_popup_is_ready_without_taking_recorded_tab_focus(
+    archivewebpage_crawl,
+    chrome_test_url,
+    tmp_path,
+):
+    """Concurrent helper tabs must work without hiding the recorded page."""
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    snapshot_dir, snapshot_env = _start_snapshot_recording(
+        tmp_path,
+        env,
+        tab_processes,
+        snapshot_id="background-helper",
+        url=chrome_test_url,
+    )
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const awpInternal = require(process.argv[2]);
+const chromeSessionDir = process.argv[3];
+
+(async () => {
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 10000,
+    requireTargetId: true,
+    puppeteer: chromeUtils.resolvePuppeteerModule(),
+  });
+  try {
+    await page.bringToFront();
+    const { id } = awpInternal.resolveAwpExtension(chromeSessionDir);
+    const helper = await awpInternal.openAwpHelperTab(browser, id, 5000);
+    try {
+      process.stdout.write(JSON.stringify({
+        recordedVisibility: await page.evaluate(() => document.visibilityState),
+        helper: await helper.evaluate(() => ({
+          visibility: document.visibilityState,
+          portReady: Boolean(document.querySelector("wr-popup-viewer")?.port),
+        })),
+      }));
+    } finally {
+      await helper.close();
+    }
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exitCode = 1;
+});
+"""
+    result = subprocess.run(
+        [
+            snapshot_env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(AWP_INTERNAL),
+            str(snapshot_dir / "chrome"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=snapshot_env,
+    )
+    assert result.returncode == 0, result.stderr
+    observed = json.loads(result.stdout)
+    assert observed["recordedVisibility"] == "visible", observed
+    assert observed["helper"] == {"visibility": "hidden", "portReady": True}, observed
+
+
 def test_cowpig_recording_survives_overlapping_snapshot_lifecycles(
     archivewebpage_crawl,
     chrome_test_url,
