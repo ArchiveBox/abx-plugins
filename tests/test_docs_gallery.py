@@ -34,9 +34,12 @@ def test_gallery_cards_include_screenshots_without_a_plugin_allowlist(
             if config.get("screenshot")
             else {}
         )
-        if not recipe and not any(
-            (plugin_dir / "templates" / filename).is_file()
-            for filename in ("card.html", "full.html")
+        if not recipe and not (
+            (plugin_dir / "templates/full.html").is_file()
+            or (
+                (plugin_dir / "templates/card.html").is_file()
+                and not config.get("card_hidden")
+            )
         ):
             continue
         card = html.split(f'id="{plugin_dir.name}"', maxsplit=1)[1].split(

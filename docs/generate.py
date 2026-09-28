@@ -466,7 +466,9 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         "name": plugin_dir.name,
         "display_title": display_title,
         "screenshots": [(screenshot_slug, screenshot.get("view", "Snapshot view"))]
-        if template_labels or screenshot
+        if screenshot
+        or "Fullscreen" in template_labels
+        or ("Embed" in template_labels and not config_schema.get("card_hidden"))
         else [],
         "description": description,
         "phases": phases,

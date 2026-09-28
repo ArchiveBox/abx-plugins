@@ -46,7 +46,7 @@ Hooks run with:
 Plugins need no screenshot registration. ArchiveBox captures the selectable outputs
 of its default example snapshot at desktop, tablet, and mobile sizes. The marketplace
 automatically uses `snapshot-view-<plugin-name>-<profile>.png` (underscores become
-hyphens). Enabled plugins with fullscreen templates must appear in the gallery.
+hyphens). Enabled plugins with visible output templates must appear in the gallery.
 
 For a plugin that needs a different source, add `"screenshot": "screenshot.json"`
 to its `config.json` and keep the recipe beside it:
