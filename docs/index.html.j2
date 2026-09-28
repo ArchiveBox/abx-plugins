@@ -1347,7 +1347,7 @@ abx-dl 'https://example.com'</code></pre>
                 <div class="plugin-screenshots">
                   {% for filename, feature in plugin.screenshots %}
                   {% for breakpoint in ["desktop", "tablet", "mobile"] %}
-                  <a href="https://archivebox.io/screenshots/{{ filename }}-{{ breakpoint }}.png" target="_blank" rel="noreferrer">
+                  <a href="https://archivebox.io/screenshots/#{{ filename }}" target="_blank" rel="noreferrer">
                     <img data-screenshot-src="https://archivebox.io/screenshots/{{ filename }}-{{ breakpoint }}.png" alt="{{ plugin.display_title }} — {{ feature }} ({{ breakpoint }})" loading="lazy" decoding="async">
                   </a>
                   {% endfor %}
@@ -1934,45 +1934,11 @@ abx-dl 'https://example.com'</code></pre>
         });
       };
 
-      // Resolve descriptive names against the current gallery: numeric prefixes can change.
-      let screenshotGallery;
-      const loadScreenshots = async (container) => {
-        const images = container.querySelectorAll("[data-screenshot-src]");
-        if (!images.length) return;
-        const galleryUrl = "https://archivebox.io/screenshots/";
-        const imageName = (url) => new URL(url, galleryUrl).pathname.split("/").pop().replace(/^\d+-/, "");
-        // Stable image URLs work even if the optional gallery lookup fails.
-        images.forEach((img) => {
+      const loadScreenshots = (container) => {
+        container.querySelectorAll("[data-screenshot-src]").forEach((img) => {
           img.addEventListener("error", () => { img.closest("a").hidden = true; });
-          img.addEventListener("load", () => { img.closest("a").hidden = false; });
           img.src = img.dataset.screenshotSrc;
         });
-        try {
-          screenshotGallery ??= fetch(galleryUrl).then((response) => {
-            if (!response.ok) throw new Error("Screenshot gallery unavailable");
-            return response.text();
-          }).then((html) => {
-            const gallery = new DOMParser().parseFromString(html, "text/html");
-            return new Map(Array.from(gallery.querySelectorAll("img[src]"), (img) => {
-              const url = new URL(img.getAttribute("src"), galleryUrl);
-              const section = img.closest("article");
-              const heading = section?.querySelector("h2");
-              const anchor = section?.id || heading?.id;
-              const link = anchor ? `${galleryUrl}#${anchor}` : `${galleryUrl}#:~:text=${encodeURIComponent(heading?.textContent || img.alt)}`;
-              return [imageName(url), {src: url.href, link}];
-            }));
-          });
-          const screenshots = await screenshotGallery;
-          images.forEach((img) => {
-            const url = screenshots.get(imageName(img.dataset.screenshotSrc));
-            if (!url) return;
-            img.closest("a").href = url.link;
-            img.src = url.src;
-          });
-        } catch {
-          // A rejected request must not disable screenshots for every later popup.
-          screenshotGallery = undefined;
-        }
       };
 
       const openModal = (card) => {
