@@ -145,7 +145,9 @@ async function openAwpHelperTab(
         Boolean(chrome.runtime?.connect) &&
         Boolean(chrome.debugger?.getTargets) &&
         (!needsPopupPort || Boolean(document.querySelector("wr-popup-viewer")?.port)),
-      { timeout: Math.max(250, timeoutMs) },
+      // The popup port is JS state, not a rendered element. Hidden helpers
+      // can stop receiving animation frames even after the port is ready.
+      { timeout: Math.max(250, timeoutMs), polling: 100 },
       helperUrl,
       requirePopupPort
     );
