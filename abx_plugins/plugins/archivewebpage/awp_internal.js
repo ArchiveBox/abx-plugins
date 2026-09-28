@@ -100,7 +100,7 @@ async function openAwpHelperTab(
   const result = await chromeUtils.sendBrowserCommand(
     browser,
     "Target.createTarget",
-    { url: helperUrl }
+    { url: helperUrl, background: true }
   );
   const targetId = result.targetId;
   console.error("[archivewebpage] helper phase=target created");
