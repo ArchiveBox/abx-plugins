@@ -84,7 +84,7 @@
       "type": "string",
       "default": "",
       "x-scope": "crawl_execution",
-      "description": "Path to a Netscape cookies.txt file to import before navigation"
+      "description": "Optional path to a Netscape cookies.txt file to import before navigation; missing files warn and skip cookie import"
     },
     "CHROME_ENABLED": {
       "type": "boolean",

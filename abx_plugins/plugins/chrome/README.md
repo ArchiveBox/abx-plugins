@@ -86,6 +86,19 @@ entry does not select a bundled plugin for a crawl.
 
 ## Session Modes
 
+### Cookie imports
+
+`COOKIES_FILE` imports a Netscape cookie file before navigation. A missing
+Netscape file emits a warning and skips the import, matching the other download
+plugins. Existing files that cannot be read still fail. `AUTH_STORAGE_FILE`
+selects a JSON cookie export and takes precedence; missing or invalid JSON
+exports still fail browser setup.
+
+ArchiveBox resolves these paths, including downloader-specific
+`*_COOKIES_FILE` overrides, relative to the collection directory before
+launching hooks. Empty values disable the import. Standalone hooks resolve
+relative paths from their working directory.
+
 ### `CHROME_ISOLATION=crawl`
 
 Ownership:

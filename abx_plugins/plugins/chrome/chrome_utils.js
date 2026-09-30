@@ -3544,7 +3544,11 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
   if (!cookiesFile) return;
 
   if (!fs.existsSync(cookiesFile)) {
-    throw new Error(`Cookies file not found: ${cookiesFile}`);
+    if (cookiesFile.endsWith(".json")) {
+      throw new Error(`Cookies file not found: ${cookiesFile}`);
+    }
+    console.error(`[!] Cookies file not found: ${cookiesFile}; continuing without cookie import`);
+    return;
   }
 
   let contents = "";

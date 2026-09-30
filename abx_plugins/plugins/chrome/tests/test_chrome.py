@@ -2361,6 +2361,52 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
             _cleanup_launch_process(provider_process, provider_chrome_dir)
 
 
+def test_missing_netscape_cookies_does_not_abort_launch(tmp_path):
+    env = _isolated_test_env(
+        tmp_path,
+        COOKIES_FILE=str(tmp_path / "missing-cookies.txt"),
+    )
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    process, cdp_url = launch_chromium_session(env, chrome_dir, "missing-cookies")
+    try:
+        assert process.poll() is None
+        assert get_cookies_via_cdp(port_from_cdp_url(cdp_url), env) == []
+        assert (
+            "continuing without cookie import"
+            in (chrome_dir / "chrome_launch.stderr.log").read_text()
+        )
+    finally:
+        _cleanup_launch_process(process, chrome_dir)
+
+
+@pytest.mark.parametrize("contents", [None, "not JSON"])
+def test_missing_or_invalid_auth_export_fails_launch(tmp_path, contents):
+    auth_file = tmp_path / "auth.json"
+    if contents is not None:
+        auth_file.write_text(contents)
+    env = _isolated_test_env(
+        tmp_path,
+        AUTH_STORAGE_FILE=str(auth_file),
+        CHROME_KEEPALIVE="true",
+    )
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    chrome_dir.mkdir()
+    result = subprocess.run(
+        [str(CHROME_LAUNCH_HOOK), "--crawl-id=invalid-auth"],
+        cwd=chrome_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "ERROR:" in result.stderr
+    assert "session started" not in result.stdout
+    assert not (chrome_dir / "cdp_url.txt").exists()
+    if contents is None:
+        assert f"Cookies file not found: {auth_file}" in result.stderr
+
+
 def test_cookies_imported_on_launch():
     """Integration test: COOKIES_FILE is imported at crawl start."""
     with tempfile.TemporaryDirectory() as tmpdir:
