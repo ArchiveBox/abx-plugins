@@ -2379,7 +2379,7 @@ def test_missing_netscape_cookies_does_not_abort_launch(tmp_path):
         _cleanup_launch_process(process, chrome_dir)
 
 
-@pytest.mark.parametrize("contents", [None, "not JSON"])
+@pytest.mark.parametrize("contents", [None, "", "not JSON"])
 def test_missing_or_invalid_auth_export_fails_launch(tmp_path, contents):
     auth_file = tmp_path / "auth.json"
     if contents is not None:
@@ -2405,6 +2405,8 @@ def test_missing_or_invalid_auth_export_fails_launch(tmp_path, contents):
     assert not (chrome_dir / "cdp_url.txt").exists()
     if contents is None:
         assert f"Cookies file not found: {auth_file}" in result.stderr
+    else:
+        assert f"Invalid JSON cookie export: {auth_file}" in result.stderr
 
 
 def test_cookies_imported_on_launch():

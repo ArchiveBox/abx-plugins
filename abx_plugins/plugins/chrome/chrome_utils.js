@@ -3558,7 +3558,15 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
     throw new Error(`Failed to read cookies: ${e.message}`);
   }
 
-  const auth = cookiesFile.endsWith(".json") ? JSON.parse(contents) : null;
+  let auth = null;
+  if (cookiesFile.endsWith(".json")) {
+    try {
+      auth = JSON.parse(contents);
+    } catch {
+      const reason = contents.trim() ? "invalid JSON" : "file is empty";
+      throw new Error(`Invalid JSON cookie export: ${cookiesFile}; ${reason}; expected a JSON object containing a cookies array`);
+    }
+  }
   let { cookies, skipped } = auth
     ? { cookies: auth.cookies, skipped: 0 }
     : parseCookiesTxt(contents);

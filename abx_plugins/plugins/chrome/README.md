@@ -94,6 +94,10 @@ plugins. Existing files that cannot be read still fail. `AUTH_STORAGE_FILE`
 selects a JSON cookie export and takes precedence; missing or invalid JSON
 exports still fail browser setup.
 
+ArchiveBox automatically uses a persona's `auth.json` only when it is nonempty.
+An empty placeholder created with `touch` does not override `cookies.txt`.
+An explicitly configured `AUTH_STORAGE_FILE` must contain a valid JSON export.
+
 ArchiveBox resolves these paths, including downloader-specific
 `*_COOKIES_FILE` overrides, relative to the collection directory before
 launching hooks. Empty values disable the import. Standalone hooks resolve
