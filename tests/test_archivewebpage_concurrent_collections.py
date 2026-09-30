@@ -728,6 +728,93 @@ const chromeSessionDir = process.argv[3];
     assert observed["helper"] == {"visibility": "hidden", "portReady": True}, observed
 
 
+def test_closing_older_popup_keeps_current_recorder_status_port(
+    archivewebpage_crawl,
+    chrome_test_url,
+    tmp_path,
+):
+    """Closing an older popup must not disconnect a newer recorder subscriber."""
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    snapshot_dir, snapshot_env = _start_snapshot_recording(
+        tmp_path,
+        env,
+        tab_processes,
+        snapshot_id="popup-port-owner",
+        url=chrome_test_url,
+    )
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const awpInternal = require(process.argv[2]);
+(async () => {
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir: process.argv[3],
+    timeoutMs: 10000,
+    requireTargetId: true,
+    puppeteer: chromeUtils.resolvePuppeteerModule(),
+  });
+  const helpers = [];
+  try {
+    const { id } = awpInternal.resolveAwpExtension(process.argv[3]);
+    const tabId = await awpInternal.getChromeTabIdForPage(browser, page, id, 10000);
+    const readStatus = (helper, stop = false) => helper.evaluate(
+      ({ tabId, stop }) => new Promise((resolve, reject) => {
+        const port = document.querySelector("wr-popup-viewer").port;
+        const timeout = setTimeout(() => {
+          port.onMessage.removeListener(onMessage);
+          reject(new Error("Recorder status port was lost after closing the older popup"));
+        }, 10000);
+        const onMessage = (message) => {
+          if (message?.type !== "status" || message.recording !== !stop) return;
+          clearTimeout(timeout);
+          port.onMessage.removeListener(onMessage);
+          resolve(message);
+        };
+        port.onMessage.addListener(onMessage);
+        port.postMessage(stop ? { type: "stopRecording" } : { type: "startUpdates", tabId });
+      }),
+      { tabId, stop }
+    );
+    await page.bringToFront();
+    const older = await awpInternal.openAwpHelperTab(browser, id, 10000);
+    helpers.push(older);
+    const olderStatus = await readStatus(older);
+    const current = await awpInternal.openAwpHelperTab(browser, id, 10000);
+    helpers.push(current);
+    const currentStatus = await readStatus(current);
+    await older.close();
+    const stopped = await readStatus(current, true);
+    process.stdout.write(JSON.stringify({ olderStatus, currentStatus, stopped }));
+  } finally {
+    for (const helper of helpers) await helper.close().catch(() => {});
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exitCode = 1;
+});
+"""
+    result = subprocess.run(
+        [
+            snapshot_env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(AWP_INTERNAL),
+            str(snapshot_dir / "chrome"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=snapshot_env,
+    )
+    assert result.returncode == 0, result.stderr
+    statuses = json.loads(result.stdout)
+    assert statuses["olderStatus"]["recording"] is True
+    assert statuses["currentStatus"]["recording"] is True
+    assert statuses["stopped"]["recording"] is False
+    assert len({status["collId"] for status in statuses.values()}) == 1
+
+
 def test_cowpig_recording_survives_overlapping_snapshot_lifecycles(
     archivewebpage_crawl,
     chrome_test_url,
@@ -1281,6 +1368,15 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
 
     crawl_dir = Path(env["CRAWL_DIR"])
     crawl_chrome_dir = crawl_dir / "chrome"
+    prepared = subprocess.run(
+        [str(AWP_PREPARE_HOOK)],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert prepared.returncode == 0, prepared.stderr
     launch_process = None
     first_tab_process = None
     try:

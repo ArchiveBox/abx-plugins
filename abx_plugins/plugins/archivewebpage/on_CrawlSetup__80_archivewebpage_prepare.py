@@ -55,8 +55,20 @@ script = script.replace(
     old_payload,
     '(e.encodedDataLength||t.fromServiceWorker)&&(r=yield this.fetchPayloads(e,t,i,"Network.getResponseBody"))',
 )
+# Multiple helper popups can subscribe to the same recorder during concurrent
+# starts. Disconnecting an older popup must not clear the newer popup's port:
+# the recorder sends start/stop status only through that current subscriber.
+old_disconnect = "self.recorders[i]&&(self.recorders[i].port=null)"
+if script.count(old_disconnect) != 1:
+    raise RuntimeError(
+        "ArchiveWeb.page popup-port patch does not match pinned release",
+    )
+script = script.replace(
+    old_disconnect,
+    "self.recorders[i]?.port===e&&(self.recorders[i].port=null)",
+)
 destination = (
-    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers2"
+    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers3"
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not destination.exists():
