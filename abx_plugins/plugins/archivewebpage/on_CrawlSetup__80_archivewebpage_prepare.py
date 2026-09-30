@@ -55,20 +55,45 @@ script = script.replace(
     old_payload,
     '(e.encodedDataLength||t.fromServiceWorker)&&(r=yield this.fetchPayloads(e,t,i,"Network.getResponseBody"))',
 )
-# Multiple helper popups can subscribe to the same recorder during concurrent
-# starts. Disconnecting an older popup must not clear the newer popup's port:
-# the recorder sends start/stop status only through that current subscriber.
-old_disconnect = "self.recorders[i]&&(self.recorders[i].port=null)"
-if script.count(old_disconnect) != 1:
-    raise RuntimeError(
-        "ArchiveWeb.page popup-port patch does not match pinned release",
-    )
-script = script.replace(
-    old_disconnect,
-    "self.recorders[i]?.port===e&&(self.recorders[i].port=null)",
+# AWP has one status port per recorder. Concurrent helpers overwrite it, and
+# closing either helper can strand the other handshake. Subscribe every live
+# popup independently; moving or disconnecting a popup removes only that port.
+popup_patches = (
+    (
+        'case"startUpdates":i=r.tabId,self.recorders[i]&&(self.recorders[i].port=e,self.recorders[i].doUpdateStatus()),e.postMessage(yield og(pg));break;',
+        """case"startUpdates": {
+            const previous = self.recorders[i];
+            previous?.popupPorts?.delete(e);
+            if (previous?.port === e) previous.port = null;
+            i = r.tabId;
+            const recorder = self.recorders[i];
+            if (recorder) {
+                recorder.popupPorts ??= new Set(recorder.port ? [recorder.port] : []);
+                recorder.popupPorts.add(e);
+                recorder.port = e;
+                recorder.doUpdateStatus();
+            }
+            e.postMessage(yield og(pg));
+            break;
+        }""",
+    ),
+    (
+        "this.port){const t=this.getStatusMsg();this.port.postMessage(t)}",
+        "(this.popupPorts?.size||this.port)){const t=this.getStatusMsg();for(const p of this.popupPorts||[this.port])p.postMessage(t)}",
+    ),
+    (
+        "self.recorders[i]&&(self.recorders[i].port=null)",
+        "self.recorders[i]?.popupPorts?.delete(e);if(self.recorders[i]?.port===e)self.recorders[i].port=null",
+    ),
 )
+for before, after in popup_patches:
+    if script.count(before) != 1:
+        raise RuntimeError(
+            "ArchiveWeb.page popup-port patch does not match pinned release",
+        )
+    script = script.replace(before, after)
 destination = (
-    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers3"
+    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers4"
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not destination.exists():

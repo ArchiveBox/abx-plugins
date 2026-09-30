@@ -728,12 +728,14 @@ const chromeSessionDir = process.argv[3];
     assert observed["helper"] == {"visibility": "hidden", "portReady": True}, observed
 
 
-def test_closing_older_popup_keeps_current_recorder_status_port(
+@pytest.mark.parametrize("close_newer", [False, True])
+def test_closing_popup_keeps_other_recorder_status_port(
     archivewebpage_crawl,
     chrome_test_url,
     tmp_path,
+    close_newer,
 ):
-    """Closing an older popup must not disconnect a newer recorder subscriber."""
+    """Closing either popup must preserve the remaining recorder subscriber."""
     env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
     snapshot_dir, snapshot_env = _start_snapshot_recording(
         tmp_path,
@@ -781,8 +783,9 @@ const awpInternal = require(process.argv[2]);
     const current = await awpInternal.openAwpHelperTab(browser, id, 10000);
     helpers.push(current);
     const currentStatus = await readStatus(current);
-    await older.close();
-    const stopped = await readStatus(current, true);
+    const closeNewer = process.argv[4] === "true";
+    await (closeNewer ? current : older).close();
+    const stopped = await readStatus(closeNewer ? older : current, true);
     process.stdout.write(JSON.stringify({ olderStatus, currentStatus, stopped }));
   } finally {
     for (const helper of helpers) await helper.close().catch(() => {});
@@ -801,6 +804,7 @@ const awpInternal = require(process.argv[2]);
             str(CHROME_UTILS),
             str(AWP_INTERNAL),
             str(snapshot_dir / "chrome"),
+            str(close_newer).lower(),
         ],
         capture_output=True,
         text=True,
