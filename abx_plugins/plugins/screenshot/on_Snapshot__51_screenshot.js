@@ -156,10 +156,8 @@ async function takeScreenshot(url) {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
     const viewport = getScreenshotViewport();
     await page.setViewport(viewport);
-    // Background snapshot targets can finish loading images without decoding
-    // or painting them. Make this target visible to its renderer for capture,
-    // without selecting a different tab or competing with concurrent snapshots
-    // for the browser's active tab. Detaching below restores its prior state.
+    // Keep image decoding active even while another snapshot selects its tab.
+    // Detaching below restores this target's prior state.
     captureSession = await page.target().createCDPSession();
     await captureSession.send("Emulation.setFocusEmulationEnabled", {enabled: true});
     const waitForText = Object.prototype.hasOwnProperty.call(
@@ -181,6 +179,9 @@ async function takeScreenshot(url) {
       captureTimeoutMs
     );
     await waitForVisibleImages(page, captureTimeoutMs);
+    // Focus emulation alone does not activate the headless compositor. Select
+    // this target before requesting pixels, or captureScreenshot can stall.
+    await page.bringToFront();
     await Promise.race([
       page.screenshot({ path: tempOutputPath, fullPage: false }),
       new Promise((_, reject) => {
