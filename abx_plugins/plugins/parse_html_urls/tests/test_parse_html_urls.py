@@ -63,12 +63,17 @@ class TestParseHtmlUrls:
             json.loads(line)["url"] for line in saved.read_text().splitlines()
         } == expected
 
-    def test_parses_real_example_com(self, tmp_path):
-        """Test parsing real https://example.com and extracting its links."""
+    def test_fetches_and_parses_http_html(self, tmp_path, httpserver):
+        """Fetch HTTP HTML and persist both relative and absolute outlinks."""
+        httpserver.expect_request("/page").respond_with_data(
+            '<a href="/linked">Local</a>'
+            '<a href="https://www.iana.org/domains/example">IANA</a>',
+            content_type="text/html",
+        )
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [str(SCRIPT_PATH), "--url", "https://example.com"],
+            [str(SCRIPT_PATH), "--url", httpserver.url_for("/page")],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -76,19 +81,30 @@ class TestParseHtmlUrls:
             env=env,
         )
 
-        assert result.returncode == 0, f"Failed to parse example.com: {result.stderr}"
-
-        # Verify stdout contains JSONL records for discovered URLs
-        # example.com links to iana.org
-        assert "iana.org" in result.stdout or "example" in result.stdout, (
-            "Expected links from example.com not found"
-        )
-
-        # Verify ArchiveResult record is present
-        assert '"type": "ArchiveResult"' in result.stdout, (
-            "Missing ArchiveResult record"
-        )
-        assert '"status": "succeeded"' in result.stdout, "Missing success status"
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        expected_urls = {
+            httpserver.url_for("/linked"),
+            "https://www.iana.org/domains/example",
+        }
+        assert {
+            record["url"] for record in records if record["type"] == "Snapshot"
+        } == expected_urls
+        assert [record for record in records if record["type"] == "ArchiveResult"] == [
+            {
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": "2 URLs parsed",
+            },
+        ]
+        saved = tmp_path / "parse_html_urls" / "urls.jsonl"
+        assert {
+            json.loads(line)["url"] for line in saved.read_text().splitlines()
+        } == expected_urls
 
     def test_uses_final_snapshot_url_for_base_expanded_same_page_links(self, tmp_path):
         """Parser rewrites base-expanded same-page links back to the final URL."""
