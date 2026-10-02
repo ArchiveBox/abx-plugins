@@ -6,8 +6,10 @@ certificate information extraction.
 """
 
 import json
+import hashlib
 import shutil
 import socket
+import ssl
 import subprocess
 import tempfile
 from pathlib import Path
@@ -206,12 +208,23 @@ class TestSSLWithChrome:
 
             # Verify we got certificate info
             assert "protocol" in ssl_data, f"SSL data missing protocol: {ssl_data}"
-            assert ssl_data["protocol"].startswith("TLS") or ssl_data[
-                "protocol"
-            ].startswith("SSL"), f"Unexpected protocol: {ssl_data['protocol']}"
+            # CDP SecurityDetails.protocol reports QUIC for HTTPS over HTTP/3.
+            protocols = {"TLS 1.2", "TLS 1.3"}
+            if use_public_url:
+                protocols.add("QUIC")
+            assert ssl_data["protocol"] in protocols, ssl_data
+            assert ssl_data["schemeIsCryptographic"] is True
 
             if use_public_url:
                 assert ssl_data["certificateChain"]
+                leaf_pem = snapshot_chrome_dir.parent / ssl_data["leafPemPath"]
+                leaf_der = ssl.PEM_cert_to_DER_cert(leaf_pem.read_text())
+                leaf_fingerprint = hashlib.sha256(leaf_der).hexdigest()
+                assert ssl_data["leafFingerprint256"] == leaf_fingerprint
+                assert (
+                    ssl_data["certificateChain"][0]["fingerprint256"]
+                    == leaf_fingerprint
+                )
                 for certificate in ssl_data["certificateChain"]:
                     fingerprint = certificate["fingerprint256"].replace(":", "").lower()
                     assert certificate["ctSearchUrl"] == (
