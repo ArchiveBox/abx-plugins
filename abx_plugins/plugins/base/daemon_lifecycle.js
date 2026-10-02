@@ -21,11 +21,9 @@ function captureShutdownSignals() {
   process.on("SIGINT", onSigint);
 
   return function installShutdownHandler(handler) {
+    // Keep the OS signal watchers installed: replacing the last listener can
+    // discard a signal queued while synchronous startup blocks the event loop.
     shutdownHandler = handler;
-    process.removeListener("SIGTERM", onSigterm);
-    process.removeListener("SIGINT", onSigint);
-    process.on("SIGTERM", () => handler("SIGTERM"));
-    process.on("SIGINT", () => handler("SIGINT"));
     if (pendingSignal !== null) {
       const signal = pendingSignal;
       pendingSignal = null;

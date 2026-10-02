@@ -93,19 +93,29 @@ class _ConcurrentChromeSession:
     chrome_pid: int | None = None
 
 
-def test_daemon_lifecycle_replays_signal_received_during_startup():
+@pytest.mark.parametrize("synchronous_startup", [False, True])
+def test_daemon_lifecycle_replays_signal_received_during_startup(synchronous_startup):
+    install_handler = (
+        "install((signal) => {\n"
+        "  process.stdout.write(`HANDLED:${signal}\\n`);\n"
+        "  process.exit(0);\n"
+        "});\n"
+    )
+    startup = (
+        "require('fs').readSync(0, Buffer.alloc(1), 0, 1, null);\n" + install_handler
+        if synchronous_startup
+        else "setTimeout(() => {\n" + install_handler + "}, 250);\n"
+    )
     script = (
         f"const install = require({json.dumps(str(DAEMON_LIFECYCLE))}).captureShutdownSignals();\n"
         "process.stdout.write('READY\\n');\n"
-        "setTimeout(() => install((signal) => {\n"
-        "  process.stdout.write(`HANDLED:${signal}\\n`);\n"
-        "  process.exit(0);\n"
-        "}), 250);\n"
-        "setTimeout(() => process.exit(2), 5000);\n"
+        + startup
+        + "setTimeout(() => process.exit(2), 5000);\n"
     )
     env = {**os.environ, **get_test_env()}
     process = subprocess.Popen(
         [env["NODE_BINARY"], "-e", script],
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -114,7 +124,10 @@ def test_daemon_lifecycle_replays_signal_received_during_startup():
     assert process.stdout is not None
     assert process.stdout.readline().strip() == "READY"
     process.send_signal(signal.SIGTERM)
-    stdout, stderr = process.communicate(timeout=10)
+    stdout, stderr = process.communicate(
+        input="x" if synchronous_startup else None,
+        timeout=10,
+    )
 
     assert process.returncode == 0, stderr
     assert "HANDLED:SIGTERM" in stdout
