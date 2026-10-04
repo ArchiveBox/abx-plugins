@@ -12,10 +12,12 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
 
 
+@pytest.mark.parametrize("concurrent_captures", [False, True])
 def test_cookie_download_ignores_other_tab(
     tmp_path,
     httpserver,
     ensure_chrome_test_prereqs,
+    concurrent_captures,
 ):
     payload_path = tmp_path / "source.zip"
     with zipfile.ZipFile(
@@ -56,7 +58,7 @@ def test_cookie_download_ignores_other_tab(
     ):
         script = """
 const fs=require('fs'), path=require('path');
-const {connectToPage,captureBrowserDownloads}=require(process.argv[1]);
+const {connectToPage,captureBrowserDownloads,acquireSessionLock}=require(process.argv[1]);
 const {saveDownloads}=require(process.argv[2]);
 (async()=>{
  const {browser,page}=await connectToPage({chromeSessionDir:process.argv[3],waitForNavigationComplete:true});
@@ -65,13 +67,30 @@ const {saveDownloads}=require(process.argv[2]);
  try {
   await other.goto(process.argv[5]);
   const before=await page.evaluate(()=>performance.timeOrigin);
-  const [files, otherFiles] = await Promise.all([
+  const lock = path.join(output,'browser/.download.lock');
+  const release = await acquireSessionLock(lock,1000);
+  let timedOut = false;
+  try {
+   await captureBrowserDownloads({browser,page,downloadPath:path.join(output,'browser'),timeoutMs:100,
+    trigger:async()=>{await page.click('a');}});
+  } catch(error) {timedOut = /Timeout acquiring lock|deadline exceeded/.test(error.message);}
+  if(!timedOut || !fs.existsSync(lock)) throw new Error('Contended download did not preserve the owner lock');
+  release();
+  let files;
+  if(process.argv[6] === 'true') {
+   const batches = await Promise.all([
    captureBrowserDownloads({browser,page,downloadPath:path.join(output,'browser'),timeoutMs:10000,
     trigger:async()=>{await page.click('a');}}),
    captureBrowserDownloads({browser,page:other,downloadPath:path.join(output,'browser'),timeoutMs:10000,
     trigger:async()=>{await other.click('a');}}),
   ]);
-  if(otherFiles.length !== 1 || fs.readFileSync(otherFiles[0].filePath,'utf8') !== 'Other tab bytes') throw new Error('Wrong tab download');
+   files = batches[0];
+   if(batches[1].length !== 1 || fs.readFileSync(batches[1][0].filePath,'utf8') !== 'Other tab bytes') throw new Error('Wrong tab download');
+  } else {
+   files=await captureBrowserDownloads({browser,page,downloadPath:path.join(output,'browser'),timeoutMs:10000,
+    trigger:async()=>{await other.bringToFront();await other.click('a');await page.bringToFront();await page.click('a');}});
+  }
+  if(fs.existsSync(lock)) throw new Error('Download lock was not released');
   const manifest=await saveDownloads(path.join(output,'saved'),'Folder',files,{requireZip:true});
   const previous=fs.readFileSync(path.join(output,'saved/files/nested/hello.txt'));
   const originalManifest=fs.readFileSync(path.join(output,'saved/downloads.json'));
@@ -93,6 +112,7 @@ const {saveDownloads}=require(process.argv[2]);
                 str(chrome_dir),
                 str(tmp_path / "output"),
                 httpserver.url_for("/other"),
+                str(concurrent_captures).lower(),
             ],
             env=env,
             capture_output=True,
