@@ -1775,6 +1775,27 @@ async function sendBrowserCommand(browser, method, params = {}) {
   return await getBrowserConnection(browser).send(method, params);
 }
 
+/**
+ * An unpacked extension is writable browser state: Chromium compiles static
+ * declarativeNetRequest rules under its _metadata/generated_indexed_rulesets.
+ * Its background reindexing does not participate in our loader locks. Sharing
+ * that directory lets one browser recreate _metadata while another removes it
+ * and checks reserved filenames, intermittently breaking Extensions.loadUnpacked.
+ *
+ * Keep copies with the runtime profile, but namespace by the browser WebSocket
+ * endpoint (which includes a browser-instance UUID), not a reusable port or
+ * snapshot ID. Crawl-shared/on-demand callers then share one browser's copies;
+ * different browser instances cannot share generated metadata. The same path
+ * calculation is used when confirmed browser shutdown makes removal safe.
+ */
+function getBrowserExtensionsDir(cdpUrl) {
+  return path.join(
+    resolveChromeLaunchOptions().CHROME_USER_DATA_DIR,
+    "archivebox-extensions",
+    crypto.createHash("sha256").update(cdpUrl).digest("hex")
+  );
+}
+
 async function loadUnpackedExtensionsIntoBrowser(
   browser,
   extensions,
@@ -1806,11 +1827,24 @@ async function loadUnpackedExtensionsIntoBrowser(
     throw new Error(`Unsafe Chrome extension lock directory: ${lockRoot}`);
   }
   fs.chmodSync(lockRoot, 0o700);
+  // Fork here, rather than only in the launch hook, so on-demand extension
+  // loads receive exactly the same isolation as eager browser setup.
+  const runtimeExtensionsDir = getBrowserExtensionsDir(browser.wsEndpoint());
 
   async function loadExtension(extension) {
+    // Retain the selected source (including crawl-prepared plugin changes).
+    // Passing already-published runtime metadata back in must reuse its copy,
+    // not recursively fork a copy of a copy.
+    const sourcePath = fs.realpathSync(
+      extension.source_unpacked_path || extension.unpacked_path
+    );
+    const runtimePath = path.join(
+      runtimeExtensionsDir,
+      crypto.createHash("sha256").update(sourcePath).digest("hex")
+    );
     const extensionLockKey = crypto
       .createHash("sha256")
-      .update(fs.realpathSync(extension.unpacked_path))
+      .update(runtimePath)
       .digest("hex");
     const extensionLoadLock = path.join(
       lockRoot,
@@ -1819,20 +1853,49 @@ async function loadUnpackedExtensionsIntoBrowser(
     );
     let releaseExtensionLoadLock = null;
     try {
+      // This lock coordinates callers loading into the SAME browser. It cannot
+      // protect against Chromium's background writes; private copies do that.
       releaseExtensionLoadLock = await acquireSessionLock(
         extensionLoadLock,
         timeout
       );
-      // Chromium generates this directory while loading some unpacked
-      // extensions, but Extensions.loadUnpacked rejects it on the next
-      // browser launch. The abxpkg Chrome Web Store provider establishes
-      // the same sanitization contract when resolving its stable shared
-      // cache. Keep sanitization and CDP loading under one cross-process
-      // lock because snapshot-isolated browsers use that cache concurrently.
-      await fs.promises.rm(path.join(extension.unpacked_path, "_metadata"), {
-        recursive: true,
-        force: true,
-      });
+      if (!fs.existsSync(runtimePath)) {
+        await fs.promises.mkdir(runtimeExtensionsDir, { recursive: true });
+        const stagingPath = await fs.promises.mkdtemp(
+          path.join(runtimeExtensionsDir, ".copy-")
+        );
+        try {
+          // Request CoW cloning where supported, with ordinary copying otherwise.
+          // Hardlinks/symlinks would let writes reach the cache or another browser.
+          // Exclude generated/signed-store metadata from the source without ever
+          // deleting it there. Chrome will build its own indexes in this copy.
+          await fs.promises.cp(sourcePath, stagingPath, {
+            recursive: true,
+            dereference: true,
+            mode: fs.constants.COPYFILE_FICLONE,
+            filter: (source) => source !== path.join(sourcePath, "_metadata"),
+          });
+          // A read-only package cache must still produce a writable install.
+          // Writable subdirectories also let shutdown remove the private tree.
+          await fs.promises.chmod(stagingPath, 0o700);
+          for (const entry of await fs.promises.readdir(stagingPath, {
+            recursive: true,
+            withFileTypes: true,
+          })) {
+            if (entry.isDirectory()) {
+              await fs.promises.chmod(path.join(entry.parentPath, entry.name), 0o700);
+            }
+          }
+          // Publish only a complete copy. Reinvocation must neither accept a
+          // partial copy nor replace files beneath an already-running extension.
+          await fs.promises.rename(stagingPath, runtimePath);
+        } finally {
+          await fs.promises.rm(stagingPath, { recursive: true, force: true });
+        }
+      }
+      extension.source_unpacked_path = sourcePath;
+      extension.unpacked_path = runtimePath;
+      extension.manifest_path = path.join(runtimePath, "manifest.json");
       const { id } = await sendBrowserCommand(
         browser,
         "Extensions.loadUnpacked",
@@ -1843,6 +1906,8 @@ async function loadUnpackedExtensionsIntoBrowser(
           `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
         );
       }
+      // Unkeyed extensions derive their ID from the unpacked path. Consumers
+      // must use Chrome's runtime ID, never the shared cache's old path-based ID.
       extension.id = id;
       const manifest = loadExtensionManifest(extension.unpacked_path);
       extension.manifest_version = manifest?.manifest_version || null;
@@ -3730,6 +3795,7 @@ async function closeBrowserInChromeSession(options = {}) {
   const cdpDeadline =
     Date.now() + Math.max(1, Math.floor(forceKillTimeoutMs / 2));
   const remainingCdpMs = () => Math.max(0, cdpDeadline - Date.now());
+  let browserEndpoint = cdpUrl;
 
   if (cdpUrl) {
     let browser = null;
@@ -3740,6 +3806,7 @@ async function closeBrowserInChromeSession(options = {}) {
             defaultViewport: null,
             protocolTimeout: Math.max(1, remainingCdpMs()),
           });
+          browserEndpoint = browser.wsEndpoint();
           await sendBrowserCommand(browser, "Browser.close");
         },
         Math.max(1, remainingCdpMs()),
@@ -3784,6 +3851,16 @@ async function closeBrowserInChromeSession(options = {}) {
     }
   }
 
+  if (closed && browserEndpoint) {
+    // Background rules indexing can outlive a load request or hook process.
+    // Remove copies only after browser shutdown is confirmed; keepalive and
+    // reused sessions still need them. This also bounds persistent-profile disk
+    // usage across clean browser restarts.
+    await fs.promises.rm(getBrowserExtensionsDir(browserEndpoint), {
+      recursive: true,
+      force: true,
+    });
+  }
   if (outputDir && closed) {
     try {
       await cleanupStaleChromeSessionArtifacts(outputDir, {

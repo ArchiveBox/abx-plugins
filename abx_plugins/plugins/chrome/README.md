@@ -420,7 +420,9 @@ Chrome itself does not know about specific extension plugins.
 Extension flow:
 
 - installer hooks populate extension cache metadata
-- `ensureChromeSession(...)` loads those extensions via CDP `Extensions.loadUnpacked`; failures are fatal because downstream hooks need runtime extension IDs
+- before loading, Chrome forks each extension into its runtime profile, excluding generated `_metadata`; concurrent browsers never write into the shared cache or each other's copies
+- copies are reused by the same browser (including on-demand loads), retained for keepalive sessions, and removed after the browser stops
+- eager setup in `ensureChromeSession(...)` and on-demand consumers both use `loadUnpackedExtensionsIntoBrowser(...)` in `chrome_utils.js` for copying and CDP loading; failures are fatal because downstream hooks need runtime extension IDs
 - `browser.json` publishes the browser setup metadata
 - downstream extension-aware hooks consume the published `extensions` metadata
 
