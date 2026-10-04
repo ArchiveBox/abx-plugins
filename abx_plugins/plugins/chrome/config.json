@@ -223,6 +223,7 @@
         "--disable-cookie-encryption",
         "--font-render-hinting=none",
         "--force-color-profile=srgb",
+        "--enable-features=ThrottleMainFrameTo60Hz",
         "--disable-partial-raster",
         "--disable-skia-runtime-opts",
         "--disable-2d-canvas-clip-aa",

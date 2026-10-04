@@ -250,11 +250,11 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
     return loaded_dependencies[-1], binary_env
 
 
-def _project_route(workdir: Path, session_id: str = "") -> str:
-    encoded = base64.b64encode(str(workdir.resolve()).encode()).decode()
-    encoded = encoded.replace("+", "-").replace("/", "_").rstrip("=")
-    route = f"{_PROXY_PREFIX}/{encoded}/session"
-    return f"{route}/{session_id}" if session_id else route
+def _session_route(settings: dict) -> str:
+    admin_url = urlsplit(settings["archivebox_admin_url"])
+    server_url = f"{admin_url.scheme}://{admin_url.netloc}{_PROXY_PREFIX}"
+    server_key = base64.urlsafe_b64encode(server_url.encode()).decode().rstrip("=")
+    return f"{_PROXY_PREFIX}/server/{server_key}/session"
 
 
 def _ensure_project_files(settings: dict) -> None:
@@ -490,12 +490,12 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
         text,
     )
     # The native router keeps the mount in useLocation().pathname. OpenCode's
-    # draft promotion, tab closing, legacy redirect, SDK scope checks, and layout
+    # draft promotion, tab closing, SDK scope checks, and layout
     # route classifier (pathname, search) expect app-relative paths. Normalize
     # only those reads, never browser/router state. Otherwise Home stays selected
     # on every mounted session and its button cannot navigate back to Home.
     text = re.sub(
-        r'([$\w]+)\.pathname(?===="/new-session"|!=="/"|\.startsWith\("/api/"\)|\.slice\([$\w]+\(\)\.length\+1\)|,\1\.search\))',
+        r'([$\w]+)\.pathname(?===="/new-session"|!=="/"|\.startsWith\("/api/"\)|,\1\.search\))',
         lambda match: (
             f'({match[0]}.replace(/^{_PROXY_PREFIX.replace("/", r"\/")}(?=\\/|$)/,"")||"/")'
         ),
@@ -567,7 +567,7 @@ def agent_context(settings: dict) -> dict:
         "title": "Agent",
         # The authenticated iframe request resolves the default session. Do not
         # hold the wrapper response open while OpenCode starts on a cold visit.
-        "proxy_url": _project_route(settings["workdir"]),
+        "proxy_url": _session_route(settings),
         "proxy_prefix": _PROXY_PREFIX,
         "workdir": str(settings["workdir"].resolve()),
         "recent_session_id": "",
@@ -676,7 +676,7 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
 
     # This entry route belongs to the wrapper iframe. Resolve its collection
     # session here so the welcome panel and admin navigation load immediately.
-    session_entry = _project_route(settings["workdir"]).removeprefix(
+    session_entry = _session_route(settings).removeprefix(
         _PROXY_PREFIX + "/",
     )
     if method == "GET" and path == session_entry:
@@ -688,7 +688,7 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
         return (
             302,
             {
-                "Location": _project_route(settings["workdir"], session_id),
+                "Location": f"{_PROXY_PREFIX}/{session_entry}/{session_id}",
                 "Cache-Control": "no-store",
             },
             b"",

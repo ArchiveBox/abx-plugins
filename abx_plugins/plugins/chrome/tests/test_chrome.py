@@ -1035,6 +1035,9 @@ def test_chrome_launch_configures_downloads_via_cdp_not_profile_prefs():
             "test-downloads-via-cdp",
         )
         try:
+            command = (chrome_dir / "cmd.sh").read_text()
+            assert "--enable-features=ThrottleMainFrameTo60Hz" in command, command
+            assert "--disable-frame-rate-limit" not in command, command
             chrome_launch_process._stderr_handle.flush()
             stderr = chrome_launch_process._stderr_log.read_text(
                 encoding="utf-8",

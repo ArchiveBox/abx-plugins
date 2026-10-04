@@ -68,11 +68,6 @@ def test_opencode_url_builders_preserve_server_base_path(
         ('v.pathname!=="/"', "/new-session", True),
         ('v.pathname.startsWith("/api/")', "/api/session", True),
         ('v.pathname.startsWith("/api/")', "/session", False),
-        (
-            "v.pathname.slice(a().length+1)",
-            "/encoded/session/ses_123",
-            "/session/ses_123",
-        ),
     ],
 )
 def test_opencode_app_path_checks_handle_mount(mount, expression, path, expected):
@@ -87,7 +82,7 @@ def test_opencode_app_path_checks_handle_mount(mount, expression, path, expected
         [
             "node",
             "-e",
-            f'const v={{pathname:{json.dumps(mount + path)}}};const a=()=>"encoded";console.log(JSON.stringify({rewritten}));',
+            f"const v={{pathname:{json.dumps(mount + path)}}};console.log(JSON.stringify({rewritten}));",
         ],
         capture_output=True,
         text=True,

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import socket
@@ -54,7 +55,15 @@ def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
             "ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"],
         },
     )
-    frame_url = runtime._project_route(collection)
+    settings["archivebox_admin_url"] = "http://archivebox.localhost:5797/admin"
+    server_key = (
+        base64.urlsafe_b64encode(
+            b"http://archivebox.localhost:5797/admin/agent/opencode",
+        )
+        .decode()
+        .rstrip("=")
+    )
+    frame_url = f"{runtime._PROXY_PREFIX}/server/{server_key}/session"
     try:
         started = time.monotonic()
         context = runtime.agent_context(settings)
@@ -65,7 +74,7 @@ def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
         path = frame_url.removeprefix(runtime._PROXY_PREFIX + "/")
         status, headers, body = runtime.proxy(settings, "GET", path, (), {}, b"")
         assert status == 302
-        assert headers["Location"].startswith(frame_url + "/")
+        assert headers["Location"].startswith(frame_url + "/ses_")
         assert body == b""
         session_id = headers["Location"].rsplit("/", 1)[-1]
         sessions = requests.get(

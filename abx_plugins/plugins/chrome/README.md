@@ -75,7 +75,7 @@ Defined in [config.json](./config.json).
 | `CHROME_USER_DATA_DIR`  | `PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile` | User data dir for persistent local profile state.                   |
 | `CHROMEWEBSTORE_EXTENSIONS_DIR` | abxpkg-managed                              | Chrome Web Store extension artifact directory.                      |
 | `CHROME_DOWNLOADS_DIR`  | persona-derived                              | Download output directory configured via CDP after launch/adoption. |
-| `CHROME_ARGS`           | see config                                   | Static Chromium flags.                                              |
+| `CHROME_ARGS`           | see config                                   | Static Chromium flags, including `--enable-features=ThrottleMainFrameTo60Hz` for compositor frame pacing. |
 | `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |
 
 Cached extensions belonging to bundled plugins follow `PLUGINS` selection
