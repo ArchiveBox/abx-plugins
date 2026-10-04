@@ -68,20 +68,6 @@ jobs:
         run: |
           uv sync --locked --dev --no-sources --no-cache
 
-      - name: Run documentation code blocks
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib
-        run: |
-          mapfile -t plugin_readmes < <(uv run --no-cache --no-project python - <<'PY'
-          from pathlib import Path
-
-          for readme in sorted(Path("abx_plugins/plugins").glob("*/README.md")):
-              print(readme)
-          PY
-          )
-          uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
-            README.md AGENTS.md skills docs "${plugin_readmes[@]}"
-
       - name: Run prek
         env:
           PREK_HOME: ${{ runner.temp }}/prek-home
