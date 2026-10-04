@@ -567,7 +567,7 @@
             byId("summary").textContent =
               formats.length +
               " formats · " +
-              (sheetCount ? sheetCount + " sheets · " : "") +
+              (sheetCount ? sheetCount + (sheetCount === 1 ? " sheet · " : " sheets · ") : "") +
               sizeLabel(
                 exports.reduce((sum, item) => sum + (Number(item.size) || 0), 0)
               );
@@ -598,7 +598,9 @@
               );
               byId("formats").append(button);
             }
+            const sheets = exports.filter((item) => ["csv", "tsv"].includes(item.format));
             const initial =
+              sheets.find((item) => item.sheet_id === selectedSheet) || sheets[0] ||
               exports.find((item) => item.format === "pdf") || exports[0];
             if (initial) select(initial);
             else
