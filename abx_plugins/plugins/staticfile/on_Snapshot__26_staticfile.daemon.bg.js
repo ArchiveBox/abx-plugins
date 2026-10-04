@@ -37,6 +37,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  acquireSessionLock,
   getBrowserConnection,
   resolvePuppeteerModule,
   resolveChromeLaunchOptions,
@@ -395,11 +396,18 @@ async function setupStaticFileListener() {
   };
   browserConnection.on("Browser.downloadWillBegin", onDownloadWillBegin);
   browserConnection.on("Browser.downloadProgress", onDownloadProgress);
-  await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-    behavior: "allow",
-    downloadPath: downloadDir,
-    eventsEnabled: true,
-  });
+  const releaseDownloadLock = await acquireSessionLock(
+    path.join(downloadDir, ".download.lock"), timeout
+  );
+  try {
+    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: downloadDir,
+      eventsEnabled: true,
+    });
+  } finally {
+    releaseDownloadLock();
+  }
 
   async function waitForDownloadUntil(deadline) {
     if (downloadTerminal) return downloadTerminal;

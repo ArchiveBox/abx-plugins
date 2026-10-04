@@ -410,6 +410,8 @@ if __name__ == "__main__":
 @pytest.mark.parametrize(
     ("url", "provider"),
     [
+        ("https://DRIVE.GOOGLE.COM:443/drive/folders/public-folder", "googledrive"),
+        ("https://WWW.DROPBOX.COM:443/sh/public/folder", "dropbox"),
         (
             "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks",
             "googledrive",

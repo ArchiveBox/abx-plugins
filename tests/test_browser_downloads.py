@@ -65,8 +65,13 @@ const {saveDownloads}=require(process.argv[2]);
  try {
   await other.goto(process.argv[5]);
   const before=await page.evaluate(()=>performance.timeOrigin);
-  const files=await captureBrowserDownloads({browser,page,downloadPath:path.join(output,'browser'),timeoutMs:10000,
-   trigger:async()=>{await other.bringToFront();await other.click('a');await page.bringToFront();await page.click('a');}});
+  const [files, otherFiles] = await Promise.all([
+   captureBrowserDownloads({browser,page,downloadPath:path.join(output,'browser'),timeoutMs:10000,
+    trigger:async()=>{await page.click('a');}}),
+   captureBrowserDownloads({browser,page:other,downloadPath:path.join(output,'browser'),timeoutMs:10000,
+    trigger:async()=>{await other.click('a');}}),
+  ]);
+  if(otherFiles.length !== 1 || fs.readFileSync(otherFiles[0].filePath,'utf8') !== 'Other tab bytes') throw new Error('Wrong tab download');
   const manifest=await saveDownloads(path.join(output,'saved'),'Folder',files,{requireZip:true});
   const previous=fs.readFileSync(path.join(output,'saved/files/nested/hello.txt'));
   const originalManifest=fs.readFileSync(path.join(output,'saved/downloads.json'));

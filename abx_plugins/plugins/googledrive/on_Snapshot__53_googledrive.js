@@ -2,6 +2,7 @@
 // /// script
 // ///
 const path = require("path");
+const fs = require("fs");
 const {
   loadConfig,
   getEnvBool,
@@ -58,12 +59,13 @@ async function main() {
     timeoutMs,
     waitForNavigationComplete: true,
   });
+  let downloads = [];
   try {
     if (folderId(page.url()) !== id)
       throw new Error(
         "Chrome tab is not on the requested Drive folder (login may be required)"
       );
-    const downloads = await captureBrowserDownloads({
+    downloads = await captureBrowserDownloads({
       browser,
       page,
       timeoutMs: remaining(),
@@ -124,6 +126,13 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "googledrive/downloads.json");
   } finally {
+    // These paths were validated and claimed by this tab, even if unpacking
+    // or the remaining deadline failed after Chrome completed its download.
+    for (const { filePath } of downloads) {
+      await fs.promises.unlink(filePath).catch((error) => {
+        if (error.code !== "ENOENT") console.error(`Cannot remove provider download: ${error.message}`);
+      });
+    }
     await browser.disconnect();
   }
 }

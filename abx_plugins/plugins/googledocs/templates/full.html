@@ -18,7 +18,10 @@
       }
       body {
         margin: 0;
-        background: #f5f6f8;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: white;
         color: var(--ink);
         font: 14px/1.5 system-ui, -apple-system, sans-serif;
       }
@@ -94,9 +97,11 @@
         outline-offset: 3px;
       }
       main {
-        padding: 20px;
-        max-width: 1600px;
-        margin: auto;
+        width: 100%;
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
       }
       nav {
         flex-wrap: wrap;
@@ -143,9 +148,10 @@
       }
       .panel {
         min-width: 0;
-        background: white;
-        border: 1px solid var(--line);
-        border-radius: 10px;
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
       }
       .panel-head {
@@ -175,8 +181,8 @@
         border-bottom: 1px solid var(--line);
       }
       #preview {
-        height: calc(100vh - 215px);
-        min-height: 400px;
+        flex: 1;
+        min-height: 0;
         overflow: auto;
       }
       iframe {
@@ -197,7 +203,7 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         margin: 0;
-        padding: 24px;
+        padding: 0;
         font: 13px/1.7 ui-monospace, SFMono-Regular, monospace;
       }
       table {
@@ -238,8 +244,9 @@
         color: #a43e3e;
         font-size: 12px;
         white-space: pre-wrap;
-        margin: 12px 0;
+        margin: 0;
       }
+      #errors:empty { display: none; }
       .loading {
         padding: 24px;
         color: var(--muted);
@@ -259,9 +266,6 @@
           min-width: 40px;
           justify-content: center;
         }
-        main {
-          padding: 12px;
-        }
         nav {
           width: 100%;
         }
@@ -274,10 +278,6 @@
         }
         h1 {
           font-size: 15px;
-        }
-        #preview {
-          height: 65vh;
-          min-height: 320px;
         }
         .panel-head {
           padding: 10px 12px;

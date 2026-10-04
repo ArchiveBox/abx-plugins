@@ -2885,6 +2885,8 @@ async function captureBrowserDownloads({
 }) {
   if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
   let succeeded = false;
+  let releaseDownloadLock;
+  const deadline = Date.now() + timeoutMs;
   const session = await page.target().createCDPSession();
   const connection = getBrowserConnection(browser);
   const frames = new Set();
@@ -2937,7 +2939,9 @@ async function captureBrowserDownloads({
     addTree((await session.send("Page.getFrameTree")).frameTree);
     connection.on("Browser.downloadWillBegin", begin);
     connection.on("Browser.downloadProgress", progress);
-    await fs.promises.mkdir(downloadPath, { recursive: true });
+    // Download behavior is browser-wide. Share the existing filesystem lock
+    // mechanism with WACZ export and static-file setup across hook processes.
+    releaseDownloadLock = await acquireSessionLock(path.join(downloadPath, ".download.lock"), timeoutMs);
     await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
       behavior: "allowAndName",
       downloadPath,
@@ -2948,7 +2952,7 @@ async function captureBrowserDownloads({
         reject(
           new Error("Provider download did not complete before the timeout")
         ),
-      timeoutMs
+      Math.max(1, deadline - Date.now())
     );
     // Coordinate provider HTML download dialogs with the CSS modal closer.
     await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
@@ -2997,9 +3001,12 @@ async function captureBrowserDownloads({
         }
       }
     }
-    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-      behavior: "allow", downloadPath, eventsEnabled: true,
-    }).catch(() => {});
+    if (releaseDownloadLock) {
+      await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+        behavior: "allow", downloadPath, eventsEnabled: true,
+      }).catch(() => {});
+      releaseDownloadLock();
+    }
     await session.detach();
   }
 }

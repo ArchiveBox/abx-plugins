@@ -188,8 +188,12 @@ async function downloadExactWacz(
   let publishedFile = null;
   let targetId = null;
   let downloadSession = null;
+  let releaseDownloadLock;
 
   try {
+    releaseDownloadLock = await chromeUtils.acquireSessionLock(
+      path.join(downloadDir, ".download.lock"), timeoutMs
+    );
     await chromeUtils.sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
       behavior: "allow",
       downloadPath: downloadDir,
@@ -228,6 +232,7 @@ async function downloadExactWacz(
     }
     return (await fs.promises.stat(destPath)).size;
   } finally {
+    releaseDownloadLock?.();
     publishedFile?.close();
     await downloadSession?.detach().catch(() => {});
     if (targetId) {

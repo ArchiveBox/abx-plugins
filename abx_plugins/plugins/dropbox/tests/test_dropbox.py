@@ -4,6 +4,7 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit, parse_qsl, urlencode
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
@@ -16,10 +17,10 @@ URL = "https://www.dropbox.com/scl/fo/kf9a29cwaebpkbtug6a7k/AFiq9xq2XcvTcmHl_z-t
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_dropbox.js"
 
 
-def tab_identity(targets):
+def tab_identity(targets: list[dict[str, Any]]) -> dict[str, str]:
     # Dropbox adds its e=1 experiment parameter during download. Retain the
     # target ID, path, share token, and every other query parameter.
-    result = {}
+    result: dict[str, str] = {}
     for target in targets:
         if target["type"] != "page":
             continue
