@@ -119,6 +119,15 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 pythonVersion = "3.12"
 pythonPlatform = "Linux"
+# The optional host adapter is shipped here but exercised in ArchiveBox's suite.
+executionEnvironments = [
+    { root = "abx_plugins/plugins/opencode/archivebox", reportMissingImports = false },
+    { root = "." },
+]
+
+[[tool.ty.overrides]]
+include = ["abx_plugins/plugins/opencode/archivebox/**"]
+rules = { unresolved-import = "ignore" }
 
 [tool.codespell]
 ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo"

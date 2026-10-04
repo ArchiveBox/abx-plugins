@@ -5,9 +5,11 @@ state, session setup, HTTP/SSE/WebSocket forwarding, and agent UI templates. Imp
 plugin package does not import or start its runtime. The runtime's HTTP clients
 are declared in the `opencode` package extra.
 
-ArchiveBox supplies a thin, lazy Django adapter: authentication, collection and
+The plugin owns an optional `archivebox/` integration module, imported by the
+host for its routes and WebSocket handler. It supplies the lazy Django adapter: authentication, collection and
 route context, template rendering, and conversion to Django responses. The
-runtime imports neither ArchiveBox nor Django. WebSockets use the same superuser
+runtime imports neither ArchiveBox nor Django. Only the optional integration
+module imports host APIs; its test fixtures reuse the host conftest helpers. WebSockets use the same superuser
 session boundary and require a same-origin handshake before connecting upstream.
 A failed import, startup, request,
 or template returns an AI-only unavailable response; failed streams report an
@@ -45,7 +47,10 @@ State and credentials stay under `DATA_DIR/opencode`; user configuration files
 are preserved. These controls prevent automatic scans, not explicit shell commands.
 
 Runtime tests live in `tests/test_runtime.py`. The host's authentication,
-HTTP/streaming, and incomplete-install integration tests live in ArchiveBox.
+HTTP/streaming, browser, and incomplete-install cases live in `archivebox/`
+alongside its conftest fixtures. ArchiveBox imports these cases into its existing
+CI test files, where Django and the real host are available. Standalone plugin
+CI runs the runtime suite without requiring ArchiveBox or Django.
 `tests/test_collection_isolation.py` runs the real pinned OpenCode server against
 ancestor/nested Git repositories and verifies indexing exclusions and file reads.
 
