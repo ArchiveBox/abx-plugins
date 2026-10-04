@@ -2190,8 +2190,10 @@ def test_snapshot_isolation_external_cdp_keepalive_true_ignores_is_local_true_an
         )
 
 
+@pytest.mark.parametrize("columns", ["80", "240"])
 def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_cleanup(
     chrome_test_url,
+    columns,
 ):
     """snapshot isolation + external CDP + keepalive=false should close the adopted browser on hook cleanup."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -2222,6 +2224,7 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
             CHROME_CDP_URL=provider_cdp_url,
             CHROME_IS_LOCAL="false",
             CHROME_KEEPALIVE="false",
+            COLUMNS=columns,
         )
 
         launch_process = subprocess.Popen(

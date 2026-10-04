@@ -1200,7 +1200,7 @@ function findChromeProcessesByPort(port, timeoutMs = 5000) {
   const pids = [];
 
   try {
-    const output = execFileSync("ps", ["-axo", "pid=,command="], {
+    const output = execFileSync("ps", ["-axww", "-o", "pid=,command="], {
       encoding: "utf8",
       timeout: Math.max(1, Math.min(5000, timeoutMs)),
     });
