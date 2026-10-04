@@ -2720,6 +2720,46 @@ async function withConnectedBrowser(options, operation) {
 }
 
 /**
+ * Stream a resource through the attached page's browser session and HTTP cache.
+ * Unlike page navigation/downloads, this leaves the shared tab and download
+ * directory untouched and handles cross-origin export redirects inside Chrome.
+ * The caller owns outputPath (normally a temporary file) and validates its type.
+ */
+async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs }) {
+  const deadline = Date.now() + timeoutMs;
+  const send = (method, params = {}) => {
+    const timeout = deadline - Date.now();
+    if (timeout <= 0) throw new Error("Browser resource download timed out");
+    return cdpSession.send(method, params, { timeout });
+  };
+  const { frameTree } = await send("Page.getFrameTree");
+  const { resource } = await send("Network.loadNetworkResource", {
+    frameId: frameTree.frame.id,
+    url,
+    options: { disableCache: false, includeCredentials: true },
+  });
+  try {
+    if (!resource.success || resource.httpStatusCode < 200 || resource.httpStatusCode >= 300 || !resource.stream) {
+      throw new Error(`Browser resource download failed (HTTP ${resource.httpStatusCode || 0}, ${resource.netErrorName || "no response body"})`);
+    }
+    const file = await fs.promises.open(outputPath, "w");
+    try {
+      let eof = false;
+      while (!eof) {
+        const chunk = await send("IO.read", { handle: resource.stream, size: 256 * 1024 });
+        await file.writeFile(Buffer.from(chunk.data, chunk.base64Encoded ? "base64" : "utf8"));
+        eof = chunk.eof;
+      }
+    } finally {
+      await file.close();
+    }
+    return { status: resource.httpStatusCode, headers: resource.headers || {} };
+  } finally {
+    if (resource.stream) await cdpSession.send("IO.close", { handle: resource.stream });
+  }
+}
+
+/**
  * Configure Chrome's download behavior over the live CDP session.
  *
  * This is the supported way to set the downloads directory for ArchiveBox's
@@ -4371,6 +4411,7 @@ module.exports = {
   getTargetIdFromTarget,
   getTargetIdFromPage,
   connectToPage,
+  downloadBrowserResource,
   waitForNavigationComplete,
   waitForVisibleImages,
   setBrowserDownloadBehavior,

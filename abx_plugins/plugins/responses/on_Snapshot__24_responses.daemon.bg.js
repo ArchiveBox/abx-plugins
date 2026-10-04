@@ -79,6 +79,7 @@ const DEFAULT_TYPES = [
   "image",
   "media",
   "xhr",
+  "fetch",
   "websocket",
 ];
 
@@ -293,9 +294,14 @@ async function setupListener() {
       const urlSha256 = crypto.createHash("sha256").update(url).digest("hex");
 
       // Write to index
+      const originalRequest = request.redirectChain()[0];
       const indexEntry = {
         ts: timestamp,
         method,
+        ...(originalRequest ? {
+          requestUrl: originalRequest.url(),
+          requestMethod: originalRequest.method(),
+        } : {}),
         url: method === "DATA" ? url.slice(0, 128) : url,
         urlSha256,
         status,
