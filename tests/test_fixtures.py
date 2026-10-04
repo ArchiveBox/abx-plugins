@@ -429,7 +429,9 @@ def installed_claude_code_prereqs(tmp_path_factory):
     from abx_plugins.plugins.base.utils import load_required_binary_from_config
 
     env = os.environ.copy()
-    env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
+    env["ABXPKG_LIB_DIR"] = env.get("ABXPKG_LIB_DIR") or str(
+        tmp_path_factory.mktemp("claudecode_test_lib"),
+    )
     env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
     env["CLAUDECODE_ENABLED"] = "true"
 

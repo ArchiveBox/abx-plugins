@@ -39,7 +39,11 @@ _readability_binary_path = None
 def readability_collection_cache(tmp_path_factory):
     """Keep dependency preflight and hook launches in one real collection cache."""
     previous_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
-    lib_dir = tmp_path_factory.mktemp("readability_collection_lib")
+    lib_dir = (
+        Path(previous_lib_dir)
+        if previous_lib_dir
+        else tmp_path_factory.mktemp("readability_collection_lib")
+    )
     os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)
     try:
         yield lib_dir

@@ -122,6 +122,11 @@ if __name__ == "__main__":
                 },
             )
 
+    # Submit the measured long jobs first so they overlap the short batches.
+    test_matrix.sort(
+        key=lambda item: sum(durations.get(path, 60) for path in item["paths"]),
+        reverse=True,
+    )
     eligible = [
         item
         for item in test_matrix
@@ -129,11 +134,9 @@ if __name__ == "__main__":
         and not any(path in hosted for path in item["paths"])
     ]
     capacity = int(os.environ.get("UGNAS_CI_MAX_JOBS", "3"))
-    for item in sorted(
-        eligible,
-        key=lambda item: sum(durations.get(path, 60) for path in item["paths"]),
-        reverse=True,
-    )[:capacity]:
+    # CPU-capped NAS workers take the shorter jobs; hosted runners retain the
+    # long browser tests that otherwise become the final CI tail.
+    for item in list(reversed(eligible))[:capacity]:
         item["ugnas"] = True
 
     assigned = Counter(Path(path) for item in test_matrix for path in item["paths"])
