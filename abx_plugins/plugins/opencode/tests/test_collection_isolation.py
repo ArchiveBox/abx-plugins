@@ -1,10 +1,13 @@
 import base64
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 import json
 import os
 import socket
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import requests
 import pytest
@@ -208,3 +211,123 @@ def test_collection_is_not_a_git_project_or_file_index(
         assert not (settings["data_home"] / "opencode" / "snapshot").exists()
     finally:
         runtime._stop_owned_process()
+
+
+@pytest.fixture
+def live_opencode(tmp_path, opencode_env):
+    """A real plugin server without ArchiveBox collection or Django setup."""
+    from abx_plugins.plugins.opencode import runtime
+
+    collection = tmp_path / "collection"
+    collection.mkdir()
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    settings = runtime._settings(
+        {
+            "DATA_DIR": str(collection),
+            "OPENCODE_PORT": port,
+            "ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"],
+        },
+    )
+    settings["archivebox_admin_url"] = "http://archivebox.localhost:5797/admin"
+    try:
+        ok, error = runtime._ensure_opencode(settings)
+        assert ok, error
+        yield settings
+    finally:
+        runtime._stop_owned_process()
+
+
+def test_opencode_oauth_callback_waits_for_user_and_preserves_cancellation(
+    live_opencode,
+):
+    from abx_plugins.plugins.opencode import runtime
+
+    settings: dict = {**live_opencode, "timeout": 1}
+    headers = {"Content-Type": "application/json"}
+    status, _, body = runtime.proxy(
+        settings,
+        "POST",
+        "provider/openai/oauth/authorize",
+        (),
+        headers,
+        b'{"method":0}',
+    )
+    assert status == 200
+    assert isinstance(body, bytes)
+    authorization = json.loads(body)
+    assert urlsplit(authorization["url"]).hostname == "auth.openai.com"
+    redirect = parse_qs(urlsplit(authorization["url"]).query)["redirect_uri"][0]
+    callback_origin = urlsplit(redirect)
+    assert callback_origin.hostname == "localhost"
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        callback = executor.submit(
+            runtime.proxy,
+            settings,
+            "POST",
+            "provider/openai/oauth/callback",
+            (),
+            headers,
+            b'{"method":0}',
+        )
+        try:
+            # A real pending authorization must outlive the ordinary API read
+            # timeout. No tokens or substituted provider responses are used.
+            with pytest.raises(FutureTimeoutError):
+                callback.result(timeout=2)
+        finally:
+            cancelled = requests.get(
+                f"{callback_origin.scheme}://{callback_origin.netloc}/cancel",
+                timeout=5,
+            )
+            assert cancelled.status_code == 200
+            assert cancelled.text == "Login cancelled"
+        status, response_headers, body = callback.result(timeout=5)
+    assert status == 500
+    assert response_headers["Content-Type"].startswith("application/json")
+    assert isinstance(body, bytes)
+    error = json.loads(body)
+    assert error["name"] == "UnknownError"
+    assert error["data"]["ref"].startswith("err_")
+    runtime._stop_owned_process()
+    # The pnpm launcher can exit before its server child. Stopping the owned
+    # process must release both listeners so another collection can authorize.
+    with pytest.raises(requests.ConnectionError):
+        requests.get(settings["origin"] + "/global/health", timeout=2)
+    with pytest.raises(requests.ConnectionError):
+        requests.get(
+            f"{callback_origin.scheme}://{callback_origin.netloc}/cancel",
+            timeout=2,
+        )
+
+
+def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
+    from abx_plugins.plugins.opencode import runtime
+
+    runtime._stop_owned_process()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(runtime._ensure_opencode, [live_opencode] * 2))
+
+    assert results == [(True, ""), (True, "")]
+    assert runtime._health(live_opencode)
+
+
+def test_opencode_does_not_probe_or_replace_a_ready_owned_process(live_opencode):
+    from abx_plugins.plugins.opencode import runtime
+
+    process = runtime._PROCESS
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    settings = {**live_opencode, "port": port}
+    settings["origin"] = f"http://{settings['host']}:{settings['port']}"
+
+    ok, error = runtime._ensure_opencode(settings)
+
+    assert ok, error
+    assert process is not None
+    assert runtime._PROCESS is process
+    assert process.poll() is None

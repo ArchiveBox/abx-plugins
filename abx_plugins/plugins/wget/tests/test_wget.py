@@ -40,6 +40,7 @@ def test_hook_script_exists():
 def test_wget_declares_only_env_apt_brew_providers():
     """required_binaries should prefer non-root Homebrew before apt."""
     required_binaries = PLUGIN_CONFIG["required_binaries"]
+    assert required_binaries[0]["name"] == "{WGET_BINARY}"
     binary_record = next(
         (
             record
@@ -52,6 +53,7 @@ def test_wget_declares_only_env_apt_brew_providers():
         f"Expected wget required_binaries entry: {required_binaries}"
     )
     assert binary_record["binproviders"] == "env,apt,brew"
+    assert PLUGIN_CONFIG["properties"]["WGET_BINARY"]["default"] == "wget"
 
 
 def test_verify_deps_with_abxpkg():

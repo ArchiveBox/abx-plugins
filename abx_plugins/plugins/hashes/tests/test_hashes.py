@@ -4,6 +4,7 @@ Tests for the hashes plugin.
 Tests the real merkle tree generation with actual files.
 """
 
+import hashlib
 import json
 import os
 import runpy
@@ -245,6 +246,39 @@ class TestHashesPlugin:
 
             # Should have empty file list
             assert data["metadata"]["file_count"] == 0
+
+
+def test_hook_receives_cli_args(tmp_path):
+    """Hook should receive CLI arguments."""
+    snap_dir = tmp_path / "snapshot"
+    output_dir = snap_dir / "hashes"
+    output_dir.mkdir(parents=True)
+    (snap_dir / "source.txt").write_text("real CLI argument input", encoding="utf-8")
+    hook_path = HASHES_HOOK
+
+    result = subprocess.run(
+        [str(hook_path), "--url=https://example.com/real-hook-argument"],
+        cwd=output_dir,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "SNAP_DIR": str(snap_dir)},
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = [
+        json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")
+    ]
+    source_hash = hashlib.sha256(b"real CLI argument input").hexdigest()
+    assert records == [
+        {
+            "type": "ArchiveResult",
+            "status": "succeeded",
+            "output_str": f"0.0MB {source_hash[:12]}",
+        },
+    ]
+    hashes = json.loads((output_dir / "hashes.json").read_text())
+    assert hashes["files"][0]["hash"] == source_hash
 
 
 if __name__ == "__main__":
