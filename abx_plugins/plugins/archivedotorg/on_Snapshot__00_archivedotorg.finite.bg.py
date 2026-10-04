@@ -7,7 +7,13 @@
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.
 #
 # Usage:
-#     ./on_Snapshot__36_archivedotorg.finite.bg.py --url=<url> > events.jsonl
+#     ./on_Snapshot__00_archivedotorg.finite.bg.py --url=<url> > events.jsonl
+
+# Start before browser setup/recorders/navigation: this request needs only the
+# URL and waits mostly on a remote service, so its latency can overlap every
+# browser extractor. Other downloaders stay after navigation to avoid competing
+# with browser startup. Grouping this lightweight submission with them delayed
+# it until ~40s after acceptance and put its remote wait on the sealing path.
 
 import signal
 import sys
