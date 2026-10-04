@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import assert_isolated_snapshot_env
+from abx_plugins.plugins.base.testing import (
+    assert_isolated_snapshot_env,
+    install_required_binary_from_config,
+)
 from abx_plugins.plugins.base.utils import (
     BASE_CONFIG_PATH,
     build_binproviders,
@@ -281,13 +284,21 @@ def test_load_config_resolves_aliases_to_canonical_fields() -> None:
 def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     tmp_path: Path,
 ) -> None:
+    # The env provider can only discover installed binaries. CI images differ;
+    # install Node separately so this still tests projection into a fresh lib.
+    node = install_required_binary_from_config(
+        CHROME_CONFIG.parent,
+        "node",
+        env={**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "dependencies")},
+    )
+    assert node and node.loaded_abspath
     lib_dir = tmp_path / "lib"
     personas_dir = tmp_path / "personas"
     environ = {
         **os.environ,
         "ABXPKG_LIB_DIR": str(lib_dir),
         "NODE_BINARY": "node",
-        "PATH": os.environ.get("PATH", ""),
+        "PATH": f"{node.loaded_abspath.parent}{os.pathsep}{os.environ.get('PATH', '')}",
     }
 
     config = load_config(
