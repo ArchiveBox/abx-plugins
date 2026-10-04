@@ -399,6 +399,7 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Python ${{ matrix.test.python }}
+        id: python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.test.python }}
@@ -429,9 +430,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/runtime-abx-lib
-          key: abxpkg-v1-${{ matrix.test.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ matrix.test.python }}-${{ matrix.test.path }}-${{ env.ABXPKG_CACHE_DEPS }}-${{ hashFiles('abx_plugins/plugins/**/config.json') }}
+          key: abxpkg-v1-${{ matrix.test.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.path }}-${{ env.ABXPKG_CACHE_DEPS }}-${{ hashFiles('abx_plugins/plugins/**/config.json') }}
           restore-keys: |
-            abxpkg-v1-${{ matrix.test.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ matrix.test.python }}-${{ matrix.test.path }}-
+            abxpkg-v1-${{ matrix.test.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.path }}-
 
       - name: Install locked dependencies
         run: |
