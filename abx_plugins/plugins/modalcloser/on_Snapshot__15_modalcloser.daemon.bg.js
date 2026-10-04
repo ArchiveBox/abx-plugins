@@ -97,6 +97,8 @@ function emitProgress(line) {
  */
 async function closeModals(page) {
   return page.evaluate(() => {
+    // Provider download hooks temporarily own their confirmation dialogs.
+    if (document.documentElement.dataset.abxDownloadActive === "true") return 0;
     let closed = 0;
 
     // Bootstrap 4/5 - use Bootstrap's modal API

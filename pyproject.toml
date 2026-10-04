@@ -121,5 +121,5 @@ pythonVersion = "3.12"
 pythonPlatform = "Linux"
 
 [tool.codespell]
-ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te"
+ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo"
 skip = "*.json"

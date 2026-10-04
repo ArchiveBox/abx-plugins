@@ -405,3 +405,63 @@ def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize(
+    ("url", "provider"),
+    [
+        ("https://DRIVE.GOOGLE.COM:443/drive/folders/public-folder", "googledrive"),
+        ("https://WWW.DROPBOX.COM:443/sh/public/folder", "dropbox"),
+        (
+            "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks",
+            "googledrive",
+        ),
+        (
+            "https://www.dropbox.com/scl/fo/kf9a29cwaebpkbtug6a7k/AFiq9xq2XcvTcmHl_z-tsIc/Lockups?rlkey=4mrp0lpvxmwrlwdy349nspygn&dl=0",
+            "dropbox",
+        ),
+    ],
+)
+def test_folder_downloads_belong_to_provider_plugins(
+    tmp_path,
+    ytdlp_runtime_env,
+    url,
+    provider,
+):
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", url],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "noresults", result.stdout
+    assert (
+        record["output_str"]
+        == f"Folder URL is not media; enable {provider} to download its files"
+    ), record
+    assert "[ytdlp] Starting download" not in result.stderr
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
+def test_individual_public_video_still_downloads(tmp_path, ytdlp_runtime_env):
+    url = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", url],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    videos = list((tmp_path / "ytdlp").glob("*.mp4"))
+    assert len(videos) == 1
+    with videos[0].open("rb") as video:
+        assert video.read(12)[4:8] == b"ftyp"
+    assert videos[0].stat().st_size > 1_000_000

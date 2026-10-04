@@ -842,6 +842,16 @@ async function launchChromium(options = {}) {
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
   let chromeUserAgent = CHROME_USER_AGENT;
+  // The generic HTTP defaults inherited from runners are not browser user
+  // agents. Drive's ZIP UI requires Chromium's own identity. Custom UAs stay
+  // untouched (apart from the existing Chrome version replacement below).
+  if (
+    [
+      "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
+      "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)",
+    ].includes(chromeUserAgent)
+  )
+    chromeUserAgent = "";
   if (chromeUserAgent) {
     try {
       // The default config intentionally stores a generic/static Chrome UA so it
@@ -2862,6 +2872,150 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
   });
 }
 
+/** Capture downloads initiated by this tab (including its download iframes).
+ * trigger must resolve only once the provider has finished preparing its batch.
+ * Keep the persona's existing download directory; never claim another tab's file.
+ */
+async function captureBrowserDownloads({
+  browser,
+  page,
+  downloadPath,
+  timeoutMs,
+  trigger,
+}) {
+  if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
+  let succeeded = false;
+  let releaseDownloadLock;
+  const deadline = Date.now() + timeoutMs;
+  const remaining = () => {
+    const ms = deadline - Date.now();
+    if (ms <= 0) throw new Error("Provider download deadline exceeded");
+    return ms;
+  };
+  const session = await page.target().createCDPSession();
+  const connection = getBrowserConnection(browser);
+  const frames = new Set();
+  const downloads = new Map();
+  let prepared = false;
+  let resolveStarted;
+  const downloadStarted = new Promise((yes) => {
+    resolveStarted = yes;
+  });
+  let resolve, reject, timer;
+  const completed = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  // A failure can arrive while trigger is still waiting for the provider UI.
+  completed.catch(() => {});
+  const check = () => {
+    if (
+      prepared &&
+      downloads.size &&
+      [...downloads.values()].every((item) => item.state === "completed")
+    )
+      resolve([...downloads.values()]);
+  };
+  const attach = (event) => {
+    if (frames.has(event.parentFrameId)) frames.add(event.frameId);
+  };
+  const begin = (event) => {
+    if (frames.has(event.frameId)) {
+      downloads.set(event.guid, { ...event, state: "inProgress" });
+      resolveStarted();
+      console.error("Provider browser download started");
+    }
+  };
+  const progress = (event) => {
+    const item = downloads.get(event.guid);
+    if (!item) return;
+    Object.assign(item, event);
+    if (["canceled", "interrupted"].includes(event.state))
+      reject(new Error(`Browser download ${event.state}`));
+    check();
+  };
+  try {
+    session.on("Page.frameAttached", attach);
+    await session.send("Page.enable");
+    const addTree = (tree) => {
+      frames.add(tree.frame.id);
+      for (const child of tree.childFrames || []) addTree(child);
+    };
+    addTree((await session.send("Page.getFrameTree")).frameTree);
+    connection.on("Browser.downloadWillBegin", begin);
+    connection.on("Browser.downloadProgress", progress);
+    // Download behavior is browser-wide. Share the existing filesystem lock
+    // mechanism with WACZ export and static-file setup across hook processes.
+    releaseDownloadLock = await acquireSessionLock(path.join(downloadPath, ".download.lock"), remaining());
+    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+      behavior: "allowAndName",
+      downloadPath,
+      eventsEnabled: true,
+    });
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error("Provider download did not complete before the timeout")
+        ),
+      remaining()
+    );
+    // Coordinate provider HTML download dialogs with the CSS modal closer.
+    await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
+    // Provider controls wait for visible layout even in headless Chromium.
+    await page.bringToFront();
+    await Promise.race([trigger({ downloadStarted }), completed]);
+    prepared = true;
+    check();
+    const results = await completed;
+    for (const item of results) {
+      // allowAndName gives every download its GUID filename, including on
+      // platforms that omit the optional downloadProgress.filePath field.
+      const source = await fs.promises.realpath(path.join(downloadPath, item.guid));
+      const relative = path.relative(
+        await fs.promises.realpath(downloadPath),
+        source
+      );
+      if (!relative || (relative === ".." || relative.startsWith(".." + path.sep)) || path.isAbsolute(relative))
+        throw new Error("Browser download escaped the download directory");
+      const stat = await fs.promises.stat(source);
+      if (!stat.isFile() || stat.size !== item.receivedBytes)
+        throw new Error("Completed browser download size does not match");
+      item.filePath = source;
+    }
+    succeeded = true;
+    return results;
+  } finally {
+    clearTimeout(timer);
+    await page.evaluate(() => { delete document.documentElement.dataset.abxDownloadActive; }).catch(() => {});
+    connection.off("Browser.downloadWillBegin", begin);
+    connection.off("Browser.downloadProgress", progress);
+    for (const item of downloads.values()) {
+      if (item.state === "inProgress")
+        await sendBrowserCommand(browser, "Browser.cancelDownload", {
+          guid: item.guid,
+        }).catch(() => {});
+    }
+    if (!succeeded) {
+      for (const item of downloads.values()) {
+        // Only this page's CDP GUIDs; never guess suggested filenames shared
+        // with downloads belonging to another tab.
+        for (const suffix of ["", ".crdownload"]) {
+          await fs.promises.unlink(path.join(downloadPath, item.guid + suffix)).catch((error) => {
+            if (error.code !== "ENOENT") console.error(`Cannot remove interrupted download: ${error.message}`);
+          });
+        }
+      }
+    }
+    if (releaseDownloadLock) {
+      await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+        behavior: "allow", downloadPath, eventsEnabled: true,
+      }).catch(() => {});
+      releaseDownloadLock();
+    }
+    await session.detach();
+  }
+}
+
 function getTargetIdFromTarget(target) {
   if (!target) return null;
   return target._targetId || target._targetInfo?.targetId || null;
@@ -4344,6 +4498,7 @@ async function waitForVisibleImages(page, timeoutMs) {
 
 // Export all functions
 module.exports = {
+  captureBrowserDownloads,
   withTimeout,
   // Environment helpers
   getEnv,

@@ -7,7 +7,8 @@ Extract text from PDFs, Office documents, and images using LiteParse
 (the ``lit`` CLI by LlamaIndex, v2+).
 
 Scans the snapshot directory for downloaded documents produced by other plugins
-(``responses``, ``staticfile``, ``wget``, ``papersdl``) and runs ``lit batch-parse``
+(``responses``, ``staticfile``, ``wget``, ``papersdl``, ``googledocs``,
+``googledrive``, ``dropbox``) and runs ``lit batch-parse``
 on each supported file. Each source produces one ``<source-stem>.txt`` and
 ``<source-stem>.json`` directly in the plugin output dir — no merged
 ``content.txt`` or manifest. Search backends (ripgrep / sqlite FTS / sonic)
@@ -39,6 +40,7 @@ import signal
 import subprocess
 import tempfile
 import threading
+import zipfile
 from pathlib import Path
 
 import rich_click as click
@@ -143,6 +145,7 @@ def _content_digest(path: Path) -> str:
 def find_document_sources(
     min_image_dim: int = 0,
     include_images: bool = True,
+    archive_dir: Path | None = None,
 ) -> list[tuple[Path, str]]:
     """Find documents produced by upstream plugins that LiteParse can parse.
 
@@ -167,12 +170,18 @@ def find_document_sources(
         "wget",
         "*_wget",
         "papersdl",
+        "googledocs",
+        "googledrive",
+        "dropbox",
         "liteparse_input",
     )
 
     found: list[tuple[Path, str]] = []
     seen_paths: set[str] = set()
     seen_digests: dict[str, Path] = {}
+    seen_archives: set[Path] = set()
+    archive_bytes = 0
+    warned_limit = False
 
     def consider(match: Path) -> None:
         if not match.is_file() or match.stat().st_size == 0:
@@ -201,9 +210,97 @@ def find_document_sources(
                 if not root_dir.is_dir():
                     continue
                 for match in root_dir.rglob("*"):
-                    if match.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                    suffix = match.suffix.lower()
+                    if suffix in SUPPORTED_EXTENSIONS:
+                        consider(match)
+                    # Office/HTML exports may contain images even when the
+                    # document also has native text. OCR those images once,
+                    # deduplicated against the other saved representations.
+                    if not (
+                        include_images
+                        and archive_dir
+                        and match.is_file()
+                        and suffix
+                        in {
+                            ".zip",
+                            ".docx",
+                            ".docm",
+                            ".xlsx",
+                            ".xlsm",
+                            ".pptx",
+                            ".pptm",
+                            ".odt",
+                            ".ods",
+                            ".odp",
+                            ".epub",
+                        }
+                    ):
                         continue
-                    consider(match)
+                    resolved = match.resolve()
+                    if resolved in seen_archives:
+                        continue
+                    seen_archives.add(resolved)
+                    try:
+                        with zipfile.ZipFile(match) as archive:
+                            for entry in archive.infolist():
+                                extension = Path(entry.filename).suffix.lower()
+                                if entry.is_dir() or extension not in IMAGE_EXTENSIONS:
+                                    continue
+                                # Bound temporary OCR input expansion; read one
+                                # member at a time without loading its archive.
+                                if (
+                                    entry.file_size > 256 * 1024 * 1024
+                                    or archive_bytes + entry.file_size
+                                    > 1024 * 1024 * 1024
+                                ):
+                                    if not warned_limit:
+                                        print(
+                                            "[liteparse] Skipping embedded images exceeding OCR expansion limits",
+                                            file=sys.stderr,
+                                        )
+                                        warned_limit = True
+                                    continue
+                                identity = hashlib.sha256(
+                                    f"{resolved}\0{entry.header_offset}\0{entry.filename}".encode(),
+                                ).hexdigest()[:16]
+                                image = (
+                                    archive_dir
+                                    / f"{match.stem[:60]}-{identity}{extension}"
+                                )
+                                try:
+                                    with (
+                                        image.open("wb") as target,
+                                        archive.open(entry) as source,
+                                    ):
+                                        shutil.copyfileobj(
+                                            source,
+                                            target,
+                                            length=1024 * 1024,
+                                        )
+                                except (
+                                    zipfile.BadZipFile,
+                                    RuntimeError,
+                                    OSError,
+                                    ValueError,
+                                ) as error:
+                                    image.unlink(missing_ok=True)
+                                    print(
+                                        f"[liteparse] Cannot read embedded image {match.name}/{entry.filename}: {error}",
+                                        file=sys.stderr,
+                                    )
+                                    continue
+                                archive_bytes += entry.file_size
+                                consider(image)
+                    except (
+                        zipfile.BadZipFile,
+                        RuntimeError,
+                        OSError,
+                        ValueError,
+                    ) as error:
+                        print(
+                            f"[liteparse] Cannot inspect embedded images in {match.name}: {error}",
+                            file=sys.stderr,
+                        )
 
     return found
 
@@ -449,7 +546,7 @@ def _process_batch(
     return results
 
 
-def extract_liteparse(url: str) -> tuple[str, str]:
+def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, str]:
     """Run lit on every document found in the snapshot dir.
 
     Returns: (status, output_str)
@@ -466,6 +563,7 @@ def extract_liteparse(url: str) -> tuple[str, str]:
     sources = find_document_sources(
         min_image_dim=min_image_dim,
         include_images=config.LITEPARSE_OCR_ENABLED,
+        archive_dir=archive_dir,
     )
     if not sources:
         return "noresults", "No document sources found"
@@ -682,7 +780,11 @@ def main(url: str):
             sys.exit(0)
 
         print("LiteParse extraction started", flush=True)
-        status, output = extract_liteparse(url)
+        with tempfile.TemporaryDirectory(
+            prefix=".images_",
+            dir=OUTPUT_DIR,
+        ) as archive_dir:
+            status, output = extract_liteparse(url, Path(archive_dir))
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
         emit_archive_result_record(status, output)

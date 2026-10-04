@@ -26,6 +26,7 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("forum-dl download started", flush=True)
 
+import json
 import os
 import subprocess
 import tempfile
@@ -103,7 +104,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         try:
             from forum_dl.writers.jsonl import JsonlWriter
             def _patched_serialize_entry(self, entry):
-                return entry.model_dump_json()
+                return entry.model_dump_json(serialize_as_any=True)
             JsonlWriter._serialize_entry = _patched_serialize_entry
         except Exception:
             pass
@@ -163,6 +164,27 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return False, None, f"Timed out after {timeout} seconds"
 
             reader.join(timeout=1)
+
+            # A detected board/thread is metadata, not a captured discussion.
+            # forum-dl can emit a phpBB board record for ordinary web pages.
+            if output_format == "jsonl" and output_file.is_file():
+                has_replies = False
+                with output_file.open(encoding="utf-8") as captured:
+                    for line in captured:
+                        if not line.strip():
+                            continue
+                        record = json.loads(line)
+                        item = record.get("item", {})
+                        if (
+                            record.get("type") == "post"
+                            and item.get("subpath")
+                            and (item.get("author") or item.get("content"))
+                        ):
+                            has_replies = True
+                            break
+                if not has_replies:
+                    output_file.unlink()
+                    return True, "No forum found", ""
 
             # Check if output file was created with content
             if output_file.exists() and output_file.stat().st_size > 0:

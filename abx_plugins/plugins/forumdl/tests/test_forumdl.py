@@ -267,3 +267,27 @@ def test_real_forum_url():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_google_drive_board_metadata_is_noresults(tmp_path):
+    """forum-dl misidentifies Drive as phpBB and emits only a board record."""
+    binary = require_forumdl_binary()
+    url = "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks"
+    for _ in range(2):
+        result = subprocess.run(
+            [str(FORUMDL_HOOK), f"--url={url}"],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "FORUMDL_BINARY": binary,
+                "FORUMDL_TIMEOUT": "60",
+                "SNAP_DIR": str(tmp_path),
+            },
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "noresults", (record, result.stderr)
+        assert not (tmp_path / "forumdl/forum.jsonl").exists()
