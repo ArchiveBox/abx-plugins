@@ -2948,6 +2948,8 @@ async function captureBrowserDownloads({
         ),
       timeoutMs
     );
+    // Coordinate explicit download dialogs with the background modal closer.
+    await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
     // Provider controls wait for visible layout even in headless Chromium.
     await page.bringToFront();
     await Promise.race([trigger({ downloadStarted }), completed]);
@@ -2972,6 +2974,7 @@ async function captureBrowserDownloads({
     return results;
   } finally {
     clearTimeout(timer);
+    await page.evaluate(() => { delete document.documentElement.dataset.abxDownloadActive; }).catch(() => {});
     connection.off("Browser.downloadWillBegin", begin);
     connection.off("Browser.downloadProgress", progress);
     for (const item of downloads.values()) {

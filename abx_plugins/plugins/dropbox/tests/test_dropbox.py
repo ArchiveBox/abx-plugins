@@ -3,7 +3,6 @@
 import hashlib
 import json
 import subprocess
-import zipfile
 from pathlib import Path
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
@@ -56,20 +55,15 @@ const u=require(process.argv[1]);(async()=>{const {browser,page}=await u.connect
         }
         output = chrome_dir.parent / "dropbox"
         manifest = json.loads((output / "downloads.json").read_text())
-        assert len(manifest["downloads"]) == 1
-        item = manifest["downloads"][0]
-        data = (output / item["path"]).read_bytes()
-        assert len(data) == item["size"]
-        assert hashlib.sha256(data).hexdigest() == item["sha256"]
-        with zipfile.ZipFile(output / item["path"]) as archive:
-            assert archive.testzip() is None
-            names = archive.namelist()
-            assert len(names) == 9
-            assert "/" in names
-            names = [n for n in names if not n.endswith("/")]
-            assert len(names) == 8
-            assert all(n.endswith(".png") for n in names)
-            assert all(archive.read(n).startswith(b"\x89PNG\r\n\x1a\n") for n in names)
+        assert len(manifest["files"]) == 8
+        assert not list(output.glob("*.zip"))
+        names = [item["filename"] for item in manifest["files"]]
+        for item in manifest["files"]:
+            data = (output / item["path"]).read_bytes()
+            assert len(data) == item["size"]
+            assert hashlib.sha256(data).hexdigest() == item["sha256"]
+            assert data.startswith(b"\x89PNG\r\n\x1a\n")
+        assert all(name.endswith(".png") for name in names)
 
 
 def test_public_shared_file(tmp_path, ensure_chrome_test_prereqs):
@@ -88,8 +82,8 @@ def test_public_shared_file(tmp_path, ensure_chrome_test_prereqs):
         assert record is not None and record["status"] == "succeeded"
         output = chrome_dir.parent / "dropbox"
         manifest = json.loads((output / "downloads.json").read_text())
-        assert len(manifest["downloads"]) == 1
-        item = manifest["downloads"][0]
+        assert len(manifest["files"]) == 1
+        item = manifest["files"][0]
         assert item["filename"] == "SHIFT_EverybodyWork_Lockup_Horizontal_Black.png"
         assert item["format"] == "png"
         data = (output / item["path"]).read_bytes()

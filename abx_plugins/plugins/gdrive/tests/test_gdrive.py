@@ -3,7 +3,6 @@
 import hashlib
 import json
 import subprocess
-import zipfile
 from pathlib import Path
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
@@ -56,15 +55,14 @@ const u=require(process.argv[1]);(async()=>{const {browser,page}=await u.connect
         }
         output = chrome_dir.parent / "gdrive"
         manifest = json.loads((output / "downloads.json").read_text())
-        assert len(manifest["downloads"]) == 1
-        item = manifest["downloads"][0]
-        data = (output / item["path"]).read_bytes()
-        assert len(data) == item["size"]
-        assert hashlib.sha256(data).hexdigest() == item["sha256"]
-        with zipfile.ZipFile(output / item["path"]) as archive:
-            assert archive.testzip() is None
-            names = archive.namelist()
-            assert any(n.endswith("fractal.jpg") for n in names)
-            assert any("directory-0/" in n for n in names)
-            assert any("directory-1/" in n for n in names)
-            assert len([n for n in names if not n.endswith("/")]) == 6
+        assert len(manifest["files"]) == 6
+        assert not list(output.glob("*.zip"))
+        names = [item["filename"] for item in manifest["files"]]
+        for item in manifest["files"]:
+            data = (output / item["path"]).read_bytes()
+            assert len(data) == item["size"]
+            assert hashlib.sha256(data).hexdigest() == item["sha256"]
+        assert "fractal.jpg" in names
+        assert (output / "files/directory-0").is_dir()
+        assert any("directory-1/" in name for name in names)
+        assert "Lorem ipsum" in (output / "files/this is a file.txt").read_text()

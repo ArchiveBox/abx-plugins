@@ -68,13 +68,13 @@ const {saveDownloads}=require(process.argv[2]);
   const files=await captureBrowserDownloads({browser,page,downloadPath:path.join(output,'browser'),timeoutMs:10000,
    trigger:async()=>{await other.bringToFront();await other.click('a');await page.bringToFront();await page.click('a');}});
   const manifest=await saveDownloads(path.join(output,'saved'),'Folder',files,{requireZip:true});
-  const previous=fs.readFileSync(path.join(output,'saved/download-1.zip'));
+  const previous=fs.readFileSync(path.join(output,'saved/files/nested/hello.txt'));
   const originalManifest=fs.readFileSync(path.join(output,'saved/downloads.json'));
-  const broken=path.join(output,'truncated.zip');fs.writeFileSync(broken,previous.subarray(0,previous.length-10));
+  const broken=path.join(output,'truncated.zip');fs.writeFileSync(broken,Buffer.from('PK incomplete archive'));
   let rejected=false;
   try {await saveDownloads(path.join(output,'saved'),'Bad',[{filePath:broken,suggestedFilename:'folder.zip'}],{requireZip:true});}
-  catch(e){rejected=/truncated ZIP/.test(e.message);}
-  console.log(JSON.stringify({manifest,rejected,preserved:previous.equals(fs.readFileSync(path.join(output,'saved/download-1.zip')))&&originalManifest.equals(fs.readFileSync(path.join(output,'saved/downloads.json'))),sameDocument:before===await page.evaluate(()=>performance.timeOrigin)}));
+  catch(e){rejected=/extraction failed/.test(e.message);}
+  console.log(JSON.stringify({manifest,rejected,preserved:previous.equals(fs.readFileSync(path.join(output,'saved/files/nested/hello.txt')))&&originalManifest.equals(fs.readFileSync(path.join(output,'saved/downloads.json'))),sameDocument:before===await page.evaluate(()=>performance.timeOrigin)}));
  } finally {await other.close();await browser.disconnect();}
 })().catch(e=>{console.error(e.stack);process.exitCode=1;});
 """
@@ -97,8 +97,11 @@ const {saveDownloads}=require(process.argv[2]);
         assert result.returncode == 0, result.stderr
         report = json.loads(result.stdout)
         assert report["sameDocument"] and report["preserved"] and report["rejected"]
-        assert len(report["manifest"]["downloads"]) == 1
-        assert (tmp_path / "output/saved/download-1.zip").read_bytes() == payload
+        assert len(report["manifest"]["files"]) == 1
+        assert (
+            tmp_path / "output/saved/files/nested/hello.txt"
+        ).read_text() == "Authenticated archive contents\n"
+        assert not list((tmp_path / "output/saved").glob("*.zip"))
         assert list((tmp_path / "output/saved").glob(".*.tmp")) == []
     httpserver.check_assertions()
 

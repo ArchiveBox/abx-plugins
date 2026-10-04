@@ -147,3 +147,103 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)
+
+
+def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
+    import zipfile
+    from abx_plugins.plugins.liteparse.tests.test_liteparse import (
+        IMAGE_URL_OCR,
+        _download_png,
+        _run_hook,
+    )
+    from abx_plugins.plugins.base.unpack_downloads import unpack_downloads
+
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    transport = tmp_path / "provider.zip"
+    with zipfile.ZipFile(transport, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("nested/note.txt", "exportplainuniqueneedle")
+        archive.writestr("nested/readme.md", "# exportmarkdownuniqueneedle")
+        archive.writestr("nested/page.html", "<p>exporthtmluniqueneedle</p>")
+        archive.writestr("nested/eurotext.png", _download_png(IMAGE_URL_OCR))
+    unpack_downloads(
+        snap / "gdrive",
+        {
+            "title": "Export",
+            "requireZip": True,
+            "downloads": [
+                {"filePath": str(transport), "suggestedFilename": "provider.zip"},
+            ],
+        },
+    )
+    assert not transport.exists()
+    assert not list(snap.rglob("*.zip"))
+    rg = subprocess.run(
+        ["rg", "-l", "exportplainuniqueneedle", str(snap / "gdrive/files")],
+        capture_output=True,
+        text=True,
+    )
+    assert rg.returncode == 0 and "nested/note.txt" in rg.stdout
+    parsed = _run_hook(snap, IMAGE_URL_OCR)
+    assert parsed.returncode == 0, parsed.stderr
+    assert json.loads(parsed.stdout.splitlines()[-1])["status"] == "succeeded", (
+        parsed.stderr
+    )
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    config = {
+        "DATA_DIR": str(tmp_path),
+        "SNAP_DIR": str(snap),
+        "SEARCH_BACKEND_SONIC_ENABLED": "true",
+        "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
+        "SEARCH_BACKEND_SONIC_PORT": str(port),
+        "SEARCH_BACKEND_SONIC_PASSWORD": "test-unpacked-exports",
+        "SEARCH_BACKEND_SONIC_COLLECTION": "archivebox",
+        "SEARCH_BACKEND_SONIC_BUCKET": "snapshots",
+    }
+    worker = get_sonic_supervisord_worker(config)
+    assert worker
+    env = {**os.environ, **config}
+    hook = Path(__file__).parents[1] / "on_Snapshot__91_index_sonic.py"
+    with (tmp_path / "sonic.log").open("w") as log:
+        daemon = subprocess.Popen(
+            shlex.split(worker["command"]),
+            cwd=worker["directory"],
+            stdout=log,
+            stderr=log,
+        )
+        try:
+            deadline = time.monotonic() + 10
+            while not is_port_listening("127.0.0.1", port):
+                assert daemon.poll() is None
+                assert time.monotonic() < deadline
+                time.sleep(0.05)
+            indexed = subprocess.run(
+                [
+                    str(hook),
+                    "--url=https://example.com/export",
+                    "--snapshot-id=unpacked-export",
+                ],
+                cwd=snap,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert indexed.returncode == 0, indexed.stderr
+            assert (
+                json.loads(indexed.stdout.splitlines()[-1])["status"] == "succeeded"
+            ), indexed.stderr
+            for term in (
+                "exportplainuniqueneedle",
+                "exportmarkdownuniqueneedle",
+                "exporthtmluniqueneedle",
+                "quick",
+                "brown",
+                "fox",
+            ):
+                assert search(term, environ=env) == ["unpacked-export"], term
+        finally:
+            daemon.terminate()
+            daemon.wait(timeout=10)

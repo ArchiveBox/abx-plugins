@@ -88,7 +88,16 @@ async function main() {
             { timeout: deadline - Date.now() }
           ),
         ]);
-        if (continueButton) await continueButton.click();
+        if (continueButton) {
+          // The dialog animates after it enters the DOM. Wait for a stable,
+          // visible control before clicking, including after infiniscroll.
+          await page
+            .locator(
+              ":is(#folder-preview-modal, #shared-link-download-signup-modal) .dig-Modal-footer button"
+            )
+            .setTimeout(deadline - Date.now())
+            .click();
+        }
         console.error("Dropbox is preparing the download");
       },
     });

@@ -9,7 +9,7 @@
   ],
   "required_binaries": [],
   "output_mimetypes": [
-    "application/zip",
+    "application/json",
     "application/octet-stream"
   ],
   "properties": {

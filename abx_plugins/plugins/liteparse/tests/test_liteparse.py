@@ -836,3 +836,29 @@ def test_warns_but_succeeds_when_ocr_misconfigured_with_native_text_available():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("source", ["gdrive", "dropbox", "googledocs", "embedded"])
+def test_export_images_are_ocr_inputs(tmp_path, source):
+    """Run actual LiteParse/Tesseract on raw exports and a zipped HTML image."""
+    import zipfile
+
+    image = _download_png(IMAGE_URL_OCR)
+    snap = tmp_path / "snap"
+    root = (
+        snap / ("googledocs" if source == "embedded" else source) / "files" / "nested"
+    )
+    root.mkdir(parents=True)
+    if source == "embedded":
+        with zipfile.ZipFile(root / "document-html.zip", "w") as archive:
+            archive.writestr("images/eurotext.png", image)
+            archive.writestr("images/duplicate.png", image)
+    else:
+        (root / "eurotext.png").write_bytes(image)
+    result = _run_hook(snap, IMAGE_URL_OCR)
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stderr
+    text = _read_all_liteparse_text(snap).lower()
+    assert all(word in text for word in ("quick", "brown", "fox")), text
+    assert len(list((snap / "liteparse").glob("*.txt"))) == 1

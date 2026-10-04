@@ -10,9 +10,17 @@ already entered in the browser, and the active login. It does not log in or subm
 passwords. Access restrictions and the provider's folder-download limits remain
 in effect; unavailable controls and incomplete downloads fail explicitly.
 
-`downloads.json` records filenames, saved paths, sizes, and SHA-256 hashes. ZIP
-files stay intact. The embedded viewer places download buttons in the header
-beside View all files. Failed downloads leave previously saved files intact.
+`downloads.json` records each saved file's relative path, size, and SHA-256.
+Provider ZIPs are temporary transport: entries stream to `files/`, preserving
+subdirectories, and temporary ZIP copies are removed after successful
+extraction and CRC verification. Only unpacked files remain. Failed downloads
+leave previously saved output intact. Extraction uses Python's standard library
+from the existing abxpkg runtime; no extra package is installed.
+
+The compact embedded explorer opens ordinary saved files. Images are available
+to liteparse OCR, and text files are discovered by Sonic's normal indexing path.
+ZIP files supplied as actual folder contents remain ordinary files and can be
+browsed using ArchiveBox's generic ZIP preview.
 
 Settings: `DROPBOX_ENABLED` (default true), `DROPBOX_TIMEOUT` (default 120 seconds,
 falls back to `TIMEOUT`). Recognizes modern `/scl/fi/` and `/scl/fo/` shares and

@@ -10,10 +10,17 @@ native Workspace files. The plugin does not enumerate children, follow folder
 links, or export documents individually. Use `googledocs` on individual document
 URLs to select additional export formats.
 
-`downloads.json` records the provider filenames, saved paths, sizes, and SHA-256
-hashes. The ZIP files remain intact; they are not extracted. The embedded viewer
-shows downloads in its header beside View all files. Failed preparation/downloads
-are reported as failed and do not replace previously saved output.
+`downloads.json` records each saved file's relative path, size, and SHA-256.
+Provider ZIPs are temporary transport: entries stream to `files/`, preserving
+subdirectories, and temporary ZIP copies are removed after successful
+extraction and CRC verification. Only unpacked files remain. Failed downloads
+leave previously saved output intact. Extraction uses Python's standard library
+from the existing abxpkg runtime; no extra package is installed.
+
+The compact embedded explorer opens ordinary saved files. Images are available
+to liteparse OCR, and text files are discovered by Sonic's normal indexing path.
+ZIP files supplied as actual folder contents remain ordinary files and can be
+browsed using ArchiveBox's generic ZIP preview.
 
 Settings: `GDRIVE_ENABLED` (default true), `GDRIVE_TIMEOUT` (default 120 seconds,
 falls back to `TIMEOUT`). Recognizes `/drive/folders/ID`, `/drive/u/N/folders/ID`
