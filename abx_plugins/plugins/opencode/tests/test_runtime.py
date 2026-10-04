@@ -222,3 +222,19 @@ def test_opencode_rewrites_vite_preload_assets():
     assert 'return"/"+t' not in rewritten
     assert 'return"/admin/agent/opencode/"+t' in rewritten
     assert '"/admin/agent/opencode/assets/sprite.svg#anthropic"' in rewritten
+
+
+def test_standalone_runtime_does_not_load_host_integration():
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; from abx_plugins.plugins.opencode import runtime; assert not any(name == 'archivebox' or name.startswith(('archivebox.', 'django', 'abx_plugins.plugins.opencode.archivebox')) for name in sys.modules)",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
