@@ -13,7 +13,7 @@ abxbus = { timestamp = "2026-10-04T07:01:57.877322251Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.125"
+version = "1.13.126"
 source = { editable = "." }
 dependencies = [
     { name = "abxbus" },
