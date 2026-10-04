@@ -4395,7 +4395,8 @@ def test_zombie_prevention_hook_killed():
             os.kill(chrome_pid, 0)
 
 
-def test_kill_zombie_chrome_respects_live_crawl_hook_without_heartbeat():
+@pytest.mark.parametrize("columns", ["80", "240"])
+def test_kill_zombie_chrome_respects_live_crawl_hook_without_heartbeat(columns):
     """A live hook is the passive signal that its Chrome session is still owned."""
     with tempfile.TemporaryDirectory() as tmpdir:
         root_dir = Path(tmpdir)
@@ -4433,7 +4434,7 @@ def test_kill_zombie_chrome_respects_live_crawl_hook_without_heartbeat():
             returncode, stdout, stderr = _call_chrome_utils(
                 "killZombieChrome",
                 str(root_dir),
-                env=get_test_env(),
+                env=get_test_env() | {"COLUMNS": columns},
             )
             assert returncode == 0, stderr
             assert stdout.strip() == "0", f"{stdout}\n{stderr}"

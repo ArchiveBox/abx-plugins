@@ -546,7 +546,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
   function findChromeHookProcesses() {
     try {
-      const output = execFileSync("ps", ["-axo", "pid=,command="], {
+      // Hook identity is at the end of a potentially long executable path.
+      // Terminal width must not truncate it and make a live browser look orphaned.
+      const output = execFileSync("ps", ["-axww", "-o", "pid=,command="], {
         encoding: "utf8",
         timeout: 5000,
       });
