@@ -39,9 +39,11 @@ if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("yt-dlp download started", flush=True)
 
 import os
+import re
 import subprocess
 import threading
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
@@ -96,6 +98,29 @@ MEDIA_EXTENSIONS = (
     ".lrc",
     ".description",
 )
+
+
+def folder_download_plugin(url: str) -> str | None:
+    """Folder providers own container downloads; yt-dlp handles media URLs."""
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password:
+        return None
+    query = parse_qs(parsed.query)
+    if parsed.hostname == "drive.google.com" and (
+        re.fullmatch(r"/drive/(?:u/\d+/)?folders/[\w-]+/?", parsed.path)
+        or (parsed.path == "/folderview" and query.get("id"))
+    ):
+        return "gdrive"
+    if (
+        parsed.hostname in {"www.dropbox.com", "dropbox.com"}
+        and not query.get("preview")
+        and (
+            parsed.path.startswith("/scl/fo/")
+            or re.fullmatch(r"/sh/[^/]+/[^/]+/?", parsed.path)
+        )
+    ):
+        return "dropbox"
+    return None
 
 
 def rel_output(path_str: str | None) -> str | None:
@@ -302,6 +327,16 @@ def main(url: str):
         if not config.YTDLP_ENABLED:
             print("Skipping ytdlp (YTDLP_ENABLED=False)", file=sys.stderr)
             emit_archive_result_record("skipped", "YTDLP_ENABLED=False")
+            sys.exit(0)
+
+        # Folder URLs are containers, not media. The provider hooks reuse the
+        # browser session and download them once, without yt-dlp's separate
+        # folder API crawl (or a duplicate ZIP saved as unknown_video).
+        if provider := folder_download_plugin(url):
+            emit_archive_result_record(
+                "noresults",
+                f"Folder download belongs to {provider}",
+            )
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)

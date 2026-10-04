@@ -20,7 +20,10 @@ Verified 2026-10-04 with real Chrome and provider downloads on macOS.
 - ZIPs saved as actual content use ArchiveBox's generic static-file ZIP browser,
   which has a real Chromium ZIP64/range-read test in the ArchiveBox repository.
 
-The full Drive capture exposed an unrelated yt-dlp GoogleDrive extractor failure
-(`expected string or bytes-like object, got 'bool'`). Google Drive extraction,
-OCR, indexing, and the other configured outputs completed. Provider preparation
-limits and non-English controls remain unverified; no recursive crawl is used.
+The initial full capture reproduced yt-dlp's GoogleDrive folder API failure
+(`expected string or bytes-like object, got 'bool'`). The yt-dlp hook now
+recognizes provider folder URLs and reports noresults without a duplicate
+folder crawl. The real-hook regression fails before this change and passes
+afterward; a standalone MP4 still downloads through yt-dlp. Full configured
+captures confirm the provider download, OCR and indexing complete normally.
+Provider preparation limits and non-English controls remain unverified.

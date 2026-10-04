@@ -10,7 +10,10 @@ Verified 2026-10-04 with real Chrome and provider downloads on macOS.
 - The original ArchiveBox capture URL was rerun with the full configured plugin
   set. Modalcloser pauses only while the provider download UI is active, then
   resumes; no plugins were filtered out. The raw files appear in the ordinary
-  file browser and the compact embedded explorer.
+  file browser and the compact embedded explorer. The yt-dlp hook recognizes
+  folder URLs and leaves the download to Dropbox, avoiding an extra ZIP saved
+  as `.unknown_video`. The old duplicate was removed only after matching all
+  eight files against the unpacked output.
 - LiteParse OCR generated text from the exported PNGs. The live Sonic service
   returns the original Dropbox capture for `healing` from the image text.
 - Shared tests verify real cookie authentication, cross-tab download isolation,
