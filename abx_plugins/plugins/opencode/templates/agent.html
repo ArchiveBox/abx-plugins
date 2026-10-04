@@ -210,7 +210,7 @@
                 })();
             </script>
             <div class="opencode-agent-shell">
-                <iframe src="{{ proxy_url }}" title="OpenCode Agent" class="opencode-agent-frame"></iframe>
+                <iframe data-src="{{ proxy_url }}" title="OpenCode Agent" class="opencode-agent-frame"></iframe>
                 <div class="opencode-agent-welcome" id="opencode-agent-welcome">
                     <div class="opencode-agent-welcome-panel" role="dialog" aria-modal="true" aria-labelledby="opencode-agent-welcome-title">
                         <div class="opencode-agent-welcome-header">
@@ -276,10 +276,16 @@
                     const key = "archivebox.opencode.agentWelcomeDismissed.v1";
                     const welcome = document.getElementById("opencode-agent-welcome");
                     const dismiss = document.getElementById("opencode-agent-welcome-dismiss");
+                    const frame = document.querySelector('iframe[title="OpenCode Agent"]');
+                    // A hidden iframe still starts OpenCode and loads its whole UI.
+                    // Defer that work so cold startup cannot delay the welcome dialog.
+                    const start = () => { frame.src = frame.dataset.src; };
                     try { welcome.hidden = localStorage.getItem(key) === "1"; } catch { /* Keep the warning visible. */ }
+                    if (welcome.hidden) start();
                     dismiss.addEventListener("click", () => {
                         welcome.hidden = true;
                         try { localStorage.setItem(key, "1"); } catch { /* Persistence is optional. */ }
+                        start();
                     });
                 })();
             </script>
