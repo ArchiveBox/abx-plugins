@@ -97,7 +97,7 @@ function emitProgress(line) {
  */
 async function closeModals(page) {
   return page.evaluate(() => {
-    // Provider download hooks temporarily own their confirmation dialogs.
+    // Provider download hooks temporarily own their CSS confirmation modals.
     if (document.documentElement.dataset.abxDownloadActive === "true") return 0;
     let closed = 0;
 

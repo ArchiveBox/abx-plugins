@@ -922,6 +922,88 @@ def test_concurrent_stops_each_publish_their_exact_wacz(
         assert output.stat().st_size > 0
 
 
+@pytest.mark.parametrize("failure", ["held-lock", "publication"])
+def test_export_failure_releases_download_lock(archivewebpage_crawl, tmp_path, failure):
+    """A real lock timeout or filesystem publication error must allow the next export."""
+    env, _chrome_dir, tabs = archivewebpage_crawl
+    url = "https://example.com/"
+    snapshot_dir, env = _start_snapshot_recording(
+        tmp_path / "export-recovery",
+        env,
+        tabs,
+        snapshot_id="recover-export",
+        url=url,
+    )
+    downloads = Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
+    downloads.mkdir(parents=True, exist_ok=True)
+    lock = downloads / ".download.lock"
+    output = snapshot_dir / "archivewebpage/archivewebpage.wacz"
+    if failure == "held-lock":
+        owner = subprocess.Popen(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                """
+const {acquireSessionLock} = require(process.argv[1]);
+acquireSessionLock(process.argv[2], 1000).then(release => {
+  console.log('locked');
+  process.stdin.once('data', () => {release(); process.stdin.pause();});
+}).catch(error => {console.error(error); process.exitCode = 1;});
+""",
+                str(CHROME_UTILS),
+                str(lock),
+            ],
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert owner.stdout is not None
+            assert owner.stdout.readline().strip() == "locked"
+            failed = _run_stop_hook(
+                snapshot_dir,
+                env
+                | {
+                    "ARCHIVEWEBPAGE_TIMEOUT": "1",
+                    "ARCHIVEWEBPAGE_HOOK_BUDGET_MS": "100",
+                },
+                url,
+            )
+            assert failed.returncode != 0, failed.stdout
+            assert "Timeout acquiring lock" in failed.stderr, failed.stderr
+            assert lock.exists(), "Waiter removed the other process's lock"
+        finally:
+            _, stderr = owner.communicate("release", timeout=5)
+            assert owner.returncode == 0, stderr
+    else:
+        # A real destination collision fails rename after the WACZ downloaded.
+        output.mkdir()
+        failed = _run_stop_hook(snapshot_dir, env, url)
+        assert failed.returncode != 0, failed.stdout
+        assert "EISDIR" in failed.stderr, failed.stderr
+        assert output.is_dir()
+        output.rmdir()
+    assert not lock.exists()
+    # The stop hook already stopped its recording before attempting export.
+    # Verify a later recording can use the same shared download directory.
+    snapshot_dir, env = _start_snapshot_recording(
+        tmp_path / "export-recovery",
+        env,
+        tabs,
+        snapshot_id="next-export",
+        url=url,
+    )
+    output = snapshot_dir / "archivewebpage/archivewebpage.wacz"
+    recovered = _run_stop_hook(snapshot_dir, env, url)
+    assert recovered.returncode == 0, recovered.stderr
+    assert not lock.exists()
+    with zipfile.ZipFile(output) as archive:
+        assert "datapackage.json" in archive.namelist()
+        assert archive.testzip() is None
+
+
 def test_empty_recordings_are_classified_from_awp_collection_counts(
     archivewebpage_crawl,
     tmp_path,
