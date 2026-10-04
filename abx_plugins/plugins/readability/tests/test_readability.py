@@ -9,11 +9,13 @@ Tests verify:
 
 import json
 import os
+import signal
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
+import psutil
 
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
@@ -191,18 +193,41 @@ def test_direct_hook_resolves_dependencies_and_extracts_article():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env.pop("READABILITY_BINARY", None)
-        result = subprocess.run(
+        with subprocess.Popen(
             [
                 str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
             ],
             cwd=tmpdir,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=30,
             env=env,
-        )
+            start_new_session=True,
+        ) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                root = psutil.Process(process.pid)
+                for child in [root, *root.children(recursive=True)]:
+                    try:
+                        print(
+                            child.as_dict(
+                                attrs=["pid", "ppid", "cmdline", "status", "cpu_times"],
+                            ),
+                        )
+                    except psutil.NoSuchProcess:
+                        pass
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate()
+                raise
+            result = subprocess.CompletedProcess(
+                process.args,
+                process.returncode,
+                stdout,
+                stderr,
+            )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
