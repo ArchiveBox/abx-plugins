@@ -24,6 +24,8 @@ jobs:
       contents: write
     outputs:
       run_tests: ${{ github.event_name != 'push' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved' }}
+      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
+      runner: ${{ steps.runner.outputs.use-runner || '["ubuntu-24.04"]' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -39,6 +41,28 @@ jobs:
           branch: main
           tag-prefix: v
           version-scheme: patch
+
+      - name: Select available CI capacity
+        id: runner
+        if: (github.event_name != 'push' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved') && (vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        uses: ArchiveBox/monorepo/.github/actions/select-ci-runner@main
+        with:
+          github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
+
+      - name: Install uv
+        if: github.event_name != 'push' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved'
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Discover test files
+        if: github.event_name != 'push' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved'
+        id: set-matrix
+        env:
+          UGNAS_CI_MAX_JOBS: ${{ vars.UGNAS_CI_MAX_JOBS || 3 }}
+        run: |
+          uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
 
   prek:
     needs: prepare
@@ -320,47 +344,13 @@ jobs:
           ], hashes
           PY
 
-  discover-tests:
-    needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
-    name: Discover test files
-    runs-on: ubuntu-24.04
-    outputs:
-      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
-      runner: ${{ steps.runner.outputs.use-runner || '["ubuntu-24.04"]' }}
-
-    steps:
-      - name: Select available CI capacity
-        id: runner
-        if: vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-        uses: ArchiveBox/monorepo/.github/actions/select-ci-runner@main
-        with:
-          github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
-
-      - name: Checkout repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          fetch-depth: 1
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
-        with:
-          version: "0.11.3"
-          enable-cache: false
-
-      - name: Discover test files
-        id: set-matrix
-        env:
-          UGNAS_CI_MAX_JOBS: ${{ vars.UGNAS_CI_MAX_JOBS || 3 }}
-        run: |
-          uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
-
   run-tests:
     name: ${{ matrix.test.path }} / Python ${{ matrix.test.python }} / ${{ matrix.test.os }}
     # Ordinary Linux tests are eligible; # ci-runner: hosted declares exceptions.
     # Hosted discovery selects GitHub when the NAS is offline or its API fails.
-    runs-on: ${{ matrix.test.ugnas && fromJSON(needs.discover-tests.outputs.runner) || matrix.test.os }}
-    needs: [discover-tests]
+    runs-on: ${{ matrix.test.ugnas && fromJSON(needs.prepare.outputs.runner) || matrix.test.os }}
+    needs: [prepare]
+    if: needs.prepare.outputs.run_tests == 'true'
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -368,7 +358,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson(needs.discover-tests.outputs.test-matrix) }}
+        test: ${{ fromJson(needs.prepare.outputs.test-matrix) }}
 
     steps:
       - name: Checkout repository
