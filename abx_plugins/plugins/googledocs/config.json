@@ -78,7 +78,7 @@
         "pdf",
         "svg"
       ],
-      "description": "Export each requested format supported by the document type. CSV/TSV exports the URL's gid or the first sheet; XLSX/ODS exports the whole workbook. ZIP exports HTML with assets."
+      "description": "Export each requested format supported by the document type. CSV/TSV saves a separate file for every sheet; XLSX/ODS exports the whole workbook. ZIP exports HTML with assets."
     }
   },
   "category": "text",

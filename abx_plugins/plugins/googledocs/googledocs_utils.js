@@ -61,6 +61,47 @@ function normalizeUrl(value) {
   return url.href;
 }
 
+async function discoverSheets(page) {
+  // The editor's initial model includes every worksheet, including tabs that
+  // are offscreen. Read its embedded JSON without switching tabs or fetching
+  // metadata. Google clears window.bootstrapData after loading the editor.
+  const sheets = await page.evaluate(() => {
+    for (const script of document.scripts) {
+      const match = script.textContent.match(
+        /var bootstrapData\s*=\s*(\{.*\});\s*function loadWaffle/s
+      );
+      if (!match) continue;
+      const records = JSON.parse(match[1]).changes?.topsnapshot;
+      if (!Array.isArray(records)) break;
+      // 21350203 is the worksheet-definition record in Google's editor model.
+      return records
+        .filter((record) => record[0] === 21350203)
+        .map((record) => {
+          const sheet = JSON.parse(record[1]);
+          const name = sheet[3]
+            ?.flatMap((properties) => properties["1"] || [])
+            .find(
+              (property) => property[0] === 0 && typeof property[2] === "string"
+            )?.[2];
+          return { id: sheet[2], name };
+        });
+    }
+    return [];
+  });
+  if (
+    !sheets.length ||
+    sheets.some(
+      (sheet) => !/^\d+$/.test(sheet.id) || typeof sheet.name !== "string"
+    ) ||
+    new Set(sheets.map((sheet) => sheet.id)).size !== sheets.length
+  ) {
+    throw new Error(
+      "Unable to discover all sheets from the loaded Google editor"
+    );
+  }
+  return sheets;
+}
+
 // responses is optional. Ignore missing/malformed records, never trust a path
 // outside its output directory, and never reuse a different export/revision.
 async function findSavedResponses(snapshotDir, urls) {
@@ -157,6 +198,7 @@ module.exports = {
   parseDocumentUrl,
   exportUrl,
   normalizeUrl,
+  discoverSheets,
   findSavedResponses,
   fileHash,
   validateExport,

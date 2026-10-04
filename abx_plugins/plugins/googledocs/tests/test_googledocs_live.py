@@ -117,7 +117,7 @@ def test_live_google_exports(
         output = chrome_dir.parent / "googledocs"
         manifest = json.loads((output / "exports.json").read_text())
         if kind == "spreadsheets":
-            previous = (output / "document.csv").read_bytes()
+            previous = (output / "sheet-0.csv").read_bytes()
             denied = subprocess.run(
                 [str(HOOK), f"--url={url}#gid=999999999999"],
                 cwd=chrome_dir.parent,
@@ -129,7 +129,7 @@ def test_live_google_exports(
             assert denied.returncode == 1, denied.stderr
             failed = parse_jsonl_output(denied.stdout)
             assert failed is not None and failed["status"] == "failed"
-            assert (output / "document.csv").read_bytes() == previous
+            assert (output / "sheet-0.csv").read_bytes() == previous
             failure_manifest = json.loads((output / "exports.json").read_text())
             assert failure_manifest["exports"] == []
             assert failure_manifest["errors"][0]["format"] == "csv"
@@ -157,9 +157,7 @@ def test_live_google_exports(
         )
     assert (output / "document.pdf").read_bytes().startswith(b"%PDF-")
     if kind == "spreadsheets":
-        assert (
-            "Student Name,Gender,Class Level" in (output / "document.csv").read_text()
-        )
+        assert "Student Name,Gender,Class Level" in (output / "sheet-0.csv").read_text()
 
 
 def test_reuses_real_captured_export(tmp_path, ensure_chrome_test_prereqs):
@@ -251,3 +249,66 @@ def test_reuses_real_captured_export(tmp_path, ensure_chrome_test_prereqs):
         index.unlink()
         assert export(network_bytes)["reused_response"] is False
         assert list((snap_dir / "googledocs").glob(".*.tmp")) == []
+
+
+def test_live_multiple_sheets(tmp_path, ensure_chrome_test_prereqs):
+    """Public workbook linked by github.com/benborgers/opensheet."""
+    import csv
+    import xml.etree.ElementTree as ET
+
+    url = "https://docs.google.com/spreadsheets/d/1o5t26He2DzTweYeleXOGiDjlU4Jkx896f95VUHVgS8U/edit#gid=211973040"
+    with chrome_session(tmp_path, test_url=url, timeout=60) as (_, _, chrome_dir, env):
+        result = subprocess.run(
+            [str(HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env={**env, "GOOGLEDOCS_FORMATS": '["xlsx","csv","tsv","pdf"]'},
+            capture_output=True,
+            text=True,
+            timeout=150,
+        )
+        assert result.returncode == 0, result.stderr
+        output = chrome_dir.parent / "googledocs"
+        manifest = json.loads((output / "exports.json").read_text())
+        assert manifest["sheets"] == [
+            {"id": "0", "name": "Test Sheet"},
+            {"id": "211973040", "name": "this/that"},
+        ]
+        assert manifest["selected_sheet"] == "211973040"
+        assert len(manifest["exports"]) == 6
+        assert manifest["errors"] == []
+        with zipfile.ZipFile(output / "document.xlsx") as workbook:
+            names = [
+                e.attrib["name"]
+                for e in ET.fromstring(workbook.read("xl/workbook.xml")).iter(
+                    "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet",
+                )
+            ]
+        # Google removes characters Excel disallows in worksheet names.
+        assert names == ["Test Sheet", "thisthat"]
+        tables = []
+        for sheet in manifest["sheets"]:
+            csv_file = next(
+                e
+                for e in manifest["exports"]
+                if e["format"] == "csv" and e["sheet_id"] == sheet["id"]
+            )
+            tsv_file = next(
+                e
+                for e in manifest["exports"]
+                if e["format"] == "tsv" and e["sheet_id"] == sheet["id"]
+            )
+            assert csv_file["sheet_name"] == tsv_file["sheet_name"] == sheet["name"]
+            assert csv_file["path"] == f"sheet-{sheet['id']}.csv"
+            with (output / csv_file["path"]).open(
+                encoding="utf-8-sig",
+                newline="",
+            ) as stream:
+                rows = list(csv.reader(stream))
+            with (output / tsv_file["path"]).open(
+                encoding="utf-8-sig",
+                newline="",
+            ) as stream:
+                assert list(csv.reader(stream, delimiter="\t")) == rows
+            assert rows
+            tables.append(rows)
+        assert tables[0] != tables[1]

@@ -94,37 +94,27 @@
         outline-offset: 3px;
       }
       main {
-        display: grid;
-        grid-template-columns: 220px minmax(0, 1fr);
-        gap: 16px;
         padding: 20px;
         max-width: 1600px;
         margin: auto;
       }
-      aside h2 {
-        font-size: 11px;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin: 0 0 10px;
+      nav {
+        flex-wrap: wrap;
+        align-items: center;
       }
       .formats {
-        display: grid;
-        gap: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
       }
       .format {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        width: 100%;
-        padding: 12px;
+        padding: 7px 10px;
         border: 1px solid var(--line);
-        border-radius: 8px;
+        border-radius: 6px;
         background: white;
         color: var(--ink);
-        text-align: left;
         cursor: pointer;
-        font: inherit;
+        font: 600 12px/1.75 system-ui, sans-serif;
       }
       .format:hover {
         border-color: #94a3b8;
@@ -132,31 +122,24 @@
       .format[aria-pressed="true"] {
         border-color: var(--accent);
         background: var(--tint);
-        box-shadow: inset 3px 0 var(--accent);
-      }
-      .filetype {
-        display: grid;
-        place-items: center;
-        min-width: 40px;
-        height: 44px;
-        background: #f1f5f9;
-        border-radius: 5px;
         color: var(--accent);
-        font-size: 11px;
-        font-weight: 750;
       }
-      .format[aria-pressed="true"] .filetype {
-        background: white;
-      }
-      .name {
-        font-size: 13px;
-        font-weight: 600;
-      }
-      .size {
-        display: block;
-        font-size: 11px;
+      #sheet-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        font-size: 12px;
         color: var(--muted);
-        margin-top: 3px;
+      }
+      #sheet {
+        max-width: min(35vw, 320px);
+        padding: 6px 8px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: white;
+        color: var(--ink);
+        font: inherit;
       }
       .panel {
         min-width: 0;
@@ -277,23 +260,13 @@
           justify-content: center;
         }
         main {
-          grid-template-columns: 1fr;
           padding: 12px;
-          gap: 12px;
         }
-        .formats {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+        nav {
+          width: 100%;
         }
         .format {
-          padding: 9px;
-          gap: 8px;
-        }
-        aside h2 {
-          margin-bottom: 8px;
-        }
-        .filetype {
-          height: 36px;
-          min-width: 36px;
+          min-height: 40px;
         }
         .mark {
           width: 32px;
@@ -320,6 +293,12 @@
         <p class="subtitle" id="summary">Saved document formats</p>
       </div>
       <nav aria-label="Output actions">
+        <div
+          class="formats"
+          id="formats"
+          role="group"
+          aria-label="Available formats"
+        ></div>
         <a id="files" title="View all files" aria-label="View all files"
           >📁<span class="label">View all files</span></a
         ><a
@@ -331,14 +310,14 @@
       </nav>
     </header>
     <main>
-      <aside>
-        <h2>Available formats</h2>
-        <div class="formats" id="formats"></div>
-        <p id="errors" role="status"></p>
-      </aside>
+      <p id="errors" role="status"></p>
       <section class="panel" aria-label="Document preview">
         <div class="panel-head">
           <h2 id="preview-title">Preview</h2>
+          <label id="sheet-control" hidden
+            >Sheet
+            <select id="sheet" aria-label="Sheet"></select
+          ></label>
           <a id="download" download hidden>⤓ Download</a>
         </div>
         <p class="note" id="note" hidden></p>
@@ -392,7 +371,17 @@
             ? Math.ceil(size / 1024) + " KB"
             : size + " B";
         let exports = [],
+          selectedSheet,
+          currentFormat,
           selection = 0;
+        byId("sheet").addEventListener("change", () => {
+          const item = exports.find(
+            (file) =>
+              file.format === currentFormat &&
+              file.sheet_id === byId("sheet").value
+          );
+          if (item) select(item);
+        });
         async function readText(url) {
           const response = await fetch(raw(url));
           if (!response.ok) throw Error("Preview unavailable");
@@ -448,6 +437,20 @@
             note = byId("note");
           preview.replaceChildren();
           note.hidden = true;
+          currentFormat = item.format;
+          if (item.sheet_id != null) selectedSheet = item.sheet_id;
+          const sheets = exports.filter(
+            (file) => file.format === item.format && file.sheet_id != null
+          );
+          byId("sheet-control").hidden = !sheets.length;
+          byId("sheet").replaceChildren(
+            ...sheets.map((file) => {
+              const option = el("option", file.sheet_name || file.sheet_id);
+              option.value = file.sheet_id;
+              option.selected = file.sheet_id === selectedSheet;
+              return option;
+            })
+          );
           for (const button of byId("formats").children)
             button.setAttribute(
               "aria-pressed",
@@ -517,7 +520,7 @@
               table.append(head, body);
               preview.append(table);
               note.textContent =
-                "Single-sheet export" +
+                (item.sheet_name || "Single-sheet export") +
                 (rows.length >= 201 || truncated
                   ? " · Showing the first 200 rows"
                   : "") +
@@ -549,27 +552,50 @@
             exports = (manifest.exports || []).filter(
               (item) =>
                 Object.hasOwn(labels, item.format) &&
-                item.path === "document." + item.format
+                (item.path === "document." + item.format ||
+                  (["csv", "tsv"].includes(item.format) &&
+                    /^\d+$/.test(item.sheet_id) &&
+                    item.path === "sheet-" + item.sheet_id + "." + item.format))
             );
+            selectedSheet = manifest.selected_sheet;
+            const formats = [...new Set(exports.map((item) => item.format))];
+            const sheetCount = new Set(
+              exports
+                .filter((item) => item.sheet_id != null)
+                .map((item) => item.sheet_id)
+            ).size;
             byId("summary").textContent =
-              exports.length +
+              formats.length +
               " formats · " +
+              (sheetCount ? sheetCount + " sheets · " : "") +
               sizeLabel(
                 exports.reduce((sum, item) => sum + (Number(item.size) || 0), 0)
               );
             byId("errors").textContent = (manifest.errors || [])
-              .map((item) => item.format.toUpperCase() + ": " + item.error)
+              .map(
+                (item) =>
+                  item.format.toUpperCase() +
+                  (item.sheet_name ? " (" + item.sheet_name + ")" : "") +
+                  ": " +
+                  item.error
+              )
               .join("\n");
-            for (const item of exports) {
-              const button = el("button", null, "format");
+            for (const format of formats) {
+              const items = exports.filter((item) => item.format === format);
+              const button = el("button", format.toUpperCase(), "format");
               button.type = "button";
-              button.dataset.format = item.format;
+              button.dataset.format = format;
+              button.title =
+                labels[format] +
+                " · " +
+                sizeLabel(items.reduce((sum, item) => sum + item.size, 0));
               button.setAttribute("aria-pressed", "false");
-              button.append(el("span", item.format.toUpperCase(), "filetype"));
-              const details = el("span", labels[item.format], "name");
-              details.append(el("span", sizeLabel(item.size), "size"));
-              button.append(details);
-              button.addEventListener("click", () => select(item));
+              button.addEventListener("click", () =>
+                select(
+                  items.find((item) => item.sheet_id === selectedSheet) ||
+                    items[0]
+                )
+              );
               byId("formats").append(button);
             }
             const initial =

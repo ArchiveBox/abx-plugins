@@ -75,10 +75,12 @@
         .then((manifest) => {
           document.getElementById("title").textContent =
             manifest.title || "Google Docs exports";
-          for (const item of manifest.exports || []) {
+          for (const format of new Set(
+            (manifest.exports || []).map((item) => item.format)
+          )) {
             const badge = document.createElement("span");
             badge.className = "badge";
-            badge.textContent = item.format.toUpperCase();
+            badge.textContent = format.toUpperCase();
             document.getElementById("formats").append(badge);
           }
         })

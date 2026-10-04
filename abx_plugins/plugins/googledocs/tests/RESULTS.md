@@ -25,20 +25,20 @@ Verified on 2026-10-04 with real Google endpoints and Chrome on macOS.
   visually checked in Chromium. The standalone CLI also saved all six Sheets
   formats successfully.
 
-Validation command:
-
-```sh
-uv run --no-sync pytest \
-  abx_plugins/plugins/googledocs/tests \
-  abx_plugins/plugins/responses/tests \
-  tests/test_dependency_boundaries.py \
-  tests/test_hook_input_contract.py \
-  tests/test_plugin_executables_have_shebang.py \
-  tests/test_plugin_config_metadata.py \
-  -k 'not pnpm' -q
-```
+Validation covered the Google Docs and responses tests plus dependency boundaries,
+hook inputs, executable hooks, and plugin configuration metadata.
 
 Result: **33 passed**, one unrelated package-install test deselected. All
 pre-commit checks passed, including repository-wide type checking. Private
 authentication was a manual acceptance test; CI uses public documents and the
 real local cookie-gated endpoint without requiring account credentials.
+
+The header/multiple-sheet follow-up passed all **11 plugin tests**, including
+the public two-sheet workbook linked by `benborgers/opensheet`. Both sheets were
+saved independently as CSV and TSV, and the XLSX contained both worksheets.
+The original sheet names (including `this/that`) were retained in the manifest;
+filenames use numeric sheet IDs. In the real ArchiveBox viewer, format buttons
+appeared beside **View all files**, switching sheets changed the preview and
+download, and switching between CSV and TSV retained the selected sheet. The
+second-sheet CSV downloaded through the viewer contained its expected distinct
+data. Sheet discovery read the editor's existing embedded metadata.

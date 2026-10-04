@@ -21,6 +21,7 @@ const {
   parseDocumentUrl,
   exportUrl,
   normalizeUrl,
+  discoverSheets,
   findSavedResponses,
   fileHash,
   validateExport,
@@ -86,10 +87,6 @@ async function main() {
       );
     const outputDir = path.join(snapshotDir, "googledocs");
     fs.mkdirSync(outputDir, { recursive: true });
-    const saved = await findSavedResponses(
-      snapshotDir,
-      formats.map((format) => exportUrl(doc, format))
-    );
     const manifest = {
       title: await page.title(),
       document_type: doc.kind,
@@ -97,9 +94,44 @@ async function main() {
       exports: [],
       errors: [],
     };
-    for (const format of formats) {
-      const exportURL = exportUrl(doc, format);
-      const filename = `document.${format}`;
+    let sheets = [];
+    let sheetError;
+    if (
+      doc.kind === "spreadsheets" &&
+      formats.some((format) => ["csv", "tsv"].includes(format))
+    ) {
+      try {
+        sheets = await discoverSheets(page);
+        if (doc.gid && !sheets.some((sheet) => sheet.id === doc.gid))
+          throw new Error(`Selected sheet ${doc.gid} is not in this workbook`);
+        manifest.sheets = sheets;
+        manifest.selected_sheet = doc.gid || sheets[0].id;
+      } catch (error) {
+        sheetError = error.message;
+      }
+    }
+    const plan = formats.flatMap((format) => {
+      if (!["csv", "tsv"].includes(format)) return [{ format }];
+      if (sheetError) {
+        manifest.errors.push({ format, error: sheetError });
+        return [];
+      }
+      return sheets.map((sheet) => ({ format, sheet }));
+    });
+    const saved = await findSavedResponses(
+      snapshotDir,
+      plan.map(({ format, sheet }) =>
+        exportUrl(sheet ? { ...doc, gid: sheet.id } : doc, format)
+      )
+    );
+    for (const { format, sheet } of plan) {
+      const exportURL = exportUrl(
+        sheet ? { ...doc, gid: sheet.id } : doc,
+        format
+      );
+      const filename = sheet
+        ? `sheet-${sheet.id}.${format}`
+        : `document.${format}`;
       const temporary = path.join(outputDir, `.${filename}.${process.pid}.tmp`);
       try {
         const cached = saved.get(normalizeUrl(exportURL));
@@ -139,6 +171,7 @@ async function main() {
           size,
           sha256,
           reused_response: reused,
+          ...(sheet ? { sheet_id: sheet.id, sheet_name: sheet.name } : {}),
         });
         console.error(
           `${format.toUpperCase()}: ${size} bytes${
@@ -146,7 +179,11 @@ async function main() {
           }`
         );
       } catch (error) {
-        manifest.errors.push({ format, error: error.message });
+        manifest.errors.push({
+          format,
+          ...(sheet ? { sheet_id: sheet.id, sheet_name: sheet.name } : {}),
+          error: error.message,
+        });
         console.error(`${format.toUpperCase()}: ${error.message}`);
       } finally {
         fs.rmSync(temporary, { force: true });
@@ -160,7 +197,7 @@ async function main() {
       emitArchiveResultRecord(
         "failed",
         `${manifest.exports.length}/${
-          formats.length
+          manifest.exports.length + manifest.errors.length
         } exports saved; ${manifest.errors
           .map((item) => `${item.format}: ${item.error}`)
           .join("; ")}`

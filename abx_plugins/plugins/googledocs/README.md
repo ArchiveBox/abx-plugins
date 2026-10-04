@@ -29,9 +29,13 @@ are removed. Use `GOOGLEDOCS_FORMATS='["pdf"]'` for one export per document, or
 `GOOGLEDOCS_ENABLED=false` disables the hook. `GOOGLEDOCS_TIMEOUT` bounds the
 export operation (120 seconds by default, with the shared `TIMEOUT` fallback).
 
-XLSX/ODS and PDF export the workbook. CSV/TSV export the sheet identified by the
-source URL's `gid`, or Google's first-sheet default when it is absent. They are
-not whole-workbook formats. `zip` requests Google's HTML-with-assets export.
+XLSX/ODS and PDF export the workbook. CSV/TSV save every sheet as a separate
+`sheet-GID.csv` / `sheet-GID.tsv` file, with names and IDs in the manifest. The
+viewer has format buttons in its header and a sheet selector for CSV/TSV; the
+source URL's `gid` selects the initial sheet. Sheet names and IDs come from
+metadata already embedded in the loaded editor, without another request. If
+Google changes that metadata, CSV/TSV fail explicitly instead of silently saving
+only one sheet; whole-workbook formats can still succeed. `zip` requests Google's HTML-with-assets export.
 The plugin preserves multi-account `/u/N`, `authuser`, and link `resourcekey`
 context. Drive links work when Chrome redirects them to a supported editor URL.
 Published `/d/e/...` URLs, Forms, Apps Script, Vids, folders and arbitrary Drive
