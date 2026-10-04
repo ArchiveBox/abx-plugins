@@ -2883,6 +2883,8 @@ async function captureBrowserDownloads({
   timeoutMs,
   trigger,
 }) {
+  if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
+  let succeeded = false;
   const session = await page.target().createCDPSession();
   const connection = getBrowserConnection(browser);
   const frames = new Set();
@@ -2937,7 +2939,7 @@ async function captureBrowserDownloads({
     connection.on("Browser.downloadProgress", progress);
     await fs.promises.mkdir(downloadPath, { recursive: true });
     await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-      behavior: "allow",
+      behavior: "allowAndName",
       downloadPath,
       eventsEnabled: true,
     });
@@ -2948,7 +2950,7 @@ async function captureBrowserDownloads({
         ),
       timeoutMs
     );
-    // Coordinate explicit download dialogs with the background modal closer.
+    // Coordinate provider HTML download dialogs with the CSS modal closer.
     await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
     // Provider controls wait for visible layout even in headless Chromium.
     await page.bringToFront();
@@ -2957,20 +2959,21 @@ async function captureBrowserDownloads({
     check();
     const results = await completed;
     for (const item of results) {
-      if (!item.filePath)
-        throw new Error("Completed browser download has no file path");
-      const source = await fs.promises.realpath(item.filePath);
+      // allowAndName gives every download its GUID filename, including on
+      // platforms that omit the optional downloadProgress.filePath field.
+      const source = await fs.promises.realpath(path.join(downloadPath, item.guid));
       const relative = path.relative(
         await fs.promises.realpath(downloadPath),
         source
       );
-      if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
+      if (!relative || (relative === ".." || relative.startsWith(".." + path.sep)) || path.isAbsolute(relative))
         throw new Error("Browser download escaped the download directory");
       const stat = await fs.promises.stat(source);
       if (!stat.isFile() || stat.size !== item.receivedBytes)
         throw new Error("Completed browser download size does not match");
       item.filePath = source;
     }
+    succeeded = true;
     return results;
   } finally {
     clearTimeout(timer);
@@ -2983,6 +2986,20 @@ async function captureBrowserDownloads({
           guid: item.guid,
         }).catch(() => {});
     }
+    if (!succeeded) {
+      for (const item of downloads.values()) {
+        // Only this page's CDP GUIDs; never guess suggested filenames shared
+        // with downloads belonging to another tab.
+        for (const suffix of ["", ".crdownload"]) {
+          await fs.promises.unlink(path.join(downloadPath, item.guid + suffix)).catch((error) => {
+            if (error.code !== "ENOENT") console.error(`Cannot remove interrupted download: ${error.message}`);
+          });
+        }
+      }
+    }
+    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+      behavior: "allow", downloadPath, eventsEnabled: true,
+    }).catch(() => {});
     await session.detach();
   }
 }

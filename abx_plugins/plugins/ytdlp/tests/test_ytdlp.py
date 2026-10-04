@@ -412,7 +412,7 @@ if __name__ == "__main__":
     [
         (
             "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks",
-            "gdrive",
+            "googledrive",
         ),
         (
             "https://www.dropbox.com/scl/fo/kf9a29cwaebpkbtug6a7k/AFiq9xq2XcvTcmHl_z-tsIc/Lockups?rlkey=4mrp0lpvxmwrlwdy349nspygn&dl=0",
@@ -437,7 +437,10 @@ def test_folder_downloads_belong_to_provider_plugins(
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "noresults", result.stdout
-    assert record["output_str"] == f"Folder download belongs to {provider}", record
+    assert (
+        record["output_str"]
+        == f"Folder URL is not media; enable {provider} to download its files"
+    ), record
     assert "[ytdlp] Starting download" not in result.stderr
     assert not list((tmp_path / "ytdlp").iterdir())
 

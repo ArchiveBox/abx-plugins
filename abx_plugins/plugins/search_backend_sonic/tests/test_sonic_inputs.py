@@ -155,9 +155,11 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
         IMAGE_URL_OCR,
         _download_png,
         _run_hook,
+        require_tessdata_dir,
     )
     from abx_plugins.plugins.base.unpack_downloads import unpack_downloads
 
+    require_tessdata_dir()
     snap = tmp_path / "snap"
     snap.mkdir()
     transport = tmp_path / "provider.zip"
@@ -167,7 +169,7 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
         archive.writestr("nested/page.html", "<p>exporthtmluniqueneedle</p>")
         archive.writestr("nested/eurotext.png", _download_png(IMAGE_URL_OCR))
     unpack_downloads(
-        snap / "gdrive",
+        snap / "googledrive",
         {
             "title": "Export",
             "requireZip": True,
@@ -178,8 +180,20 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
     )
     assert not transport.exists()
     assert not list(snap.rglob("*.zip"))
+    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+
+    ripgrep = install_required_binary_from_config(
+        Path(__file__).parents[2] / "search_backend_ripgrep",
+        "rg",
+    )
+    assert ripgrep and ripgrep.abspath
     rg = subprocess.run(
-        ["rg", "-l", "exportplainuniqueneedle", str(snap / "gdrive/files")],
+        [
+            str(ripgrep.abspath),
+            "-l",
+            "exportplainuniqueneedle",
+            str(snap / "googledrive/files"),
+        ],
         capture_output=True,
         text=True,
     )
@@ -216,8 +230,8 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
         try:
             deadline = time.monotonic() + 10
             while not is_port_listening("127.0.0.1", port):
-                assert daemon.poll() is None
-                assert time.monotonic() < deadline
+                assert daemon.poll() is None, (tmp_path / "sonic.log").read_text()
+                assert time.monotonic() < deadline, (tmp_path / "sonic.log").read_text()
                 time.sleep(0.05)
             indexed = subprocess.run(
                 [

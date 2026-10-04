@@ -20,7 +20,7 @@ def request_for(source):
 
 
 def test_unpacked_files_preserve_nested_archives_and_remove_transport(tmp_path):
-    output = tmp_path / "gdrive"
+    output = tmp_path / "googledrive"
     output.mkdir()
     legacy = output / "download-1.zip"
     legacy.write_bytes(b"old transport")
@@ -76,3 +76,56 @@ def test_invalid_archive_preserves_previous_files(tmp_path: Path, bad_entry):
     assert source.exists()
     assert not (tmp_path / "escape.txt").exists()
     assert not list(output.glob(".unpack-*"))
+
+
+def test_shared_zip_file_is_preserved(tmp_path):
+    source = tmp_path / "browser.zip"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("note.txt", "original archive")
+    original = source.read_bytes()
+    request = request_for(source)
+    request["requireZip"] = False
+    output = tmp_path / "dropbox"
+    manifest = unpack_downloads(output, request)
+    assert len(manifest["files"]) == 1
+    assert (output / "files/folder.zip").read_bytes() == original
+    assert not source.exists()
+
+
+def test_duplicate_member_names_preserve_every_file(tmp_path):
+    source = tmp_path / "browser.zip"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("note.txt", "first")
+        archive.writestr("note (2).txt", "existing suffix")
+        with pytest.warns(UserWarning, match="Duplicate name"):
+            archive.writestr("note.txt", "second")
+    output = tmp_path / "googledrive"
+    manifest = unpack_downloads(output, request_for(source))
+    assert len(manifest["files"]) == 3
+    assert {p.read_text() for p in (output / "files").iterdir()} == {
+        "first",
+        "second",
+        "existing suffix",
+    }
+
+
+@pytest.mark.parametrize(
+    "old",
+    [
+        {"downloads": None},
+        {"downloads": [{"path": 3}]},
+        {"downloads": [{"path": "download-1.zip"}]},
+    ],
+)
+def test_malformed_old_manifest_cannot_break_publication(tmp_path, old):
+    output = tmp_path / "googledrive"
+    output.mkdir()
+    (output / "downloads.json").write_text(json.dumps(old))
+    (output / "download-1.zip").mkdir()
+    source = tmp_path / "browser.zip"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("note.txt", "saved")
+    manifest = unpack_downloads(output, request_for(source))
+    assert json.loads((output / "downloads.json").read_text()) == manifest
+    assert (output / "files/note.txt").read_text() == "saved"
+    assert not source.exists()

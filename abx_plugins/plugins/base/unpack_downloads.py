@@ -48,6 +48,13 @@ def unpack_downloads(output: Path, request: dict) -> dict:
         def save(source, name: str) -> None:
             destination = destination_for(name)
             destination.parent.mkdir(parents=True, exist_ok=True)
+            original = destination
+            counter = 2
+            while destination.exists():
+                destination = original.with_name(
+                    f"{original.stem} ({counter}){original.suffix}",
+                )
+                counter += 1
             digest = hashlib.sha256()
             size = 0
             with destination.open("xb") as target:
@@ -72,7 +79,7 @@ def unpack_downloads(output: Path, request: dict) -> dict:
             is_zip = name.lower().endswith(".zip")
             if request.get("requireZip") and not is_zip:
                 raise ValueError("Expected a folder ZIP download")
-            if is_zip:
+            if request.get("requireZip"):
                 with zipfile.ZipFile(source) as archive:
                     for entry in archive.infolist():
                         if entry.is_dir():
@@ -113,12 +120,20 @@ def unpack_downloads(output: Path, request: dict) -> dict:
                 backup.rename(final)
             raise
         # Remove legacy transport copies only after publication has succeeded.
-        for item in old_manifest.get("downloads", []):
-            if isinstance(item, dict) and re.fullmatch(
+        old_downloads = old_manifest.get("downloads")
+        for item in old_downloads if isinstance(old_downloads, list) else []:
+            name = item.get("path") if isinstance(item, dict) else None
+            if isinstance(name, str) and re.fullmatch(
                 r"download-\d+\.[A-Za-z0-9]+",
-                item.get("path", ""),
+                name,
             ):
-                (output / item["path"]).unlink(missing_ok=True)
+                try:
+                    (output / name).unlink(missing_ok=True)
+                except OSError as error:
+                    print(
+                        f"Cannot remove old transport {name}: {error}",
+                        file=sys.stderr,
+                    )
     for download in request["downloads"]:
         Path(download["filePath"]).unlink(missing_ok=True)
     return manifest

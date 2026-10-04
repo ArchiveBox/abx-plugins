@@ -17,7 +17,7 @@ extraction and CRC verification. Only unpacked files remain. Failed downloads
 leave previously saved output intact. Extraction uses Python's standard library
 from the existing abxpkg runtime; no extra package is installed.
 
-The compact embedded explorer opens ordinary saved files. Images are available
+The embedded preview uses ArchiveBox’s stock static-file directory index. Images are available
 to liteparse OCR, and text files are discovered by Sonic's normal indexing path.
 ZIP files supplied as actual folder contents remain ordinary files and can be
 browsed using ArchiveBox's generic ZIP preview.

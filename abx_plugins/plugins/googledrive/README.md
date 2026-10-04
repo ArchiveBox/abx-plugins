@@ -17,12 +17,12 @@ extraction and CRC verification. Only unpacked files remain. Failed downloads
 leave previously saved output intact. Extraction uses Python's standard library
 from the existing abxpkg runtime; no extra package is installed.
 
-The compact embedded explorer opens ordinary saved files. Images are available
+The embedded preview uses ArchiveBox’s stock static-file directory index. Images are available
 to liteparse OCR, and text files are discovered by Sonic's normal indexing path.
 ZIP files supplied as actual folder contents remain ordinary files and can be
 browsed using ArchiveBox's generic ZIP preview.
 
-Settings: `GDRIVE_ENABLED` (default true), `GDRIVE_TIMEOUT` (default 120 seconds,
+Settings: `GOOGLEDRIVE_ENABLED` (default true), `GOOGLEDRIVE_TIMEOUT` (default 120 seconds,
 falls back to `TIMEOUT`). Recognizes `/drive/folders/ID`, `/drive/u/N/folders/ID`
 and legacy `/folderview?id=ID` links. Account selection and resource keys are
 preserved because the hook uses the existing page rather than reconstructing a

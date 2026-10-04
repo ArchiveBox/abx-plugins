@@ -56,6 +56,11 @@ async function main() {
     );
   const timeoutMs = getEnvInt("DROPBOX_TIMEOUT", 120) * 1000;
   const deadline = Date.now() + timeoutMs;
+  const remaining = () => {
+    const ms = deadline - Date.now();
+    if (ms <= 0) throw new Error("Provider download deadline exceeded");
+    return ms;
+  };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const { browser, page } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
@@ -67,25 +72,28 @@ async function main() {
       throw new Error(
         "Chrome tab is not on the requested Dropbox share (login may be required)"
       );
+    let folderDownload = false;
     const downloads = await captureBrowserDownloads({
       browser,
       page,
-      timeoutMs: deadline - Date.now(),
+      timeoutMs: remaining(),
       downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
       trigger: async ({ downloadStarted }) => {
         // This action downloads the current share, not any individual child item.
+        await page.waitForSelector('[data-testid="action-bar-download-button"], #fvsdk-mount-point button[aria-label="Download"]', {timeout: remaining()});
+        folderDownload = await page.$('[data-testid="action-bar-download-button"]') !== null;
         await page
           .locator(
             '[data-testid="action-bar-download-button"], #fvsdk-mount-point button[aria-label="Download"]'
           )
-          .setTimeout(deadline - Date.now())
+          .setTimeout(remaining())
           .click();
         console.error("Opened Dropbox Download action");
         const continueButton = await Promise.race([
           downloadStarted.then(() => null),
           page.waitForSelector(
             ":is(#folder-preview-modal, #shared-link-download-signup-modal) .dig-Modal-footer button",
-            { timeout: deadline - Date.now() }
+            { timeout: remaining() }
           ),
         ]);
         if (continueButton) {
@@ -95,7 +103,7 @@ async function main() {
             .locator(
               ":is(#folder-preview-modal, #shared-link-download-signup-modal) .dig-Modal-footer button"
             )
-            .setTimeout(deadline - Date.now())
+            .setTimeout(remaining())
             .click();
         }
         console.error("Dropbox is preparing the download");
@@ -104,7 +112,8 @@ async function main() {
     await saveDownloads(
       path.join(snapshotDir, "dropbox"),
       await page.title(),
-      downloads
+      downloads,
+      { requireZip: folderDownload, timeoutMs: remaining() }
     );
     emitArchiveResultRecord("succeeded", "dropbox/downloads.json");
   } finally {

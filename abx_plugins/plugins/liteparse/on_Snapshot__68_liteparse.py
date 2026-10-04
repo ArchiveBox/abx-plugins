@@ -8,7 +8,7 @@ Extract text from PDFs, Office documents, and images using LiteParse
 
 Scans the snapshot directory for downloaded documents produced by other plugins
 (``responses``, ``staticfile``, ``wget``, ``papersdl``, ``googledocs``,
-``gdrive``, ``dropbox``) and runs ``lit batch-parse``
+``googledrive``, ``dropbox``) and runs ``lit batch-parse``
 on each supported file. Each source produces one ``<source-stem>.txt`` and
 ``<source-stem>.json`` directly in the plugin output dir — no merged
 ``content.txt`` or manifest. Search backends (ripgrep / sqlite FTS / sonic)
@@ -171,7 +171,7 @@ def find_document_sources(
         "*_wget",
         "papersdl",
         "googledocs",
-        "gdrive",
+        "googledrive",
         "dropbox",
         "liteparse_input",
     )
@@ -181,6 +181,7 @@ def find_document_sources(
     seen_digests: dict[str, Path] = {}
     seen_archives: set[Path] = set()
     archive_bytes = 0
+    warned_limit = False
 
     def consider(match: Path) -> None:
         if not match.is_file() or match.stat().st_size == 0:
@@ -252,13 +253,15 @@ def find_document_sources(
                                     or archive_bytes + entry.file_size
                                     > 1024 * 1024 * 1024
                                 ):
-                                    print(
-                                        f"[liteparse] Skipping oversized embedded image: {match.name}/{entry.filename}",
-                                        file=sys.stderr,
-                                    )
+                                    if not warned_limit:
+                                        print(
+                                            "[liteparse] Skipping embedded images exceeding OCR expansion limits",
+                                            file=sys.stderr,
+                                        )
+                                        warned_limit = True
                                     continue
                                 identity = hashlib.sha256(
-                                    f"{resolved}\0{entry.filename}".encode(),
+                                    f"{resolved}\0{entry.header_offset}\0{entry.filename}".encode(),
                                 ).hexdigest()[:16]
                                 image = (
                                     archive_dir
@@ -274,9 +277,18 @@ def find_document_sources(
                                             target,
                                             length=1024 * 1024,
                                         )
-                                except Exception:
+                                except (
+                                    zipfile.BadZipFile,
+                                    RuntimeError,
+                                    OSError,
+                                    ValueError,
+                                ) as error:
                                     image.unlink(missing_ok=True)
-                                    raise
+                                    print(
+                                        f"[liteparse] Cannot read embedded image {match.name}/{entry.filename}: {error}",
+                                        file=sys.stderr,
+                                    )
+                                    continue
                                 archive_bytes += entry.file_size
                                 consider(image)
                     except (
@@ -768,7 +780,10 @@ def main(url: str):
             sys.exit(0)
 
         print("LiteParse extraction started", flush=True)
-        with tempfile.TemporaryDirectory(prefix="abx-liteparse-images-") as archive_dir:
+        with tempfile.TemporaryDirectory(
+            prefix=".images_",
+            dir=OUTPUT_DIR,
+        ) as archive_dir:
             status, output = extract_liteparse(url, Path(archive_dir))
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

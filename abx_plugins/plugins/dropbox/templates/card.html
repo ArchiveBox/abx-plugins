@@ -91,7 +91,7 @@
           ? n + " B"
           : n < 1048576
           ? (n / 1024).toFixed(1) + " KB"
-          : (n / 1048576).toFixed(1) + " MB";
+          : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(1) + " GB";
       const icon = (name) => {
         const ext = name.split(".").pop().toLowerCase();
         return /^(png|jpe?g|gif|webp|svg|avif)$/.test(ext)

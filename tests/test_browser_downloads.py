@@ -102,7 +102,7 @@ const {saveDownloads}=require(process.argv[2]);
             tmp_path / "output/saved/files/nested/hello.txt"
         ).read_text() == "Authenticated archive contents\n"
         assert not list((tmp_path / "output/saved").glob("*.zip"))
-        assert list((tmp_path / "output/saved").glob(".*.tmp")) == []
+        assert list((tmp_path / "output/saved").glob(".unpack-*")) == []
     httpserver.check_assertions()
 
 

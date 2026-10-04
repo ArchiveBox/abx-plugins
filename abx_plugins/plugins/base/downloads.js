@@ -7,13 +7,15 @@ function saveDownloads(
   outputDir,
   title,
   downloads,
-  { requireZip = false } = {}
+  { requireZip = false, timeoutMs = 120000 } = {}
 ) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       path.join(__dirname, "unpack_downloads.py"),
       [outputDir],
       {
+        timeout: timeoutMs,
+        killSignal: "SIGKILL",
         stdio: ["pipe", "pipe", "pipe"],
       }
     );

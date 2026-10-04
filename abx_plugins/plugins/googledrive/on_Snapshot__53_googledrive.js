@@ -20,24 +20,24 @@ function folderId(value) {
   const url = new URL(value);
   if (
     url.protocol !== "https:" ||
-    url.host !== "drive.google.com" ||
+    !["drive.google.com", "www.drive.google.com"].includes(url.host) ||
     url.username ||
     url.password
   )
     return null;
   const id =
     url.pathname.match(
-      /^\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)(?:\/|$)/
+      /^\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)\/?$/
     )?.[1] ||
-    (url.pathname === "/folderview" ? url.searchParams.get("id") : null);
+    (/^\/(?:u\/\d+\/)?folderview$/.test(url.pathname) ? url.searchParams.get("id") : null);
   return id && /^[\w-]+$/.test(id) ? id : null;
 }
 
 async function main() {
   const config = loadConfig();
   const { url } = parseArgs();
-  if (!getEnvBool("GDRIVE_ENABLED", true))
-    return emitArchiveResultRecord("skipped", "GDRIVE_ENABLED=False");
+  if (!getEnvBool("GOOGLEDRIVE_ENABLED", true))
+    return emitArchiveResultRecord("skipped", "GOOGLEDRIVE_ENABLED=False");
   if (!url) throw new Error("Missing --url");
   const id = folderId(url);
   if (!id)
@@ -45,8 +45,13 @@ async function main() {
       "noresults",
       "Not a Google Drive folder URL"
     );
-  const timeoutMs = getEnvInt("GDRIVE_TIMEOUT", 120) * 1000;
+  const timeoutMs = getEnvInt("GOOGLEDRIVE_TIMEOUT", 120) * 1000;
   const deadline = Date.now() + timeoutMs;
+  const remaining = () => {
+    const ms = deadline - Date.now();
+    if (ms <= 0) throw new Error("Provider download deadline exceeded");
+    return ms;
+  };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const { browser, page } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
@@ -61,7 +66,7 @@ async function main() {
     const downloads = await captureBrowserDownloads({
       browser,
       page,
-      timeoutMs: deadline - Date.now(),
+      timeoutMs: remaining(),
       downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
       trigger: async () => {
         // The signed-in breadcrumb downloads the folder itself, including nesting.
@@ -70,7 +75,7 @@ async function main() {
           '[guidedhelpid="folder_path_button"] [role="button"]';
         await page.waitForSelector(
           `${folderButton}, [data-id="${id}"][role="link"]`,
-          { timeout: deadline - Date.now() }
+          { timeout: remaining() }
         );
         const breadcrumb = await page.$(folderButton);
         console.error(
@@ -81,7 +86,7 @@ async function main() {
         if (breadcrumb) await breadcrumb.click();
         else {
           const first = await page.waitForSelector('[role="row"][data-id]', {
-            timeout: deadline - Date.now(),
+            timeout: remaining(),
           });
           await first.click();
           const modifier = await page.evaluate(() =>
@@ -95,29 +100,29 @@ async function main() {
         console.error("Opening Drive Download action");
         await page
           .locator('::-p-aria([name="Download"][role="menuitem"])')
-          .setTimeout(deadline - Date.now())
+          .setTimeout(remaining())
           .click();
         console.error("Drive is preparing the folder ZIP");
         // Wait for ZIP preparation to finish before closing the download batch.
         await page.waitForSelector('[aria-label="Cancel download"]', {
-          timeout: deadline - Date.now(),
+          timeout: remaining(),
         });
         await page.waitForFunction(
           () =>
             ![
               ...document.querySelectorAll('[aria-label="Cancel download"]'),
             ].some((el) => el.getClientRects().length),
-          { timeout: deadline - Date.now() }
+          { timeout: remaining() }
         );
       },
     });
     await saveDownloads(
-      path.join(snapshotDir, "gdrive"),
+      path.join(snapshotDir, "googledrive"),
       await page.title(),
       downloads,
-      { requireZip: true }
+      { requireZip: true, timeoutMs: remaining() }
     );
-    emitArchiveResultRecord("succeeded", "gdrive/downloads.json");
+    emitArchiveResultRecord("succeeded", "googledrive/downloads.json");
   } finally {
     await browser.disconnect();
   }

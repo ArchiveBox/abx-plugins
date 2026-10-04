@@ -103,16 +103,19 @@ MEDIA_EXTENSIONS = (
 def folder_download_plugin(url: str) -> str | None:
     """Folder providers own container downloads; yt-dlp handles media URLs."""
     parsed = urlsplit(url)
-    if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password:
+    if parsed.scheme != "https" or parsed.username or parsed.password:
         return None
     query = parse_qs(parsed.query)
-    if parsed.hostname == "drive.google.com" and (
+    if parsed.netloc in {"drive.google.com", "www.drive.google.com"} and (
         re.fullmatch(r"/drive/(?:u/\d+/)?folders/[\w-]+/?", parsed.path)
-        or (parsed.path == "/folderview" and query.get("id"))
+        or (
+            re.fullmatch(r"/(?:u/\d+/)?folderview", parsed.path)
+            and re.fullmatch(r"[\w-]+", query.get("id", [""])[0])
+        )
     ):
-        return "gdrive"
+        return "googledrive"
     if (
-        parsed.hostname in {"www.dropbox.com", "dropbox.com"}
+        parsed.netloc in {"www.dropbox.com", "dropbox.com"}
         and not query.get("preview")
         and (
             parsed.path.startswith("/scl/fo/")
@@ -335,7 +338,7 @@ def main(url: str):
         if provider := folder_download_plugin(url):
             emit_archive_result_record(
                 "noresults",
-                f"Folder download belongs to {provider}",
+                f"Folder URL is not media; enable {provider} to download its files",
             )
             sys.exit(0)
 

@@ -13,16 +13,16 @@
     "application/octet-stream"
   ],
   "properties": {
-    "GDRIVE_ENABLED": {
+    "GOOGLEDRIVE_ENABLED": {
       "type": "boolean",
       "default": true,
       "x-aliases": [
-        "SAVE_GDRIVE",
-        "USE_GDRIVE"
+        "SAVE_GOOGLEDRIVE",
+        "USE_GOOGLEDRIVE"
       ],
       "description": "Download Google Drive shares"
     },
-    "GDRIVE_TIMEOUT": {
+    "GOOGLEDRIVE_TIMEOUT": {
       "type": "integer",
       "default": 120,
       "minimum": 5,
