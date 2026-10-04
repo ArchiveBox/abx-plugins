@@ -451,7 +451,7 @@ jobs:
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
             test_slug="${test_path//[^A-Za-z0-9_.-]/_}"
-            uv run --no-cache --no-sync --no-sources pytest -vs -rA "$test_path" --durations=20 \
+            uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
               --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
           done

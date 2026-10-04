@@ -24,6 +24,7 @@ class TestMatrixItem(TypedDict):
     os: str
     python: str
     ugnas: bool
+    workers: int
 
 
 def discover_tests() -> list[Path]:
@@ -88,6 +89,7 @@ if __name__ == "__main__":
                 "os": os_name,
                 "python": python_version,
                 "ugnas": False,
+                "workers": 0,
             },
         )
 
@@ -105,6 +107,7 @@ if __name__ == "__main__":
                         "os": os_name,
                         "python": python_version,
                         "ugnas": False,
+                        "workers": 0,
                     },
                 )
                 batch = []
@@ -119,6 +122,7 @@ if __name__ == "__main__":
                     "os": os_name,
                     "python": python_version,
                     "ugnas": False,
+                    "workers": 0,
                 },
             )
 
@@ -138,6 +142,16 @@ if __name__ == "__main__":
     # long browser tests that otherwise become the final CI tail.
     for item in list(reversed(eligible))[:capacity]:
         item["ugnas"] = True
+
+    # Parallelize the measured multi-minute files within their hosted runner.
+    # Short batches avoid worker startup costs; CPU-capped NAS jobs stay serial.
+    for item in test_matrix:
+        if (
+            not item["ugnas"]
+            and len(item["paths"]) == 1
+            and durations.get(item["path"], 60) >= 180
+        ):
+            item["workers"] = 2
 
     assigned = Counter(Path(path) for item in test_matrix for path in item["paths"])
     if assigned != Counter(expected_tests):

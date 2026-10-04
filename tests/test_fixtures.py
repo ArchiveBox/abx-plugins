@@ -71,6 +71,8 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     assert len(assignments) == len({path for path, _, _ in assignments})
     assert len(matrix) < len(expected)
     assert all(1 <= len(item["paths"]) <= 8 for item in matrix)
+    assert all(item["workers"] in (0, 2) for item in matrix)
+    assert all(item["workers"] == 0 for item in matrix if item["ugnas"])
     cells = [
         (os_name, python)
         for os_name in ("ubuntu-24.04", "macos-15")
