@@ -37,7 +37,11 @@ def test_shared_pytest_fixtures_import_from_tests_package():
     assert CLAUDECODE_CONFIG.is_file()
 
 
-def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path):
+@pytest.mark.parametrize("platform", ["linux", "macos"])
+def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
+    tmp_path,
+    platform,
+):
     result = subprocess.run(
         [
             "uv",
@@ -48,7 +52,7 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path)
             str(REPO_ROOT / ".github/ci_test_matrix.py"),
         ],
         cwd=tmp_path,
-        env={**os.environ, "UGNAS_CI_MAX_JOBS": "3"},
+        env={**os.environ, "UGNAS_CI_MAX_JOBS": "3", "CI_TEST_PLATFORM": platform},
         capture_output=True,
         text=True,
         check=True,
@@ -64,7 +68,6 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path)
     assignments = [
         (path, item["os"], item["python"]) for item in matrix for path in item["paths"]
     ]
-    assert sorted(path for path, _, _ in assignments) == expected
     assert len(assignments) == len({path for path, _, _ in assignments})
     assert len(matrix) < len(expected)
     assert all(1 <= len(item["paths"]) <= 8 for item in matrix)
@@ -79,9 +82,16 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(tmp_path)
         header = (REPO_ROOT / path).read_text().splitlines()[:5]
         if "# ci-runner: hosted-linux" in header:
             os_name = "ubuntu-24.04"
+        if platform == "macos":
+            if os_name != "macos-15":
+                continue
+        else:
+            os_name = "ubuntu-24.04"
         expected_assignments.append((path, os_name, python))
     assert sorted(assignments) == expected_assignments
-    assert sum(item["ugnas"] for item in matrix) == 3
+    if platform == "linux":
+        assert sorted(path for path, _, _ in assignments) == expected
+    assert sum(item["ugnas"] for item in matrix) == (3 if platform == "linux" else 0)
     for item in matrix:
         if item["ugnas"]:
             assert item["os"] == "ubuntu-24.04"

@@ -38,6 +38,10 @@ def discover_tests() -> list[Path]:
 
 if __name__ == "__main__":
     all_tests = discover_tests()
+    platform = os.environ.get("CI_TEST_PLATFORM", "linux")
+    if platform not in {"linux", "macos"}:
+        raise SystemExit("CI_TEST_PLATFORM must be linux or macos")
+    expected_tests: list[Path] = []
     targets = cycle(SUPPORTED_CELLS)
     test_matrix: list[TestMatrixItem] = []
     cells_used: set[tuple[str, str]] = set()
@@ -61,6 +65,14 @@ if __name__ == "__main__":
         os_name, python_version = next(targets)
         if runner_requirements.get(str(test_path)) == "hosted-linux":
             os_name = "ubuntu-24.04"
+        if platform == "macos":
+            if os_name != "macos-15":
+                continue
+        else:
+            # Every file runs on Linux on every commit. The original Mac
+            # assignments are additional scheduled compatibility coverage.
+            os_name = "ubuntu-24.04"
+        expected_tests.append(test_path)
         cells_used.add((os_name, python_version))
         path = str(test_path)
         if durations.get(path, 60) < 60:
@@ -125,11 +137,15 @@ if __name__ == "__main__":
         item["ugnas"] = True
 
     assigned = Counter(Path(path) for item in test_matrix for path in item["paths"])
-    if assigned != Counter(all_tests):
+    if assigned != Counter(expected_tests):
         raise SystemExit(
             "Test matrix must contain every discovered test file exactly once",
         )
-    if cells_used != set(SUPPORTED_CELLS):
+    expected_cells = {
+        ("macos-15" if platform == "macos" else "ubuntu-24.04", python)
+        for _, python in SUPPORTED_CELLS
+    }
+    if cells_used != expected_cells:
         raise SystemExit("Tests must cover every supported OS/Python cell")
     if any(
         item["os"] not in {"ubuntu-24.04", "macos-15"}
