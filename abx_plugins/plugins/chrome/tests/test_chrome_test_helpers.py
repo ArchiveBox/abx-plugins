@@ -484,10 +484,11 @@ function waitForDownloads(expectedContents) {
 
 
 def test_only_download_consumers_enable_browser_download_events():
-    """Only WACZ exports and attachment captures need browser download events.
+    """Only download consumers configure browser-wide download behavior.
 
-    Both retain the shared download directory and match their own download GUID;
-    staticfile also matches the snapshot frame before accepting that GUID. The
+    WACZ exports and attachments match their download GUID; SingleFile matches
+    its tab/blob/content and keeps collision-safe names in the configured folder.
+    Staticfile also matches the snapshot frame before accepting that GUID. The
     live download tests cover isolation; this inventory catches other plugins
     introducing browser-wide download configuration accidentally.
     """
@@ -501,6 +502,7 @@ def test_only_download_consumers_enable_browser_download_events():
 
     assert sorted(callers) == [
         Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js"),
+        Path("singlefile/singlefile_extension_save.js"),
         Path("staticfile/on_Snapshot__26_staticfile.daemon.bg.js"),
     ]
 

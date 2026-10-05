@@ -3086,12 +3086,12 @@ async function waitForBrowserPageReady(options = {}) {
 
       let page =
         pages.find(
-          (candidate) => candidate && candidate.url() === "about:blank"
+          (candidate) => candidate && candidate.target().url() === "about:blank"
         ) ||
         pages[0] ||
         null;
       if (
-        (!page || (requireAboutBlank && page.url() !== "about:blank")) &&
+        (!page || (requireAboutBlank && page.target().url() !== "about:blank")) &&
         createPageIfMissing &&
         !createdProbePage
       ) {
@@ -3159,8 +3159,11 @@ async function closeExistingTabs(browser) {
     return;
   }
 
+  // Target metadata exists before Puppeteer's frame tree is ready. Tab
+  // selection must not call page.url(), which dereferences mainFrame() and
+  // can throw "Requesting main frame too early!" during native startup.
   aboutBlankPage =
-    pages.find((page) => (page.url() || "") === "about:blank") || null;
+    pages.find((page) => page.target().url() === "about:blank") || null;
   if (!aboutBlankPage) {
     aboutBlankPage = await browser.newPage();
   }
@@ -3174,7 +3177,7 @@ async function closeExistingTabs(browser) {
   }
 
   for (const page of cleanupPages) {
-    const url = page.url() || "";
+    const url = page.target().url() || "";
     if (
       page === aboutBlankPage ||
       url.startsWith(CHROME_EXTENSION_URL_PREFIX)

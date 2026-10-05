@@ -322,14 +322,27 @@ def run_hook(
     if extra_args:
         cmd.extend(extra_args)
 
-    result = subprocess.run(
-        cmd,
-        cwd=str(cwd) if cwd else None,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=timeout,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as error:
+        # TimeoutExpired.__str__ omits the captured hook output, leaving CI
+        # unable to identify the operation that stalled.
+        stdout = error.stdout or b""
+        stderr = error.stderr or b""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        raise AssertionError(
+            f"Hook timed out after {timeout}s: {hook_script}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        ) from error
     return result.returncode, result.stdout, result.stderr
 
 
