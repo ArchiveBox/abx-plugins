@@ -661,10 +661,11 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         print("=" * 60)
 
         env_no_ext = env_base.copy()
-        baseline_install_env, _baseline_extensions_dir = chrome_extension_install_env(
+        _baseline_install_env, _baseline_extensions_dir = chrome_extension_install_env(
             tmpdir / "baseline-install",
         )
-        env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
+        # Isolate extension state without discarding the resolved browser and
+        # Node dependencies. Cold installs have their own tests above.
         env_no_ext["ABXPKG_CHROMEWEBSTORE_ROOT"] = str(
             _baseline_extensions_dir.parent,
         )
