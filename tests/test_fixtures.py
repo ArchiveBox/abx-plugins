@@ -238,7 +238,6 @@ def real_competing_html_snapshot(
             test_url=singlefile_url,
             timeout=30,
             env_overrides={
-                "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
                 "ABXPKG_CHROMEWEBSTORE_ROOT": str(
                     install_state["extensions_dir"].parent,
                 ),
