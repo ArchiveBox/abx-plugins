@@ -148,12 +148,24 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   await fs.promises.mkdir(CHROME_DOWNLOADS_DIR, { recursive: true });
 
   const timeoutMs = options.timeoutMs || getSinglefileDownloadWaitTimeoutMs();
+  const deadline = Date.now() + timeoutMs;
   console.error(
     `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
   const helperPage = await page.browser().newPage();
+  let releaseDownloadLock;
   let downloadedPath;
   try {
+    // Download behavior belongs to the live CDP connection. The launch
+    // connection has already disconnected, so relying on it sends extension
+    // downloads into the user's default Downloads folder. Share the existing
+    // browser-download lock and use GUID names to avoid same-title collisions.
+    releaseDownloadLock = await chromeUtils.acquireSessionLock(
+      path.join(CHROME_DOWNLOADS_DIR, ".download.lock"), timeoutMs
+    );
+    await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
+      behavior: "allowAndName", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
+    });
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
     );
@@ -175,6 +187,8 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       await page.bringToFront();
       await page.triggerExtensionAction(installed);
     });
+    const downloadTimeoutMs = deadline - Date.now();
+    if (downloadTimeoutMs <= 0) throw new Error("SingleFile download deadline exceeded");
     downloadedPath = await helperPage.evaluate(
       async ({ exactTab, extensionId, timeoutMs }) => {
         return await new Promise((resolve, reject) => {
@@ -281,20 +295,25 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           window.archiveboxStartCapture().catch(fail);
         });
       },
-      { exactTab: tab, extensionId: extension.id, timeoutMs }
+      { exactTab: tab, extensionId: extension.id, timeoutMs: downloadTimeoutMs }
     );
+    const stat = await fs.promises.stat(downloadedPath);
+    if (stat.size <= 0) {
+      throw new Error(`SingleFile download is empty: ${downloadedPath}`);
+    }
+    if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
+      await moveAcrossMounts(downloadedPath, outputPath);
+    }
+    return outputPath;
   } finally {
+    if (releaseDownloadLock) {
+      await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
+        behavior: "allow", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
+      }).catch(() => {});
+      releaseDownloadLock();
+    }
     await helperPage.close({ runBeforeUnload: false }).catch(() => {});
   }
-
-  const stat = await fs.promises.stat(downloadedPath);
-  if (stat.size <= 0) {
-    throw new Error(`SingleFile download is empty: ${downloadedPath}`);
-  }
-  if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
-    await moveAcrossMounts(downloadedPath, outputPath);
-  }
-  return outputPath;
 }
 
 async function main() {

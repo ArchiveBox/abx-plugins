@@ -141,7 +141,7 @@ def test_singlefile_cli_archives_loaded_page(
         document_probe = f"""
 const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
 (async () => {{
-    const {{ browser, page }} = await chromeUtils.connectToPage({{
+    const {{ browser, page, extensions }} = await chromeUtils.connectToPage({{
         chromeSessionDir: {json.dumps(str(snapshot_chrome_dir))},
         requireTargetId: true,
         waitForNavigationComplete: true,
@@ -157,6 +157,15 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             return {{ timeOrigin: performance.timeOrigin,
                 marker: document.getElementById('archivebox-singlefile-live-state')?.textContent }};
         }}, process.argv[1] === 'initialize');
+        if (process.argv[1] === 'observe') {{
+            const extension = chromeUtils.findExtensionMetadataByName(extensions, 'singlefile');
+            const target = await browser.waitForTarget(target =>
+                target.type() === 'service_worker' &&
+                target.url().startsWith(`chrome-extension://${{extension.id}}/`));
+            const worker = await target.worker();
+            state.downloads = await worker.evaluate(() => chrome.downloads.search({{state: 'complete'}}));
+            state.downloadDirectory = chromeUtils.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR;
+        }}
         process.stdout.write(JSON.stringify(state));
     }} finally {{ await browser.disconnect(); }}
 }})().catch(error => {{ console.error(error); process.exit(1); }});
@@ -192,7 +201,14 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             timeout=30,
         )
         assert after.returncode == 0, after.stderr
-        assert json.loads(after.stdout) == json.loads(before.stdout), (
+        after_state = json.loads(after.stdout)
+        downloads = after_state.pop("downloads")
+        download_directory = Path(after_state.pop("downloadDirectory"))
+        assert downloads, "SingleFile must complete a real browser download"
+        assert all(
+            Path(item["filename"]).parent == download_directory for item in downloads
+        ), downloads
+        assert after_state == json.loads(before.stdout), (
             "SingleFile reloaded the snapshot tab"
         )
 
