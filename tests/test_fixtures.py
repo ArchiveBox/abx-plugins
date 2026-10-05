@@ -14,6 +14,9 @@ import pytest
 from abx_plugins.plugins.base.testing import (
     assert_isolated_snapshot_env,
 )
+from abx_plugins.plugins.singlefile.tests.conftest import (
+    singlefile_install_state as singlefile_install_state,
+)
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
@@ -199,14 +202,20 @@ def real_html_snapshot(ensure_chrome_test_prereqs):
 
 
 @pytest.fixture
-def real_competing_html_snapshot(real_html_snapshot, httpserver):
+def real_competing_html_snapshot(
+    real_html_snapshot,
+    httpserver,
+    singlefile_install_state,
+):
     """Produce real SingleFile and DOM outputs from distinct local pages."""
-    from abx_plugins.plugins.base.testing import parse_jsonl_output
+    from abx_plugins.plugins.base.testing import get_hook_script, parse_jsonl_output
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
-    from abx_plugins.plugins.singlefile.tests.test_singlefile import (
-        SNAPSHOT_HOOK,
-        ensure_singlefile_extension_installed,
+
+    snapshot_hook = get_hook_script(
+        PLUGINS_ROOT / "singlefile",
+        "on_Snapshot__*_singlefile.py",
     )
+    assert snapshot_hook is not None
 
     def run(root: Path, snapshot_id: str) -> Path:
         httpserver.expect_request("/singlefile-source").respond_with_data(
@@ -221,7 +230,7 @@ def real_competing_html_snapshot(real_html_snapshot, httpserver):
         singlefile_url = httpserver.url_for("/singlefile-source")
         dom_url = httpserver.url_for("/dom-source")
         singlefile_root = root / "singlefile-capture"
-        install_state = ensure_singlefile_extension_installed(root)
+        install_state = singlefile_install_state
         with chrome_session(
             tmpdir=singlefile_root,
             crawl_id=f"singlefile-{snapshot_id}",
@@ -243,7 +252,7 @@ def real_competing_html_snapshot(real_html_snapshot, httpserver):
             output_dir.mkdir()
             env["SINGLEFILE_ENABLED"] = "true"
             result = subprocess.run(
-                [str(SNAPSHOT_HOOK), f"--url={singlefile_url}"],
+                [str(snapshot_hook), f"--url={singlefile_url}"],
                 cwd=output_dir,
                 env=env,
                 capture_output=True,

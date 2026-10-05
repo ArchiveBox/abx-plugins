@@ -12,6 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { createHash } = require("crypto");
 const {
   ensureNodeModuleResolution,
   loadConfig,
@@ -161,6 +162,13 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // Register download listeners first; a small page can finish immediately.
     const installed = (await page.browser().extensions()).get(extension.id);
     if (!installed) throw new Error("SingleFile is no longer installed in this browser");
+    await helperPage.exposeFunction("archiveboxDownloadMatchesContent", async (filename, digest) => {
+      const hash = createHash("sha256");
+      for await (const chunk of fs.createReadStream(filename)) hash.update(chunk);
+      const matches = hash.digest("hex") === digest;
+      if (matches) console.error("[singlefile] matched exact-tab HTML bytes to completed download");
+      return matches;
+    });
     await helperPage.exposeFunction("archiveboxStartCapture", async () => {
       // Chrome actions target the selected tab. Select the exact saved CDP page;
       // opening the observer page above otherwise leaves that helper selected.
@@ -168,18 +176,42 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       await page.triggerExtensionAction(installed);
     });
     downloadedPath = await helperPage.evaluate(
-      async ({ exactTab, timeoutMs }) => {
+      async ({ exactTab, extensionId, timeoutMs }) => {
         return await new Promise((resolve, reject) => {
           let downloadUrl = null;
+          let contentDigest = null;
+          let contentSize = null;
+          let contentParts = [];
+          let settled = false;
+          const startedAfter = new Date().toISOString();
           const cleanup = () => {
             clearTimeout(timer);
             chrome.downloads.onChanged.removeListener(onChanged);
             chrome.runtime.onMessage.removeListener(onMessage);
           };
-          const acceptCompleted = (item) => {
-            if (!downloadUrl || item?.url !== downloadUrl || item.state !== "complete") {
+          const fail = (error) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(error);
+          };
+          const acceptCompleted = async (item) => {
+            if (settled || item?.state !== "complete" || item.byExtensionId !== extensionId ||
+                new Date(item.startTime) < new Date(startedAfter)) {
               return false;
             }
+            if (!downloadUrl || item.url !== downloadUrl) {
+              // SingleFile resends the exact tab's HTML in chunks when the
+              // background worker cannot fetch its blob URL. Its replacement
+              // blob has a different URL: correlate the actual downloaded bytes,
+              // never the newest download or a possibly shared page filename.
+              if (!contentDigest || item.fileSize !== contentSize ||
+                  !(await window.archiveboxDownloadMatchesContent(item.filename, contentDigest))) {
+                return false;
+              }
+            }
+            if (settled) return true;
+            settled = true;
             cleanup();
             if (!item.filename) {
               reject(new Error(`SingleFile download ${item.id} has no filename`));
@@ -188,29 +220,47 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
             }
             return true;
           };
-          const onChanged = async (change) => {
-            if (!change.state) return;
-            const [item] = await chrome.downloads.search({ id: change.id });
-            if (!downloadUrl || item?.url !== downloadUrl) return;
-            if (change.state.current === "interrupted") {
-              cleanup();
-              reject(new Error(`SingleFile download ${change.id} was interrupted`));
-            } else if (change.state.current === "complete") {
-              acceptCompleted(item);
+          const onChanged = (change) => {
+            (async () => {
+              if (!change.state) return;
+              const [item] = await chrome.downloads.search({ id: change.id });
+              if (change.state.current === "interrupted" && downloadUrl && item?.url === downloadUrl) {
+                fail(new Error(`SingleFile download ${change.id} was interrupted`));
+              } else if (change.state.current === "complete") {
+                await acceptCompleted(item);
+              }
+            })().catch(fail);
+          };
+          const findCompleted = async () => {
+            for (const item of await chrome.downloads.search({ startedAfter })) {
+              if (await acceptCompleted(item)) break;
             }
           };
           const onMessage = (message, sender) => {
             if (
               sender.tab?.id !== exactTab.id ||
-              !message.method?.endsWith(".download") ||
-              !message.blobURL
+              !message.method?.endsWith(".download")
             ) {
               return;
             }
-            downloadUrl = message.blobURL;
-            chrome.downloads.search({}).then((items) => {
-              items.some(acceptCompleted);
-            });
+            // Do not return a Promise from this listener: SingleFile's own
+            // background listener must provide the download response.
+            (async () => {
+              if (message.blobURL) {
+                downloadUrl = message.blobURL;
+              } else if (typeof message.content === "string" && !message.compressContent) {
+                contentParts.push(message.content);
+                if (message.truncated && !message.finished) return;
+                const content = new TextEncoder().encode(contentParts.join(""));
+                contentParts = [];
+                contentSize = content.byteLength;
+                const digest = await crypto.subtle.digest("SHA-256", content);
+                contentDigest = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+              } else {
+                return;
+              }
+              await findCompleted();
+            })().catch(fail);
           };
           const timer = setTimeout(() => {
             cleanup();
@@ -220,7 +270,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
               .then(tasks => Promise.all(tasks.filter(task => task.tabId === exactTab.id)
                 .map(task => chrome.runtime.sendMessage({ method: "downloads.cancel", taskId: task.id }))))
               .catch(error => console.error("SingleFile cancellation failed:", error));
-            reject(
+            fail(
               new Error(
                 `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
               )
@@ -228,13 +278,10 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           }, timeoutMs);
           chrome.downloads.onChanged.addListener(onChanged);
           chrome.runtime.onMessage.addListener(onMessage);
-          window.archiveboxStartCapture().catch((error) => {
-            cleanup();
-            reject(error);
-          });
+          window.archiveboxStartCapture().catch(fail);
         });
       },
-      { exactTab: tab, timeoutMs }
+      { exactTab: tab, extensionId: extension.id, timeoutMs }
     );
   } finally {
     await helperPage.close({ runBeforeUnload: false }).catch(() => {});

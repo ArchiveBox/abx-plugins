@@ -43,66 +43,6 @@ BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 TEST_URL = "https://example.com"
 
-# Module-level cache for extension install location
-_singlefile_install_state = None
-
-
-def ensure_singlefile_extension_installed(tmp_path: Path) -> dict[str, Path]:
-    """Install SingleFile extension via crawl hook and return resolved paths."""
-    global _singlefile_install_state
-    if _singlefile_install_state:
-        cache_file = _singlefile_install_state["cache_file"]
-        if cache_file.exists():
-            try:
-                payload = json.loads(cache_file.read_text())
-                unpacked_path = Path(payload.get("unpacked_path", ""))
-                if (
-                    unpacked_path.exists()
-                    and (unpacked_path / "manifest.json").exists()
-                ):
-                    return _singlefile_install_state
-            except Exception:
-                pass
-
-    install_root = tmp_path / "singlefile-ext"
-    env_install, extensions_dir = chrome_extension_install_env(install_root)
-
-    loaded = install_required_binary_from_config(
-        PLUGIN_DIR,
-        "singlefile",
-        env=env_install,
-    )
-    assert loaded.loaded_abspath is not None, (
-        "abxpkg did not resolve SingleFile extension"
-    )
-    assert loaded.loaded_abspath.parent == extensions_dir
-
-    cache_candidates = (
-        extensions_dir.parent / "singlefile.extension.json",
-        extensions_dir / "singlefile.extension.json",
-    )
-    cache_file = next((path for path in cache_candidates if path.exists()), None)
-    assert cache_file is not None, (
-        "Extension cache file not created in any expected location: "
-        + ", ".join(str(path) for path in cache_candidates)
-    )
-
-    payload = json.loads(cache_file.read_text())
-    unpacked_path = Path(payload.get("unpacked_path", ""))
-    assert unpacked_path.exists(), f"Unpacked extension path missing: {unpacked_path}"
-    assert (unpacked_path / "manifest.json").exists(), (
-        f"Extension manifest missing: {unpacked_path / 'manifest.json'}"
-    )
-
-    _singlefile_install_state = {
-        "install_root": install_root,
-        "abxpkg_lib_dir": Path(env_install["ABXPKG_LIB_DIR"]),
-        "extensions_dir": extensions_dir,
-        "cache_file": cache_file,
-        "unpacked_path": unpacked_path,
-    }
-    return _singlefile_install_state
-
 
 def test_snapshot_hook_exists():
     """Verify snapshot extraction hook exists"""
@@ -146,30 +86,42 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
     assert payload["minimumBudget"] == 3000
 
 
-def test_verify_deps_with_abxpkg(tmp_path):
+def test_verify_deps_with_abxpkg(tmp_path, singlefile_install_state):
     """Verify dependencies are available via abxpkg."""
     node_loaded = install_binary_with_abxpkg(
         "node",
         binproviders="env,node,brew,apt",
     )
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
-    state = ensure_singlefile_extension_installed(tmp_path)
+    state = singlefile_install_state
     assert state["cache_file"].exists(), (
         "SingleFile extension cache should be installed"
     )
 
 
-def test_singlefile_cli_archives_example_com(tmp_path):
-    """Test that singlefile archives example.com and produces valid HTML."""
+@pytest.mark.parametrize(
+    ("test_url", "expected_text"),
+    [
+        (TEST_URL, "Example Domain"),
+        ("https://docs.sweeting.me/s/cookie-dilemma", "Scraping-With-Cookies"),
+    ],
+)
+def test_singlefile_cli_archives_loaded_page(
+    tmp_path,
+    test_url,
+    expected_text,
+    singlefile_install_state,
+):
+    """Archive the exact loaded document through the real SingleFile extension."""
     tmpdir = tmp_path / "singlefile-cli"
     tmpdir.mkdir()
 
-    install_state = ensure_singlefile_extension_installed(tmp_path)
+    install_state = singlefile_install_state
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-cli-crawl",
         snapshot_id="singlefile-cli-snap",
-        test_url=TEST_URL,
+        test_url=test_url,
         navigate=True,
         timeout=30,
         env_overrides={
@@ -222,7 +174,7 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
         result = subprocess.run(
             [
                 str(SNAPSHOT_HOOK),
-                f"--url={TEST_URL}",
+                f"--url={test_url}",
             ],
             cwd=singlefile_output_dir,
             capture_output=True,
@@ -256,21 +208,21 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
     assert "<!DOCTYPE html>" in html_content or "<html" in html_content, (
         "Output should contain HTML doctype or html tag"
     )
-    assert "Example Domain" in html_content, "Output should contain example.com content"
+    assert expected_text in html_content, "Output should contain the requested page"
     # The observer is a separate, initially active extension tab. A toolbar
     # action must still save the original snapshot, never the observer page.
-    assert "url: https://example.com/" in html_content
+    assert f"url: {test_url}" in html_content
     assert "Autosave offscreen document" not in html_content
     assert "ArchiveBox preserves the already loaded document" in html_content
 
 
-def test_singlefile_with_chrome_session(tmp_path):
+def test_singlefile_with_chrome_session(tmp_path, singlefile_install_state):
     """Test singlefile connects to existing Chrome session via CDP.
 
     When a Chrome session exists (chrome/cdp_url.txt), singlefile should
     connect to it instead of launching a new Chrome instance.
     """
-    install_state = ensure_singlefile_extension_installed(tmp_path)
+    install_state = singlefile_install_state
 
     tmpdir = tmp_path / "singlefile-session"
     tmpdir.mkdir()
@@ -388,9 +340,12 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         assert list(singlefile_output_dir.glob("*.html")) == [output_file]
 
 
-def test_singlefile_extension_loader_resolves_current_background_target(tmp_path):
+def test_singlefile_extension_loader_resolves_current_background_target(
+    tmp_path,
+    singlefile_install_state,
+):
     """SingleFile loader should prefer the cached background target over the offscreen page."""
-    install_state = ensure_singlefile_extension_installed(tmp_path)
+    install_state = singlefile_install_state
     tmpdir = tmp_path / "singlefile-offscreen"
     tmpdir.mkdir()
 
