@@ -711,6 +711,7 @@ def test_install_chromium_with_abxpkg_links_existing_chrome_into_managed_env(
     env.update(
         {
             "CHROME_BINARY": str(real_chromium_binary),
+            "CHROME_BINPROVIDERS": "env",
             "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
         },
     )

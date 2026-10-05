@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from abx_plugins.plugins.base.testing import install_required_binary_from_config
+from abx_plugins.plugins.base.testing import (
+    get_hydrated_required_binaries,
+    install_required_binary_from_config,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -281,11 +284,9 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
         config_path = plugin_dir / "config.json"
         if not config_path.exists():
             continue
-        config = cast(
-            dict[str, Any],
-            json.loads(config_path.read_text(encoding="utf-8")),
-        )
-        required_binaries = config.get("required_binaries")
+        # Validate the runtime defaults, including configurable provider lists.
+        # CI may deliberately select managed browsers; that is not the default.
+        required_binaries = get_hydrated_required_binaries(plugin_dir, env={})
         if not isinstance(required_binaries, list):
             continue
         for index, item in enumerate(required_binaries):
