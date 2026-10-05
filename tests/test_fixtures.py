@@ -23,6 +23,23 @@ pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 logger = logging.getLogger(__name__)
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    if call.excinfo is None or not isinstance(
+        call.excinfo.value,
+        subprocess.TimeoutExpired,
+    ):
+        return
+    report = outcome.get_result()
+    for name in ("stdout", "stderr"):
+        output = getattr(call.excinfo.value, name)
+        if isinstance(output, bytes):
+            output = output.decode(errors="replace")
+        if output:
+            report.sections.append((f"Timed-out subprocess {name}", output))
+
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 CLAUDECODE_CONFIG = PLUGINS_ROOT / "claudecode" / "config.json"
