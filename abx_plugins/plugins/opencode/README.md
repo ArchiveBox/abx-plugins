@@ -5,6 +5,11 @@ state, session setup, HTTP/SSE/WebSocket forwarding, and agent UI templates. Imp
 plugin package does not import or start its runtime. The runtime's HTTP clients
 are declared in the `opencode` package extra.
 
+`image.py` owns image-specific package cleanup and installed-binary checks.
+`archivebox/screenshots.py` owns gallery setup and the agent screenshot entry.
+ArchiveBox imports these entry points rather than duplicating plugin paths,
+package names, configuration, or validation logic.
+
 The plugin owns an optional `archivebox/` integration module, imported by the
 host for its routes and WebSocket handler. It supplies the lazy Django adapter: authentication, collection and
 route context, template rendering, and conversion to Django responses. The
