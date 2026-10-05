@@ -1076,6 +1076,31 @@ async function launchChromium(options = {}) {
       return result;
     } catch (e) {
       if (chromePid) {
+        // Preserve native wait/CPU state before cleanup destroys the evidence.
+        if (process.platform === "linux") {
+          try {
+            const processDir = `/proc/${chromePid}`;
+            const threads = fs.readdirSync(`${processDir}/task`).map((tid) => {
+              const fields = {};
+              for (const name of ["comm", "wchan", "syscall", "stat"]) {
+                try {
+                  fields[name] = fs.readFileSync(`${processDir}/task/${tid}/${name}`, "utf8").trim();
+                } catch (error) {
+                  fields[name] = error.code;
+                }
+              }
+              return { tid, ...fields };
+            });
+            console.error("Chrome startup process state: " + JSON.stringify({
+              pid: chromePid,
+              loadavg: fs.readFileSync("/proc/loadavg", "utf8").trim(),
+              status: fs.readFileSync(`${processDir}/status`, "utf8"),
+              threads,
+            }));
+          } catch (error) {
+            console.error(`Could not read Chrome startup process state: ${error.message}`);
+          }
+        }
         await cleanupLaunchArtifacts(outputDir, chromePid);
       }
       const extraOutput = [

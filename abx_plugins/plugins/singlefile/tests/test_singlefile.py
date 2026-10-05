@@ -125,7 +125,6 @@ def test_singlefile_cli_archives_loaded_page(
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
@@ -250,7 +249,6 @@ def test_singlefile_with_chrome_session(tmp_path, singlefile_install_state):
         test_url=TEST_URL,
         timeout=20,
         env_overrides={
-            "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
@@ -312,7 +310,6 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
         },
@@ -373,7 +370,6 @@ def test_singlefile_extension_loader_resolves_current_background_target(
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },

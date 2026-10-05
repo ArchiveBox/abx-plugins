@@ -51,7 +51,6 @@ def singlefile_install_state(tmp_path_factory):
 
     return {
         "install_root": install_root,
-        "abxpkg_lib_dir": Path(env_install["ABXPKG_LIB_DIR"]),
         "extensions_dir": extensions_dir,
         "cache_file": cache_file,
         "unpacked_path": unpacked_path,
