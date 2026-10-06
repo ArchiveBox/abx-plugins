@@ -2693,6 +2693,7 @@ function resolvePuppeteerModule() {
     try {
       const packageEntry = require.resolve(moduleName, { paths: searchPaths });
       const packageRequire = Module.createRequire(packageEntry);
+      packageRequire("puppeteer-core/internal/node-env-setup.js");
       const { Puppeteer } = packageRequire(
         "puppeteer-core/internal/common/Puppeteer.js"
       );
@@ -2703,7 +2704,7 @@ function resolvePuppeteerModule() {
       const { ScreenRecorder } = packageRequire(
         "puppeteer-core/internal/node/ScreenRecorder.js"
       );
-      environment.value = { fs, path, ScreenRecorder };
+      environment.value.ScreenRecorder = ScreenRecorder;
       return puppeteer;
     } catch (e) {}
   }
