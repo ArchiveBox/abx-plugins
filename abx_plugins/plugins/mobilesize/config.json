@@ -41,6 +41,7 @@
       "description": "Maximum seconds to wait for responsive requests to become idle"
     }
   },
+  "screenshot": "screenshot.json",
   "category": "page_setup",
   "display_order": 80
 }

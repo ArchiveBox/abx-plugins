@@ -46,3 +46,7 @@ It never widens a narrower tab, but still visits the requested height breakpoint
 limit; restoration still runs. This is one supplementary viewport, not a crawl
 of every breakpoint or lazy-loaded image. JavaScript resize handlers may alter
 page state; desktop files have already been saved before the hook runs.
+
+The plugin settings appear under **Page Setup** in Add URLs and Persona configuration.
+The gallery shows the expanded settings on the real Add URLs screen because this hook supplements the
+response/WACZ recordings and deliberately does not create its own output card.
