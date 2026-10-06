@@ -113,7 +113,14 @@ def find_pdf_sources() -> list[Path]:
                 resolved = str(match.resolve())
                 if resolved in seen:
                     continue
-                if match.is_file() and match.stat().st_size > 0:
+                if match.is_file():
+                    # responses can save Chrome's HTML PDF viewer under the
+                    # original .pdf URL. Do not send that wrapper (or an HTML
+                    # error response) to the converter and abort before reaching
+                    # the actual PDF saved by wget/staticfile.
+                    with match.open("rb") as source:
+                        if source.read(5) != b"%PDF-":
+                            continue
                     found.append(match)
                     seen.add(resolved)
 

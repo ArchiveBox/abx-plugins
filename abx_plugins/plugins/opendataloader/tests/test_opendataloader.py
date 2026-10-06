@@ -334,7 +334,12 @@ def test_noresults_without_sources():
 
 
 @pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl"])
-def test_extract_single_pdf(source_dir):
+@pytest.mark.parametrize(
+    "html_response",
+    [False, True],
+    ids=["pdf-only", "with-html-response"],
+)
+def test_extract_single_pdf(source_dir, html_response):
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
     java_binary = require_java_binary()
@@ -348,6 +353,16 @@ def test_extract_single_pdf(source_dir):
         wget_dir = snap_dir / source_dir
         wget_dir.mkdir(parents=True, exist_ok=True)
         (wget_dir / "output.pdf").write_bytes(pdf_content)
+        if html_response:
+            # A response named .pdf can contain HTML (e.g. Chrome's PDF viewer),
+            # while wget saved the actual PDF. Use real HTML bytes alongside the
+            # live PDF, and require that only the PDF reaches the converter.
+            html = requests.get("https://example.com", timeout=30)
+            html.raise_for_status()
+            assert "text/html" in html.headers["Content-Type"]
+            responses_dir = snap_dir / "responses" / "all"
+            responses_dir.mkdir(parents=True)
+            (responses_dir / "document.pdf").write_bytes(html.content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
