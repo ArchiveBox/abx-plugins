@@ -165,7 +165,7 @@ async function stopExactRecording(helperPage, state, timeoutMs) {
 }
 
 async function downloadExactWacz(
-  browser,
+  helperPage,
   extensionId,
   collId,
   destPath,
@@ -184,11 +184,12 @@ async function downloadExactWacz(
     requestedFilename.replace(/\.wacz$/i, "")
   )}`;
   const downloadedPath = path.join(downloadDir, requestedFilename);
+  const browser = helperPage.browser();
   const browserConnection = chromeUtils.getBrowserConnection(browser);
   let publishedFile = null;
-  let targetId = null;
   let downloadSession = null;
   let releaseDownloadLock;
+  const abortDownload = new AbortController();
 
   try {
     releaseDownloadLock = await chromeUtils.acquireSessionLock(
@@ -199,47 +200,40 @@ async function downloadExactWacz(
       downloadPath: downloadDir,
       eventsEnabled: true,
     });
-    const created = await chromeUtils.sendBrowserCommand(
-      browser,
-      "Target.createTarget",
-      { url: "about:blank" }
-    );
-    targetId = created.targetId;
-    const matchesTarget = (target) =>
-      chromeUtils.getTargetIdFromTarget(target) === targetId;
-    const target =
-      browser.targets().find(matchesTarget) ||
-      (await browser.waitForTarget(matchesTarget, { timeout: timeoutMs }));
-    const downloadPage = await target.page();
-    if (!downloadPage) {
-      throw new Error(`WACZ download target ${targetId} has no page`);
-    }
-    downloadSession = await target.createCDPSession();
+    // The extension helper already owns a live popup port. Navigate it to
+    // the attachment response: Chrome downloads the WACZ without replacing
+    // the popup document. A new about:blank tab can inherit another active
+    // AWP recorder and reload underneath this export.
+    downloadSession = await helperPage.target().createCDPSession();
     publishedFile = observePublishedFile(downloadedPath, timeoutMs);
     const downloadCompleted = chromeUtils.waitForBrowserDownload(
       browserConnection,
       requestedFilename,
-      timeoutMs
+      timeoutMs,
+      abortDownload.signal
     );
-    await downloadSession.send("Page.navigate", { url: dlUrl });
+    const completed = Promise.all([downloadCompleted, publishedFile.promise]);
+    // A navigation failure must cancel these observers without leaving an
+    // unhandled rejection or a timer keeping the hook alive until timeout.
+    completed.catch(() => {});
+    const navigation = await downloadSession.send("Page.navigate", { url: dlUrl });
+    if (navigation.errorText && !navigation.isDownload) {
+      throw new Error(`WACZ export navigation failed: ${navigation.errorText}`);
+    }
     // Chrome's CDP contract explicitly does not guarantee that the final path
     // exists when Browser.downloadProgress reports "completed". Require both
     // browser completion and the exact filesystem publication event before we
     // take ownership of the WACZ.
-    await Promise.all([downloadCompleted, publishedFile.promise]);
+    await completed;
     if (path.resolve(downloadedPath) !== path.resolve(destPath)) {
       await moveAcrossMounts(downloadedPath, destPath);
     }
     return (await fs.promises.stat(destPath)).size;
   } finally {
+    abortDownload.abort();
     releaseDownloadLock?.();
     publishedFile?.close();
     await downloadSession?.detach().catch(() => {});
-    if (targetId) {
-      await chromeUtils
-        .sendBrowserCommand(browser, "Target.closeTarget", { targetId })
-        .catch(() => {});
-    }
   }
 }
 
@@ -322,7 +316,7 @@ async function main() {
       const destPath = path.join(outputDir, OUTPUT_FILENAME);
       beginPhase("export");
       outputSize = await downloadExactWacz(
-        browser,
+        helperPage,
         state.extensionId,
         state.collId,
         destPath,

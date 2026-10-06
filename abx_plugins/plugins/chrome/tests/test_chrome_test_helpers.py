@@ -257,8 +257,10 @@ def test_find_chromium_uses_abxpkg_resolved_browser(real_chromium_binary: Path):
     assert _is_supported_browser_path(resolved)
 
 
+@pytest.mark.parametrize("download_behavior", ["allow", "deny"])
 def test_set_browser_download_behavior_downloads_file_with_live_page(
     ensure_chrome_test_prereqs,
+    download_behavior,
 ):
     """setBrowserDownloadBehavior() should drive a real download on a live browser page."""
     with (
@@ -281,6 +283,7 @@ const chromeUtils = require(process.argv[1]);
 const chromeSessionDir = process.argv[2];
 const downloadDir = process.argv[3];
 const filename = 'abx-download.txt';
+const behavior = process.argv[4];
 const expectedPath = path.join(downloadDir, filename);
 
 (async () => {
@@ -291,7 +294,7 @@ const expectedPath = path.join(downloadDir, filename);
   const session = await browser.target().createCDPSession();
   try {
     await session.send('Browser.setDownloadBehavior', {
-      behavior: 'allow',
+      behavior,
       downloadPath: downloadDir,
       eventsEnabled: true,
     });
@@ -299,7 +302,7 @@ const expectedPath = path.join(downloadDir, filename);
       session,
       filename,
       15000,
-    );
+    ).then(() => ({completed: true}), error => ({error: error.message}));
     await page.bringToFront();
     await page.evaluate((name) => {
       const blob = new Blob(['archivebox-download-ok'], { type: 'text/plain' });
@@ -312,11 +315,12 @@ const expectedPath = path.join(downloadDir, filename);
       link.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     }, filename);
-    await downloadCompleted;
+    const outcome = await downloadCompleted;
     process.stdout.write(JSON.stringify({
       expectedPath,
+      outcome,
       pageUrl: page.url(),
-      content: fs.readFileSync(expectedPath, 'utf8'),
+      content: fs.existsSync(expectedPath) ? fs.readFileSync(expectedPath, 'utf8') : null,
     }));
   } finally {
     await session.detach();
@@ -335,6 +339,7 @@ const expectedPath = path.join(downloadDir, filename);
                 str(CHROME_UTILS),
                 str(snapshot_chrome_dir),
                 str(download_dir),
+                download_behavior,
             ],
             capture_output=True,
             text=True,
@@ -346,8 +351,16 @@ const expectedPath = path.join(downloadDir, filename);
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
         assert payload["pageUrl"].startswith(TEST_URL)
-        assert payload["content"] == "archivebox-download-ok"
-        assert Path(payload["expectedPath"]).exists()
+        if download_behavior == "allow":
+            assert payload["outcome"] == {"completed": True}
+            assert payload["content"] == "archivebox-download-ok"
+            assert Path(payload["expectedPath"]).exists()
+        else:
+            assert payload["outcome"] == {
+                "error": "Download abx-download.txt was canceled",
+            }
+            assert payload["content"] is None
+            assert not Path(payload["expectedPath"]).exists()
 
 
 def test_set_browser_download_behavior_configures_once_for_live_pages(

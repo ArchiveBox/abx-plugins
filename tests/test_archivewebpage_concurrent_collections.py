@@ -896,16 +896,60 @@ def test_concurrent_stops_each_publish_their_exact_wacz(
                 cases,
             ),
         )
-        stop_inputs = (
-            (snapshot_dir, snapshot_env, case[1])
-            for case, (snapshot_dir, snapshot_env) in zip(cases, runs, strict=True)
-        )
-        stops = list(
-            executor.map(
-                lambda stop_input: _run_stop_hook(*stop_input),
-                stop_inputs,
+    # Observe real browser targets while the real hook subprocesses export.
+    # A blank export tab is eligible for AWP's automatic recording/reload,
+    # competing with the WACZ navigation while another recorder is active.
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const {execFile} = require("node:child_process");
+const path = require("node:path");
+(async () => {
+  const {browser} = await chromeUtils.connectToPage({chromeSessionDir: process.argv[2]});
+  const targets = [];
+  const observe = target => {
+    if (target.type() === "page") targets.push(target.url());
+  };
+  browser.on("targetcreated", observe);
+  browser.on("targetchanged", observe);
+  try {
+    const stops = await Promise.all(JSON.parse(process.argv[4]).map(({snapshot, url}) =>
+      new Promise(resolve => execFile(process.argv[3], [`--url=${url}`], {
+        cwd: path.join(snapshot, "archivewebpage"),
+        env: {...process.env, SNAP_DIR: snapshot},
+        timeout: 60000,
+      }, (error, stdout, stderr) => resolve({code: error?.code ?? 0, stdout, stderr})))
+    ));
+    console.log(JSON.stringify({stops, targets}));
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    observed = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(runs[0][0] / "chrome"),
+            str(ARCHIVEWEBPAGE_STOP_HOOK),
+            json.dumps(
+                [
+                    {"snapshot": str(run[0]), "url": case[1]}
+                    for case, run in zip(cases, runs, strict=True)
+                ],
             ),
-        )
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=70,
+    )
+    assert observed.returncode == 0, observed.stderr
+    payload = json.loads(observed.stdout)
+    assert "about:blank" not in payload["targets"], payload
+    stops = [
+        subprocess.CompletedProcess([], item["code"], item["stdout"], item["stderr"])
+        for item in payload["stops"]
+    ]
 
     for case, run, stop in zip(cases, runs, stops, strict=True):
         assert stop.returncode == 0, (
