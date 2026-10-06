@@ -35,12 +35,14 @@ Configuration:
 | `MOBILESIZE_WAIT` | `3` | Maximum seconds to wait for one second of network quiet |
 | `MOBILESIZE_TIMEOUT` | `30` | Overall hook timeout in seconds |
 
-The timeout must exceed the network wait by more than five seconds, leaving
-time to connect and restore the viewport before the runner's deadline.
+The timeout has a minimum of 16 seconds, covering every permitted network wait
+(1–10 seconds). All operations share one deadline, with the final five seconds
+reserved for viewport restoration. A stalled or closed Chrome tab fails within
+that budget; restoration is best-effort when Chrome itself is unresponsive.
 
 The pass preserves DPR and does not enable mobile/touch emulation or change the
-user agent. It skips non-HTML documents and viewports already at or below the
-requested width. Continuous traffic ends the network wait at the configured
+user agent. It skips non-HTML documents and viewports already at the requested dimensions.
+It never widens a narrower tab, but still visits the requested height breakpoint. Continuous traffic ends the network wait at the configured
 limit; restoration still runs. This is one supplementary viewport, not a crawl
 of every breakpoint or lazy-loaded image. JavaScript resize handlers may alter
 page state; desktop files have already been saved before the hook runs.

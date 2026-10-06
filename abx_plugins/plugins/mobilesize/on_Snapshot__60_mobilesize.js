@@ -29,13 +29,12 @@
  * recorded by the existing monitors. This does not fetch every srcset entry or
  * guarantee lazy content below the mobile fold is loaded.
  */
-const fs = require("fs");
 const path = require("path");
 const {
   loadConfig, getEnvBool, getEnvInt, parseArgs, emitArchiveResultRecord,
   hasStaticFileOutput, isNonHtmlDocument,
 } = require("../base/utils.js");
-const {connectToPage} = require("../chrome/chrome_utils.js");
+const {connectToPage, waitForNavigationComplete, withTimeout} = require("../chrome/chrome_utils.js");
 const config = loadConfig();
 
 async function main() {
@@ -45,67 +44,93 @@ async function main() {
   }
   const {url} = parseArgs();
   if (!url) throw new Error("Usage: on_Snapshot__60_mobilesize.js --url=<url>");
-  const outputDir = path.join(path.resolve(config.SNAP_DIR || "."), "mobilesize");
-  fs.mkdirSync(outputDir, {recursive:true});
-  process.chdir(outputDir);
-  if (hasStaticFileOutput() || isNonHtmlDocument()) {
+  const snapDir = path.resolve(config.SNAP_DIR || ".");
+  const chromeSessionDir = path.join(snapDir, "chrome");
+  // No artifacts of our own: use absolute sibling paths without making/chdiring
+  // into an empty plugin directory on either success or skip paths.
+  if (hasStaticFileOutput(path.join(snapDir, "staticfile")) ||
+      isNonHtmlDocument(path.join(chromeSessionDir, "navigation.json"))) {
     emitArchiveResultRecord("noresults", "Browser document is not HTML or staticfile already handled");
     return;
   }
-  const width = getEnvInt("MOBILESIZE_WIDTH", 390);
+  let width = getEnvInt("MOBILESIZE_WIDTH", 390);
   const height = getEnvInt("MOBILESIZE_HEIGHT", 844);
   const waitMs = getEnvInt("MOBILESIZE_WAIT", 3) * 1000;
   const timeoutMs = getEnvInt("MOBILESIZE_TIMEOUT", 30) * 1000;
-  if (width < 1 || height < 1 || waitMs < 1000 || waitMs > 10000 || timeoutMs < 10000) {
+  if (width < 1 || height < 1 || waitMs < 1000 || waitMs > 10000 || timeoutMs < 16000) {
     throw new Error("Invalid MOBILESIZE dimensions, wait, or timeout");
   }
-  if (waitMs + 5000 >= timeoutMs) {
-    throw new Error("MOBILESIZE_TIMEOUT must leave more than 5 seconds beyond MOBILESIZE_WAIT for connection and restoration");
-  }
-  const {browser, page} = await connectToPage({
-    chromeSessionDir: "../chrome",
-    timeoutMs: Math.min(timeoutMs - waitMs - 5000, 10000),
-    waitForNavigationComplete: true,
+  // One deadline, not a fresh timeout per operation. Reserve the final five
+  // seconds for cleanup so a hung renderer/CDP request cannot consume the time
+  // needed to restore the tab before the runner terminates this hook.
+  const deadline = Date.now() + timeoutMs;
+  const workDeadline = deadline - 5000;
+  const remaining = (end = workDeadline) => Math.max(1, end - Date.now());
+  const step = (operation, end = workDeadline) => {
+    if (Date.now() >= end) throw new Error("MOBILESIZE_TIMEOUT exceeded");
+    return withTimeout(operation, remaining(end), "MOBILESIZE_TIMEOUT exceeded");
+  };
+  // Wait separately so navigation and attachment consume the SAME budget.
+  // connectToPage's waitForNavigationComplete option grants each a full timeout.
+  await step(() => waitForNavigationComplete(chromeSessionDir, remaining()));
+  const {browser, page, cdpSession} = await step(async () => {
+    const connection = await connectToPage({
+      chromeSessionDir, timeoutMs: remaining(),
+    });
+    if (Date.now() >= workDeadline) {
+      await connection.browser.disconnect();
+      throw new Error("MOBILESIZE_TIMEOUT exceeded");
+    }
+    return connection;
   });
   try {
     // CDP connections use defaultViewport:null. Read the live dimensions rather
     // than CHROME_RESOLUTION: screenshot or the user may have changed them.
-    const original = await page.evaluate(() => ({
+    const original = await step(() => page.evaluate(() => ({
       width: innerWidth, height: innerHeight, deviceScaleFactor: devicePixelRatio,
       x: scrollX, y: scrollY,
-    }));
-    if (original.width <= width) {
-      emitArchiveResultRecord("noresults", "Viewport is already phone width");
+    })));
+    // Never widen an already narrow tab, but still visit height breakpoints.
+    width = Math.min(width, original.width);
+    if (original.width === width && original.height === height) {
+      emitArchiveResultRecord("noresults", "Viewport already has the requested dimensions");
       return;
     }
-    // A dedicated session scopes the override to this hook. Unlike setViewport,
-    // this never toggles touch emulation or triggers Puppeteer's reload path.
-    const session = await page.createCDPSession();
+    // Focus must have its own session: explicit Target.detachFromTarget after
+    // setting device metrics can reset dimensions on Linux, including a prior
+    // screenshot hook's override. Detach focus FIRST, then restore dimensions
+    // on the connection's existing CDP session. browser.disconnect releases
+    // that connection without the explicit detach that undoes restoration.
+    const focusSession = await step(() => page.createCDPSession());
     try {
-      // Like screenshot capture, keep rendering active when another tab is
-      // selected. Otherwise Chrome can defer srcset reevaluation indefinitely.
-      await session.send("Emulation.setFocusEmulationEnabled", {enabled:true});
-      await session.send("Emulation.setDeviceMetricsOverride", {
+      // Background tabs can otherwise defer picture/srcset reevaluation.
+      await step(() => focusSession.send("Emulation.setFocusEmulationEnabled", {enabled:true}));
+      // step owns the deadline; disable the connection's shorter per-command
+      // timeout here so it cannot preempt the reserved restoration budget.
+      await step(() => cdpSession.send("Emulation.setDeviceMetricsOverride", {
         width, height, deviceScaleFactor: original.deviceScaleFactor, mobile:false,
-      });
-      // Start at the mobile fold even if an earlier hook left the page scrolled;
-      // Chrome can defer changing offscreen picture sources until visible.
-      await page.evaluate(() => window.scrollTo({top:0, left:0, behavior:"instant"}));
-      await page.waitForNetworkIdle({idleTime:1000, timeout:waitMs}).catch(error => {
+      }, {timeout:0}));
+      // Chrome may defer offscreen picture sources, so start at the mobile fold.
+      await step(() => page.evaluate(() => window.scrollTo({top:0, left:0, behavior:"instant"})));
+      await step(() => page.waitForNetworkIdle({idleTime:1000, timeout:Math.min(waitMs, remaining())})).catch(error => {
         if (error.name !== "TimeoutError") throw error;
         console.error(`Mobile viewport network wait reached ${waitMs / 1000}s; continuing`);
       });
     } finally {
+      // Each cleanup operation shares the same remaining deadline. A dead tab
+      // cannot be restored, but must not leave this hook hanging indefinitely.
       try {
-        await session.send("Emulation.setDeviceMetricsOverride", {
+        await step(() => focusSession.detach(), deadline);
+      } finally {
+        await step(() => cdpSession.send("Emulation.setDeviceMetricsOverride", {
           width:original.width, height:original.height,
           deviceScaleFactor:original.deviceScaleFactor, mobile:false,
-        });
-        await page.evaluate(({x, y}) => window.scrollTo({left:x, top:y, behavior:"instant"}), original);
-      } finally {await session.detach();}
+        }, {timeout:0}), deadline);
+        await step(() => page.evaluate(({x, y}) => window.scrollTo({left:x, top:y, behavior:"instant"}), original), deadline);
+      }
     }
     emitArchiveResultRecord("succeeded", `resized to ${width}x${height}, restored desktop viewport`);
-  } finally {browser.disconnect();}
+  } finally {await browser.disconnect();}
 }
 
 main().catch(error => {

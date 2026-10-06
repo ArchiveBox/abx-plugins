@@ -18,7 +18,7 @@
     "MOBILESIZE_TIMEOUT": {
       "type": "integer",
       "default": 30,
-      "minimum": 10,
+      "minimum": 16,
       "description": "Hook timeout in seconds, including connection and viewport restoration"
     },
     "MOBILESIZE_WIDTH": {
