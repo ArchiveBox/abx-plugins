@@ -689,7 +689,6 @@ def _chrome_provider_env_cache_key(env: dict) -> tuple[str, ...]:
             "PATH",
             "NODE_BINARY",
             "CHROME_BINARY",
-            "CHROME_BINPROVIDERS",
             "NODE_MODULES_DIR",
             "NODE_MODULE_DIR",
             "NODE_PATH",

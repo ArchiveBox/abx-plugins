@@ -1,7 +1,8 @@
-"""Live end-to-end tests for browser selection via CHROME_BINARY."""
+"""Live end-to-end tests for declarative browser installation."""
 
 import os
 import platform
+import shutil
 import signal
 import subprocess
 from pathlib import Path
@@ -53,9 +54,10 @@ def _run_hook(
     return result.returncode, result.stdout, result.stderr
 
 
-def test_live_install_and_screenshot_extraction_respects_chrome_binary(
+def test_live_install_and_screenshot_extraction_uses_declared_browser_providers(
     tmp_path: Path,
     chrome_test_url: str,
+    ensure_chrome_test_prereqs,
 ):
     browser_name = "chromium"
     machine_type = _machine_type()
@@ -75,10 +77,17 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     screenshot_dir.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
+    env.pop("CHROME_BINARY", None)
+    env.pop("CHROME_BINPROVIDERS", None)
+    # A real browser is already on PATH, outside this installation root.
+    # The dependency declaration must still install its managed browser.
+    host_browser = Path(str(ensure_chrome_test_prereqs))
+    env["PATH"] = f"{host_browser.parent}{os.pathsep}{env['PATH']}"
+    host_on_path = shutil.which(browser_name, path=env["PATH"])
+    assert host_on_path is not None
+    assert Path(host_on_path).samefile(host_browser)
     env.update(
         {
-            "CHROME_BINARY": browser_name,
-            "CHROME_BINPROVIDERS": "playwright,puppeteer",
             "CHROME_HEADLESS": "true",
             "CHROME_KEEPALIVE": "false",
             "CRAWL_DIR": str(crawl_dir),
