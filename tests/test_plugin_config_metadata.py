@@ -159,7 +159,7 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
         assert recipe.keys() <= {
             "url",
             "wait_for_text",
-            "prepare_plugins",
+            "config",
             "view",
             "enabled",
         }, recipe_path
@@ -173,9 +173,10 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
                 )
         if "url" in recipe:
             assert recipe["url"].startswith(("https://", "http://")), recipe_path
-        assert isinstance(recipe.get("prepare_plugins", []), list), recipe_path
-        for dependency in recipe.get("prepare_plugins", []):
-            assert (PLUGINS_ROOT / dependency / "config.json").is_file(), recipe_path
+        assert isinstance(recipe.get("config", False), bool), recipe_path
+        if recipe.get("config"):
+            assert recipe.get("view"), recipe_path
+            assert config.get("properties"), recipe_path
 
 
 def test_required_binary_configs_follow_provider_policy() -> None:
