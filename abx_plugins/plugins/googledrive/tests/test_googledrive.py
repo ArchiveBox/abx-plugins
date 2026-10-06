@@ -3,7 +3,10 @@
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -15,9 +18,33 @@ URL = "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks"
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_googledrive.js"
 
 
-def test_public_folder_zip(tmp_path, ensure_chrome_test_prereqs):
+@pytest.mark.parametrize(
+    "custom_user_agent",
+    [False, True],
+    ids=["native-ua", "cross-platform-ua"],
+)
+def test_public_folder_zip(tmp_path, ensure_chrome_test_prereqs, custom_user_agent):
     assert HOOK.is_file(), "googledrive folder download hook is missing"
-    with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome_dir, env):
+    # ArchiveBox configures a Mac UA even on Linux. The provider chooses its
+    # keyboard shortcuts from that UA, which may differ from navigator.platform.
+    platform = (
+        "X11; Linux x86_64"
+        if sys.platform == "darwin"
+        else "Macintosh; Intel Mac OS X 10_15_7"
+    )
+    overrides = (
+        {
+            "CHROME_USER_AGENT": f"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        }
+        if custom_user_agent
+        else {}
+    )
+    with chrome_session(
+        tmp_path,
+        test_url=URL,
+        timeout=60,
+        env_overrides=overrides,
+    ) as (_, _, chrome_dir, env):
         endpoint = (chrome_dir / "cdp_url.txt").read_text().strip()
         before = fetch_devtools_targets(endpoint)
         result = subprocess.run(

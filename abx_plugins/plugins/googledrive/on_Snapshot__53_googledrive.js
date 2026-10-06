@@ -91,8 +91,11 @@ async function main() {
             timeout: remaining(),
           });
           await first.click();
+          // Drive chooses shortcuts from the user agent, not the host OS.
+          // ArchiveBox's default Mac UA also runs on Linux: using platform there
+          // leaves only the first row selected and can download an empty folder.
           const modifier = await page.evaluate(() =>
-            /Mac/.test(navigator.platform) ? "Meta" : "Control"
+            /Mac/.test(navigator.userAgent) ? "Meta" : "Control"
           );
           await page.keyboard.down(modifier);
           await page.keyboard.press("KeyA");

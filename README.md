@@ -58,14 +58,14 @@ to its `config.json` and keep the recipe beside it:
 }
 ```
 
-`url` overrides the default snapshot source. The capture runs the real plugin and
-opens its output in the snapshot detail page; `wait_for_text` waits inside that
-preview before taking the screenshots. Optional `prepare_plugins` runs those
-plugins first on the source, then extracts the owning plugin from the saved files
-(for example, `wget` before a PDF text extractor). Recipes sharing a URL and
-preparation reuse one snapshot. An optional `view` selects an existing application
-gallery view instead, such as `"AI agent"`. Set `"enabled": true` to include an
-optional plugin in the default capture. Ordinary plugins need no recipe.
+`url` overrides the default snapshot source. Every source runs the full capture
+pipeline; the recipe only selects the output to photograph. `wait_for_text` waits
+inside that output's preview before taking the screenshots. Recipes sharing a URL
+reuse one snapshot. An optional `view` selects an existing application gallery
+view instead, such as `"AI agent"`. With `"config": true`, `view` names a dedicated
+screenshot of the plugin's expanded settings on Add URLs (see `mobilesize`).
+Set `"enabled": true` to include an optional plugin in the default capture.
+Ordinary plugins need no recipe.
 
 Recipes travel in the plugin package. Neither website needs a plugin allowlist,
 and adding an example requires no workflow changes or separate screenshot job.
