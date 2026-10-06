@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mobile Size",
+  "description": "Briefly resize the captured tab to phone width after desktop outputs, letting active response and WACZ recorders save responsive assets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [],
+  "properties": {
+    "MOBILESIZE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable the supplementary phone-width capture pass"
+    },
+    "MOBILESIZE_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 10,
+      "description": "Hook timeout in seconds, including connection and viewport restoration"
+    },
+    "MOBILESIZE_WIDTH": {
+      "type": "integer",
+      "default": 390,
+      "minimum": 1,
+      "description": "Temporary viewport width in CSS pixels"
+    },
+    "MOBILESIZE_HEIGHT": {
+      "type": "integer",
+      "default": 844,
+      "minimum": 1,
+      "description": "Temporary viewport height in CSS pixels"
+    },
+    "MOBILESIZE_WAIT": {
+      "type": "integer",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Maximum seconds to wait for responsive requests to become idle"
+    }
+  },
+  "category": "page_setup",
+  "display_order": 80
+}
