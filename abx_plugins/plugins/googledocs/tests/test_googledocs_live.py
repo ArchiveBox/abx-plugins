@@ -184,6 +184,23 @@ def test_reuses_real_captured_export(tmp_path, ensure_chrome_test_prereqs):
                 (async () => {
                     const {browser, page, cdpSession} = await connectToPage({chromeSessionDir: process.argv[2], waitForNavigationComplete: true});
                     try {
+                        const requests = new Set();
+                        cdpSession.on('Network.requestWillBeSent', event => {
+                            if (event.request.url.includes('/export') || requests.has(event.requestId)) {
+                                requests.add(event.requestId);
+                                console.error('export request', event.requestId, event.request.url, event.redirectResponse?.status);
+                            }
+                        });
+                        cdpSession.on('Network.responseReceived', event => {
+                            if (requests.has(event.requestId)) console.error('export response', event.requestId, event.response.status, event.response.url);
+                        });
+                        for (const name of ['Network.loadingFinished', 'Network.loadingFailed']) {
+                            cdpSession.on(name, event => {
+                                if (requests.has(event.requestId)) console.error(name, JSON.stringify(event));
+                            });
+                        }
+                        await cdpSession.send('Network.enable');
+                        console.error('page fetch implementation', await page.evaluate(() => String(window.fetch)));
                         const result = await page.evaluate(async url => { const r = await fetch(url); return {status: r.status, bytes: Array.from(new Uint8Array(await r.arrayBuffer()))}; }, process.argv[3]);
                         console.log(JSON.stringify(result));
                     } finally { await browser.disconnect(); }
