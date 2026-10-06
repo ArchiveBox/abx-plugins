@@ -278,15 +278,14 @@ def test_uv_required_cli_binaries_enable_postinstall_scripts() -> None:
     )
 
 
-def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
+def test_required_binary_configs_prefer_hosts_or_declared_managed_runtimes() -> None:
     failures: list[str] = []
 
     for plugin_dir in _iter_plugin_dirs():
         config_path = plugin_dir / "config.json"
         if not config_path.exists():
             continue
-        # Validate the runtime defaults, including configurable provider lists.
-        # CI may deliberately select managed browsers; that is not the default.
+        # Validate the same declaration used for local installs and CI.
         required_binaries = get_hydrated_required_binaries(plugin_dir, env={})
         if not isinstance(required_binaries, list):
             continue
@@ -324,9 +323,19 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 ):
                     managed_package = True
                     break
-            if (not providers or providers[0] != "env") and not managed_package:
+            managed_browser = (
+                providers == ["playwright", "puppeteer"]
+                and bool(item.get("min_version"))
+                and item.get("postinstall_scripts") is True
+                and isinstance(overrides, dict)
+                and overrides.get("playwright", {}).get("install_args")
+                == ["--with-deps", "chromium", "--no-shell"]
+            )
+            if (not providers or providers[0] != "env") and not (
+                managed_package or managed_browser
+            ):
                 failures.append(
-                    f"{plugin_dir.name}: required_binaries[{index}] must try env first or use an isolated package root with exact pins",
+                    f"{plugin_dir.name}: required_binaries[{index}] must try env first, pin an isolated package, or declare a versioned managed browser",
                 )
             if "apt" in providers:
                 apt_index = providers.index("apt")

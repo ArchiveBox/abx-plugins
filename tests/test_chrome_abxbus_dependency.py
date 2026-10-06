@@ -151,7 +151,7 @@ def test_chrome_js_modules_stay_package_scoped() -> None:
     assert records["abxbus"]["overrides"]["pnpm"]["version"] == abxbus_version
     assert records["browsers"]["binproviders"] == "pnpm"
     assert "env" not in records["browsers"]["overrides"]
-    assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.0.4"
+    assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.2.3"
 
 
 def test_chrome_config_pins_puppeteer_dependencies() -> None:
@@ -161,13 +161,41 @@ def test_chrome_config_pins_puppeteer_dependencies() -> None:
     )
 
     assert record["overrides"]["pnpm"]["install_args"] == [
-        "@puppeteer/browsers@3.0.4",
-        "puppeteer@25.1.0",
+        "@puppeteer/browsers@3.2.3",
+        "puppeteer@25.12.0",
     ]
 
 
 def test_chrome_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
     _assert_config_installs_puppeteer(CHROME_CONFIG, tmp_path)
+
+
+def test_chrome_config_upgrades_cached_puppeteer_runtime(tmp_path: Path) -> None:
+    config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
+    record = next(
+        item for item in config["required_binaries"] if item["name"] == "browsers"
+    )
+    previous = json.loads(json.dumps(record))
+    previous["min_version"] = "3.0.4"
+    previous["overrides"]["pnpm"].update(
+        install_args=["@puppeteer/browsers@3.0.4", "puppeteer@25.1.0"],
+        version="3.0.4",
+    )
+    lib_dir = tmp_path / "lib"
+    env = {**os.environ, "ABXPKG_LIB_DIR": str(lib_dir)}
+    for declaration in (previous, record):
+        loaded = load_required_binary(
+            declaration,
+            config={"ABXPKG_LIB_DIR": str(lib_dir)},
+            environ=env,
+            install=True,
+        )
+        assert loaded.loaded_abspath
+        modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
+        for spec in declaration["overrides"]["pnpm"]["install_args"]:
+            name, _, version = spec.rpartition("@")
+            installed = json.loads((modules_dir / name / "package.json").read_text())
+            assert installed["version"] == version
 
 
 def test_archivewebpage_config_depends_on_chrome_for_puppeteer_js_module() -> None:

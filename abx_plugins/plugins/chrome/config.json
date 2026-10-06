@@ -39,7 +39,7 @@
     {
       "name": "browsers",
       "binproviders": "pnpm",
-      "min_version": null,
+      "min_version": "3.2.3",
       "postinstall_scripts": false,
       "overrides": {
         "pnpm": {
