@@ -43,6 +43,11 @@ The Chrome plugin publishes those details behind a shared `chrome/` session dire
 
 Defined in [config.json](./config.json).
 
+The browser dependency declares its Playwright and Puppeteer providers in
+`config.json`. abxpkg installs and caches a managed Chromium automatically;
+CI and users do not need a browser-provider setting. An explicit `CHROME_BINARY`
+path selects an existing browser, and `CHROME_CDP_URL` adopts a running browser.
+
 ### Core session options
 
 | Variable           | Default    | Meaning                                                                                                                                         |

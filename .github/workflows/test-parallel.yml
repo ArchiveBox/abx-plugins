@@ -442,9 +442,6 @@ jobs:
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
-          # Hosted image Chromium stalls on cold executable page faults (D state).
-          # Let abxpkg reuse a browser in the existing runtime cache instead.
-          CHROME_BINPROVIDERS: ${{ runner.environment == 'github-hosted' && runner.os == 'Linux' && 'playwright,puppeteer' || 'env,playwright,puppeteer' }}
           TEST_PATHS: ${{ join(matrix.test.paths, ' ') }}
         run: |
           set -Eeuo pipefail

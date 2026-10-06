@@ -39,22 +39,22 @@
     {
       "name": "browsers",
       "binproviders": "pnpm",
-      "min_version": null,
+      "min_version": "3.2.3",
       "postinstall_scripts": false,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
           "install_args": [
-            "@puppeteer/browsers@3.0.4",
-            "puppeteer@25.1.0"
+            "@puppeteer/browsers@3.2.3",
+            "puppeteer@25.12.0"
           ],
-          "version": "3.0.4"
+          "version": "3.2.3"
         }
       }
     },
     {
       "name": "{CHROME_BINARY}",
-      "binproviders": "{CHROME_BINPROVIDERS}",
+      "binproviders": "playwright,puppeteer",
       "min_version": "153.0.8010.36",
       "min_release_age": 0,
       "postinstall_scripts": true,
@@ -98,11 +98,6 @@
       "type": "string",
       "default": "chromium",
       "description": "Path to a Chromium-family browser binary"
-    },
-    "CHROME_BINPROVIDERS": {
-      "type": "string",
-      "default": "env,playwright,puppeteer",
-      "description": "abxpkg providers allowed to resolve/install Chrome, in preference order. Omit env to require a provider-managed browser instead of a host executable."
     },
     "CHROMEWEBSTORE_EXTENSIONS_DIR": {
       "type": "string",

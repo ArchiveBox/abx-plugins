@@ -719,12 +719,12 @@ def test_install_chromium_with_abxpkg_links_existing_chrome_into_managed_env(
     tmp_path: Path,
     real_chromium_binary: Path,
 ):
-    """abxpkg exposes a discovered host browser through its managed env bin."""
+    """abxpkg honors an explicit browser path without a provider setting."""
     env = get_test_env()
+    env.pop("CHROME_BINPROVIDERS", None)
     env.update(
         {
             "CHROME_BINARY": str(real_chromium_binary),
-            "CHROME_BINPROVIDERS": "env",
             "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
         },
     )
