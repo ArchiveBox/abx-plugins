@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -22,10 +22,12 @@
       "name": "{CLAUDECODE_BINARY}",
       "binproviders": "env,pnpm",
       "min_version": null,
+      "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/claudecode",
+          "min_release_age": 0,
           "install_args": [
             "@anthropic-ai/claude-code"
           ]
@@ -83,5 +85,7 @@
       "minimum": 1,
       "description": "Maximum number of agentic turns per invocation"
     }
-  }
+  },
+  "category": "postprocessing",
+  "display_order": 70
 }

@@ -290,12 +290,19 @@ def test_hook_scripts_exist():
     assert LITEPARSE_HOOK.exists(), f"Snapshot hook not found: {LITEPARSE_HOOK}"
 
 
+def test_parser_runs_after_papersdl_finishes():
+    papers_hook = next((PLUGINS_ROOT / "papersdl").glob("on_Snapshot__*.py"))
+    assert papers_hook.name < LITEPARSE_HOOK.name
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert "papersdl" in config["wait_for_plugins"]
+
+
 def test_crawl_hook_emits_lit_binary_request_record():
     binary = get_hydrated_required_binary(PLUGIN_DIR, "lit", env={})
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
-        "@llamaindex/liteparse",
+        "@llamaindex/liteparse@2.9.0",
     ]
 
 
@@ -364,7 +371,11 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
-def test_extract_single_pdf():
+@pytest.mark.parametrize(
+    "source_dir",
+    ["responses/application/pdfobject.com", "papersdl"],
+)
+def test_extract_single_pdf(source_dir):
     """End-to-end extraction on PDF_URL_B (pdfobject.com sample.pdf).
 
     Asserts the per-source flat layout (``<input-name>.txt`` directly in
@@ -376,7 +387,7 @@ def test_extract_single_pdf():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / source_dir
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_content)
 
@@ -416,17 +427,18 @@ def test_extract_single_pdf():
         assert "this is a simple pdf file" in text_content, text_content[:500]
         assert "consectetuer adipiscing elit" in text_content, text_content[:500]
 
-        # v2 JSON output contains structured pages + textItems with bounding boxes.
+        # The pinned LiteParse 2.9.0 package emits structured pages with
+        # spatial text_items.
         json_payload = json.loads((output_dir / "output.pdf.json").read_text())
         assert isinstance(json_payload, dict) and "pages" in json_payload, json_payload
         assert len(json_payload["pages"]) >= 1
         first_page = json_payload["pages"][0]
-        assert "textItems" in first_page, first_page
-        assert any("x" in item and "y" in item for item in first_page["textItems"])
+        assert "text_items" in first_page, first_page
+        assert any("x" in item and "y" in item for item in first_page["text_items"])
 
 
 def test_extract_multiple_pdfs():
-    """All PDFs across pdf/ + responses/ produce their own per-source files.
+    """All downloaded PDFs across responses/ + wget/ produce their own per-source files.
 
     The two PDFs land at different paths; each must produce its own
     ``output.txt`` / ``document.txt`` and they must contain the source-
@@ -438,11 +450,11 @@ def test_extract_multiple_pdfs():
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
 
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "w3.org"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_a)
 
-        responses_dir = snap_dir / "responses" / "application" / "example.com"
+        responses_dir = snap_dir / "wget" / "pdfobject.com" / "pdf"
         responses_dir.mkdir(parents=True, exist_ok=True)
         (responses_dir / "document.pdf").write_bytes(pdf_b)
 
@@ -482,7 +494,7 @@ def test_extract_scanned_pdf_via_ocr():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "raw.githubusercontent.com"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "scanned.pdf").write_bytes(pdf_content)
 
@@ -542,13 +554,12 @@ def test_extract_image_via_ocr():
         ), f"Expected 'quick brown fox' OCR output. Got: {text_content[:500]!r}"
 
 
-def test_ocr_disabled_flag_passed():
-    """LITEPARSE_OCR_ENABLED=False passes --no-ocr through to lit.
+def test_ocr_disabled_skips_image_sources():
+    """LITEPARSE_OCR_ENABLED=False skips image-only sources.
 
-    Verifies the flag wiring by parsing the eurotext.png image — which has
-    NO native text layer, so the only way to recover any English text is via
-    OCR. With OCR disabled the recovered text must not contain the image's
-    distinctive English phrase 'quick brown fox'.
+    Images have no native text layer, so when OCR is disabled they cannot
+    produce useful text output. The hook should avoid sending them to lit at
+    all instead of burning runtime to produce empty files.
     """
     img_content = _download_png(IMAGE_URL_OCR)
     # Ensure tesseract is installed so the hook reaches the --no-ocr path
@@ -573,18 +584,11 @@ def test_ocr_disabled_flag_passed():
         assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
         assert record, result.stdout
-        assert record["status"] in ("succeeded", "noresults"), record
+        assert record["status"] == "noresults", record
 
-        # With --no-ocr the image cannot be read, so any per-source text
-        # output must not contain the image's distinctive English phrase.
-        # Empty/missing per-source files are also acceptable.
         text_content = _read_all_liteparse_text(snap_dir)
-        assert "quick" not in text_content, (
-            f"OCR should be disabled but image was OCR'd: {text_content[:300]!r}"
-        )
-        assert "brown" not in text_content, (
-            f"OCR should be disabled but image was OCR'd: {text_content[:300]!r}"
-        )
+        assert text_content == ""
+        assert not (snap_dir / "liteparse" / "eurotext.png.txt").exists()
 
 
 def test_min_image_dimension_skips_thumbnails():
@@ -799,7 +803,7 @@ def test_warns_but_succeeds_when_ocr_misconfigured_with_native_text_available():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "pdfobject.com"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_content)
 
@@ -832,3 +836,76 @@ def test_warns_but_succeeds_when_ocr_misconfigured_with_native_text_available():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("source", ["googledrive", "dropbox", "googledocs", "embedded"])
+def test_export_images_are_ocr_inputs(tmp_path, source):
+    """Run actual LiteParse/Tesseract on raw exports and a zipped HTML image."""
+    import zipfile
+
+    require_tessdata_dir()
+    image = _download_png(IMAGE_URL_OCR)
+    snap = tmp_path / "snap"
+    root = (
+        snap / ("googledocs" if source == "embedded" else source) / "files" / "nested"
+    )
+    root.mkdir(parents=True)
+    if source == "embedded":
+        with zipfile.ZipFile(root / "document-html.zip", "w") as archive:
+            archive.writestr("images/eurotext.png", image)
+            archive.writestr("images/duplicate.png", image)
+    else:
+        (root / "eurotext.png").write_bytes(image)
+    result = _run_hook(snap, IMAGE_URL_OCR)
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stderr
+    text = _read_all_liteparse_text(snap).lower()
+    assert all(word in text for word in ("quick", "brown", "fox")), text
+    assert len(list((snap / "liteparse").glob("*.txt"))) == 1
+
+
+def test_embedded_images_survive_duplicate_names_and_corrupt_members(tmp_path):
+    """Real ZIP members with CRC damage do not overwrite or suppress valid inputs."""
+    import hashlib
+    import sys
+    import zipfile
+
+    snap = tmp_path / "snap"
+    root = snap / "googledocs"
+    root.mkdir(parents=True)
+    first, second = _make_png(301, 301), _make_png(302, 302)
+    archive_path = root / "document.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("broken.png", b"broken crc payload")
+        archive.writestr("image.png", first)
+        with pytest.warns(UserWarning, match="Duplicate name"):
+            archive.writestr("image.png", second)
+    archive_path.write_bytes(
+        archive_path.read_bytes().replace(b"broken crc payload", b"damagedcrc payload"),
+    )
+    script = """
+import importlib.util, json, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('liteparse_hook', sys.argv[1])
+hook = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(hook)
+scratch = hook.OUTPUT_DIR / '.images_test'
+scratch.mkdir()
+found = hook.find_document_sources(archive_dir=scratch)
+print(json.dumps([hook._content_digest(path) for path, digest in found]))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(LITEPARSE_HOOK)],
+        cwd=snap,
+        env={**os.environ, "SNAP_DIR": str(snap)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert set(json.loads(result.stdout)) == {
+        hashlib.md5(first).hexdigest(),
+        hashlib.md5(second).hexdigest(),
+    }
+    assert "Cannot read embedded image" in result.stderr

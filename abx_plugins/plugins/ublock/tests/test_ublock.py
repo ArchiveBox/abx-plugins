@@ -19,11 +19,13 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_records,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_SNAPSHOT_LAUNCH_HOOK,
     chrome_extension_install_env,
     chrome_session,
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
+    wait_for_chrome_session_state,
     wait_for_extensions_metadata,
 )
 
@@ -31,6 +33,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
+SNAPSHOT_CONFIG_HOOK = PLUGIN_DIR / "on_Snapshot__11_ublock_config.js"
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__12_ublock.daemon.bg.js"
 NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
 BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
@@ -165,6 +168,134 @@ def test_no_configuration_required():
 
         loaded = install_ublock_extension(env)
         assert loaded.loaded_abspath is not None
+
+
+def test_snapshot_owned_browser_disables_only_top_level_strict_blocking(tmp_path):
+    """Snapshot isolation must configure the browser that actually owns uBlock.
+
+    WHY: crawl setup has no browser to configure under CHROME_ISOLATION=snapshot.
+    The snapshot priority-11 hook must update uBlock's live worker before AWP's
+    priority-16 recording starts, without disabling normal filtering.
+    """
+    env = setup_test_env(tmp_path)
+    env.update(
+        {
+            "CHROME_HEADLESS": "true",
+            "CHROME_ISOLATION": "snapshot",
+        },
+    )
+    install_ublock_extension(env)
+    snapshot_dir = Path(env["SNAP_DIR"])
+    snapshot_chrome_dir = snapshot_dir / "chrome"
+    snapshot_chrome_dir.mkdir(parents=True)
+
+    launch_process = subprocess.Popen(
+        [
+            str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+            "--url=https://example.com/",
+            "--snapshot-id=ublock-snapshot-owner",
+            "--crawl-id=ublock-snapshot-owner",
+        ],
+        cwd=snapshot_chrome_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    try:
+        wait_for_chrome_session_state(
+            snapshot_chrome_dir,
+            env=env,
+            require_browser_ready=True,
+        )
+        config = subprocess.run(
+            [str(SNAPSHOT_CONFIG_HOOK), "--url=https://example.com/"],
+            cwd=snapshot_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert config.returncode == 0, config.stderr
+
+        metadata = json.loads((snapshot_chrome_dir / "browser.json").read_text())
+        extension_id = next(
+            item["id"] for item in metadata["extensions"] if item["name"] == "ublock"
+        )
+        verify_script = f"""
+const chromeUtils = require({json.dumps(str(CHROME_UTILS_JS))});
+(async () => {{
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const browser = await chromeUtils.connectToBrowserEndpoint(
+    puppeteer,
+    {json.dumps((snapshot_chrome_dir / "cdp_url.txt").read_text().strip())}
+  );
+  try {{
+    const page = await browser.newPage();
+    await page.goto('chrome-extension://{extension_id}/dashboard.html');
+    const state = await page.evaluate(async () => {{
+      const {{ rulesetConfig }} = await chrome.storage.local.get('rulesetConfig');
+      return rulesetConfig;
+    }});
+    process.stdout.write(JSON.stringify(state));
+  }} finally {{
+    await browser.disconnect();
+  }}
+}})().catch((error) => {{
+  console.error(error.stack || error.message);
+  process.exit(1);
+}});
+"""
+        verified = subprocess.run(
+            [env["NODE_BINARY"], "-e", verify_script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        assert verified.returncode == 0, verified.stderr
+        ruleset_config = json.loads(verified.stdout)
+        assert ruleset_config["strictBlockMode"] is False
+        assert ruleset_config["enabledRulesets"], ruleset_config
+    finally:
+        if launch_process.poll() is None:
+            launch_process.send_signal(signal.SIGTERM)
+        launch_process.wait(timeout=20)
+
+
+def test_snapshot_config_reports_crawl_owned_noop(tmp_path):
+    """The complementary snapshot hook must describe why it did no work.
+
+    WHY: uBlock's browser-global setting is configured once by CrawlSetup in
+    crawl isolation. The Snapshot hook still participates in the manifest, so
+    an untyped exit-42 skip is indistinguishable from an accidentally skipped
+    critical setup hook to crawl validators and users inspecting results.
+    """
+    env = os.environ.copy()
+    env.update(
+        {
+            "CHROME_ISOLATION": "crawl",
+            "SNAP_DIR": str(tmp_path),
+            "UBLOCK_ENABLED": "true",
+        },
+    )
+
+    result = subprocess.run(
+        [str(SNAPSHOT_CONFIG_HOOK), "--url=https://example.com/"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = parse_jsonl_records(result.stdout)
+    archive_result = next(
+        record for record in records if record.get("type") == "ArchiveResult"
+    )
+    assert archive_result["status"] == "skipped", archive_result
+    assert archive_result["output_str"] == "CHROME_ISOLATION=crawl", archive_result
 
 
 def test_large_extension_size():
@@ -649,10 +780,11 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         # Set up isolated env with proper directory structure
         env_base = setup_test_env(tmpdir)
         env_base["CHROME_HEADLESS"] = "true"
-        ext_install_env, ext_extensions_dir = chrome_extension_install_env(
+        _ext_install_env, ext_extensions_dir = chrome_extension_install_env(
             tmpdir / "ublock-install",
         )
-        env_base["ABXPKG_LIB_DIR"] = ext_install_env["ABXPKG_LIB_DIR"]
+        # Isolate extension state without discarding the resolved browser and
+        # Node dependencies. Cold installs have their own tests above.
         env_base["ABXPKG_CHROMEWEBSTORE_ROOT"] = str(ext_extensions_dir.parent)
         env_base["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(ext_extensions_dir)
         ext_personas_dir = tmpdir / "personas-ext"
@@ -681,11 +813,10 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
 
         crawl_root = Path(env_base["CRAWL_DIR"])
         env_no_ext = env_base.copy()
-        baseline_install_env, _baseline_extensions_dir = chrome_extension_install_env(
+        _baseline_install_env, _baseline_extensions_dir = chrome_extension_install_env(
             tmpdir / "baseline-install",
         )
         env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
-        env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
         env_no_ext["ABXPKG_CHROMEWEBSTORE_ROOT"] = str(
             _baseline_extensions_dir.parent,
         )

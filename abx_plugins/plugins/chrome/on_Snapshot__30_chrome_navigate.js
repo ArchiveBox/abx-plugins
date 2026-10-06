@@ -14,7 +14,7 @@
  * Environment variables:
  *     CHROME_PAGELOAD_TIMEOUT: Timeout in seconds (default: 60)
  *     CHROME_DELAY_AFTER_LOAD: Extra delay after load in seconds (default: 0)
- *     CHROME_WAIT_FOR: Wait condition (default: load)
+ *     CHROME_WAIT_FOR: Wait condition (default: domcontentloaded)
  */
 
 const fs = require("fs");
@@ -29,7 +29,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule } = require("./chrome_utils.js");
+const { connectToPage, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "chrome_navigate";
@@ -49,55 +49,13 @@ function getEnvFloat(name, defaultValue = 0) {
 }
 
 function getWaitCondition() {
-  const waitFor = getEnv("CHROME_WAIT_FOR", "load").toLowerCase();
+  const waitFor = getEnv("CHROME_WAIT_FOR", "domcontentloaded").toLowerCase();
   const valid = ["domcontentloaded", "load", "networkidle0", "networkidle2"];
-  return valid.includes(waitFor) ? waitFor : "load";
+  return valid.includes(waitFor) ? waitFor : "domcontentloaded";
 }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForPreloadHooks(timeoutMs) {
-  const preloadHooks = [
-    {
-      name: "headers",
-      dir: path.join(SNAP_DIR, "headers"),
-      readyFile: path.join(SNAP_DIR, "headers", "headers.json"),
-      timeoutMs: getEnvInt("HEADERS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-    },
-    {
-      name: "staticfile",
-      dir: path.join(SNAP_DIR, "staticfile"),
-      readyFile: path.join(SNAP_DIR, "staticfile", "prenav.json"),
-      timeoutMs:
-        getEnvInt("STATICFILE_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-    },
-  ];
-
-  for (const preloadHook of preloadHooks) {
-    if (
-      !fs.existsSync(preloadHook.dir) ||
-      fs.existsSync(preloadHook.readyFile)
-    ) {
-      continue;
-    }
-
-    const startedAt = Date.now();
-    const waitMs = Math.min(timeoutMs, Math.max(5000, preloadHook.timeoutMs));
-    while (Date.now() - startedAt < waitMs) {
-      if (fs.existsSync(preloadHook.readyFile)) {
-        break;
-      }
-      await sleep(100);
-    }
-
-    if (!fs.existsSync(preloadHook.readyFile)) {
-      throw new Error(
-        `Timed out waiting for ${preloadHook.name} listener readiness`
-      );
-    }
-  }
 }
 
 async function navigate(url) {
@@ -118,6 +76,7 @@ async function navigate(url) {
   const waitUntil = getWaitCondition();
 
   let browser = null;
+  let observedResponse = null;
   const navStartTime = Date.now();
 
   try {
@@ -129,8 +88,40 @@ async function navigate(url) {
     });
     browser = conn.browser;
     const page = conn.page;
-
-    await waitForPreloadHooks(hookBudget);
+    const network = await page.createCDPSession();
+    const { frameTree } = await network.send("Page.getFrameTree");
+    let mainRequestId = null;
+    const earlyResponses = new Map();
+    const rememberResponse = (requestId, status, headers, mimeType = null) => {
+      if (status < 200 || status >= 300) return;
+      const response = {
+        status,
+        contentType: Object.entries(headers || {}).find(
+          ([name]) => name.toLowerCase() === "content-type"
+        )?.[1] || mimeType,
+      };
+      if (requestId === mainRequestId) observedResponse = response;
+      else if (mainRequestId === null) earlyResponses.set(requestId, response);
+    };
+    network.on("Network.requestWillBeSent", (event) => {
+      if (event.type !== "Document" || event.frameId !== frameTree.frame.id) return;
+      mainRequestId = event.requestId;
+      observedResponse = earlyResponses.get(mainRequestId) || null;
+      earlyResponses.clear();
+    });
+    network.on("Network.responseReceived", ({ requestId, response }) => {
+      rememberResponse(requestId, response.status, response.headers, response.mimeType);
+    });
+    // Downloads abort page navigation and may never become Puppeteer Response
+    // objects. ExtraInfo still carries their actual HTTP status and headers.
+    // Correlate by the main document request, not URL suffix or another tab's
+    // download. Buffer metadata until its request is identified instead of
+    // assigning responses by arrival order. HTML-only hooks need this metadata to
+    // avoid treating the leftover about:blank document as the downloaded page.
+    network.on("Network.responseReceivedExtraInfo", (event) => {
+      rememberResponse(event.requestId, event.statusCode, event.headers);
+    });
+    await network.send("Network.enable");
 
     const remainingBudget = hookBudget - (Date.now() - navStartTime);
     if (remainingBudget <= 0) {
@@ -155,6 +146,16 @@ async function navigate(url) {
 
     const finalUrl = page.url();
     const status = response ? response.status() : null;
+    // Use the browser's interpretation, including MIME sniffing, rather than
+    // URL extensions or response headers. Persist once for Python and JS hooks.
+    const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));
+    const contentType = mimeTimeoutMs > 0
+      ? await withTimeout(
+          () => page.evaluate(() => document.contentType),
+          mimeTimeoutMs,
+          "Document MIME lookup timed out"
+        ).catch(() => null)
+      : null;
     const elapsed = Date.now() - navStartTime;
 
     // Write navigation state as JSON
@@ -164,6 +165,7 @@ async function navigate(url) {
       url,
       finalUrl,
       status,
+      content_type: contentType,
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(
@@ -180,6 +182,8 @@ async function navigate(url) {
     return {
       success: false,
       error: `${e.name}: ${e.message}`,
+      status: observedResponse?.status || null,
+      contentType: observedResponse?.contentType || null,
       waitUntil,
       elapsed,
     };
@@ -218,6 +222,8 @@ async function main() {
       elapsed: result.elapsed,
       url,
       error: result.error,
+      status: result.status,
+      content_type: result.contentType,
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(
@@ -236,7 +242,9 @@ async function main() {
   process.exit(status === "succeeded" ? 0 : 1);
 }
 
-main().catch((e) => {
-  console.error(`Fatal error: ${e.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(`Fatal error: ${e.message}`);
+    process.exit(1);
+  });
+}

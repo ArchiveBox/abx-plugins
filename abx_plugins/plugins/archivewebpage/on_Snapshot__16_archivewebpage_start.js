@@ -4,7 +4,7 @@
 /**
  * Start an ArchiveWeb.page WACZ recording before the page navigates.
  *
- * Foreground hook that runs after the chrome tab is ready (priority 11) and
+ * Foreground hook that runs after the chrome tab is ready (priority 16) and
  * after pre-load extension setup hooks (12-15) but BEFORE chrome_navigate
  * (30). The page is still on about:blank, so the recorder gets every request
  * including the very first navigation.
@@ -21,7 +21,9 @@
  * recorder hand-off itself is small.
  */
 
+const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const {
   ensureNodeModuleResolution,
@@ -31,24 +33,28 @@ const {
   getEnvBool,
   getEnvInt,
   emitArchiveResultRecord,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
 const chromeUtils = require("../chrome/chrome_utils.js");
 const puppeteer = chromeUtils.resolvePuppeteerModule();
 const {
-  waitForAwpExtension,
+  resolveAwpExtension,
   getChromeTabIdForPage,
   openAwpHelperTab,
   resolveChromeDirs,
-  waitForChromeSessionDir,
+  pickChromeSessionDir,
+  resolveCreatedCollectionId,
 } = require("./awp_internal.js");
 
 const hookConfig = loadConfig();
-const { candidates: chromeDirCandidates, crawlChromeDir } = resolveChromeDirs(
-  process.cwd(),
-  hookConfig.CRAWL_DIR
-);
+const {
+  outputDir,
+  candidates: chromeDirCandidates,
+  crawlChromeDir,
+} = resolveChromeDirs(process.cwd(), hookConfig.CRAWL_DIR);
+const RECORDING_STATE_PATH = path.join(outputDir, "recording.json");
 process.chdir(path.resolve(process.cwd()));
 
 async function runStartHandshake(
@@ -59,97 +65,154 @@ async function runStartHandshake(
   options
 ) {
   const { autorun, collectionTitle, timeoutMs } = options;
-  let helperPage = await openAwpHelperTab(browser, extensionId);
-  let result = null;
-  let lastError = null;
-
-  const handshake = async () =>
-    helperPage.evaluate(
+  console.error("[archivewebpage] start phase=opening popup");
+  const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
+  try {
+    // Puppeteer cannot serialize a Node closure into evaluate(). Expose the
+    // shared selector as a page binding so production and the real-browser
+    // regression execute exactly the same implementation.
+    console.error("[archivewebpage] start phase=binding collection selector");
+    await helperPage.exposeFunction(
+      "__abxResolveCreatedCollectionId",
+      (message, title, existingCollectionIds) =>
+        resolveCreatedCollectionId(message, title, existingCollectionIds)
+    );
+    console.error("[archivewebpage] start phase=popup-port handshake");
+    const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
+        let handshakeStage = "connect";
         function withTimeout(promise, ms, message) {
           return Promise.race([
             promise,
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error(message)), ms)
+              setTimeout(
+                () => reject(new Error(`${message} (${handshakeStage})`)),
+                ms
+              )
             ),
           ]);
         }
 
         return await withTimeout(
           (async () => {
-            const port = chrome.runtime.connect({ name: "popup-port" });
+            const port = document.querySelector("wr-popup-viewer")?.port;
+            if (!port) throw new Error("AWP popup port is not ready");
             const recvQueue = [];
-            port.onMessage.addListener((msg) => recvQueue.push(msg));
+            const waiters = [];
+            port.onMessage.addListener((message) => {
+              const waiterIndex = waiters.findIndex(({ predicate }) =>
+                predicate(message)
+              );
+              if (waiterIndex === -1) {
+                recvQueue.push(message);
+                return;
+              }
+              const [waiter] = waiters.splice(waiterIndex, 1);
+              clearTimeout(waiter.timeout);
+              waiter.resolve(message);
+            });
 
             function waitFor(predicate, label, ms = 2500) {
               return new Promise((resolve, reject) => {
-                while (recvQueue.length) {
-                  const msg = recvQueue.shift();
-                  if (predicate(msg)) {
-                    resolve(msg);
-                    return;
-                  }
+                const queuedIndex = recvQueue.findIndex(predicate);
+                if (queuedIndex !== -1) {
+                  resolve(recvQueue.splice(queuedIndex, 1)[0]);
+                  return;
                 }
-                const onMsg = (msg) => {
-                  if (predicate(msg)) {
-                    port.onMessage.removeListener(onMsg);
-                    resolve(msg);
-                  }
-                };
-                port.onMessage.addListener(onMsg);
-                setTimeout(() => {
-                  port.onMessage.removeListener(onMsg);
+                const waiter = { predicate, resolve, timeout: null };
+                waiter.timeout = setTimeout(() => {
+                  const waiterIndex = waiters.indexOf(waiter);
+                  if (waiterIndex !== -1) waiters.splice(waiterIndex, 1);
                   reject(new Error(`timed out waiting for ${label}`));
                 }, ms);
+                waiters.push(waiter);
               });
             }
 
+            async function startRecording(collId, requireExactCollection = false) {
+              port.postMessage({
+                type: "startRecording",
+                collId,
+                url,
+                autorun: !!autorun,
+              });
+              return await waitFor(
+                (message) =>
+                  message?.type === "status" &&
+                  (Boolean(message.failureMsg) ||
+                    (message.recording === true &&
+                      (!requireExactCollection || message.collId === collId))),
+                "recording status",
+                timeoutMs
+              );
+            }
+
             port.postMessage({ type: "startUpdates", tabId });
-            await waitFor((m) => m && m.type === "collections", "collections");
+            handshakeStage = "collections";
+            const collectionsBefore = await waitFor(
+              (message) => message?.type === "collections",
+              "collections"
+            );
+            const existingCollectionIds = new Set(
+              (collectionsBefore.collections || []).map(
+                (collection) => collection.id
+              )
+            );
 
             // Always create a fresh collection per snapshot so the resulting
-            // WACZ contains only requests from this archive run and not every
-            // page AWP ever recorded in this Chrome profile.
+            // WACZ contains only this snapshot's requests. The popup UI also
+            // sends startUpdates on this port, so another collections message
+            // may already be queued here. Correlate newColl by its unique title
+            // and by an id absent from the pre-request collection set; collId
+            // alone is global/default state and does not identify this reply.
             port.postMessage({ type: "newColl", title: collectionTitle });
-            const created = await waitFor(
-              (m) => m && m.type === "collections" && m.collId,
-              "new collection"
-            );
-            const collId = created.collId;
+            handshakeStage = "new collection";
+            let collId = null;
+            while (!collId) {
+              const collectionsMessage = await waitFor(
+                (message) => message?.type === "collections",
+                "new collection"
+              );
+              collId = await globalThis.__abxResolveCreatedCollectionId(
+                collectionsMessage,
+                collectionTitle,
+                [...existingCollectionIds]
+              );
+            }
             if (!collId) {
               throw new Error("AWP did not return a collection id");
             }
 
-            port.postMessage({
-              type: "startRecording",
-              collId,
-              url,
-              autorun: !!autorun,
-            });
+            handshakeStage = "recording status";
+            let status = await startRecording(collId);
 
-            // Wait for a status message confirming recording=true or surfacing
-            // failureMsg from chrome.debugger.attach.
-            let status = null;
-            const deadline = Date.now() + 4000;
-            while (Date.now() < deadline) {
-              try {
-                const remaining = Math.max(250, deadline - Date.now());
-                status = await waitFor(
-                  (m) => m && m.type === "status",
-                  "recorder status",
-                  remaining
-                );
-              } catch (error) {
-                break;
-              }
-              if (status && (status.recording === true || status.failureMsg)) {
-                break;
-              }
+            // AWP intentionally lets child tabs inherit their opener's active
+            // recorder. Starting an already-recording tab does not change its
+            // collection, so detach only this tab before assigning the fresh
+            // snapshot collection. Other tab recorders stay active.
+            if (
+              status.recording === true &&
+              status.collId &&
+              status.collId !== collId
+            ) {
+              handshakeStage = "inherited recorder stop";
+              port.postMessage({ type: "stopRecording" });
+              await waitFor(
+                (message) =>
+                  message?.type === "status" &&
+                  message.recording === false,
+                "inherited recorder stop",
+                timeoutMs
+              );
+              handshakeStage = "recording restart";
+              status = await startRecording(collId, true);
             }
 
-            try {
-              port.disconnect();
-            } catch (error) {}
+            if (status.recording === true && status.collId !== collId) {
+              throw new Error(
+                `AWP recorder collection mismatch: expected ${collId}, got ${status.collId || "none"}`
+              );
+            }
 
             return { collId, status };
           })(),
@@ -159,48 +222,13 @@ async function runStartHandshake(
       },
       { tabId: targetTabId, url, autorun, collectionTitle, timeoutMs }
     );
-
-  try {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        result = await handshake();
-        result.targetTabId = targetTabId;
-        break;
-      } catch (err) {
-        const msg = err?.message || String(err);
-        if (
-          attempt < 2 &&
-          (msg.includes("Execution context was destroyed") ||
-            msg.includes("Target closed") ||
-            msg.includes("Session closed") ||
-            msg.includes("AWP popup-port handshake") ||
-            msg.includes("timed out waiting for"))
-        ) {
-          console.error(
-            `[archivewebpage] start handshake failed (${msg}), reopening helper popup and retrying`
-          );
-          try {
-            await helperPage.close({ runBeforeUnload: false });
-          } catch (closeError) {}
-          helperPage = await openAwpHelperTab(browser, extensionId);
-          continue;
-        }
-        lastError = err;
-        break;
-      }
-    }
+    return { ...result, targetTabId };
   } finally {
     try {
+      console.error("[archivewebpage] start phase=closing popup");
       await helperPage.close({ runBeforeUnload: false });
     } catch (error) {}
   }
-
-  if (!result) {
-    throw new Error(
-      lastError ? lastError.message || String(lastError) : "AWP start failed"
-    );
-  }
-  return result;
 }
 
 async function main() {
@@ -225,11 +253,9 @@ async function main() {
   );
 
   console.log("starting archiveweb.page recording...");
+  fs.rmSync(RECORDING_STATE_PATH, { force: true });
 
-  const chromeSessionDir = await waitForChromeSessionDir(
-    chromeDirCandidates,
-    Math.max(2000, budgetMs * 2)
-  );
+  const chromeSessionDir = pickChromeSessionDir(chromeDirCandidates);
   if (!chromeSessionDir) {
     const error =
       "No chrome session dir candidate found (chrome plugin must run first)";
@@ -238,10 +264,9 @@ async function main() {
     process.exit(1);
   }
 
-  const { id: extensionId } = await waitForAwpExtension(
+  const { id: extensionId } = resolveAwpExtension(
     chromeSessionDir,
-    crawlChromeDir,
-    Math.max(5000, budgetMs * 5)
+    crawlChromeDir
   );
   if (!extensionId) {
     const error =
@@ -253,6 +278,7 @@ async function main() {
 
   let browser = null;
   try {
+    console.error("[archivewebpage] start phase=connecting to Chrome");
     const connection = await chromeUtils.connectToPage({
       chromeSessionDir,
       timeoutMs: overallTimeoutMs,
@@ -261,16 +287,17 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
+    const snapshotTargetId = chromeUtils.getTargetIdFromPage(page);
+    if (!snapshotTargetId) {
+      throw new Error("Chrome target_id.txt did not resolve to a page");
+    }
 
-    const tabResolutionTimeoutMs = Math.min(
-      overallTimeoutMs,
-      Math.max(10000, budgetMs * 5)
-    );
+    console.error("[archivewebpage] start phase=resolving snapshot tab id");
     const chromeTabId = await getChromeTabIdForPage(
       browser,
       page,
       extensionId,
-      tabResolutionTimeoutMs
+      overallTimeoutMs
     );
     if (!chromeTabId) {
       throw new Error("Could not resolve chrome.tabs id for snapshot tab");
@@ -286,22 +313,38 @@ async function main() {
         collectionTitle: `${getEnv(
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"
-        )} - ${url}`,
-        timeoutMs: Math.min(overallTimeoutMs, Math.max(10000, budgetMs * 5)),
+        )} - ${url} [${
+          args.snapshot_id || path.basename(path.dirname(outputDir))
+        }/${crypto.randomUUID()}]`,
+        timeoutMs: overallTimeoutMs,
       }
     );
+    console.error("[archivewebpage] start phase=refocusing snapshot tab");
+    await page.bringToFront();
     if (handshake.status?.failureMsg) {
       throw new Error(
         `AWP recorder attach failed: ${handshake.status.failureMsg}`
       );
     }
-    if (handshake.status && handshake.status.recording !== true) {
-      console.error(
-        `[archivewebpage] WARN: recorder status did not confirm recording=true (status=${JSON.stringify(
-          handshake.status
-        )})`
+    if (handshake.status?.recording !== true) {
+      throw new Error("AWP recorder did not confirm recording=true");
+    }
+    if (handshake.status?.collId !== handshake.collId) {
+      throw new Error(
+        `AWP recorder collection mismatch: expected ${handshake.collId}, got ${handshake.status?.collId || "none"}`
       );
     }
+
+    writeFileAtomic(
+      RECORDING_STATE_PATH,
+      `${JSON.stringify({
+        version: 1,
+        extensionId,
+        snapshotTargetId,
+        chromeTabId,
+        collId: handshake.collId,
+      })}\n`
+    );
 
     const elapsed = Date.now() - startedAt;
     if (elapsed > budgetMs) {
@@ -312,8 +355,13 @@ async function main() {
     console.log(
       `archiveweb.page recording started (coll=${handshake.collId}, tab=${handshake.targetTabId}, ${elapsed}ms)`
     );
+    // This hook only attaches the recorder and saves its identity for the stop
+    // hook. recording.json is coordination metadata, not captured content.
+    // Keep the stdout above, but do not call startup a successful archive:
+    // interruption before export would leave a succeeded DB row without a WACZ.
+    // The separate stop hook owns success after downloading the actual archive.
     emitArchiveResultRecord(
-      "succeeded",
+      "noresults",
       `recording started coll=${handshake.collId} tab=${handshake.targetTabId}`
     );
     process.exit(0);

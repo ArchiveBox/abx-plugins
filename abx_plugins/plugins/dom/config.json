@@ -28,5 +28,9 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for DOM capture in seconds"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 10,
+  "snapshot_output_group": "html",
+  "snapshot_output_order": 4
 }

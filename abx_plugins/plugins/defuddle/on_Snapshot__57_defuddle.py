@@ -5,20 +5,23 @@
 #
 # Extract article content using Defuddle.
 
+import sys
 import argparse
 import html
 import json
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     write_text_atomic,
     find_article_html_source,
+    preserve_article_image_dimensions,
 )
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
@@ -33,6 +36,11 @@ METADATA_FILE = "article.json"
 
 
 def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     config = load_config()
     timeout = config.DEFUDDLE_TIMEOUT
     defuddle_args = config.DEFUDDLE_ARGS
@@ -61,7 +69,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
 
         if result.returncode != 0:
             err = (result.stderr or "").strip()
-            if "Invalid string length" in err:
+            if "Invalid string length" in err or "No content could be extracted" in err:
                 return "noresults", "No content extracted"
             if err:
                 return "failed", f"defuddle failed (exit={result.returncode}): {err}"
@@ -103,13 +111,18 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
         if not text_content and not html_content:
             return "noresults", "No content extracted"
 
+        html_content = preserve_article_image_dimensions(
+            html_content,
+            Path(html_source).read_text(encoding="utf-8", errors="replace"),
+            url,
+        )
         write_text_atomic(output_dir / HTML_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
         write_text_atomic(output_dir / METADATA_FILE, json.dumps(metadata, indent=2))
 
         return "succeeded", f"{PLUGIN_DIR}/{HTML_FILE}"
     except subprocess.TimeoutExpired:
-        return "noresults", "No content extracted"
+        return "failed", f"defuddle timed out after {max(1, timeout - 5)} seconds"
     except Exception as e:
         return "failed", f"{type(e).__name__}: {e}"
 
@@ -128,6 +141,7 @@ def main():
             sys.exit(0)
 
         binary = config.DEFUDDLE_BINARY
+        print("Defuddle extraction started", flush=True)
         status, output = extract_defuddle(args.url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

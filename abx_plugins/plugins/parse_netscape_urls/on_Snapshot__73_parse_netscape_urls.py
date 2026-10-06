@@ -12,10 +12,10 @@
 #     ./on_Snapshot__73_parse_netscape_urls.py --url=<url>
 # Output: Appends discovered URLs to SNAP_DIR/parse_netscape_urls/urls.jsonl
 #
+import sys
 import json
 import os
 import re
-import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
@@ -26,7 +26,6 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     emit_tag_record,
-    get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -332,9 +331,6 @@ def main(
     depth: int = 0,
 ):
     """Parse Netscape bookmark HTML and extract URLs."""
-    extra_context = get_extra_context()
-    if "snapshot_depth" in extra_context:
-        depth = int(extra_context["snapshot_depth"])
     print("parsing 1 files for urls...")
     try:
         content = fetch_content(url)

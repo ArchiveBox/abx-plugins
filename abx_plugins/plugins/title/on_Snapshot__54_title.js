@@ -55,6 +55,7 @@ async function extractTitle(url) {
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("Title extraction started");
 
     // Get title from page
     let title = await page.title();

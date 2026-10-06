@@ -23,27 +23,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -117,6 +97,8 @@ function emitProgress(line) {
  */
 async function closeModals(page) {
   return page.evaluate(() => {
+    // Provider download hooks temporarily own their CSS confirmation modals.
+    if (document.documentElement.dataset.abxDownloadActive === "true") return 0;
     let closed = 0;
 
     // Bootstrap 4/5 - use Bootstrap's modal API
@@ -380,7 +362,7 @@ async function main() {
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 15)) * 1000;
 
   // Handle SIGTERM/SIGINT for clean exit
-  __abxInstallShutdownHandler(() => {
+  installShutdownHandler(() => {
     if (exiting) {
       return;
     }
@@ -408,22 +390,7 @@ async function main() {
       puppeteer,
     });
     browser = connection.browser;
-    let page = connection.page;
-    if (url && page.url() !== url) {
-      // Snapshot target markers are the normal handoff, but Chrome can briefly
-      // expose stale target metadata while pages are being created/navigated in
-      // parallel test and crawl runs. Modalcloser operates on the archived URL,
-      // so prefer the live page whose URL matches the snapshot instead of
-      // quietly polling an about:blank or previous target and reporting
-      // noresults even though a visible modal exists on the real page.
-      const matchingPage = (await browser.pages()).find(
-        (candidate) => candidate.url() === url
-      );
-      if (matchingPage) {
-        page = matchingPage;
-      }
-    }
-    emitProgress(formatClosedCount(0));
+    const page = connection.page;
 
     // console.error(`Modalcloser listening on ${url}`);
 
@@ -443,6 +410,7 @@ async function main() {
         // Dialog may have been dismissed by page
       }
     });
+    emitProgress(formatClosedCount(0));
 
     // Poll for CSS modals
     while (running) {

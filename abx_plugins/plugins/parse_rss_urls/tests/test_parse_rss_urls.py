@@ -3,11 +3,16 @@
 
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.parse_rss_urls.parse_rss_test_helpers import run_parse_rss_urls
+from abx_plugins.plugins.parse_rss_urls.parse_rss_test_helpers import (
+    parse_rss_urls_env,
+    run_parse_rss_urls,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_rss_urls.*"), None)
@@ -15,6 +20,34 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_rss_urls.*"), None)
 
 class TestParseRssUrls:
     """Test the parse_rss_urls extractor CLI."""
+
+    def test_managed_feedparser_dependency_imports(self):
+        config = json.loads((PLUGIN_DIR / "config.json").read_text())
+        assert config["required_binaries"][0]["binproviders"] == "uv,env"
+        uv_override = config["required_binaries"][0]["overrides"]["uv"]
+        assert uv_override["install_args"] == ["feedparser==6.0.12"]
+        assert uv_override["install_root"].endswith(
+            "/uv/packages/parse_rss_urls-6.0.12",
+        )
+
+        env = parse_rss_urls_env()
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import feedparser; print(feedparser.__version__, feedparser.__file__)",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        version, module_path = result.stdout.strip().split(maxsplit=1)
+        assert version == "6.0.12"
+        assert Path(module_path).is_relative_to(
+            Path(env["ABXPKG_LIB_DIR"]) / "uv" / "packages" / "parse_rss_urls-6.0.12",
+        )
 
     def test_parses_http_rss_feed(self, tmp_path, httpserver):
         """Test fetching and parsing an RSS feed over HTTP."""

@@ -30,6 +30,7 @@ const {
   connectToPage,
   resolvePuppeteerModule,
   waitForNavigationComplete,
+  waitForVisibleImages,
 } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
@@ -148,20 +149,17 @@ async function takeScreenshot(url) {
     timeoutMs,
     puppeteer,
   });
+  console.log("Screenshot capture started");
 
+  let captureSession;
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
     const viewport = getScreenshotViewport();
     await page.setViewport(viewport);
-    await Promise.race([
-      page.bringToFront(),
-      new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error("Screenshot capture timed out")),
-          captureTimeoutMs
-        );
-      }),
-    ]);
+    // Keep image decoding active even while another snapshot selects its tab.
+    // Detaching below restores this target's prior state.
+    captureSession = await page.target().createCDPSession();
+    await captureSession.send("Emulation.setFocusEmulationEnabled", {enabled: true});
     const waitForText = Object.prototype.hasOwnProperty.call(
       process.env,
       "SCREENSHOT_WAIT_FOR_TEXT"
@@ -180,6 +178,10 @@ async function takeScreenshot(url) {
       String(waitForFrameUrl || ""),
       captureTimeoutMs
     );
+    await waitForVisibleImages(page, captureTimeoutMs);
+    // Focus emulation alone does not activate the headless compositor. Select
+    // this target before requesting pixels, or captureScreenshot can stall.
+    await page.bringToFront();
     await Promise.race([
       page.screenshot({ path: tempOutputPath, fullPage: false }),
       new Promise((_, reject) => {
@@ -214,7 +216,11 @@ async function takeScreenshot(url) {
   } finally {
     // Disconnect from browser (don't close it - we're connected to a shared session)
     // The chrome_launch hook manages the browser lifecycle
-    await browser.disconnect();
+    try {
+      if (captureSession) await captureSession.detach();
+    } finally {
+      await browser.disconnect();
+    }
   }
 }
 

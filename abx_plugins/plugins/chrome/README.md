@@ -75,10 +75,33 @@ Defined in [config.json](./config.json).
 | `CHROME_USER_DATA_DIR`  | `PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile` | User data dir for persistent local profile state.                   |
 | `CHROMEWEBSTORE_EXTENSIONS_DIR` | abxpkg-managed                              | Chrome Web Store extension artifact directory.                      |
 | `CHROME_DOWNLOADS_DIR`  | persona-derived                              | Download output directory configured via CDP after launch/adoption. |
-| `CHROME_ARGS`           | see config                                   | Static Chromium flags.                                              |
+| `CHROME_ARGS`           | see config                                   | Static Chromium flags, including `--enable-features=ThrottleMainFrameTo60Hz` for compositor frame pacing. |
 | `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |
 
+Cached extensions belonging to bundled plugins follow `PLUGINS` selection
+(including required plugin dependencies) and their `<PLUGIN>_ENABLED` setting.
+With no explicit selection, the enabled settings apply. Other user-managed
+extensions remain available regardless of plugin selection; an installed cache
+entry does not select a bundled plugin for a crawl.
+
 ## Session Modes
+
+### Cookie imports
+
+`COOKIES_FILE` imports a Netscape cookie file before navigation. A missing
+Netscape file emits a warning and skips the import, matching the other download
+plugins. Existing files that cannot be read still fail. `AUTH_STORAGE_FILE`
+selects a JSON cookie export and takes precedence; missing or invalid JSON
+exports still fail browser setup.
+
+ArchiveBox automatically uses a persona's `auth.json` only when it is nonempty.
+An empty placeholder created with `touch` does not override `cookies.txt`.
+An explicitly configured `AUTH_STORAGE_FILE` must contain a valid JSON export.
+
+ArchiveBox resolves these paths, including downloader-specific
+`*_COOKIES_FILE` overrides, relative to the collection directory before
+launching hooks. Empty values disable the import. Standalone hooks resolve
+relative paths from their working directory.
 
 ### `CHROME_ISOLATION=crawl`
 
@@ -86,7 +109,7 @@ Ownership:
 
 - [on_CrawlSetup\_\_90_chrome_launch.daemon.bg.js](./on_CrawlSetup__90_chrome_launch.daemon.bg.js) owns the browser session
 - [on_CrawlSetup\_\_91_chrome_wait.js](./on_CrawlSetup__91_chrome_wait.js) verifies the crawl-scoped session is connectable
-- [on_Snapshot\_\_10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
+- [on_Snapshot\_\_01_chrome_tab.daemon.bg.js](./on_Snapshot__01_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
 
 Contract:
 
@@ -97,8 +120,8 @@ Contract:
 
 Ownership:
 
-- [on_Snapshot\_\_09_chrome_launch.daemon.bg.js](./on_Snapshot__09_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
-- [on_Snapshot\_\_10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
+- [on_Snapshot\_\_00_chrome_launch.daemon.bg.js](./on_Snapshot__00_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
+- [on_Snapshot\_\_01_chrome_tab.daemon.bg.js](./on_Snapshot__01_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
 
 Contract:
 
@@ -169,10 +192,12 @@ Chromium and extension dependencies are resolved before crawl setup from
 
 | Hook                                         | Priority | Purpose                                                                                                    |
 | -------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------- |
-| `on_Snapshot__09_chrome_launch.daemon.bg.js` |        9 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. No-op readiness check when `crawl`. |
-| `on_Snapshot__10_chrome_tab.daemon.bg.js`    |       10 | Create or adopt the snapshot page target.                                                                  |
-| `on_Snapshot__11_chrome_wait.js`             |       11 | Verify snapshot `cdp_url.txt` + `target_id.txt` point at a live target.                                    |
+| `on_Snapshot__00_chrome_launch.daemon.bg.js` |        0 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. Skip immediately when `crawl`.     |
+| `on_Snapshot__01_chrome_tab.daemon.bg.js`    |        1 | Create, verify, and publish the snapshot page target.                                                       |
 | `on_Snapshot__30_chrome_navigate.js`         |       30 | Navigate the snapshot page and publish navigation markers.                                                 |
+
+Chrome target setup runs before background extractors so live screencast frames
+are available as soon as snapshot work begins.
 
 ## Directory Layout
 
@@ -216,7 +241,7 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 | ----------------- | -------------------------------------------------- |
 | `target_id.txt`   | Authoritative page-target marker for the snapshot. |
 | `url.txt`         | Requested URL used for snapshot reuse checks.      |
-| `navigation.json` | Structured navigation result, including errors.    |
+| `navigation.json` | Structured navigation result, including errors and the browser's `document.contentType` as `content_type` on success. |
 
 ### Readiness rules
 
@@ -395,7 +420,9 @@ Chrome itself does not know about specific extension plugins.
 Extension flow:
 
 - installer hooks populate extension cache metadata
-- `ensureChromeSession(...)` loads those extensions via CDP `Extensions.loadUnpacked`; failures are fatal because downstream hooks need runtime extension IDs
+- before loading, Chrome forks each extension into its runtime profile, excluding generated `_metadata`; concurrent browsers never write into the shared cache or each other's copies
+- copies are reused by the same browser (including on-demand loads), retained for keepalive sessions, and removed after the browser stops
+- eager setup in `ensureChromeSession(...)` and on-demand consumers both use `loadUnpackedExtensionsIntoBrowser(...)` in `chrome_utils.js` for copying and CDP loading; failures are fatal because downstream hooks need runtime extension IDs
 - `browser.json` publishes the browser setup metadata
 - downstream extension-aware hooks consume the published `extensions` metadata
 

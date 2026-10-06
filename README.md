@@ -1,8 +1,8 @@
-# [ArchiveBox Plugin Marketplace](https://archivebox.github.io/abx-plugins/)
+# [ArchiveBox Plugin Marketplace](https://plugins.archivebox.io/)
 
 > [!TIP]
-> **[➡️ View The Live Gallery 🌠](https://archivebox.github.io/abx-plugins/)**
-> [![](https://github.com/user-attachments/assets/e1c70778-ba8b-4812-8b5a-4d8ebc461eed)](https://archivebox.github.io/abx-plugins/)
+> **[➡️ View The Live Gallery 🌠](https://plugins.archivebox.io/)**
+> [![](https://github.com/user-attachments/assets/e1c70778-ba8b-4812-8b5a-4d8ebc461eed)](https://plugins.archivebox.io/)
 
 ArchiveBox-compatible plugin suite (hooks and config schemas).
 
@@ -25,6 +25,10 @@ without symlinks or environment-variable tricks.
 Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
+- optional `config.json > screenshot` points to a plugin-owned JSON recipe, such as `"screenshot": "screenshot.json"`
+- optional generic catalog metadata in `config.json`: `category`, `display_order`, `hidden`, and `x-auto-run` (set false for hooks that require explicit host selection)
+- optional `snapshot_thumbnail_cards` declarations in `config.json` identify ArchiveResult names whose existing `card.html` may represent a snapshot in list and grid views, with an explicit `order`
+- optional presentation metadata includes `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name`, `archive_result_aliases`, `default_output_path`, `icon_hidden`, `card_hidden`, `card_interactive`, `output_extension_preference`, `presentation_module`, and boolean `snapshot_<role>` declarations such as `snapshot_list_icon`, `snapshot_primary_preview`, and `snapshot_title_source`; hosts consume these declarations generically while plugin templates and presentation modules retain the rendering behavior
 - `config.json > required_binaries` binary dependency declarations (optional)
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
 - `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`
@@ -37,7 +41,44 @@ Hooks run with:
 - **Crawl hook output** = `CRAWL_DIR/<plugin>/...`
 - **Other plugin outputs** can be read via `../<other-plugin>/...` from your own output dir
 
+### Gallery screenshots
+
+Plugins need no screenshot registration. ArchiveBox captures the selectable outputs
+of its default example snapshot at desktop, tablet, and mobile sizes. The marketplace
+automatically uses `snapshot-view-<plugin-name>-<profile>.png` (underscores become
+hyphens). Enabled plugins with visible output templates must appear in the gallery.
+
+For a plugin that needs a different source, add `"screenshot": "screenshot.json"`
+to its `config.json` and keep the recipe beside it:
+
+```json
+{
+  "url": "https://news.ycombinator.com/item?id=41860909",
+  "wait_for_text": "ArchiveBox is evolving: the future of self-hosted internet archives"
+}
+```
+
+`url` overrides the default snapshot source. Every source runs the full capture
+pipeline; the recipe only selects the output to photograph. `wait_for_text` waits
+inside that output's preview before taking the screenshots. Recipes sharing a URL
+reuse one snapshot. An optional `view` selects an existing application gallery
+view instead, such as `"AI agent"`. With `"config": true`, `view` names a dedicated
+screenshot of the plugin's expanded settings on Add URLs (see `mobilesize`).
+Set `"enabled": true` to include an optional plugin in the default capture.
+Ordinary plugins need no recipe.
+
+Recipes travel in the plugin package. Neither website needs a plugin allowlist,
+and adding an example requires no workflow changes or separate screenshot job.
+
 ### Key environment variables
+
+`EXTRA_CONTEXT` is an opaque JSON object used only by shared output emitters to
+reflect correlation fields unchanged into JSONL records. Hooks must never read,
+branch on, or extract values from it, including IDs. Required inputs belong in
+explicit CLI arguments (e.g. `--snapshot-id`, `--depth`, `--url`) or filesystem
+data. Unbounded archived content such as titles and tags belongs in files, not
+environment variables or shell commands. Sonic reads snapshot metadata from
+`SNAP_DIR/index.jsonl`; archived title text is available in `title/title.txt`.
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
@@ -45,7 +86,7 @@ Hooks run with:
 - `PERSONAS_DIR` - persona profiles root (default: `~/.config/abx/personas`)
 - `ACTIVE_PERSONA` - persona name (default: `Default`)
 
-### Binary dependency contract (concise)
+### Binary dependency contract
 
 Lifecycle:
 
@@ -80,7 +121,7 @@ Notes:
 
 - Install resolution is optional runtime preflight work driven directly from `config.json > required_binaries`.
 - Binary provider plugins are no longer part of this package; binary provider behavior lives in `abxpkg`.
-- Standalone `abx-dl` stores derived binary cache entries in `derived.env`; ArchiveBox stores the equivalent cache in DB `machine_binary` rows. Plugins should stay unaware of both storage layers.
+- `abxpkg` owns the provider cache under `ABXPKG_LIB_DIR`; ArchiveBox may additionally project resolved binary events into DB `machine_binary` rows. Plugins and `abx-dl` stay unaware of both persistence layers.
 
 State/OS:
 
@@ -88,13 +129,19 @@ State/OS:
 - durable install root: `ABXPKG_LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
 - built-in providers include `apt` (Debian/Ubuntu), `brew` (macOS/Linux), and language/runtime-specific installers; many hooks currently assume POSIX paths
 
-### Hook family contract
+### Plugin Hook Lifecycle
+
+<img width="333" height="238" alt="Screenshot 2026-09-20 at 5 29 57 AM" src="https://github.com/user-attachments/assets/27af3ce7-e480-48f0-b6a0-5e445abbd792" />
+
 
 Lifecycle:
 
 - optional binary preflight can run before crawl setup, but hook scripts also resolve declared binaries through shared config helpers when run directly
-- `on_CrawlSetup__*` runs before snapshot extraction and emits no stdout JSONL records
-- `on_Snapshot__*` runs once per snapshot and may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
+- `on_CrawlSetup__*` runs before snapshot extraction; background setup hooks use their first stdout line as readiness and emit no stdout JSONL records
+- Extension setup hooks can publish `CRAWL_DIR/chrome/extensions/<name>.extension.json` with `name`, matching installed `version`, and a prepared `unpacked_path`. Chrome uses that copy only when the installed extension is selected and enabled; setup must leave the shared package cache unchanged.
+- Plugins whose snapshot hook owns the extension lifecycle may set `x-chrome-extension-load: on-demand` in `config.json`. Chrome keeps the installed extension available and enables CDP extension loading, but the hook loads and unloads it around each capture.
+- `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
+- `wait_for_plugins` lists optional producers that must finish before a consumer hook runs; it does not enable them. Final-file consumers may also declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
 
 State:
 
@@ -113,14 +160,14 @@ Output records:
 
 Semantics:
 
-- `stdout`: JSONL records
+- `stdout`: for background hooks, the first line is the readiness boundary; hook JSONL records may follow
 - `stderr`: diagnostics/logging
 - exit `0`: succeeded, noresults, or skipped
 - exit non-zero: failed
 
 Rules:
 
-- `on_CrawlSetup__*` hooks should communicate only through side effects such as files, sockets, or long-lived processes, not stdout JSONL records
+- `on_CrawlSetup__*` hooks should communicate only through side effects such as files, sockets, long-lived processes, or the background readiness stdout line, not stdout JSONL records
 - `on_Snapshot__*` hooks should not emit `Machine`, `Process`, or `Binary` records
 
 ### Base plugin utilities
@@ -136,12 +183,13 @@ from abx_plugins.plugins.base.utils import (
 )
 ```
 
-- `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `ABXPKG_LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
+- `load_config()` — load plugin `config.json` with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `ABXPKG_LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
 - `emit_archive_result_record(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
 - `emit_snapshot_record(record)` — emit `{"type":"Snapshot",...}` JSONL to stdout
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)
 - `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
-- `has_staticfile_output(snap_dir, path)` — check if a sibling plugin produced a file
+- `has_staticfile_output(staticfile_dir="../staticfile")` / `hasStaticFileOutput()` — check for a successful staticfile download; pending or failed downloads do not suppress other extractors
+- `is_non_html_document(navigation_path="../chrome/navigation.json")` / `isNonHtmlDocument()` — let HTML-only hooks skip a known non-HTML browser document. Chrome navigation records `document.contentType` before post-navigation hooks run; HTML and XHTML remain eligible. Missing, failed, or older navigation records leave extraction enabled. This does not depend on staticfile completion.
 - `enforce_lib_permissions()` — lock down `ABXPKG_LIB_DIR` so snapshot hooks can read/execute but not write
 
 **JS** (`base/utils.js`):
@@ -154,6 +202,13 @@ const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResul
 - `emitSnapshotRecord(record)` — emit `Snapshot` JSONL to stdout
 
 **Test helpers** (`base/test_utils.py`):
+
+CI discovers every `test_*.py` automatically. Linux tests can use hosted or ugNAS
+capacity by default. Genuine runner requirements belong in the first five lines
+of the test file: `# ci-runner: hosted` keeps its normal OS assignment, while
+`# ci-runner: hosted-linux` requires a hosted Linux runner (for example, Docker
+integration tests). Add a comment explaining the requirement beside the header.
+
 ```python
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
@@ -163,7 +218,7 @@ from abx_plugins.plugins.base.testing import (
 ```
 
 - `parse_jsonl_output(stdout)` — extract first matching JSONL record from hook stdout
-- `run_hook(hook_script, url, snapshot_id=None)` — run a hook subprocess with standard args, optionally relying on `EXTRA_CONTEXT` for snapshot metadata
+- `run_hook(hook_script, url, snapshot_id=None)` — run a hook subprocess with explicit URL and optional snapshot ID arguments
 - `get_hook_script(plugin_dir, pattern)` — find hook script by glob pattern
 
 > **Note:** Use `sys.path.append()` (not `insert(0, ...)`) because the `ssl/` plugin directory would shadow Python's stdlib `ssl` module.
@@ -179,7 +234,9 @@ from abx_plugins.plugins.base.testing import (
   - status `failed` if any hard dependencies are missing/invalid (e.g. chrome) or if the process exited non-0 / raised an exception
   - return a short, meaningful `output_str` e.g. the page title, mimetype, return status code, or the relative path of the primary output file produced like `output.pdf` or `0 modals closed` or `The Page Title Verbatim` or `favicon.io` or `Not a git URL`
   - define execution order solely using lexicographic sort order of hook filenames
-  - use bg hooks for either short-lived tasks that can run in parallel, or long-lived daemons that run for the whole duration of the snapshot and get killed for cleanup/final output at the end
+  - use bg hooks for either short-lived tasks that can run in parallel, or long-lived tasks that run for the whole duration of the snapshot and get killed for cleanup/final output at the end
+  - treat `bg` vs `fg` as the only programmatic hook distinction; words like `daemon` and `finite` in hook filenames are human hints only
+  - bg hooks must emit their first stdout line only after they are ready for the next hook to launch; move non-ready startup diagnostics to stderr
   - bg hooks that depend on other bg hook outputs must implement their own waiters internally + check that inputs are truly ready and not just that the files are present, because they may be spawned in parallel/before the earlier one's outputs are actually ready and race. e.g. html/artifact generation should usually be fg so that later bg parsing hooks can safely depend on it being finished and not just part of the file being present
   - use rich_click for cli arg parsing with a uv file header when hooks are written in python. do not depend on archivebox or django, try to only depend on chrome or the output files of other plugins instead of importing code from them. the one exception is to always use chrome_utils.js as the interface for anything involving chrome.
 
@@ -188,7 +245,9 @@ from abx_plugins.plugins.base.testing import (
 
 Hooks emit plain JSONL records to stdout. The current hook families and records are:
 
-- `on_CrawlSetup__*` → no stdout JSONL records
-- `on_Snapshot__*` → `ArchiveResult`, `Snapshot`, `Tag`
+- `on_CrawlSetup__*` → background readiness line only, no stdout JSONL records
+- `on_Snapshot__*` → background readiness line when applicable, then `ArchiveResult`, `Snapshot`, `Tag`
 
 `abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.
+
+<img width="391" height="149" alt="Screenshot 2026-09-20 at 6 17 27 AM" src="https://github.com/user-attachments/assets/bcd4f84e-09db-4f8a-9913-164823be0b79" /><img width="389" height="456" alt="Screenshot 2026-09-20 at 6 17 44 AM" src="https://github.com/user-attachments/assets/4bb945b7-2496-4d8d-b51a-9841fd700eee" />

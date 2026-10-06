@@ -43,6 +43,8 @@ const {
   getEnvInt,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -116,42 +118,48 @@ async function expandDetails(page, options = {}) {
   // Then click "load more" buttons for comments
   const numExpanded = await page.evaluate(
     async ({ timeout, limit, delay }) => {
-      // Helper to find elements by XPath
-      function getElementsByXPath(xpath) {
-        const results = [];
-        const xpathResult = document.evaluate(
-          xpath,
-          document,
-          null,
-          XPathResult.ORDERED_NODE_ITERATOR_TYPE,
-          null
-        );
-        let node;
-        while ((node = xpathResult.iterateNext()) != null) {
-          results.push(node);
-        }
-        return results;
-      }
-
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
       // Find all "load more" type buttons/links
-      const getLoadMoreLinks = () => [
-        // Reddit (new)
-        ...document.querySelectorAll("faceplate-partial[loading=action]"),
-        // Reddit (old) - show more replies
-        ...document.querySelectorAll('a[onclick^="return morechildren"]'),
-        // Reddit (old) - show hidden replies
-        ...document.querySelectorAll('a[onclick^="return togglecomment"]'),
-        // Twitter/X - show more replies
-        ...getElementsByXPath("//*[text()='Show more replies']"),
-        ...getElementsByXPath("//*[text()='Show replies']"),
-        // Generic "load more" / "show more" buttons
-        ...getElementsByXPath("//*[contains(text(),'Load more')]"),
-        ...getElementsByXPath("//*[contains(text(),'Show more')]"),
-        // Hacker News
-        ...document.querySelectorAll("a.morelink"),
-      ];
+      const getLoadMoreLinks = () => {
+        const textControls = [
+          ...document.querySelectorAll('a, button, [role="button"]'),
+        ].filter((element) => {
+          const label = (element.textContent || "")
+            .trim()
+            .replace(/\s+/g, " ")
+            .toLowerCase();
+          return (
+            label === "show replies" ||
+            label.includes("show more") ||
+            label.includes("load more")
+          );
+        });
+        return [
+          ...new Set([
+            ...document.querySelectorAll(
+              "faceplate-partial[loading=action]"
+            ),
+            ...document.querySelectorAll(
+              'a[onclick^="return morechildren"], a[onclick^="return togglecomment"]'
+            ),
+            ...document.querySelectorAll("a.morelink"),
+            ...textControls,
+          ]),
+        ].filter((element) => {
+          // "Show more" can be a navigation link (e.g. X's recommended
+          // people sidebar), not an expansion control. Never leave the
+          // captured document to expand content, including nested controls.
+          const anchor = element.closest("a[href]");
+          if (anchor) {
+            const href = anchor.getAttribute("href").trim();
+            if (href && !href.startsWith("#") && !/^javascript:/i.test(href)) {
+              return false;
+            }
+          }
+          return true;
+        });
+      };
 
       let expanded = 0;
       let loadMoreLinks = getLoadMoreLinks();
@@ -335,6 +343,17 @@ async function main() {
 
   let browser = null;
   try {
+    if (hasStaticFileOutput()) {
+      console.error("Skipping infiniscroll - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
+      process.exit(0);
+    }
+
     const connectTimeoutMs = Math.min(timeout, getEnvInt("TIMEOUT", 30) * 1000);
     const connection = await connectToPage({
       chromeSessionDir: CHROME_SESSION_DIR,

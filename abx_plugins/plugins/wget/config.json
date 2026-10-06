@@ -107,5 +107,9 @@
       ],
       "description": "Extra arguments to append to wget command"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 50,
+  "snapshot_output_group": "html",
+  "snapshot_output_order": 3
 }

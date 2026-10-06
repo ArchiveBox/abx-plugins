@@ -68,5 +68,10 @@
       ],
       "description": "Extra arguments to append to ripgrep command"
     }
-  }
+  },
+  "commands": {
+    "search": ["search.py", "search"],
+    "flush": ["search.py", "flush"]
+  },
+  "hidden": true
 }

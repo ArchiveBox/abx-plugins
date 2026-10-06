@@ -8,9 +8,13 @@ import json
 import subprocess
 import tempfile
 import shutil
+import socket
+from contextlib import nullcontext
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
+from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
@@ -31,9 +35,21 @@ SEO_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_seo.*")
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
+@pytest.fixture(scope="module")
+def make_httpserver():
+    """Serve Chromium and the hook concurrently, including idle browser sockets."""
+    with HTTPServer(threaded=True) as server:
+        yield server
+
+
 @pytest.fixture
 def seo_test_url(httpserver):
     """Serve a deterministic page with known SEO tags."""
+    image = Path(__file__).resolve().parents[4] / "docs/assets/social-card.png"
+    httpserver.expect_request("/featured.png").respond_with_data(
+        image.read_bytes(),
+        content_type="image/png",
+    )
     httpserver.expect_request("/seo").respond_with_data(
         """
         <!doctype html>
@@ -43,6 +59,7 @@ def seo_test_url(httpserver):
             <title>Deterministic SEO Title</title>
             <meta name="description" content="SEO fixture description" />
             <meta name="keywords" content="archivebox,seo,fixture" />
+            <meta property="og:image" content="/featured.png" />
             <meta property="og:title" content="Deterministic OG Title" />
             <meta property="og:description" content="Deterministic OG Description" />
             <meta name="twitter:title" content="Deterministic Twitter Title" />
@@ -78,7 +95,8 @@ class TestSEOWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_seo_extracts_meta_tags(self, seo_test_url):
+    @pytest.mark.parametrize("idle_connection", [False, True])
+    def test_seo_extracts_meta_tags(self, seo_test_url, idle_connection):
         """SEO hook should extract known meta tags from deterministic fixture."""
         test_url = seo_test_url
         snapshot_id = "test-seo-snapshot"
@@ -109,18 +127,27 @@ class TestSEOWithChrome:
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
             # Run SEO hook with the active Chrome session
-            result = subprocess.run(
-                [
-                    str(SEO_HOOK),
-                    f"--url={test_url}",
-                    f"--snapshot-id={snapshot_id}",
-                ],
-                cwd=str(seo_dir),
-                capture_output=True,
-                text=True,
-                timeout=60,
-                env=env,
+            # Browsers can pre-open an idle socket while the hook fetches the image.
+            address = urlsplit(test_url)
+            assert address.hostname is not None and address.port is not None
+            connection = (
+                socket.create_connection((address.hostname, address.port))
+                if idle_connection
+                else nullcontext()
             )
+            with connection:
+                result = subprocess.run(
+                    [
+                        str(SEO_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
+                    cwd=str(seo_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env=env,
+                )
 
             # Check for output file
             seo_output = seo_dir / "seo.json"
@@ -136,6 +163,16 @@ class TestSEOWithChrome:
             assert result_json["output_str"] == "seo/seo.json", result_json
 
             assert seo_output.exists(), "No seo.json produced"
+            featured_image = seo_dir / "featured-image.png"
+            assert featured_image.is_file(), (
+                f"Featured image was not archived. stdout: {result.stdout}; stderr: {result.stderr}"
+            )
+            assert (
+                featured_image.read_bytes()
+                == (
+                    Path(__file__).resolve().parents[4] / "docs/assets/social-card.png"
+                ).read_bytes()
+            )
             seo_data = json.loads(seo_output.read_text())
             assert seo_data["title"] == "Deterministic SEO Title"
             assert seo_data["description"] == "SEO fixture description"

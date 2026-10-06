@@ -18,3 +18,5 @@ metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 manifest_path = Path(metadata["unpacked_path"]) / "manifest.json"
 if not manifest_path.is_file():
     raise RuntimeError(f"Chrome extension manifest was not prepared: {manifest_path}")
+
+print("Claude for Chrome preparation started", flush=True)

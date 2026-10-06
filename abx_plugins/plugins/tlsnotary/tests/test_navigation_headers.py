@@ -1,0 +1,663 @@
+# ci-runner: hosted-linux
+# Proof tests need Docker for the pinned amd64 verifier, isolated per test.
+"""Real Chrome integration coverage for TLSNotary request-header capture."""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import shutil
+import signal
+import subprocess
+import time
+import urllib.error
+import urllib.request
+import uuid
+from pathlib import Path
+
+import pytest
+
+from abx_plugins.plugins.base.testing import install_required_binary_from_config
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
+    kill_chromium_session,
+    launch_chromium_session,
+    resolve_node_with_abxpkg,
+    setup_test_env,
+)
+
+PLUGIN_DIR = Path(__file__).resolve().parents[1]
+CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
+PREPARE_HOOK = PLUGIN_DIR / "on_CrawlSetup__80_tlsnotary_prepare.py"
+SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__92_tlsnotary.js"
+CHECK_CAPTURE = PLUGIN_DIR / "tests" / "check_capture.mjs"
+TARGET_URL = "https://docs.sweeting.me/s/cookie-dilemma"
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
+
+@pytest.fixture
+def verifier(tmp_path):
+    """Each proof owns the shipped gateway, real verifier, key and session state."""
+    state = tmp_path / "verifier-state"
+    state.mkdir()
+    signing_key = state / "signing.pem"
+    subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(signing_key)],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    )
+    signing_key.chmod(0o600)
+    public_key = base64.b64encode(
+        subprocess.check_output(
+            ["openssl", "pkey", "-in", str(signing_key), "-pubout", "-outform", "DER"],
+            timeout=10,
+        ),
+    ).decode()
+    empty_env = tmp_path / "compose.env"
+    empty_env.touch()
+    compose = [
+        "docker",
+        "compose",
+        "--env-file",
+        str(empty_env),
+        "--project-name",
+        f"tlsnotary-test-{uuid.uuid4().hex}",
+        "--file",
+        str(PLUGIN_DIR / "server" / "docker-compose.yml"),
+    ]
+    env = {
+        **os.environ,
+        "TLSNOTARY_STATE_DIR": str(state),
+        "TLSNOTARY_UID": str(os.getuid()),
+        "TLSNOTARY_GID": str(os.getgid()),
+        "TLSNOTARY_PORT": "0",
+        "TLSNOTARY_MIN_AVAILABLE_MEMORY_MB": "1024",
+        "COMPOSE_PROFILES": "",
+    }
+    try:
+        started = subprocess.run(
+            [*compose, "up", "--detach", "--build", "--wait", "verifier", "gateway"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        assert started.returncode == 0, started.stdout + started.stderr
+        binding = subprocess.check_output(
+            [*compose, "port", "gateway", "7047"],
+            env=env,
+            text=True,
+            timeout=10,
+        ).strip()
+        url = f"http://{binding}"
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                with urllib.request.urlopen(f"{url}/key", timeout=1) as response:
+                    assert json.load(response)["publicKey"] == public_key
+                break
+            except urllib.error.URLError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.1)
+        yield {
+            "TLSNOTARY_VERIFIER_URL": url,
+            "TLSNOTARY_TRUSTED_KEY": public_key,
+        }
+    finally:
+        try:
+            logs = subprocess.run(
+                [*compose, "logs", "--no-color"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            print(logs.stdout + logs.stderr)
+        finally:
+            stopped = subprocess.run(
+                [*compose, "down", "--volumes", "--remove-orphans"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert stopped.returncode == 0, stopped.stdout + stopped.stderr
+
+
+def test_real_gateway_refuses_proof_when_host_memory_reserve_is_unavailable(tmp_path):
+    """Run the real gateway admission test with its locked npm dependencies."""
+
+    env = os.environ.copy()
+    node_binary = Path(resolve_node_with_abxpkg(env))
+    npm_binary = node_binary.with_name("npm")
+    assert npm_binary.is_file(), f"npm is missing beside {node_binary}"
+    env["PATH"] = f"{node_binary.parent}{os.pathsep}{env.get('PATH', '')}"
+
+    server_dir = tmp_path / "server"
+    server_dir.mkdir()
+    for name in ("server.mjs", "memory.cjs", "package.json", "package-lock.json"):
+        shutil.copy2(PLUGIN_DIR / "server" / name, server_dir / name)
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    shutil.copy2(
+        PLUGIN_DIR / "tests" / "test_memory_admission.mjs",
+        tests_dir / "test_memory_admission.mjs",
+    )
+
+    install = subprocess.run(
+        [str(npm_binary), "ci", "--omit=dev", "--no-audit", "--no-fund"],
+        cwd=server_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert install.returncode == 0, (install.stdout, install.stderr)
+    result = subprocess.run(
+        [str(node_binary), "--test", str(tests_dir / "test_memory_admission.mjs")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+
+
+def _install_and_prepare(env: dict[str, str], _chrome_dir: Path) -> None:
+    install_required_binary_from_config(PLUGIN_DIR, "tlsnotary", env=env)
+    prepared = subprocess.run(
+        [str(PREPARE_HOOK)],
+        cwd=env["CRAWL_DIR"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert prepared.returncode == 0, prepared.stderr
+
+    extension = json.loads(
+        (Path(env["CRAWL_DIR"]) / "tlsnotary" / "extension.json").read_text(),
+    )
+    script = r"""
+const chrome = require(process.argv[1]);
+const fs = require('node:fs');
+const extension = JSON.parse(process.argv[3]);
+(async () => {
+  const puppeteer = chrome.resolvePuppeteerModule();
+  const browser = await chrome.connectToBrowserEndpoint(puppeteer, process.argv[2], {defaultViewport: null});
+  try {
+    await chrome.loadUnpackedExtensionsIntoBrowser(browser, [extension], 30000);
+    fs.writeFileSync(process.argv[4], JSON.stringify(extension));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+    loaded = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            (Path(env["CRAWL_DIR"]) / "chrome" / "cdp_url.txt").read_text().strip(),
+            json.dumps(extension),
+            str(Path(env["CRAWL_DIR"]) / "tlsnotary" / "loaded-extension.json"),
+        ],
+        cwd=env["CRAWL_DIR"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert loaded.returncode == 0, loaded.stderr
+
+
+def _inspect_browser(env: dict[str, str], cdp_url: str, extension_id: str) -> dict:
+    script = r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const browser = await chrome.connectToBrowserEndpoint(
+    chrome.resolvePuppeteerModule(), process.argv[2], {defaultViewport: null},
+  );
+  try {
+    const extensions = chrome.getExtensionTargets(browser)
+      .filter(target => target.extensionId === process.argv[3]);
+    const pages = [];
+    for (const page of await browser.pages()) {
+      const target = page.target();
+      const targetId = chrome.getTargetIdFromTarget(target);
+      let window;
+      try {
+        window = await chrome.sendBrowserCommand(browser, 'Browser.getWindowForTarget', {targetId});
+      } catch (error) {
+        // A page may close after browser.pages() snapshots it, especially while
+        // the test observes the hook's concurrent cancellation cleanup.
+        if (!String(error?.message || error).includes('No target with given id')) throw error;
+        continue;
+      }
+      pages.push({url: page.url(), targetId, windowId: window.windowId});
+    }
+    process.stdout.write(JSON.stringify({
+      extensionTargets: extensions.length, pageUrls: pages.map(page => page.url), pages,
+    }));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+    result = subprocess.run(
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), cdp_url, extension_id],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_tlsnotary_extension_loads_only_for_capture(tmp_path):
+    """Selected TLSNotary remains available without a large idle renderer."""
+
+    env = setup_test_env(tmp_path)
+    env.update({"PLUGINS": "tlsnotary", "TLSNOTARY_ENABLED": "true"})
+    install_required_binary_from_config(PLUGIN_DIR, "tlsnotary", env=env)
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    launch, cdp_url = launch_chromium_session(env, chrome_dir, "test-crawl")
+    try:
+        metadata = json.loads((chrome_dir / "browser.json").read_text())
+        extension = next(
+            item for item in metadata["extensions"] if item["name"] == "tlsnotary"
+        )
+        assert extension["load_on_demand"] is True
+        assert not extension.get("id"), extension
+        assert (
+            "--enable-unsafe-extension-debugging" in (chrome_dir / "cmd.sh").read_text()
+        )
+        script = r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const browser = await chrome.connectToBrowserEndpoint(
+    chrome.resolvePuppeteerModule(), process.argv[2], {defaultViewport: null},
+  );
+  try {
+    process.stdout.write(JSON.stringify(chrome.getExtensionTargets(browser)));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), cdp_url],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == []
+    finally:
+        kill_chromium_session(launch, chrome_dir)
+
+
+def test_extension_reports_real_main_request_headers_before_proof(tmp_path):
+    """Exercise the pinned extension's user-facing API and actual managed window."""
+
+    with chrome_session(
+        tmp_path,
+        test_url=TARGET_URL,
+        navigate=True,
+        timeout=45,
+        env_overrides={"TLSNOTARY_ENABLED": "true"},
+        crawl_setup=_install_and_prepare,
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
+        script = r"""
+const http = require('node:http');
+const net = require('node:net');
+const {once} = require('node:events');
+const chrome = require(process.argv[1]);
+const targetUrl = process.argv[3];
+const host = new URL(targetUrl).hostname;
+const pathname = new URL(targetUrl).pathname;
+let server;
+let caller;
+let browser;
+const sockets = new Set();
+const started = Date.now();
+const progress = (...args) => console.error(`TLSNotary headers +${Date.now() - started}ms:`, ...args);
+async function approve(browser, extensionId, requestId) {
+  const offscreen = await browser.waitForTarget(
+    target => target.url() === `chrome-extension://${extensionId}/offscreen.html`,
+    {timeout: 10000},
+  );
+  const session = await offscreen.createCDPSession();
+  try {
+    const result = await session.send('Runtime.evaluate', {
+      expression: `chrome.runtime.sendMessage(${JSON.stringify({type: 'PLUGIN_CONFIRM_RESPONSE', requestId, mode: 'all-session'})})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (result.exceptionDetails) throw new Error('Extension approval RPC failed');
+  } finally {
+    await session.detach();
+  }
+}
+(async () => {
+  const puppeteer = chrome.resolvePuppeteerModule();
+  browser = await chrome.connectToBrowserEndpoint(puppeteer, process.argv[2], {defaultViewport: null});
+  server = http.createServer((_request, response) => {
+    response.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
+    response.end('<!doctype html><title>TLSNotary API caller</title>');
+  });
+  server.on('connection', socket => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  caller = await browser.newPage();
+  await caller.goto(`http://127.0.0.1:${server.address().port}/`);
+  await caller.waitForFunction(() => !!window.tlsn, {timeout: 10000});
+
+  const extension = JSON.parse(process.argv[4]);
+  const extensionId = extension.id;
+  if (!extensionId) throw new Error('Prepared extension did not expose its runtime ID');
+  const confirmation = browser.waitForTarget(
+    target => target.url().startsWith(`chrome-extension://${extensionId}/`) && target.url().includes('confirm'),
+    {timeout: 20000},
+  );
+  const code = `const config={name:'Header capture integration',description:'Capture request metadata for a real page',requests:[{method:'GET',host:${JSON.stringify(host)},pathname:${JSON.stringify(pathname)}}],urls:[${JSON.stringify(new URL(targetUrl).origin + '/*')}],timeout:60000};
+const url=${JSON.stringify(targetUrl)};
+function main(){
+ const [request]=useHeaders(items=>items.filter(item=>item.url===url&&item.method==='GET').slice(-1));
+ const started=useState('started',false);
+ useEffect(()=>{if(!started){setState('started',true);openWindow(url,{width:1024,height:768}).catch(error=>done(JSON.stringify({error:String(error)})));}},[started]);
+ useEffect(()=>{if(request){done(JSON.stringify({url:request.url,method:request.method,headerNames:request.requestHeaders.map(header=>header.name.toLowerCase())}));}},[!!request]);
+ return div({},['Waiting for the real document request']);
+}
+export default {config,main};`;
+  const resultPromise = caller.evaluate((pluginCode) =>
+    window.tlsn.execCode(pluginCode, {sessionData: {mode: 'Mpc'}}), code,
+  );
+  resultPromise.catch(() => {});
+  const confirmationTarget = await confirmation;
+  const requestId = new URL(confirmationTarget.url()).searchParams.get('requestId');
+  if (!requestId) throw new Error('Extension confirmation omitted request ID');
+  await approve(browser, extensionId, requestId);
+  const result = await resultPromise;
+  const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+  process.stdout.write(JSON.stringify(parsed));
+  progress('headers captured');
+  // Exercise a real speculative connection that has not sent an HTTP request.
+  // Chrome may leave these open after the caller tab closes.
+  const accepted = once(server, 'connection');
+  const preconnection = net.createConnection(server.address().port, '127.0.0.1');
+  await Promise.all([once(preconnection, 'connect'), accepted]);
+  progress('unrequested TCP connection accepted');
+})().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+  progress('closing caller');
+  if (caller) await caller.close().catch(() => {});
+  progress('caller closed; disconnecting browser');
+  if (browser) await browser.disconnect().catch(() => {});
+  progress('browser disconnected; closing server', Array.from(sockets, socket => ({
+    bytesRead: socket.bytesRead, bytesWritten: socket.bytesWritten, destroyed: socket.destroyed,
+  })));
+  if (server) {
+    const closed = once(server, 'close');
+    const socketsClosed = Array.from(sockets, socket => once(socket, 'close'));
+    server.close();
+    // A TCP preconnection is active to Node even before its first HTTP request.
+    // Stop accepting clients before closing all connections owned by this test.
+    server.closeAllConnections();
+    // The server's close event can precede the sockets' individual close events.
+    await Promise.all([closed, ...socketsClosed]);
+    if (sockets.size !== 0) throw new Error(`Server retained ${sockets.size} sockets`);
+  }
+  progress('server closed', process.getActiveResourcesInfo());
+});
+"""
+        completed = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                cdp_url,
+                TARGET_URL,
+                json.dumps(
+                    json.loads(
+                        (
+                            Path(env["CRAWL_DIR"])
+                            / "tlsnotary"
+                            / "loaded-extension.json"
+                        ).read_text(),
+                    ),
+                ),
+            ],
+            cwd=Path(env["SNAP_DIR"]),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=90,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
+        print(completed.stderr)
+        result = json.loads(completed.stdout)
+        assert result["url"] == TARGET_URL
+        assert result["method"] == "GET"
+        assert {"accept", "user-agent"}.issubset(set(result["headerNames"]))
+
+
+def test_real_hook_terminal_result_and_cleanup(tmp_path, verifier):
+    """Verify terminal output and owned cleanup around a real live response."""
+
+    with chrome_session(
+        tmp_path,
+        test_url=TARGET_URL,
+        navigate=True,
+        timeout=45,
+        env_overrides={
+            **verifier,
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_TIMEOUT": "5",
+        },
+        crawl_setup=_install_and_prepare,
+    ) as (_process, _pid, _snapshot_chrome_dir, env):
+        hook_output_dir = Path(env["SNAP_DIR"]) / "tlsnotary"
+        hook_output_dir.mkdir(parents=True)
+        started = time.monotonic()
+        result = subprocess.run(
+            [str(SNAPSHOT_HOOK), f"--url={TARGET_URL}", "--snapshot-id=test-snapshot"],
+            cwd=hook_output_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=25,
+            check=False,
+        )
+        elapsed = time.monotonic() - started
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{") and json.loads(line).get("type") == "ArchiveResult"
+        ]
+
+        assert elapsed < 15
+        assert len(records) == 1, result.stdout
+        if records[0]["status"] == "succeeded":
+            # A faster proof is valid only with its real signed receipt.
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            verification = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    str(CHECK_CAPTURE),
+                    str(hook_output_dir),
+                    verifier["TLSNOTARY_TRUSTED_KEY"],
+                ],
+                cwd=PLUGIN_DIR.parent.parent,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            assert verification.returncode == 0, verification.stderr
+        else:
+            assert result.returncode == 1, (result.stdout, result.stderr)
+            assert records[0]["status"] == "failed"
+            assert records[0]["output_str"] == "TLSNotary capture deadline exceeded"
+        assert not (Path(env["CRAWL_DIR"]) / "tlsnotary" / "capture.lock").exists()
+        extension = json.loads(
+            (
+                Path(env["CRAWL_DIR"]) / "tlsnotary" / "loaded-extension.json"
+            ).read_text(),
+        )
+        browser_state = _inspect_browser(
+            env,
+            (Path(env["CRAWL_DIR"]) / "chrome" / "cdp_url.txt").read_text().strip(),
+            extension["id"],
+        )
+        assert browser_state["extensionTargets"] == 0, browser_state
+        assert browser_state["pageUrls"].count(TARGET_URL) == 1, browser_state
+
+
+@pytest.mark.parametrize("unrelated_tab", [False, True])
+def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab, verifier):
+    """Cancelling a real proof must not leave its separate auth page in Chrome."""
+
+    url = "https://news.ycombinator.com/"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=True,
+        timeout=45,
+        env_overrides={
+            **verifier,
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_TIMEOUT": "25",
+        },
+        crawl_setup=_install_and_prepare,
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        output_dir = Path(env["SNAP_DIR"]) / "tlsnotary"
+        output_dir.mkdir()
+        extension = json.loads(
+            (
+                Path(env["CRAWL_DIR"]) / "tlsnotary" / "loaded-extension.json"
+            ).read_text(),
+        )
+        extension_id = extension["id"]
+        cdp_url = (
+            (Path(env["CRAWL_DIR"]) / "chrome" / "cdp_url.txt").read_text().strip()
+        )
+        original_target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
+        stdout_path = tmp_path / "cancelled.stdout"
+        stderr_path = tmp_path / "cancelled.stderr"
+        unrelated_target_id = None
+        state_before_cancel = None
+        with stdout_path.open("w") as stdout, stderr_path.open("w") as stderr:
+            hook = subprocess.Popen(
+                [env["NODE_BINARY"], str(SNAPSHOT_HOOK), f"--url={url}"],
+                cwd=output_dir,
+                env=env,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            try:
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline and hook.poll() is None:
+                    state = _inspect_browser(env, cdp_url, extension_id)
+                    if (
+                        "capture correlation" in stderr_path.read_text()
+                        and state["pageUrls"].count(url) == 2
+                    ):
+                        if unrelated_tab:
+                            script = r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const browser = await chrome.connectToBrowserEndpoint(
+    chrome.resolvePuppeteerModule(), process.argv[2], {defaultViewport: null},
+  );
+  try {
+    const page = await browser.newPage();
+    await page.goto(process.argv[3]);
+    process.stdout.write(chrome.getTargetIdFromTarget(page.target()));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+                            opened = subprocess.run(
+                                [
+                                    env["NODE_BINARY"],
+                                    "-e",
+                                    script,
+                                    str(CHROME_UTILS),
+                                    cdp_url,
+                                    url,
+                                ],
+                                env=env,
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                                check=False,
+                            )
+                            assert opened.returncode == 0, opened.stderr
+                            unrelated_target_id = opened.stdout.strip()
+                            assert unrelated_target_id
+                            inspect_args = (env, cdp_url, extension_id)
+                            state_before_cancel = _inspect_browser(*inspect_args)
+                            windows = {
+                                page["targetId"]: page["windowId"]
+                                for page in state_before_cancel["pages"]
+                            }
+                            assert (
+                                windows[unrelated_target_id]
+                                == windows[original_target_id]
+                            )
+                            assert any(
+                                page["url"] == url
+                                and page["windowId"] != windows[original_target_id]
+                                for page in state_before_cancel["pages"]
+                            )
+                        hook.send_signal(signal.SIGTERM)
+                        break
+                    time.sleep(0.1)
+                else:
+                    raise AssertionError(
+                        "Real TLSNotary managed window did not open: "
+                        f"hook exit={hook.poll()}\n"
+                        f"STDOUT:\n{stdout_path.read_text()}\n"
+                        f"STDERR:\n{stderr_path.read_text()}",
+                    )
+                assert hook.wait(timeout=15) == 1
+            finally:
+                if hook.poll() is None:
+                    hook.kill()
+                    hook.wait(timeout=10)
+
+        state = _inspect_browser(env, cdp_url, extension_id)
+        assert state["extensionTargets"] == 0, state
+        assert state["pageUrls"].count(url) == 1 + int(unrelated_tab), (
+            state_before_cancel,
+            state,
+        )
+        assert original_target_id in {page["targetId"] for page in state["pages"]}, (
+            state
+        )
+        if unrelated_tab:
+            assert unrelated_target_id in {
+                page["targetId"] for page in state["pages"]
+            }, state
+        assert not (Path(env["CRAWL_DIR"]) / "tlsnotary" / "capture.lock").exists()
+        assert not (output_dir / "receipt.json").exists()

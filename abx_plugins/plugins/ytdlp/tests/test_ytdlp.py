@@ -135,25 +135,17 @@ def test_hook_script_exists():
     assert YTDLP_HOOK.exists(), f"Hook not found: {YTDLP_HOOK}"
 
 
-def test_card_template_loads_browser_media_on_click():
-    """Card template should not fetch archived media until the user asks to play it."""
+def test_card_template_lists_files_without_links_or_eager_players():
+    """The card lists filenames without individual links or eager media downloads."""
     template = (PLUGIN_DIR / "templates" / "card.html").read_text()
-
-    assert "ytdlp-load-player" in template
-    assert 'data-src="{{ file.url|default:file.path|urlencode }}"' in template
-    assert "media.src = src" in template
+    assert 'class="thumbnail-wrapper"' not in template
+    assert 'class="ytdlp-file-badge"' in template
+    assert "<a " not in template
+    assert '<span class="ytdlp-file-name">{{ file.name }}</span>' in template
+    assert "text-overflow: ellipsis" in template
+    assert "white-space: nowrap" in template
     assert "<video" not in template
     assert "<audio" not in template
-
-
-def test_card_template_links_non_browser_media_without_player():
-    """Non-browser-playable yt-dlp outputs should stay as regular file links."""
-    template = (PLUGIN_DIR / "templates" / "card.html").read_text()
-
-    assert "{% if file.is_browser_playable %}" in template
-    assert "{% else %}" in template
-    assert "Download file" in template
-    assert 'href="{{ file.url|default:file.path|urlencode }}"' in template
 
 
 def test_verify_deps_with_abxpkg(ytdlp_runtime_env):
@@ -413,3 +405,63 @@ def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize(
+    ("url", "provider"),
+    [
+        ("https://DRIVE.GOOGLE.COM:443/drive/folders/public-folder", "googledrive"),
+        ("https://WWW.DROPBOX.COM:443/sh/public/folder", "dropbox"),
+        (
+            "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks",
+            "googledrive",
+        ),
+        (
+            "https://www.dropbox.com/scl/fo/kf9a29cwaebpkbtug6a7k/AFiq9xq2XcvTcmHl_z-tsIc/Lockups?rlkey=4mrp0lpvxmwrlwdy349nspygn&dl=0",
+            "dropbox",
+        ),
+    ],
+)
+def test_folder_downloads_belong_to_provider_plugins(
+    tmp_path,
+    ytdlp_runtime_env,
+    url,
+    provider,
+):
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", url],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "noresults", result.stdout
+    assert (
+        record["output_str"]
+        == f"Folder URL is not media; enable {provider} to download its files"
+    ), record
+    assert "[ytdlp] Starting download" not in result.stderr
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
+def test_individual_public_video_still_downloads(tmp_path, ytdlp_runtime_env):
+    url = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", url],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    videos = list((tmp_path / "ytdlp").glob("*.mp4"))
+    assert len(videos) == 1
+    with videos[0].open("rb") as video:
+        assert video.read(12)[4:8] == b"ftyp"
+    assert videos[0].stat().st_size > 1_000_000

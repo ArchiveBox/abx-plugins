@@ -9,18 +9,23 @@
 # Usage:
 #     ./on_Snapshot__93_hashes.py [...] > events.jsonl
 
-import os
-import sys
-import json
 import hashlib
+import json
+import os
+import re
+import stat
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 from typing import Any
 
 import click
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
-
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    load_config,
+    write_text_atomic,
+)
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG = load_config()
@@ -33,13 +38,10 @@ os.chdir(OUTPUT_DIR)
 def sha256_file(filepath: Path) -> str:
     """Compute SHA256 hash of a file."""
     h = hashlib.sha256()
-    try:
-        with open(filepath, "rb") as f:
-            while chunk := f.read(65536):
-                h.update(chunk)
-        return h.hexdigest()
-    except (OSError, PermissionError):
-        return "0" * 64
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def sha256_data(data: bytes) -> str:
@@ -52,15 +54,30 @@ def collect_files(
     exclude_dirs: list[str] | None = None,
 ) -> list[tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
-    exclude_dirs = exclude_dirs or ["hashes", ".git", "__pycache__"]
+    exclude_dirs = exclude_dirs or ["hashes", "opentimestamps", ".git", "__pycache__"]
     files = []
 
     for root, dirs, filenames in os.walk(snapshot_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        if Path(root) == snapshot_dir:
+            # Session state belongs to the runner and can change after this
+            # snapshot finishes (or be shared with the next snapshot).
+            dirs[:] = [d for d in dirs if d not in {".persona", ".abx-dl", "chrome"}]
 
         for filename in filenames:
             filepath = Path(root) / filename
             rel_path = filepath.relative_to(snapshot_dir)
+
+            # The runner keeps appending lifecycle records after hashing. These
+            # are execution bookkeeping, not archived content or evidence.
+            if rel_path == Path("index.jsonl"):
+                continue
+
+            if len(rel_path.parts) == 2 and re.fullmatch(
+                r"on_[A-Za-z]+__.+\.[0-9a-f]{32}\.(?:sh|pid|stdout\.log|stderr\.log)(?:\.\d+)?",
+                filename,
+            ):
+                continue
 
             if filepath.is_symlink():
                 continue
@@ -118,12 +135,61 @@ def create_hashes(snapshot_dir: Path) -> dict[str, Any]:
         "tree_levels": tree_levels,
         "files": file_list,
         "metadata": {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "file_count": len(files),
             "total_size": total_size,
             "tree_depth": len(tree_levels),
         },
     }
+
+
+def hardlink_duplicates(snapshot_dir: Path, files: list[dict[str, Any]]) -> None:
+    """Share proven-identical bytes without changing ArchiveBox's public paths."""
+    originals: dict[tuple[str, int], Path] = {}
+    for index, item in enumerate(files):
+        key = (str(item["hash"]), int(item["size"]))
+        # Empty files reclaim nothing; a zero digest means hashing failed, not equality.
+        if key[1] <= 0 or key[0] == "0" * 64:
+            continue
+        path = snapshot_dir / item["path"]
+        source = originals.setdefault(key, path)
+        if source == path:
+            continue
+        temp_path = path.parent / f".abx-hardlink-{os.getpid()}-{index}"
+        # Never clean up a pre-existing path if link creation fails with EEXIST.
+        temp_created = False
+        try:
+            source_stat, path_stat = source.stat(), path.stat()
+            # Hardlinks share inode metadata, so differing metadata must remain separate.
+            if (
+                os.path.samestat(source_stat, path_stat)
+                or source_stat.st_dev != path_stat.st_dev
+                or not stat.S_ISREG(source_stat.st_mode)
+                or not stat.S_ISREG(path_stat.st_mode)
+                or source_stat.st_size != key[1]
+                or path_stat.st_size != key[1]
+                or (source_stat.st_mode, source_stat.st_uid, source_stat.st_gid)
+                != (path_stat.st_mode, path_stat.st_uid, path_stat.st_gid)
+            ):
+                continue
+            # A sibling link plus atomic replace keeps the public path present on every failure.
+            os.link(source, temp_path)
+            temp_created = True
+            # Late writers can stale the manifest; never merge a file that changed meanwhile.
+            if source.stat().st_mtime_ns != source_stat.st_mtime_ns:
+                continue
+            if path.stat().st_mtime_ns != path_stat.st_mtime_ns:
+                continue
+            os.replace(temp_path, path)
+        except OSError:
+            # TODO: Decide whether to try a symlink before giving up when hardlinks are unavailable.
+            pass
+        finally:
+            if temp_created:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
 
 def format_output_str(total_size: int, root_hash: str | None) -> str:
@@ -144,19 +210,18 @@ def main(url: str):
     total_size = 0
 
     try:
+        # Invalidate completion before any work, including disabled/failed reruns.
+        completion_path = OUTPUT_DIR / "hashes.sha256"
+        completion_path.unlink(missing_ok=True)
         # Check if enabled
-        save_hashes = os.getenv("HASHES_ENABLED", "true").lower() in (
-            "true",
-            "1",
-            "yes",
-            "on",
-        )
+        save_hashes = CONFIG.HASHES_ENABLED
 
         if not save_hashes:
             status = "skipped"
             emit_archive_result_record(status, "HASHES_ENABLED=False")
             sys.exit(0)
 
+        print("Hash generation started", file=sys.stderr, flush=True)
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
         # Parent is the snapshot directory
         output_dir = Path.cwd()
@@ -171,10 +236,13 @@ def main(url: str):
 
         # Generate Merkle tree
         merkle_data = create_hashes(snapshot_dir)
+        hardlink_duplicates(snapshot_dir, merkle_data["files"])
 
         # Write output
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(merkle_data, f, indent=2)
+        manifest = json.dumps(merkle_data, indent=2)
+        write_text_atomic(output_path, manifest)
+        # Consumers require this last, atomic publication and check its digest.
+        write_text_atomic(completion_path, sha256_data(manifest.encode("utf-8")) + "\n")
 
         status = "succeeded"
         root_hash = merkle_data["root_hash"]

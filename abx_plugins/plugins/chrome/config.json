@@ -8,16 +8,9 @@
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,pnpm,apt,brew",
+      "binproviders": "env,node,apt,brew",
       "min_version": "22.12.0",
       "overrides": {
-        "pnpm": {
-          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/node",
-          "install_args": [
-            "node@22.23.1"
-          ],
-          "postinstall_scripts": true
-        },
         "apt": {
           "install_args": [
             "nodejs"
@@ -27,54 +20,42 @@
     },
     {
       "name": "abxbus",
-      "binproviders": "env,pnpm",
-      "min_version": "2.5.9",
+      "binproviders": "pnpm",
+      "min_version": "2.5.74",
       "min_release_age": 0,
       "overrides": {
-        "env": {
-          "version": [
-            "node",
-            "-p",
-            "require('abxbus/package.json').version"
-          ]
-        },
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus",
+          "min_release_age": 0,
           "install_args": [
-            "abxbus@2.5.9"
+            "abxbus@2.5.74"
           ],
           "postinstall_scripts": true,
           "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js",
-          "version": "2.5.9"
+          "version": "2.5.74"
         }
       }
     },
     {
       "name": "browsers",
-      "binproviders": "env,pnpm",
+      "binproviders": "pnpm",
       "min_version": null,
       "postinstall_scripts": false,
       "overrides": {
-        "env": {
-          "version": [
-            "node",
-            "-p",
-            "require('puppeteer/package.json').version"
-          ]
-        },
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
           "install_args": [
-            "@puppeteer/browsers",
-            "puppeteer"
-          ]
+            "@puppeteer/browsers@3.0.4",
+            "puppeteer@25.1.0"
+          ],
+          "version": "3.0.4"
         }
       }
     },
     {
       "name": "{CHROME_BINARY}",
-      "binproviders": "env,playwright,puppeteer",
-      "min_version": "149.0.0",
+      "binproviders": "{CHROME_BINPROVIDERS}",
+      "min_version": "153.0.8010.36",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
@@ -93,6 +74,18 @@
     "application/json"
   ],
   "properties": {
+    "AUTH_STORAGE_FILE": {
+      "type": "string",
+      "default": "",
+      "x-scope": "crawl_execution",
+      "description": "Path to a persona auth.json cookie export; preserves full browser cookie attributes and takes precedence over COOKIES_FILE"
+    },
+    "COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-scope": "crawl_execution",
+      "description": "Optional path to a Netscape cookies.txt file to import before navigation; missing files warn and skip cookie import"
+    },
     "CHROME_ENABLED": {
       "type": "boolean",
       "default": true,
@@ -105,6 +98,11 @@
       "type": "string",
       "default": "chromium",
       "description": "Path to a Chromium-family browser binary"
+    },
+    "CHROME_BINPROVIDERS": {
+      "type": "string",
+      "default": "env,playwright,puppeteer",
+      "description": "abxpkg providers allowed to resolve/install Chrome, in preference order. Omit env to require a provider-managed browser instead of a host executable."
     },
     "CHROMEWEBSTORE_EXTENSIONS_DIR": {
       "type": "string",
@@ -149,6 +147,12 @@
       "pattern": "^\\d+,\\d+$",
       "x-fallback": "RESOLUTION",
       "description": "Browser viewport resolution (width,height)"
+    },
+    "BROWSER_COLOR_SCHEME": {
+      "type": "string",
+      "pattern": "^(light|dark)?$",
+      "default": "",
+      "description": "Preferred page color scheme (empty uses the browser default)"
     },
     "CHROME_USER_AGENT": {
       "type": "string",
@@ -224,6 +228,7 @@
         "--disable-cookie-encryption",
         "--font-render-hinting=none",
         "--force-color-profile=srgb",
+        "--enable-features=ThrottleMainFrameTo60Hz",
         "--disable-partial-raster",
         "--disable-skia-runtime-opts",
         "--disable-2d-canvas-clip-aa",
@@ -238,7 +243,6 @@
         "--disable-backgrounding-occluded-windows",
         "--disable-ipc-flooding-protection",
         "--disable-extensions-http-throttling",
-        "--disable-field-trial-config",
         "--disable-back-forward-cache",
         "--autoplay-policy=no-user-gesture-required",
         "--disable-gesture-requirement-for-media-playback",
@@ -271,7 +275,7 @@
     },
     "CHROME_WAIT_FOR": {
       "type": "string",
-      "default": "load",
+      "default": "domcontentloaded",
       "enum": [
         "domcontentloaded",
         "load",
@@ -292,5 +296,8 @@
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates (disable for self-signed certs)"
     }
-  }
+  },
+  "category": "page_setup",
+  "display_order": 10,
+  "snapshot_output_group": "metadata"
 }

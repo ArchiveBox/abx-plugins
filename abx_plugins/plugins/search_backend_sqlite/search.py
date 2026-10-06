@@ -18,6 +18,8 @@ import json
 import os
 import sqlite3
 
+from abx_plugins.plugins.base.search_command import run_search_command
+
 
 CONFIG_PATH = Path(__file__).with_name("config.json")
 
@@ -53,24 +55,26 @@ def load_sqlite_config(environ: Mapping[str, str] | None = None) -> Any:
             values[key] = prop.get("default") if isinstance(prop, Mapping) else ""
         else:
             values[key] = _coerce_env_value(raw_value, prop)
-    values.update(
-        ABX_RUNTIME=env.get("ABX_RUNTIME", "abx-dl"),
-        DATA_DIR=env.get("DATA_DIR", ""),
-        SNAP_DIR=env.get("SNAP_DIR", ""),
-    )
+    values.update(DATA_DIR=env.get("DATA_DIR", ""), SNAP_DIR=env.get("SNAP_DIR", ""))
     return SimpleNamespace(**values)
 
 
-def get_db_path() -> Path:
+def get_db_path(environ: Mapping[str, str] | None = None) -> Path:
     """Get path to the shared collection search index database."""
-    config = load_sqlite_config()
+    config = load_sqlite_config(environ)
     data_dir = Path(config.DATA_DIR or Path.cwd()).resolve()
     return data_dir / config.SEARCH_BACKEND_SQLITE_DB
 
 
-def search(query: str) -> list[str]:
+def search(
+    query: str,
+    search_mode: str = "contents",
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> list[str]:
     """Search for snapshots matching the query."""
-    db_path = get_db_path()
+    del search_mode
+    db_path = get_db_path(environ)
     if not db_path.exists():
         return []
 
@@ -87,9 +91,13 @@ def search(query: str) -> list[str]:
         conn.close()
 
 
-def flush(snapshot_ids: Iterable[str]) -> None:
+def flush(
+    snapshot_ids: Iterable[str],
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> None:
     """Remove snapshots from the index."""
-    db_path = get_db_path()
+    db_path = get_db_path(environ)
     if not db_path.exists():
         return
 
@@ -105,3 +113,7 @@ def flush(snapshot_ids: Iterable[str]) -> None:
         pass
     finally:
         conn.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_search_command(search, flush))

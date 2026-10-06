@@ -7,9 +7,6 @@
   "required_plugins": [
     "claudecode"
   ],
-  "x-deferred-required-plugins": [
-    "claudecode"
-  ],
   "required_binaries": [],
   "output_mimetypes": [
     "text/plain"
@@ -48,5 +45,7 @@
       "x-fallback": "CLAUDECODE_MAX_TURNS",
       "description": "Maximum number of agentic turns for cleanup"
     }
-  }
+  },
+  "category": "postprocessing",
+  "display_order": 80
 }

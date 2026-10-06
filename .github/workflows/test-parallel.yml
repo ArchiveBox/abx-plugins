@@ -1,7 +1,15 @@
 name: Parallel Tests
 
 on:
+  schedule:
+    - cron: '23 2,10,18 * * *'
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Test platform (macOS runs only when changed)
+        type: choice
+        options: [linux, macos]
+        default: linux
   pull_request:
     branches: [main]
   push:
@@ -18,7 +26,79 @@ env:
   UV_NO_SOURCES: "1"
 
 jobs:
+  prepare:
+    name: Prepare the version before starting expensive jobs
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      run_tests: ${{ steps.gate.outputs.run_tests }}
+      platform: ${{ steps.gate.outputs.platform }}
+      scheduled_key: ${{ steps.changes.outputs.key }}
+      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
+      runner: ${{ steps.runner.outputs.use-runner || '["ubuntu-24.04"]' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          token: ${{ github.event_name == 'push' && secrets.RELEASE_GH_TOKEN || github.token }}
+
+      - id: version
+        if: github.event_name == 'push'
+        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@main
+        with:
+          package: abx-plugins
+          branch: main
+          tag-prefix: v
+          version-scheme: patch
+
+      - name: Check scheduled macOS inputs
+        id: changes
+        if: github.event_name == 'schedule' || inputs.platform == 'macos'
+        uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
+
+      - name: Select test platform and cadence
+        id: gate
+        env:
+          MACOS: ${{ github.event_name == 'schedule' || inputs.platform == 'macos' }}
+          CHANGED: ${{ steps.changes.outputs.changed }}
+          VERSION_READY: ${{ github.event_name != 'push' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved' }}
+        run: |
+          if [[ "$MACOS" == true ]]; then
+            echo 'platform=macos' >> "$GITHUB_OUTPUT"
+            echo "run_tests=$CHANGED" >> "$GITHUB_OUTPUT"
+          else
+            echo 'platform=linux' >> "$GITHUB_OUTPUT"
+            echo "run_tests=$VERSION_READY" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Select available CI capacity
+        id: runner
+        if: steps.gate.outputs.run_tests == 'true' && steps.gate.outputs.platform == 'linux' && (vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        uses: ArchiveBox/monorepo/.github/actions/select-ci-runner@main
+        with:
+          github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
+
+      - name: Install uv
+        if: steps.gate.outputs.run_tests == 'true'
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Discover test files
+        if: steps.gate.outputs.run_tests == 'true'
+        id: set-matrix
+        env:
+          CI_TEST_PLATFORM: ${{ steps.gate.outputs.platform }}
+          UGNAS_CI_MAX_JOBS: ${{ vars.UGNAS_CI_MAX_JOBS || 3 }}
+        run: |
+          uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
+
   prek:
+    needs: prepare
+    if: needs.prepare.outputs.run_tests == 'true' && needs.prepare.outputs.platform == 'linux'
     name: Pre-commit checks
     runs-on: ubuntu-24.04
 
@@ -38,35 +118,21 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.11.3"
+          enable-cache: false
 
       - name: Install locked dependencies
         run: |
-          uv sync --locked --dev --no-sources
-
-      - name: Run documentation code blocks
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib
-        run: |
-          mapfile -t plugin_readmes < <(uv run --no-project python - <<'PY'
-          from pathlib import Path
-
-          for readme in sorted(Path("abx_plugins/plugins").glob("*/README.md")):
-              print(readme)
-          PY
-          )
-          uv run --no-sync --no-sources pytest -vv --tb=long \
-            README.md AGENTS.md skills docs "${plugin_readmes[@]}"
-
-      - name: Project lint tooling through abxpkg
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/lint-abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
+          uv sync --locked --dev --no-sources --no-cache
 
       - name: Run prek
+        env:
+          PREK_HOME: ${{ runner.temp }}/prek-home
         run: |
-          "${UV_BINARY}" run --no-sync --no-sources prek run --all-files
+          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek.log" run --all-files
 
   build-package:
+    needs: prepare
+    if: needs.prepare.outputs.run_tests == 'true'
     name: Build package artifacts
     runs-on: ubuntu-24.04
     steps:
@@ -84,15 +150,10 @@ jobs:
           version: "0.11.3"
           enable-cache: false
 
-      - name: Project build tooling through abxpkg
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
-
       - name: Build wheel and source distribution
         run: |
           set -Eeuo pipefail
-          "${UV_BINARY}" build --no-sources --out-dir dist --clear
+          uv build --no-cache --no-sources --out-dir dist --clear
           shopt -s nullglob
           artifacts=(dist/*)
           wheels=(dist/abx_plugins-*.whl)
@@ -100,10 +161,10 @@ jobs:
           [[ "${#artifacts[@]}" -eq 2 ]]
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
-          version="$("${UV_BINARY}" run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          version="$(uv run --no-cache --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           [[ "${wheels[0]}" == "dist/abx_plugins-${version}-py3-none-any.whl" ]]
           [[ "${sdists[0]}" == "dist/abx_plugins-${version}.tar.gz" ]]
-          DIST_DIR=dist "${UV_BINARY}" run --no-project python - <<'PY'
+          DIST_DIR=dist uv run --no-cache --no-project python - <<'PY'
           import hashlib
           import os
           from pathlib import Path
@@ -124,12 +185,12 @@ jobs:
 
   compatibility:
     name: ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
-    needs: build-package
+    needs: [prepare, build-package]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        os: ${{ fromJSON(needs.prepare.outputs.platform == 'macos' && '["macos-15"]' || '["ubuntu-24.04"]') }}
         python: ["3.12", "3.13", "3.14"]
         artifact: [wheel, sdist]
 
@@ -148,43 +209,128 @@ jobs:
           version: "0.11.3"
           enable-cache: false
 
-      - name: Project compatibility tooling through abxpkg
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
-
       - name: Download package artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: python-distributions-${{ github.sha }}
           path: ${{ runner.temp }}/python-distributions
 
-      - name: Install package and run an installed hook
+      - name: Install the package once its pinned dependencies are visible on PyPI
+        env:
+          ARTIFACT_KIND: ${{ matrix.artifact }}
+        run: |
+          uv run --no-cache --no-project python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import tomllib
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.parse import urlsplit
+          from urllib.request import Request, urlopen
+
+          suffix = {"wheel": "whl", "sdist": "tar.gz"}[os.environ["ARTIFACT_KIND"]]
+          candidates = list((Path(os.environ["RUNNER_TEMP"]) / "python-distributions").glob(f"abx_plugins-*.{suffix}"))
+          assert len(candidates) == 1, candidates
+          smoke_root = Path(tempfile.mkdtemp(prefix="abx-plugins-compat.", dir=os.environ["RUNNER_TEMP"]))
+          smoke_env = smoke_root / "env"
+          subprocess.run(["uv", "venv", "--no-cache", "--python", sys.executable, str(smoke_env)], check=True)
+
+          metadata = tomllib.loads(Path("pyproject.toml").read_text())["project"]
+          locked = {item["name"]: item for item in tomllib.loads(Path("uv.lock").read_text())["package"]}
+          expected = {}
+          requirements = []
+          for name in ("abxbus", "abxpkg"):
+              package = locked[name]
+              version = package["version"]
+              if f"{name}=={version}" not in metadata["dependencies"]:
+                  raise SystemExit(f"Project dependencies do not pin locked {name}=={version}")
+              requirements.append(f"{name}=={version}")
+              artifacts = [package["sdist"], *package["wheels"]]
+              expected[name] = {
+                  Path(urlsplit(item["url"]).path).name: item["hash"].removeprefix("sha256:")
+                  for item in artifacts
+              }
+          # The Simple API advertises max-age=600; a newly published pin can
+          # remain absent from a cached response for that full interval.
+          for attempt in range(73):
+              missing = []
+              for name, artifacts in expected.items():
+                  request = Request(
+                      f"https://pypi.org/simple/{name}/",
+                      headers={"Accept": "application/vnd.pypi.simple.v1+json"},
+                  )
+                  try:
+                      with urlopen(request, timeout=15) as response:
+                          files = json.load(response)["files"]
+                  except HTTPError as error:
+                      if error.code != 404:
+                          raise
+                      files = []
+                  published = {
+                      item["filename"]: item["hashes"].get("sha256")
+                      for item in files
+                      if item["filename"] in artifacts
+                  }
+                  missing.extend(f"{name}/{filename}" for filename in artifacts.keys() - published.keys())
+                  for filename in artifacts.keys() & published.keys():
+                      if published[filename] != artifacts[filename]:
+                          raise SystemExit(f"Public {name} artifact {filename} differs from uv.lock")
+              if not missing:
+                  # Install the actual artifact here. A disposable preflight
+                  # followed by a second resolution can hit a stale PyPI edge
+                  # even when the first resolution saw the new release.
+                  command = [
+                      "uv", "pip", "install", "--no-cache", "--no-config",
+                      "--default-index", "https://pypi.org/simple",
+                      "--python", str(smoke_env), str(candidates[0]),
+                  ]
+                  result = subprocess.run(
+                      command, capture_output=True, text=True,
+                      env={**os.environ, "UV_NO_COLOR": "1"}, check=False,
+                  )
+                  if result.returncode == 0:
+                      print(result.stderr, flush=True)
+                      subprocess.run(
+                          ["uv", "run", "--no-cache", "--active", "--no-project", "python", "-c",
+                           "from importlib.metadata import version; import sys; "
+                           "assert all(version(name) == expected for name, expected in "
+                           "(item.split('==') for item in sys.argv[1:]))", *requirements],
+                          cwd=smoke_root, env={**os.environ, "VIRTUAL_ENV": str(smoke_env)}, check=True,
+                      )
+                      with open(os.environ["GITHUB_ENV"], "a") as output:
+                          output.write(f"ABX_PLUGINS_SMOKE_ROOT={smoke_root}\n")
+                      print("Installed the package with the exact published internal dependencies")
+                      break
+                  if any(f"there is no version of {requirement}" in result.stderr
+                         for requirement in requirements):
+                      missing.append("uv resolver still sees a stale Simple API response")
+                  else:
+                      raise SystemExit(result.stderr)
+              if attempt == 72:
+                  raise SystemExit(f"Timed out waiting for public PyPI artifacts: {sorted(missing)}")
+              print(f"Waiting for public PyPI artifacts: {sorted(missing)}", flush=True)
+              time.sleep(10)
+          PY
+
+      - name: Run an installed hook
         shell: bash
         run: |
           set -Eeuo pipefail
-          shopt -s nullglob
-          case "${{ matrix.artifact }}" in
-            wheel) candidates=("$RUNNER_TEMP"/python-distributions/abx_plugins-*.whl) ;;
-            sdist) candidates=("$RUNNER_TEMP"/python-distributions/abx_plugins-*.tar.gz) ;;
-            *) exit 2 ;;
-          esac
-          [[ "${#candidates[@]}" -eq 1 ]]
-
-          smoke_root="$(mktemp -d "$RUNNER_TEMP/abx-plugins-compat.XXXXXX")"
+          smoke_root="$ABX_PLUGINS_SMOKE_ROOT"
           trap 'rm -rf "$smoke_root"' EXIT
           smoke_env="$smoke_root/env"
           data_dir="$smoke_root/data"
           mkdir -p "$data_dir/staticfile"
           printf 'hello' > "$data_dir/staticfile/output.html"
 
-          "${UV_BINARY}" venv --python "${{ matrix.python }}" "$smoke_env"
-          "${UV_BINARY}" pip install --python "$smoke_env" --no-cache "${candidates[0]}"
-
           unset PYTHONPATH
           cd "$smoke_root"
           hook="$({
-            VIRTUAL_ENV="$smoke_env" "${UV_BINARY}" run --active --no-project python - <<'PY'
+            VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project python - <<'PY'
           import os
           from pathlib import Path
 
@@ -203,16 +349,20 @@ jobs:
 
           hook_output="$({
             SNAP_DIR="$data_dir" VIRTUAL_ENV="$smoke_env" \
-              "${UV_BINARY}" run --active --no-project python "$hook" --url "https://example.com"
+              uv run --no-cache --active --no-project python "$hook" --url "https://example.com"
           })"
           HOOK_OUTPUT="$hook_output" SNAP_DIR="$data_dir" VIRTUAL_ENV="$smoke_env" \
-            "${UV_BINARY}" run --active --no-project python - <<'PY'
+            uv run --no-cache --active --no-project python - <<'PY'
           import hashlib
           import json
           import os
           from pathlib import Path
 
-          records = [json.loads(line) for line in os.environ["HOOK_OUTPUT"].splitlines() if line]
+          records = [
+              json.loads(line)
+              for line in os.environ["HOOK_OUTPUT"].splitlines()
+              if line.lstrip().startswith("{")
+          ]
           assert len(records) == 1, records
           assert records[0]["type"] == "ArchiveResult", records
           assert records[0]["status"] == "succeeded", records
@@ -226,38 +376,13 @@ jobs:
           ], hashes
           PY
 
-  discover-tests:
-    name: Discover test files
-    runs-on: ubuntu-24.04
-    outputs:
-      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          fetch-depth: 1
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
-        with:
-          version: "0.11.3"
-          enable-cache: false
-
-      - name: Project discovery tooling through abxpkg
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
-
-      - name: Discover test files
-        id: set-matrix
-        run: |
-          "${UV_BINARY}" run --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
-
   run-tests:
     name: ${{ matrix.test.path }} / Python ${{ matrix.test.python }} / ${{ matrix.test.os }}
-    runs-on: ${{ matrix.test.os }}
-    needs: [discover-tests]
+    # Ordinary Linux tests are eligible; # ci-runner: hosted declares exceptions.
+    # Hosted discovery selects GitHub when the NAS is offline or its API fails.
+    runs-on: ${{ matrix.test.ugnas && fromJSON(needs.prepare.outputs.runner) || matrix.test.os }}
+    needs: [prepare]
+    if: needs.prepare.outputs.run_tests == 'true'
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -265,7 +390,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson(needs.discover-tests.outputs.test-matrix) }}
+        test: ${{ fromJson(needs.prepare.outputs.test-matrix) }}
 
     steps:
       - name: Checkout repository
@@ -274,6 +399,7 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Python ${{ matrix.test.python }}
+        id: python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.test.python }}
@@ -282,14 +408,80 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.11.3"
+          enable-cache: false
+
+      # Restored binaries still pass normal abxpkg resolution/version checks.
+      # Installation and isolation tests explicitly choose fresh temporary libs.
+      - name: Identify runtime dependency cache
+        shell: bash
+        run: |
+          uv run --no-project python - <<'PYTHON' >> "$GITHUB_ENV"
+          import hashlib
+          import json
+          import tomllib
+          from pathlib import Path
+
+          packages = tomllib.loads(Path("uv.lock").read_text())["package"]
+          versions = {p["name"]: p["version"] for p in packages if p["name"] in {"abxpkg", "abx-plugins"} and "editable" not in p["source"]}
+          print("ABXPKG_CACHE_DEPS=" + hashlib.sha256(json.dumps(versions, sort_keys=True).encode()).hexdigest())
+          PYTHON
+
+      - name: Reuse validated runtime dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/runtime-abx-lib
+          key: abxpkg-v1-${{ matrix.test.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.path }}-${{ env.ABXPKG_CACHE_DEPS }}-${{ hashFiles('abx_plugins/plugins/**/config.json') }}
+          restore-keys: |
+            abxpkg-v1-${{ matrix.test.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.path }}-
 
       - name: Install locked dependencies
         run: |
-          uv sync --locked --dev --no-sources
+          uv sync --locked --dev --no-sources --no-cache
 
       - name: Run ${{ matrix.test.path }}
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/runtime-abx-lib
-        run: uv run --no-sync --no-sources pytest -vs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          # Hosted image Chromium stalls on cold executable page faults (D state).
+          # Let abxpkg reuse a browser in the existing runtime cache instead.
+          CHROME_BINPROVIDERS: ${{ runner.environment == 'github-hosted' && runner.os == 'Linux' && 'playwright,puppeteer' || 'env,playwright,puppeteer' }}
+          TEST_PATHS: ${{ join(matrix.test.paths, ' ') }}
+        run: |
+          set -Eeuo pipefail
+          read -r -a test_paths <<< "$TEST_PATHS"
+          mkdir -p "$RUNNER_TEMP/pytest"
+          export ABXPKG_LIB_DIR="$RUNNER_TEMP/runtime-abx-lib"
+          test_status=0
+          for test_path in "${test_paths[@]}"; do
+            test -f "$test_path"
+            test_slug="${test_path//[^A-Za-z0-9_.-]/_}"
+            uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
+              --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
+              --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
+          done
+          exit "$test_status"
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/test-results/*.xml
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Save failed hook diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hook-logs-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/pytest/**/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  scheduled-complete:
+    name: 'Scheduled inputs: ${{ needs.prepare.outputs.scheduled_key }}'
+    needs: [prepare, run-tests, compatibility]
+    if: needs.prepare.outputs.run_tests == 'true' && needs.prepare.outputs.platform == 'macos'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Scheduled macOS coverage completed successfully.'

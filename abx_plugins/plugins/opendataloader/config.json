@@ -2,9 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenDataLoader",
   "description": "Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
+  "wait_for_plugins": [
+    "papersdl"
+  ],
   "required_binaries": [
     {
       "name": "{OPENDATALOADER_BINARY}",
@@ -103,5 +107,10 @@
       ],
       "description": "Extra arguments to append to opendataloader-pdf command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 80,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 5,
+  "x-install-in-docker": true
 }

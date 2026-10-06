@@ -45,5 +45,16 @@
       "x-fallback": "RESOLUTION",
       "description": "Screenshot resolution (width,height)"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 20,
+  "snapshot_output_group": "raster",
+  "snapshot_output_order": 0,
+  "default_output_path": "screenshot.png",
+  "snapshot_primary_preview": true,
+  "archive_result_aliases": ["chrome_extension_screenshot"],
+  "snapshot_thumbnail_cards": [
+    {"archive_result_name": "screenshot", "order": 0},
+    {"archive_result_name": "chrome_extension_screenshot", "order": 1}
+  ]
 }

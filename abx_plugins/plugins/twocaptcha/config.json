@@ -79,5 +79,7 @@
       "default": false,
       "description": "Automatically submit forms after CAPTCHA is solved"
     }
-  }
+  },
+  "category": "page_setup",
+  "display_order": 60
 }

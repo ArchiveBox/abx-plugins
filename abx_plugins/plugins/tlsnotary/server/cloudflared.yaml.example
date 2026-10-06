@@ -1,0 +1,10 @@
+# Copy to cloudflared.yaml, set your tunnel UUID and hostname, and put that
+# tunnel's JSON credentials in cloudflared/credentials.json.
+tunnel: YOUR_TUNNEL_UUID
+credentials-file: /etc/cloudflared/credentials.json
+protocol: http2
+ingress:
+  - hostname: tlsnotary.example.com
+    service: http://gateway:7047
+  # Add other hostnames only after routing their DNS to this tunnel.
+  - service: http_status:404

@@ -4,6 +4,8 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 HOOK = Path(__file__).parent.parent / "on_Snapshot__90_index_sqlite.py"
 
@@ -26,7 +28,7 @@ def run_hook(
         },
     )
     return subprocess.run(
-        [str(HOOK), "--url=https://example.com"],
+        [str(HOOK), "--url=https://example.com", f"--snapshot-id={snapshot_id}"],
         cwd=str(output_dir),
         env=env,
         capture_output=True,
@@ -80,6 +82,48 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
     assert not (tmp_path / "search.sqlite3").exists()
 
 
+@pytest.mark.parametrize("component", ["a" * 120, "界" * 50])
+def test_hook_indexes_long_source_paths_without_losing_links(
+    tmp_path: Path,
+    component: str,
+) -> None:
+    source_dir = tmp_path / "wget" / component / component
+    source_dir.mkdir(parents=True)
+    sources = {
+        source_dir / "first.html": b"<p>needlealpha archived article</p>",
+        source_dir / "second.html": b"<p>needlebeta another article</p>",
+    }
+    for source, content in sources.items():
+        source.write_bytes(content)
+        flattened = source.relative_to(tmp_path).as_posix().replace("/", "__")
+        assert len(os.fsencode(flattened)) > 255
+
+    previous_names = None
+    for _ in range(2):
+        result = run_hook(tmp_path, snapshot_id="snap-long-paths")
+        assert result.returncode == 0, result.stderr
+        assert '"status": "succeeded"' in result.stdout
+        output_dir = tmp_path / "search_backend_sqlite"
+        links = list(output_dir.iterdir())
+        assert len(links) == len(sources)
+        assert all(link.is_symlink() for link in links)
+        assert {link.resolve() for link in links} == set(sources)
+        assert all(len(os.fsencode(link.name)) <= 255 for link in links)
+        names = {link.name for link in links}
+        if previous_names is not None:
+            assert names == previous_names
+        previous_names = names
+        assert {source: source.read_bytes() for source in sources} == sources
+
+        with sqlite3.connect(tmp_path / "search.sqlite3") as conn:
+            assert conn.execute("SELECT count(*) FROM search_index").fetchone() == (1,)
+            for term in ("needlealpha", "needlebeta"):
+                assert conn.execute(
+                    "SELECT snapshot_id FROM search_index WHERE search_index MATCH ?",
+                    (term,),
+                ).fetchall() == [("snap-long-paths",)]
+
+
 def test_hook_cold_start_avoids_typed_schema_imports(
     tmp_path: Path,
     real_html_snapshot,
@@ -104,7 +148,7 @@ def test_hook_cold_start_avoids_typed_schema_imports(
     )
     env["PYTHONPROFILEIMPORTTIME"] = "1"
     result = subprocess.run(
-        [str(HOOK), "--url=https://example.com"],
+        [str(HOOK), "--url=https://example.com", "--snapshot-id=snap-cold-start"],
         cwd=str(snapshot_dir / "search_backend_sqlite"),
         env=env,
         capture_output=True,

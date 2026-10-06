@@ -19,20 +19,26 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
       This extractor looks for HTML source from other extractors (wget, singlefile, dom)
 """
 
+import sys
+import html
 import json
 import os
+import re
+import shutil
 import subprocess
-import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     write_text_atomic,
     find_article_html_source,
+    preserve_article_image_dimensions,
 )
 
-from urllib.parse import urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import rich_click as click
 
@@ -52,12 +58,101 @@ TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
 
 
+def link_archived_images(content: str, url: str, output_dir: Path) -> str:
+    images_dir = output_dir / "images"
+    if images_dir.is_symlink() or images_dir.is_file():
+        images_dir.unlink()
+    elif images_dir.is_dir():
+        shutil.rmtree(images_dir)
+
+    def replace(match: re.Match) -> str:
+        tag = match.group(0)
+        src_match = re.search(r'\bsrc\s*=\s*(["\'])([^"\']+)\1', tag, flags=re.I)
+        if not src_match:
+            return ""
+        source = html.unescape(src_match.group(2))
+        parsed = urlparse(urljoin(url, source))
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return ""
+        path_parts = tuple(
+            part for part in PurePosixPath(unquote(parsed.path)).parts if part != "/"
+        )
+        if not path_parts or any(part in {".", ".."} for part in path_parts):
+            return ""
+        for root in ("responses/image", "responses", "wget"):
+            candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
+            if candidate.is_file():
+                link = output_dir / "images" / parsed.hostname / Path(*path_parts)
+                try:
+                    link.parent.mkdir(parents=True, exist_ok=True)
+                    if link.exists() and not link.is_symlink():
+                        return ""
+                    if link.is_symlink() and link.resolve() != candidate.resolve():
+                        link.unlink()
+                    if not link.exists():
+                        link.symlink_to(os.path.relpath(candidate, link.parent))
+                except OSError:
+                    return ""
+                archived = f"./{link.relative_to(output_dir).as_posix()}"
+                tag = f"{tag[: src_match.start(2)]}{archived}{tag[src_match.end(2) :]}"
+                return re.sub(r'\s+srcset\s*=\s*(["\']).*?\1', "", tag, flags=re.I)
+        return ""
+
+    content = re.sub(
+        r"<img\b[^>]*>",
+        replace,
+        content,
+        flags=re.I,
+    )
+    content = re.sub(r"<source\b[^>]*>", "", content, flags=re.I)
+    for tag in ("picture", "a", "figure", "p"):
+        content = re.sub(rf"<{tag}\b[^>]*>\s*</{tag}>", "", content, flags=re.I)
+    return content
+
+
+def render_readability_document(
+    content: str,
+    metadata: dict,
+    url: str,
+    output_dir: Path,
+) -> str:
+    title = html.escape(str(metadata.get("title") or ""))
+    content = link_archived_images(content, url, output_dir)
+    return f'''<!doctype html>
+<html lang="{html.escape(str(metadata.get("lang") or "en"), quote=True)}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title><style>
+* {{ box-sizing: border-box }}
+html {{ min-height: 100%; background: #fff }}
+body {{ min-height: 100vh; margin: 0; color: #1f2937; background: #fff }}
+main {{ width: 100%; min-height: 100vh; margin: 0; padding: clamp(1.5rem, 4vw, 4rem) clamp(1rem, 5vw, 4.5rem) 6rem; background: #fff }}
+article {{ width: min(100%, 72rem); margin: 0 auto; font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }}
+article > :first-child {{ margin-top: 0 }}
+h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
+a {{ color: #0369a1 }} img {{ max-width: 100%; vertical-align: middle }} svg {{ max-width: 100% }} svg:not([height]), video {{ max-width: 100%; height: auto }}
+article > *, article section, article div, article figure {{ max-width: 100% !important }}
+article table {{ width: 100% !important; max-width: 100% !important; border-collapse: collapse }}
+article td, article th {{ max-width: 100%; vertical-align: top }}
+article table[width], article table[style*="width"] {{ width: 100% !important }}
+article :is(tbody, thead, tfoot, tr)[width], article :is(tbody, thead, tfoot, tr)[style*="width"] {{ width: 100% !important }}
+article :is(div, section, article, main, figure, p, td, th)[width],
+article :is(div, section, article, main, figure, p, td, th)[style*="width"] {{ width: auto !important; max-width: 100% !important }}
+blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
+@media (max-width: 40rem) {{ main {{ padding: 1.5rem 1rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
+</style></head><body><main><article>{content}</article></main></body></html>'''
+
+
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
     """
     Extract article using Readability.
 
     Returns: (success, output_path, error_message)
     """
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     config = load_config()
     timeout = config.READABILITY_TIMEOUT
     readability_args = config.READABILITY_ARGS
@@ -73,7 +168,14 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
     try:
         # Run readability-extractor (outputs JSON by default)
-        cmd = [binary, *readability_args, *readability_args_extra, html_source, url]
+        cmd = [
+            binary,
+            *readability_args,
+            *readability_args_extra,
+            html_source,
+            url,
+            "utf-8",
+        ]
         result = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
@@ -105,32 +207,20 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         if not text_content and not html_content:
             return "noresults", "No content extracted"
 
+        html_content = preserve_article_image_dimensions(
+            html_content,
+            Path(html_source).read_text(encoding="utf-8", errors="replace"),
+            url,
+        )
+        html_content = render_readability_document(
+            html_content,
+            result_json,
+            url,
+            output_dir,
+        )
         write_text_atomic(output_dir / OUTPUT_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
         write_text_atomic(output_dir / METADATA_FILE, json.dumps(result_json, indent=2))
-
-        # Link images/ to responses capture (if available)
-        try:
-            hostname = urlparse(url).hostname or ""
-            if hostname:
-                responses_images = (
-                    output_dir / ".." / "responses" / "image" / hostname / "images"
-                ).resolve()
-                link_path = output_dir / "images"
-                if responses_images.exists() and responses_images.is_dir():
-                    if link_path.exists() or link_path.is_symlink():
-                        if link_path.is_symlink() or link_path.is_file():
-                            link_path.unlink()
-                        else:
-                            responses_images = None
-                    if responses_images:
-                        rel_target = os.path.relpath(
-                            str(responses_images),
-                            str(output_dir),
-                        )
-                        link_path.symlink_to(rel_target)
-        except Exception:
-            pass
 
         return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
@@ -159,6 +249,7 @@ def main(url: str):
         binary = config.READABILITY_BINARY
 
         # Run extraction
+        print("Readability extraction started", flush=True)
         status, output = extract_readability(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

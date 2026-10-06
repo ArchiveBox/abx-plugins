@@ -15,19 +15,7 @@ const path = require("path");
 
 const BASE_CONFIG_PATH = path.join(__dirname, "config.json");
 const PROCESS_EXIT_SKIPPED = 10;
-const INTERNAL_INPUT_URL = "archivebox://internal";
 const configCache = new Map();
-
-function fsyncIfRegularFile(fd) {
-  try {
-    const stats = fs.fstatSync(fd);
-    if (stats.isFile()) {
-      fs.fsyncSync(fd);
-    }
-  } catch (error) {
-    return;
-  }
-}
 
 function writeFdFully(fd, text) {
   const buffer = Buffer.from(text, "utf8");
@@ -35,7 +23,6 @@ function writeFdFully(fd, text) {
   while (offset < buffer.length) {
     offset += fs.writeSync(fd, buffer, offset, buffer.length - offset);
   }
-  fsyncIfRegularFile(fd);
 }
 
 // ---------------------------------------------------------------------------
@@ -198,11 +185,7 @@ function maybeSkipUnsupportedSnapshotUrl(schema) {
   const scriptName = path.basename(process.argv[1] || process.argv[0] || "");
   const url = argvUrl();
   if (!scriptName.startsWith("on_Snapshot__") || !url) return;
-  if (url.startsWith("http://") || url.startsWith("https://")) return;
-  // ArchiveBox uses one synthetic snapshot URL for pasted/stdin import text.
-  // Only plugins that explicitly opt in should consume that source; everything
-  // else should no-result before starting browsers/downloaders or networking.
-  if (url === INTERNAL_INPUT_URL && schema["x-accepts-internal-input"]) return;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) return;
   writeFdFully(
     1,
     `${JSON.stringify({
@@ -648,6 +631,27 @@ function writeFileAtomic(filePath, contents) {
 // Sibling plugin output checking
 // ---------------------------------------------------------------------------
 
+// Match Python's is_non_html_document, including 2xx attachment navigations.
+function isNonHtmlDocument(navigationPath = "../chrome/navigation.json") {
+  try {
+    const navigation = JSON.parse(fs.readFileSync(navigationPath, "utf8"));
+    if (!navigation || typeof navigation.content_type !== "string") return false;
+    if (
+      navigation.error &&
+      !(
+        String(navigation.error).includes("ERR_ABORTED") &&
+        Number.isInteger(navigation.status) &&
+        navigation.status >= 200 &&
+        navigation.status < 300
+      )
+    ) return false;
+    const mimetype = navigation.content_type.split(";", 1)[0].trim().toLowerCase();
+    return mimetype.includes("/") && !["text/html", "application/xhtml+xml"].includes(mimetype);
+  } catch (error) {
+    return false;
+  }
+}
+
 function hasStaticFileOutput(staticfileDir = "../staticfile") {
   if (!fs.existsSync(staticfileDir)) return false;
   const stdoutPath = path.join(staticfileDir, "stdout.log");
@@ -686,14 +690,12 @@ function iterStaticfileTextInputs(snapDir = null) {
 
 module.exports = {
   PROCESS_EXIT_SKIPPED,
-  INTERNAL_INPUT_URL,
   getConfig,
   loadConfig,
   getEnv,
   getEnvBool,
   getEnvInt,
   getEnvArray,
-  getExtraContext,
   getSnapDir,
   getCrawlDir,
   getLibDir,
@@ -707,6 +709,7 @@ module.exports = {
   emitSnapshotRecord,
   writeFileAtomic,
   hasStaticFileOutput,
+  isNonHtmlDocument,
   iterStaticfileTextInputs,
 };
 

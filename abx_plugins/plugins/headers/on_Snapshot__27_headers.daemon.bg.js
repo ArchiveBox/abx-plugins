@@ -13,27 +13,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -106,7 +86,7 @@ const headersReadyFailure = new Promise((_, reject) => {
 
 function emitProgress(line) {
   if (!line || line === lastProgressLine) return;
-  console.log(line);
+  console.error(line);
   lastProgressLine = line;
 }
 
@@ -300,7 +280,6 @@ async function main() {
   }
 
   originalUrl = url;
-  emitProgress("waiting for initial response...");
 
   if (!getEnvBool("HEADERS_ENABLED", true)) {
     console.error("Skipping (HEADERS_ENABLED=False)");
@@ -314,6 +293,8 @@ async function main() {
     browser = connection.browser;
     page = connection.page;
     cdpSession = connection.cdpSession;
+    console.log("headers listener attached");
+    emitProgress("waiting for initial response...");
 
     // The hook only needs the top-level request/response pair. Waiting for
     // full navigation as a hard requirement keeps the daemon alive longer
@@ -371,7 +352,7 @@ async function main() {
   }
 }
 
-__abxInstallShutdownHandler(handleShutdown);
+installShutdownHandler(handleShutdown);
 
 main().catch(async (e) => {
   console.error(`Fatal error: ${e.message}`);

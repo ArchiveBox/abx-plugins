@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+#!/usr/bin/env -S abxpkg run --script --binproviders=env,pnpm,apt,brew node
 // /// script
 // ///
 /**
@@ -9,27 +9,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -192,7 +172,7 @@ async function main() {
     setImmediate(() => process.exit(0));
   };
 
-  __abxInstallShutdownHandler(() => {
+  installShutdownHandler(() => {
     running = false;
     emitAndExit();
   });
@@ -211,7 +191,8 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
-    emitProgress("0 captchas detected");
+    console.log("twocaptcha observer attached");
+    lastProgressLine = "0 captchas detected";
 
     try {
       // CAPTCHA observation is useful only after navigation, but the observer
@@ -239,8 +220,6 @@ async function main() {
           emitProgress(formatCaptchaCount(solvedCaptchas));
         } else if (state.detected) {
           emitProgress("1 captcha detected");
-        } else {
-          emitProgress("0 captchas detected");
         }
       }
       await sleep(pollIntervalMs);

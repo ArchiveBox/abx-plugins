@@ -26,18 +26,15 @@ const {
   ensureNodeModuleResolution,
   getEnvBool,
   getEnvInt,
-  getExtraContext,
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
-const puppeteer = resolvePuppeteerModule();
+const { connectToPage } = require("../chrome/chrome_utils.js");
 
 // Extractor metadata
 const PLUGIN_NAME = "parse_dom_outlinks";
@@ -70,10 +67,10 @@ async function extractOutlinks(url, depth, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("parsing 1 files for urls...");
 
     // Extract outlinks by category
     const outlinksData = await page.evaluate(() => {
@@ -232,8 +229,7 @@ async function extractOutlinks(url, depth, timeoutMs) {
 async function main() {
   const args = parseArgs();
   const url = args.url;
-  const extraContext = getExtraContext();
-  const depthValue = args.depth ?? extraContext.snapshot_depth ?? 0;
+  const depthValue = args.depth ?? 0;
   const depth = parseInt(String(depthValue), 10) || 0;
 
   if (!url) {
@@ -254,10 +250,19 @@ async function main() {
       process.exit(0);
     }
 
+    if (hasStaticFileOutput()) {
+      console.error("Skipping parse_dom_outlinks - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
+      process.exit(0);
+    }
+
     const timeoutMs =
       getEnvInt("PARSE_DOM_OUTLINKS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000;
-    console.log("parsing 1 files for urls...");
-
     const result = await extractOutlinks(url, depth, timeoutMs);
 
     if (result.success) {

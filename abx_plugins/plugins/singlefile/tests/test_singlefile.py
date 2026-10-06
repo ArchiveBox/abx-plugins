@@ -17,7 +17,6 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.testing import (
-    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
@@ -43,66 +42,6 @@ SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 TEST_URL = "https://example.com"
-
-# Module-level cache for extension install location
-_singlefile_install_state = None
-
-
-def ensure_singlefile_extension_installed(tmp_path: Path) -> dict[str, Path]:
-    """Install SingleFile extension via crawl hook and return resolved paths."""
-    global _singlefile_install_state
-    if _singlefile_install_state:
-        cache_file = _singlefile_install_state["cache_file"]
-        if cache_file.exists():
-            try:
-                payload = json.loads(cache_file.read_text())
-                unpacked_path = Path(payload.get("unpacked_path", ""))
-                if (
-                    unpacked_path.exists()
-                    and (unpacked_path / "manifest.json").exists()
-                ):
-                    return _singlefile_install_state
-            except Exception:
-                pass
-
-    install_root = tmp_path / "singlefile-ext"
-    env_install, extensions_dir = chrome_extension_install_env(install_root)
-
-    loaded = install_required_binary_from_config(
-        PLUGIN_DIR,
-        "singlefile",
-        env=env_install,
-    )
-    assert loaded.loaded_abspath is not None, (
-        "abxpkg did not resolve SingleFile extension"
-    )
-    assert loaded.loaded_abspath.parent == extensions_dir
-
-    cache_candidates = (
-        extensions_dir.parent / "singlefile.extension.json",
-        extensions_dir / "singlefile.extension.json",
-    )
-    cache_file = next((path for path in cache_candidates if path.exists()), None)
-    assert cache_file is not None, (
-        "Extension cache file not created in any expected location: "
-        + ", ".join(str(path) for path in cache_candidates)
-    )
-
-    payload = json.loads(cache_file.read_text())
-    unpacked_path = Path(payload.get("unpacked_path", ""))
-    assert unpacked_path.exists(), f"Unpacked extension path missing: {unpacked_path}"
-    assert (unpacked_path / "manifest.json").exists(), (
-        f"Extension manifest missing: {unpacked_path / 'manifest.json'}"
-    )
-
-    _singlefile_install_state = {
-        "install_root": install_root,
-        "abxpkg_lib_dir": Path(env_install["ABXPKG_LIB_DIR"]),
-        "extensions_dir": extensions_dir,
-        "cache_file": cache_file,
-        "unpacked_path": unpacked_path,
-    }
-    return _singlefile_install_state
 
 
 def test_snapshot_hook_exists():
@@ -147,60 +86,129 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
     assert payload["minimumBudget"] == 3000
 
 
-def test_verify_deps_with_abxpkg(tmp_path):
+def test_verify_deps_with_abxpkg(tmp_path, singlefile_install_state):
     """Verify dependencies are available via abxpkg."""
-    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node_loaded = install_binary_with_abxpkg(
+        "node",
+        binproviders="env,node,brew,apt",
+    )
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
-    state = ensure_singlefile_extension_installed(tmp_path)
+    state = singlefile_install_state
     assert state["cache_file"].exists(), (
         "SingleFile extension cache should be installed"
     )
 
 
-def test_singlefile_cli_archives_example_com(tmp_path):
-    """Test that singlefile archives example.com and produces valid HTML."""
+@pytest.mark.parametrize(
+    ("test_url", "expected_text"),
+    [
+        (TEST_URL, "Example Domain"),
+        ("https://docs.sweeting.me/s/cookie-dilemma", "Scraping-With-Cookies"),
+    ],
+)
+def test_singlefile_cli_archives_loaded_page(
+    tmp_path,
+    test_url,
+    expected_text,
+    singlefile_install_state,
+):
+    """Archive the exact loaded document through the real SingleFile extension."""
     tmpdir = tmp_path / "singlefile-cli"
     tmpdir.mkdir()
 
-    env_install, extensions_dir = chrome_extension_install_env(tmpdir / "install")
-
-    loaded = install_required_binary_from_config(
-        PLUGIN_DIR,
-        "singlefile",
-        env=env_install,
-    )
-    assert loaded.loaded_abspath is not None, (
-        "abxpkg did not resolve SingleFile extension"
-    )
+    install_state = singlefile_install_state
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-cli-crawl",
         snapshot_id="singlefile-cli-snap",
-        test_url=TEST_URL,
+        test_url=test_url,
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
-            "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
-            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
     ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
         env["SINGLEFILE_ENABLED"] = "true"
-        assert extensions_dir == loaded.loaded_abspath.parent
+        assert install_state["cache_file"].exists()
 
         singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
         singlefile_output_dir.mkdir(parents=True, exist_ok=True)
 
+        # A reload would lose runtime state, including authenticated/interactive
+        # page content. Observe the real document across the actual capture hook.
+        document_probe = f"""
+const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
+(async () => {{
+    const {{ browser, page, extensions }} = await chromeUtils.connectToPage({{
+        chromeSessionDir: {json.dumps(str(snapshot_chrome_dir))},
+        requireTargetId: true,
+        waitForNavigationComplete: true,
+    }});
+    try {{
+        const state = await page.evaluate((initialize) => {{
+            if (initialize) {{
+                const marker = document.createElement('p');
+                marker.id = 'archivebox-singlefile-live-state';
+                marker.textContent = 'ArchiveBox preserves the already loaded document';
+                document.body.append(marker);
+            }}
+            return {{ timeOrigin: performance.timeOrigin,
+                marker: document.getElementById('archivebox-singlefile-live-state')?.textContent }};
+        }}, process.argv[1] === 'initialize');
+        if (process.argv[1] === 'observe') {{
+            const extension = chromeUtils.findExtensionMetadataByName(extensions, 'singlefile');
+            const target = await browser.waitForTarget(target =>
+                target.type() === 'service_worker' &&
+                target.url().startsWith(`chrome-extension://${{extension.id}}/`));
+            const worker = await target.worker();
+            state.downloads = await worker.evaluate(() => chrome.downloads.search({{state: 'complete'}}));
+            state.downloadDirectory = chromeUtils.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR;
+        }}
+        process.stdout.write(JSON.stringify(state));
+    }} finally {{ await browser.disconnect(); }}
+}})().catch(error => {{ console.error(error); process.exit(1); }});
+"""
+        before = subprocess.run(
+            [env["NODE_BINARY"], "-e", document_probe, "initialize"],
+            cwd=singlefile_output_dir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+        assert before.returncode == 0, before.stderr
+
         result = subprocess.run(
             [
                 str(SNAPSHOT_HOOK),
-                f"--url={TEST_URL}",
+                f"--url={test_url}",
             ],
             cwd=singlefile_output_dir,
             capture_output=True,
             text=True,
             env=env,
             timeout=120,
+        )
+
+        after = subprocess.run(
+            [env["NODE_BINARY"], "-e", document_probe, "observe"],
+            cwd=singlefile_output_dir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+        assert after.returncode == 0, after.stderr
+        after_state = json.loads(after.stdout)
+        downloads = after_state.pop("downloads")
+        download_directory = Path(after_state.pop("downloadDirectory"))
+        assert downloads, "SingleFile must complete a real browser download"
+        assert all(
+            Path(item["filename"]).parent == download_directory for item in downloads
+        ), downloads
+        assert after_state == json.loads(before.stdout), (
+            "SingleFile reloaded the snapshot tab"
         )
 
     assert result.returncode == 0, f"Hook execution failed: {result.stderr}"
@@ -215,16 +223,21 @@ def test_singlefile_cli_archives_example_com(tmp_path):
     assert "<!DOCTYPE html>" in html_content or "<html" in html_content, (
         "Output should contain HTML doctype or html tag"
     )
-    assert "Example Domain" in html_content, "Output should contain example.com content"
+    assert expected_text in html_content, "Output should contain the requested page"
+    # The observer is a separate, initially active extension tab. A toolbar
+    # action must still save the original snapshot, never the observer page.
+    assert f"url: {test_url}" in html_content
+    assert "Autosave offscreen document" not in html_content
+    assert "ArchiveBox preserves the already loaded document" in html_content
 
 
-def test_singlefile_with_chrome_session(tmp_path):
+def test_singlefile_with_chrome_session(tmp_path, singlefile_install_state):
     """Test singlefile connects to existing Chrome session via CDP.
 
     When a Chrome session exists (chrome/cdp_url.txt), singlefile should
     connect to it instead of launching a new Chrome instance.
     """
-    install_state = ensure_singlefile_extension_installed(tmp_path)
+    install_state = singlefile_install_state
 
     tmpdir = tmp_path / "singlefile-session"
     tmpdir.mkdir()
@@ -234,10 +247,8 @@ def test_singlefile_with_chrome_session(tmp_path):
         crawl_id="singlefile-test-crawl",
         snapshot_id="singlefile-test-snap",
         test_url=TEST_URL,
-        navigate=False,
         timeout=20,
         env_overrides={
-            "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
@@ -277,7 +288,7 @@ def test_singlefile_with_chrome_session(tmp_path):
 
 
 def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
-    """Test SingleFile uses the Chrome extension via existing session (CLI fallback disabled)."""
+    """Test SingleFile uses the Chrome extension via the exact existing tab."""
     tmpdir = tmp_path / "singlefile-extension"
     tmpdir.mkdir()
 
@@ -288,27 +299,9 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         "singlefile",
         env=env_install,
     )
-    cli_records = [
-        record
-        for record in get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
-        if any(
-            isinstance(arg, str)
-            and (arg == "single-file-cli" or arg.startswith("single-file-cli@"))
-            for arg in record.get("overrides", {})
-            .get("pnpm", {})
-            .get("install_args", [])
-        )
-    ]
-    assert len(cli_records) == 1, cli_records
-    singlefile_cli = install_required_binary_from_config(
-        PLUGIN_DIR,
-        str(cli_records[0]["name"]),
-        env=env_install,
-    )
     assert loaded.loaded_abspath is not None, (
         "abxpkg did not resolve SingleFile extension"
     )
-    assert singlefile_cli.loaded_abspath is not None
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-ext-crawl",
@@ -317,7 +310,6 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
         },
@@ -325,21 +317,13 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
         singlefile_output_dir.mkdir(parents=True, exist_ok=True)
         assert extensions_dir == loaded.loaded_abspath.parent
-        downloads_dir = (
-            Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
-        )
-
         chrome_dir = singlefile_output_dir.parent / "chrome"
         if not chrome_dir.exists():
             chrome_dir.symlink_to(snapshot_chrome_dir)
 
         env["SINGLEFILE_ENABLED"] = "true"
-        env["SINGLEFILE_BINARY"] = str(singlefile_cli.loaded_abspath)
         env["CHROME_HEADLESS"] = "false"
         env.pop("CRAWL_DIR", None)
-
-        downloads_before = set(downloads_dir.glob("*.html"))
-        downloads_mtime_before = downloads_dir.stat().st_mtime_ns
 
         result = subprocess.run(
             [
@@ -366,20 +350,15 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
             "Output should contain example.com content"
         )
 
-        downloads_after = set(downloads_dir.glob("*.html"))
-        new_downloads = downloads_after - downloads_before
-        downloads_mtime_after = downloads_dir.stat().st_mtime_ns
-        assert downloads_mtime_after != downloads_mtime_before, (
-            "Downloads dir should be modified during extension save"
-        )
-        assert not new_downloads, (
-            f"SingleFile download should be moved out of downloads dir, found: {new_downloads}"
-        )
+        assert list(singlefile_output_dir.glob("*.html")) == [output_file]
 
 
-def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
+def test_singlefile_extension_loader_resolves_current_background_target(
+    tmp_path,
+    singlefile_install_state,
+):
     """SingleFile loader should prefer the cached background target over the offscreen page."""
-    install_state = ensure_singlefile_extension_installed(tmp_path)
+    install_state = singlefile_install_state
     tmpdir = tmp_path / "singlefile-offscreen"
     tmpdir.mkdir()
 
@@ -391,7 +370,6 @@ def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
@@ -401,6 +379,13 @@ def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
             timeout_seconds=20,
         )
         entry = next(ext for ext in metadata if ext.get("name") == "singlefile")
+        manifest = json.loads(
+            (Path(entry["unpacked_path"]) / "manifest.json").read_text(),
+        )
+        preferred_target_url = (
+            f"chrome-extension://{entry['id']}/"
+            f"{manifest['background']['service_worker'].lstrip('/')}"
+        )
         cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
         script = r"""
 const chromeUtils = require(process.argv[1]);
@@ -509,7 +494,7 @@ function collectTargets(browser, extensionId) {
                 entry["id"],
                 entry["unpacked_path"],
                 entry["version"],
-                entry["target_url"],
+                preferred_target_url,
             ],
             capture_output=True,
             text=True,
@@ -534,13 +519,13 @@ function collectTargets(browser, extensionId) {
             for target in payload["afterClose"]
         ), payload
         assert any(
-            target["type"] == "service_worker" and target["url"] == entry["target_url"]
+            target["type"] == "service_worker" and target["url"] == preferred_target_url
             for target in payload["afterWake"]
         ), payload
         assert payload["loaded"] is True, payload
         assert payload["hasDispatchAction"] is True, payload
         assert payload["selectedTargetType"] == "service_worker", payload
-        assert payload["selectedTargetUrl"] == entry["target_url"], payload
+        assert payload["selectedTargetUrl"] == preferred_target_url, payload
 
 
 def test_singlefile_disabled_skips(tmp_path):

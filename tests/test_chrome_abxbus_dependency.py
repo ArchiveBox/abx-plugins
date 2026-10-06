@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import load_required_binary
@@ -13,6 +14,7 @@ CHROME_CONFIG = REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "config.json"
 ARCHIVEWEBPAGE_CONFIG = (
     REPO_ROOT / "abx_plugins" / "plugins" / "archivewebpage" / "config.json"
 )
+UBLOCK_CONFIG = REPO_ROOT / "abx_plugins" / "plugins" / "ublock" / "config.json"
 
 
 def _resolve_node_binary(config: dict, lib_dir: Path, env: dict[str, str]) -> str:
@@ -31,6 +33,8 @@ def _resolve_node_binary(config: dict, lib_dir: Path, env: dict[str, str]) -> st
     )
     assert loaded.loaded_abspath
     assert Path(loaded.loaded_abspath).is_file()
+    assert loaded.loaded_binprovider
+    assert loaded.loaded_binprovider.name == "node"
     return str(loaded.loaded_abspath)
 
 
@@ -46,8 +50,11 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     env["ABXPKG_MIN_RELEASE_AGE"] = "0"
     clean_path = []
     for entry in env.get("PATH", "").split(os.pathsep):
-        abxbus_binary = Path(entry) / "abxbus"
-        if abxbus_binary.is_file() and os.access(abxbus_binary, os.X_OK):
+        if any(
+            (Path(entry) / binary_name).is_file()
+            and os.access(Path(entry) / binary_name, os.X_OK)
+            for binary_name in ("abxbus", "node", "npm")
+        ):
             continue
         clean_path.append(entry)
     env["PATH"] = os.pathsep.join(clean_path)
@@ -64,6 +71,15 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     assert Path(loaded.loaded_abspath).exists()
     assert loaded.loaded_binprovider
     assert loaded.loaded_binprovider.name == "pnpm"
+    package_root = Path(loaded.loaded_abspath).parents[2]
+    package = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
+    assert package["version"] == record["overrides"]["pnpm"]["version"]
+    legacy_semaphore_dirname = "_".join(("browser", "use", "semaphores"))
+    assert not any(
+        legacy_semaphore_dirname in path.read_text(encoding="utf-8")
+        for path in package_root.rglob("*")
+        if path.is_file() and path.suffix in {".js", ".map", ".ts"}
+    )
 
     install_root = Path(
         record["overrides"]["pnpm"]["install_root"].replace(
@@ -114,19 +130,39 @@ def test_chrome_config_keeps_min_release_age_zero_packages_in_separate_pnpm_root
     assert not mixed_roots
 
 
-def test_chrome_host_binaries_require_their_javascript_modules() -> None:
+def test_chrome_js_modules_stay_package_scoped() -> None:
     config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
     records = {item["name"]: item for item in config["required_binaries"]}
-
-    assert records["abxbus"]["overrides"]["env"]["version"] == [
-        "node",
-        "-p",
-        "require('abxbus/package.json').version",
+    dependencies = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"][
+        "dependencies"
     ]
-    assert records["browsers"]["overrides"]["env"]["version"] == [
-        "node",
-        "-p",
-        "require('puppeteer/package.json').version",
+    abxbus_version = next(
+        dependency.removeprefix("abxbus==")
+        for dependency in dependencies
+        if dependency.startswith("abxbus==")
+    )
+
+    assert records["abxbus"]["binproviders"] == "pnpm"
+    assert "env" not in records["abxbus"]["overrides"]
+    assert records["abxbus"]["min_version"] == abxbus_version
+    assert records["abxbus"]["overrides"]["pnpm"]["install_args"] == [
+        f"abxbus@{abxbus_version}",
+    ]
+    assert records["abxbus"]["overrides"]["pnpm"]["version"] == abxbus_version
+    assert records["browsers"]["binproviders"] == "pnpm"
+    assert "env" not in records["browsers"]["overrides"]
+    assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.0.4"
+
+
+def test_chrome_config_pins_puppeteer_dependencies() -> None:
+    config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
+    record = next(
+        item for item in config["required_binaries"] if item["name"] == "browsers"
+    )
+
+    assert record["overrides"]["pnpm"]["install_args"] == [
+        "@puppeteer/browsers@3.0.4",
+        "puppeteer@25.1.0",
     ]
 
 
@@ -138,6 +174,17 @@ def test_archivewebpage_config_depends_on_chrome_for_puppeteer_js_module() -> No
     config = json.loads(ARCHIVEWEBPAGE_CONFIG.read_text(encoding="utf-8"))
     assert "chrome" in config["required_plugins"]
     assert not any(item["name"] == "browsers" for item in config["required_binaries"])
+
+
+def test_chrome_extension_configs_pin_release_archives() -> None:
+    for config_path in (ARCHIVEWEBPAGE_CONFIG, UBLOCK_CONFIG):
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        record = config["required_binaries"][0]
+        install_args = record["overrides"]["chromewebstore"]["install_args"]
+
+        assert any(arg.startswith("--url=https://github.com/") for arg in install_args)
+        sha256_arg = next(arg for arg in install_args if arg.startswith("--sha256="))
+        assert len(sha256_arg.removeprefix("--sha256=")) == 64
 
 
 def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None:
@@ -152,8 +199,11 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     env["ABXPKG_MIN_RELEASE_AGE"] = "3"
     clean_path = []
     for entry in env.get("PATH", "").split(os.pathsep):
-        browsers_binary = Path(entry) / "browsers"
-        if browsers_binary.is_file() and os.access(browsers_binary, os.X_OK):
+        if any(
+            (Path(entry) / binary_name).is_file()
+            and os.access(Path(entry) / binary_name, os.X_OK)
+            for binary_name in ("browsers", "node", "npm")
+        ):
             continue
         clean_path.append(entry)
     env["PATH"] = os.pathsep.join(clean_path)

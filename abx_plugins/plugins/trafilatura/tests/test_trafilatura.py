@@ -7,6 +7,7 @@ Tests verify:
 3. Extraction runs with real trafilatura binary on local HTML sourced from pytest-httpserver
 """
 
+import json
 import os
 import subprocess
 import tempfile
@@ -60,10 +61,34 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_install_hooks():
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert config["required_binaries"][0]["binproviders"] == "uv,env"
+    uv_override = config["required_binaries"][0]["overrides"]["uv"]
+    assert uv_override["install_args"] == [
+        "trafilatura==2.1.0",
+        "lxml==6.1.1",
+    ]
+    assert uv_override["install_root"].endswith(
+        "/uv/packages/trafilatura-2.1.0",
+    )
+
     binary_path = require_trafilatura_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"
     )
+    managed_python = Path(binary_path).resolve().with_name("python")
+    result = subprocess.run(
+        [
+            str(managed_python),
+            "-c",
+            "import lxml.etree, trafilatura; print(trafilatura.__version__)",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "2.1.0"
 
 
 def test_extracts_local_html_outputs_with_real_binary(httpserver):
@@ -105,7 +130,7 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
             env=env,
         )
 
@@ -183,7 +208,7 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
             env=env,
         )
 
@@ -250,7 +275,7 @@ def test_outputs_all_supported_formats_together(httpserver):
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
             env=env,
         )
 
@@ -263,6 +288,24 @@ def test_outputs_all_supported_formats_together(httpserver):
         assert (output_dir / "content.json").exists(), "content.json not created"
         assert (output_dir / "content.xml").exists(), "content.xml not created"
         assert (output_dir / "content.xmltei").exists(), "content.xmltei not created"
+
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json and result_json["status"] == "succeeded"
+        metadata = json.loads((output_dir / "content.json").read_text())
+        assert metadata["source"] == test_url
+        for output_file in (
+            "content.txt",
+            "content.md",
+            "content.html",
+            "content.csv",
+            "content.json",
+            "content.xml",
+            "content.xmltei",
+        ):
+            assert (
+                "all format coverage"
+                in (output_dir / output_file).read_text(errors="ignore").lower()
+            )
 
 
 def test_fails_without_html_source():

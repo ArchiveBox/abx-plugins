@@ -13,27 +13,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -109,7 +89,7 @@ function appendRedirectEntry(outputPath, entry) {
           entry.to_url || finalUrl || originalUrl
         }`;
   if (progressLine !== lastProgressLine) {
-    console.log(progressLine);
+    console.error(progressLine);
     lastProgressLine = progressLine;
   }
   return true;
@@ -334,7 +314,7 @@ async function handleShutdown(signal) {
   process.exit(0);
 }
 
-__abxInstallShutdownHandler(handleShutdown);
+installShutdownHandler(handleShutdown);
 
 async function main() {
   const args = parseArgs();
@@ -346,8 +326,6 @@ async function main() {
   }
 
   originalUrl = url;
-  console.log("0 redirects");
-  lastProgressLine = "0 redirects";
 
   if (!getEnvBool("REDIRECTS_ENABLED", true)) {
     console.error("Skipping (REDIRECTS_ENABLED=False)");
@@ -362,6 +340,9 @@ async function main() {
     // Set up redirect listener BEFORE navigation
     await setupRedirectListener();
     writePrenavMarker("ready");
+    console.log("redirects listener attached");
+    console.error("0 redirects");
+    lastProgressLine = "0 redirects";
 
     // Wait for navigation to settle, then leave extra time for late JS redirects.
     try {

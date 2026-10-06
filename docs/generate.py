@@ -4,20 +4,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
-from datetime import datetime, timezone
+import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
-
 SITE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SITE_DIR.parent
 PLUGINS_DIR = REPO_ROOT / "abx_plugins" / "plugins"
 TEMPLATE_DIR = SITE_DIR
-DEFAULT_OUTPUT_DIR = SITE_DIR
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "_site"
 ASSETS_DIR = SITE_DIR / "css"
 EXCLUDED_PLUGIN_DIRS = {"__pycache__"}
 GITHUB_REPO = "https://github.com/ArchiveBox/abx-plugins"
@@ -338,9 +339,9 @@ def build_commands(
     if has_snapshot:
         archivebox = f"{env_prefix}archivebox add 'https://example.com'"
         abx_dl = f"abx-dl --plugins={plugin_name} 'https://example.com'"
-        note = "Runtime plugins execute while archiving a URL."
+        note = ""
     elif has_setup:
-        archivebox = f"{env_prefix}archivebox init --setup"
+        archivebox = f"archivebox init\n{env_prefix}archivebox install"
         abx_dl = f"abx-dl plugins --install {plugin_name}"
         note = "Setup plugins install dependencies or prepare shared runtime state."
     else:
@@ -420,6 +421,11 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     template_labels = template_badges(plugin_dir)
     display_title = str(config_schema.get("title") or plugin_dir.name)
     description = str(config_schema.get("description") or "").strip()
+    screenshot = {}
+    if config_schema.get("screenshot"):
+        screenshot = json.loads((plugin_dir / config_schema["screenshot"]).read_text())
+    screenshot_view = screenshot.get("view", f"Snapshot View ({plugin_dir.name})")
+    screenshot_slug = re.sub(r"[^a-z0-9]+", "-", screenshot_view.lower()).strip("-")
     required_plugins = as_string_list(config_schema.get("required_plugins"))
     required_binaries = as_required_binary_list(
         config_schema.get("required_binaries"),
@@ -459,6 +465,11 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     return {
         "name": plugin_dir.name,
         "display_title": display_title,
+        "screenshots": [(screenshot_slug, screenshot.get("view", "Snapshot view"))]
+        if screenshot
+        or "Fullscreen" in template_labels
+        or ("Embed" in template_labels and not config_schema.get("card_hidden"))
+        else [],
         "description": description,
         "phases": phases,
         "primary_language": primary_language,
@@ -508,6 +519,9 @@ def copy_assets(output_dir: Path) -> None:
             continue
         shutil.copy2(asset, destination)
 
+    if (SITE_DIR / "assets").resolve() != (output_dir / "assets").resolve():
+        shutil.copytree(SITE_DIR / "assets", output_dir / "assets", dirs_exist_ok=True)
+
 
 def render_marketplace(output_dir: Path, template_name: str) -> Path:
     plugins = collect_plugins()
@@ -520,7 +534,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
     template = environment.get_template(template_name)
     html = template.render(
         site={
-            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "generated_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
             "github_repo": GITHUB_REPO,
             "github_ref": DEFAULT_GITHUB_REF,
             "plugin_count": len(plugins),
@@ -534,7 +548,23 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
     index_path = output_dir / "index.html"
     index_path.write_text(html + "\n", encoding="utf-8")
     copy_assets(output_dir)
+    (output_dir / "CNAME").write_text(
+        (SITE_DIR / "CNAME").read_text(),
+        encoding="utf-8",
+    )
     (output_dir / ".nojekyll").write_text("", encoding="utf-8")
+    subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            str(REPO_ROOT / ".github/pages/site.py"),
+            "render",
+            str(output_dir.resolve()),
+        ],
+        check=True,
+    )
     return index_path
 
 

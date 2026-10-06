@@ -4,7 +4,7 @@
   "description": "Extract cleaned article HTML, text, and metadata from archived HTML using Defuddle.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [],
+  "required_plugins": ["dom"],
   "required_binaries": [
     {
       "name": "{DEFUDDLE_BINARY}",
@@ -14,8 +14,9 @@
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/defuddle",
           "install_args": [
-            "defuddle"
-          ]
+            "defuddle@0.14.0"
+          ],
+          "version": "0.14.0"
         }
       }
     }
@@ -69,5 +70,9 @@
       ],
       "description": "Extra arguments to append to Defuddle command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 30,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 1
 }

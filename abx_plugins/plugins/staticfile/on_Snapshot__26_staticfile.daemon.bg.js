@@ -14,27 +14,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -57,7 +37,11 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  acquireSessionLock,
+  getBrowserConnection,
   resolvePuppeteerModule,
+  resolveChromeLaunchOptions,
+  sendBrowserCommand,
 } = require("../chrome/chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
@@ -341,7 +325,7 @@ function buildArchiveResult() {
     return {
       type: "ArchiveResult",
       status: "failed",
-      output_str: outputMimeType,
+      output_str: downloadError,
       plugin: PLUGIN_NAME,
       content_type: detectedContentType,
     };
@@ -378,6 +362,97 @@ async function setupStaticFileListener() {
   browser = connection.browser;
   page = connection.page;
 
+  // Chrome handles Content-Disposition attachments as downloads, so their
+  // response bodies are unavailable to response.buffer(). Keep the existing
+  // persona-wide download directory shared with ArchiveWeb.page exports; only
+  // claim a completed download from this snapshot's main frame.
+  const downloadDir = path.resolve(
+    resolveChromeLaunchOptions(hookConfig).CHROME_DOWNLOADS_DIR
+  );
+  fs.mkdirSync(downloadDir, { recursive: true });
+  const pageSession = await page.target().createCDPSession();
+  const frameTree = await pageSession.send("Page.getFrameTree");
+  const mainFrameId = frameTree.frameTree.frame.id;
+  await pageSession.detach();
+  const browserConnection = getBrowserConnection(browser);
+  let downloadGuid = null;
+  let downloadFilename = null;
+  let downloadTerminal = null;
+  let resolveDownload;
+  const browserDownload = new Promise((resolve) => {
+    resolveDownload = resolve;
+  });
+  const onDownloadWillBegin = (event) => {
+    if (event.frameId !== mainFrameId || downloadGuid) return;
+    downloadGuid = event.guid;
+    downloadFilename = event.suggestedFilename;
+  };
+  const onDownloadProgress = (event) => {
+    if (event.guid !== downloadGuid) return;
+    if (["completed", "canceled", "interrupted"].includes(event.state)) {
+      downloadTerminal = { event, filename: downloadFilename };
+      resolveDownload(downloadTerminal);
+    }
+  };
+  browserConnection.on("Browser.downloadWillBegin", onDownloadWillBegin);
+  browserConnection.on("Browser.downloadProgress", onDownloadProgress);
+  const releaseDownloadLock = await acquireSessionLock(
+    path.join(downloadDir, ".download.lock"), timeout
+  );
+  try {
+    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: downloadDir,
+      eventsEnabled: true,
+    });
+  } finally {
+    releaseDownloadLock();
+  }
+
+  async function waitForDownloadUntil(deadline) {
+    if (downloadTerminal) return downloadTerminal;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error("Browser download did not complete");
+    let timer;
+    try {
+      return await Promise.race([
+        browserDownload,
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Browser download did not complete")),
+            remaining
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function saveBrowserDownload(download, deadline) {
+    const { event, filename } = download;
+    if (event.state !== "completed" || !event.filePath) {
+      throw new Error(`Browser download ${event.state} or missing file path`);
+    }
+    const sourcePath = path.resolve(event.filePath);
+    const relativeSource = path.relative(downloadDir, sourcePath);
+    if (relativeSource.startsWith("..") || path.isAbsolute(relativeSource)) {
+      throw new Error("Browser download escaped shared directory");
+    }
+    const maxSize = getEnvInt("STATICFILE_MAX_SIZE", 1024 * 1024 * 1024);
+    do {
+      const size = fs.existsSync(sourcePath) ? fs.statSync(sourcePath).size : 0;
+      if (size === event.receivedBytes && size > 0) {
+        if (size > maxSize) throw new Error(`File too large: ${size} bytes`);
+        const outputName = sanitizeFilename(filename || path.basename(sourcePath));
+        fs.copyFileSync(sourcePath, path.join(OUTPUT_DIR, outputName));
+        return getOutputPathRelativeToSnapshot(outputName);
+      }
+      await sleep(50);
+    } while (Date.now() < deadline);
+    throw new Error("Completed browser download was not published");
+  }
+
   let resolveMainResponse;
   let rejectMainResponse;
   const mainResponseHandled = new Promise((resolve, reject) => {
@@ -397,6 +472,8 @@ async function setupStaticFileListener() {
 
   const finish = () => {
     clearTimeout(failTimer);
+    browserConnection.off("Browser.downloadWillBegin", onDownloadWillBegin);
+    browserConnection.off("Browser.downloadProgress", onDownloadProgress);
     resolveMainResponse(buildArchiveResult());
   };
 
@@ -432,35 +509,52 @@ async function setupStaticFileListener() {
       console.error("Static file detected, waiting for saved output...");
 
       const responsesEnabled = getEnvBool("RESPONSES_ENABLED", true);
-      if (responsesEnabled) {
-        const responsesOutputInfo = getResponsesOutputInfo(
-          url,
-          detectedContentType
+      const isAttachment = /\battachment\b/i.test(
+        headers["content-disposition"] || ""
+      );
+      const deadline = Date.now() + timeout;
+      if (isAttachment) {
+        savedOutputPath = await saveBrowserDownload(
+          await waitForDownloadUntil(deadline),
+          deadline
         );
-        const waitedOutputPath = await waitForResponsesOutput(
+        finish();
+        return;
+      }
+      if (responsesEnabled) {
+        const responsesOutputInfo = getResponsesOutputInfo(url, detectedContentType);
+        const responsesOutputPath = await waitForResponsesOutput(
           responsesOutputInfo,
           timeout
         );
-        if (waitedOutputPath) {
-          savedOutputPath = waitedOutputPath;
-          console.error(`Using responses output: ${savedOutputPath}`);
+        if (responsesOutputPath) {
+          savedOutputPath = responsesOutputPath;
           finish();
           return;
         }
-        console.error(
-          "Responses output unavailable in time, falling back to staticfile save"
-        );
-      } else {
-        console.error(
-          "RESPONSES_ENABLED=False, falling back to staticfile save"
-        );
       }
 
       console.error("Saving static file fallback locally...");
 
       // Download the file
       const maxSize = getEnvInt("STATICFILE_MAX_SIZE", 1024 * 1024 * 1024); // 1GB default
-      const buffer = await response.buffer();
+      let buffer;
+      try {
+        buffer = await response.buffer();
+      } catch (bodyError) {
+        try {
+          savedOutputPath = await saveBrowserDownload(
+            await waitForDownloadUntil(deadline),
+            deadline
+          );
+          finish();
+          return;
+        } catch (browserError) {
+          throw new Error(
+            `Response body unavailable: ${bodyError.message}; ${browserError.message}`
+          );
+        }
+      }
 
       if (buffer.length > maxSize) {
         downloadError = `File too large: ${buffer.length} bytes > ${maxSize} max`;
@@ -542,7 +636,6 @@ async function main() {
   }
 
   originalUrl = url;
-  console.log("waiting for initial response...");
   writePrenavMarker("starting");
 
   if (!getEnvBool("STATICFILE_ENABLED", true)) {
@@ -555,12 +648,14 @@ async function main() {
   const timeout = getEnvInt("STATICFILE_TIMEOUT", 30) * 1000;
 
   // Register signal handlers for graceful shutdown
-  __abxInstallShutdownHandler(handleShutdown);
+  installShutdownHandler(handleShutdown);
 
   try {
     // Set up static file listener BEFORE navigation and finish on the
     // first successful main-document response.
     const connection = await setupStaticFileListener();
+    console.log("staticfile listener attached");
+    console.error("waiting for initial response...");
     const result = await connection.mainResponseHandled;
     finalized = true;
     removePrenavMarker();

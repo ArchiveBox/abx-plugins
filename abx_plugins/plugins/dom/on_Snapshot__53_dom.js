@@ -24,12 +24,10 @@ const {
   emitArchiveResultRecord,
   writeFileAtomic,
   hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
+const { connectToPage } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
 // Check if DOM is enabled BEFORE requiring puppeteer
@@ -38,9 +36,6 @@ if (!getEnvBool("DOM_ENABLED", true)) {
   emitArchiveResultRecord("skipped", "DOM_ENABLED=False");
   process.exit(0);
 }
-
-// Now safe to require puppeteer
-const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = "dom";
@@ -66,13 +61,31 @@ async function dumpDom(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("DOM extraction started");
 
     // Get the full DOM content
-    const domContent = await page.content();
+    const domContent = await page.evaluate(() => {
+      // Serialize computed image and SVG sizes on a clone: stylesheets are discarded
+      // by article extractors, and the live page must remain untouched.
+      const clone = document.documentElement.cloneNode(true);
+      const originals = document.querySelectorAll('img,svg');
+      clone.querySelectorAll('img,svg').forEach((img, index) => {
+        const original = originals[index];
+        const style = getComputedStyle(original);
+        if (parseFloat(style.width) > 0 && parseFloat(style.height) > 0) {
+          img.style.width = style.width;
+          img.style.height = style.height;
+          if (img.tagName.toLowerCase() === 'svg') {
+            img.setAttribute('width', style.width);
+            img.setAttribute('height', style.height);
+          }
+        }
+      });
+      return (document.doctype ? new XMLSerializer().serializeToString(document.doctype) : '') + clone.outerHTML;
+    });
 
     if (domContent && domContent.length > 100) {
       writeFileAtomic(outputPath, domContent);
@@ -110,6 +123,11 @@ async function main() {
         `Skipping DOM - staticfile extractor already downloaded this`
       );
       emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

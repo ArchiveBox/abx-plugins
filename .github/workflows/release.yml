@@ -5,39 +5,82 @@ on:
     workflows: [Parallel Tests]
     types: [completed]
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      release_sha:
-        description: Full commit SHA on main to release
-        required: true
-        type: string
-      test_run_id:
-        description: Successful Parallel Tests run for the exact release SHA
-        required: true
-        type: string
 
-permissions:
-  actions: read
-  contents: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: release-main
   cancel-in-progress: false
 
 jobs:
-  release-state:
+  candidate:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.conclusion == 'success')
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    outputs:
+      ready: ${{ steps.verified.outputs.ready }}
+      artifact_run_id: ${{ steps.verified.outputs.artifact_run_id }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - id: owner
+        shell: bash
+        run: |
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          TARGET="$(git ls-remote origin "refs/tags/release-candidate/$VERSION" | awk '{print $1}')"
+          BRANCH_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          [[ "$TARGET" == "$RELEASE_SHA" && "$BRANCH_SHA" == "$RELEASE_SHA" ]] && echo 'ready=true' >> "$GITHUB_OUTPUT" || echo 'ready=false' >> "$GITHUB_OUTPUT"
+
+      - name: Require successful full CI for this commit
+        id: verified
+        if: steps.owner.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          CI_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test-parallel.yml \
+            --commit "$RELEASE_SHA" --event push --limit 1 \
+            --json databaseId,status,conclusion \
+            --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
+          [[ -n "$CI_RUN_ID" ]] || exit 0
+          RELEASE_RUN_IDS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+            --commit "$RELEASE_SHA" --limit 20 --json databaseId,status,conclusion \
+            --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId')"
+          while read -r RELEASE_RUN_ID; do
+            [[ -n "$RELEASE_RUN_ID" ]] || continue
+            PUBLISHED="$(gh run view "$RELEASE_RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs \
+              --jq '.jobs[] | select(.name == "release-state" and .conclusion == "success") | .name')"
+            [[ -z "$PUBLISHED" ]] || exit 0
+          done <<< "$RELEASE_RUN_IDS"
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+          echo "artifact_run_id=$CI_RUN_ID" >> "$GITHUB_OUTPUT"
+
+  release-state:
+    needs: candidate
+    if: needs.candidate.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     environment: pypi
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      cascade_ready: ${{ steps.cascade-state.outputs.ready }}
     env:
-      RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_sha }}
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       RELEASE_BRANCH: main
-      TEST_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.test_run_id }}
+      TEST_RUN_ID: ${{ needs.candidate.outputs.artifact_run_id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -51,12 +94,20 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
-          enable-cache: true
+          enable-cache: false
 
       - name: Project host release tools through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          test -n "$ABXPKG_SPEC"
+          uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" >> "$GITHUB_ENV"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
       - name: Download tested package artifacts
         env:
@@ -67,7 +118,7 @@ jobs:
           artifact_dir="$RUNNER_TEMP/release-dist"
           "${GH_BINARY}" run view "$run_id" --repo "$GITHUB_REPOSITORY" \
             --json workflowName,conclusion,headSha,event \
-            --jq 'if .workflowName == "Parallel Tests" and .conclusion == "success" and .headSha == env.RELEASE_SHA and (.event == "push" or .event == "workflow_dispatch") then true else error("test run does not prove the requested release SHA") end'
+            --jq 'if .workflowName == "Parallel Tests" and .conclusion == "success" and .headSha == env.RELEASE_SHA and .event == "push" then true else error("full CI run does not prove the requested release SHA") end'
           "${GH_BINARY}" run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir "$artifact_dir"
           shopt -s nullglob
           wheels=("$artifact_dir"/abx_plugins-*.whl)
@@ -76,8 +127,8 @@ jobs:
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
           [[ "${#manifests[@]}" -eq 1 ]]
-          version="$("${UV_BINARY}" run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          DIST_DIR="$artifact_dir" EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-project python - <<'PY'
+          version="$("${UV_BINARY}" run --no-cache --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          DIST_DIR="$artifact_dir" EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
           import hashlib
           import os
           import re
@@ -111,7 +162,47 @@ jobs:
                   raise SystemExit(f"Checksum mismatch for {filename}")
           PY
 
+      - name: Record verified release
+        id: release
+        run: |
+          set -Eeuo pipefail
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Run release script
         env:
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
         run: ./bin/release.sh "$RUNNER_TEMP/release-dist"
+
+      - name: Confirm this tested commit owns the release tag
+        id: cascade-state
+        run: |
+          set -Eeuo pipefail
+          TARGET=""
+          while read -r sha _; do
+            TARGET="$sha"
+          done < <("${GIT_BINARY}" ls-remote origin "refs/tags/v${{ steps.release.outputs.version }}")
+          if [[ "$TARGET" == "$RELEASE_SHA" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  cascade:
+    name: Cascade verified release
+    needs: [candidate, release-state]
+    if: needs.release-state.outputs.cascade_ready == 'true'
+    permissions:
+      actions: read
+      contents: read
+    # A successful upload does not mean downstream resolution can see the release.
+    # The coordinator verifies the real lock and both public PyPI metadata APIs.
+    uses: ArchiveBox/monorepo/.github/workflows/cascade-release.yml@main
+    with:
+      upstream_package: abx-plugins
+      upstream_version: ${{ needs.release-state.outputs.version }}
+      upstream_artifact_name: python-distributions-${{ github.event.workflow_run.head_sha }}
+      upstream_run_id: ${{ needs.candidate.outputs.artifact_run_id }}
+    secrets:
+      release_token: ${{ secrets.RELEASE_GH_TOKEN }}

@@ -17,7 +17,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 def _js_has_staticfile_output(staticfile_dir: Path) -> bool:
-    node = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node = install_binary_with_abxpkg("node", binproviders="env,node,brew,apt")
     assert node.loaded_abspath is not None
     result = subprocess.run(
         [

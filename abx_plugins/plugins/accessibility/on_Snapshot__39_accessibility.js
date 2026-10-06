@@ -26,22 +26,11 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const { connectToPage } = require("../chrome/chrome_utils.js");
-
-function resolvePuppeteer() {
-  for (const moduleName of ["puppeteer-core", "puppeteer"]) {
-    try {
-      return require(moduleName);
-    } catch (error) {}
-  }
-  throw new Error(
-    "Missing puppeteer dependency (need puppeteer-core or puppeteer)"
-  );
-}
-
-const puppeteer = resolvePuppeteer();
 
 // Extractor metadata
 const PLUGIN_NAME = "accessibility";
@@ -70,10 +59,10 @@ async function extractAccessibility(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("Accessibility extraction started");
 
     // Get accessibility snapshot
     const accessibilityTree = await page.accessibility.snapshot({
@@ -201,6 +190,17 @@ async function main() {
       console.log("Skipping accessibility (ACCESSIBILITY_ENABLED=False)");
       // Output clean JSONL (no RESULT_JSON= prefix)
       emitArchiveResultRecord("skipped", "ACCESSIBILITY_ENABLED=False");
+      process.exit(0);
+    }
+
+    if (hasStaticFileOutput()) {
+      console.error("Skipping accessibility - staticfile extractor already downloaded this");
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

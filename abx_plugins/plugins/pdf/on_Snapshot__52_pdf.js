@@ -15,6 +15,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { spawnSync } = require("child_process");
 const {
   ensureNodeModuleResolution,
   getEnvBool,
@@ -23,12 +24,10 @@ const {
   parseArgs,
   emitArchiveResultRecord,
   hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
+const { connectToPage } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
 function tempPathFor(filePath) {
@@ -44,9 +43,6 @@ if (!getEnvBool("PDF_ENABLED", true)) {
   process.exit(0);
 }
 
-// Now safe to require puppeteer
-const puppeteer = resolvePuppeteerModule();
-
 // Extractor metadata
 const PLUGIN_NAME = "pdf";
 const PLUGIN_DIR = path.basename(__dirname);
@@ -57,7 +53,26 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = "output.pdf";
+const PREVIEW_FILE = "preview.png";
 const CHROME_SESSION_DIR = "../chrome";
+
+function renderFirstPage(outputPath, timeoutMs) {
+  // Native PDF viewers can download instead of painting inside a small nested
+  // card iframe. Save an actual first-page raster while capturing the PDF.
+  const previewPath = path.join(OUTPUT_DIR, PREVIEW_FILE);
+  const tempBase = path.join(OUTPUT_DIR, `.preview.${process.pid}`);
+  const tempPreview = `${tempBase}.png`;
+  fs.rmSync(previewPath, { force: true });
+  const result = spawnSync(hookConfig.PDFTOPPM_BINARY || "pdftoppm", [
+    "-f", "1", "-l", "1", "-singlefile", "-scale-to", "640", "-png",
+    outputPath, tempBase,
+  ], { encoding: "utf8", timeout: Math.min(timeoutMs, 30000) });
+  if (result.error || result.status !== 0 || !fs.existsSync(tempPreview)) {
+    fs.rmSync(tempPreview, { force: true });
+    throw new Error(result.error?.message || result.stderr?.trim() || "PDF first-page renderer failed");
+  }
+  fs.renameSync(tempPreview, previewPath);
+}
 
 async function printToPdf(url, timeoutMs) {
   // Output directory is current directory (hook already runs in output dir)
@@ -72,10 +87,10 @@ async function printToPdf(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("PDF capture started");
 
     // Print to PDF
     console.log("rendering page to PDF...");
@@ -94,6 +109,13 @@ async function printToPdf(url, timeoutMs) {
     fs.renameSync(tempOutputPath, outputPath);
 
     if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+      try {
+        renderFirstPage(outputPath, timeoutMs);
+      } catch (error) {
+        // The PDF is still a valid capture. The card uses the sibling page
+        // screenshot when a thumbnail cannot be rendered on this machine.
+        console.error(`PDF thumbnail unavailable: ${error.message}`);
+      }
       return { success: true, output: OUTPUT_FILE };
     } else {
       return { success: false, error: "PDF file not created" };
@@ -124,6 +146,11 @@ async function main() {
         `Skipping PDF - staticfile extractor already downloaded this`
       );
       emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

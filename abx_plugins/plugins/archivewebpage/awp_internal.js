@@ -12,10 +12,6 @@ const chromeUtils = require("../chrome/chrome_utils.js");
 
 const EXTENSION_NAME = "archivewebpage";
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Look up the AWP extension id in the chrome plugin's browser.json. The
  * snapshot- and crawl-scoped chrome dirs both write the same metadata, so we
@@ -39,24 +35,6 @@ function resolveAwpExtension(chromeSessionDir, crawlChromeDir = null) {
 }
 
 /**
- * Poll resolveAwpExtension until the metadata appears (chrome plugin writes it
- * asynchronously after extension load) or the deadline is reached.
- */
-async function waitForAwpExtension(
-  chromeSessionDir,
-  crawlChromeDir,
-  timeoutMs
-) {
-  const deadline = Date.now() + Math.max(500, timeoutMs);
-  let resolved = resolveAwpExtension(chromeSessionDir, crawlChromeDir);
-  while (!resolved.id && Date.now() < deadline) {
-    await sleep(100);
-    resolved = resolveAwpExtension(chromeSessionDir, crawlChromeDir);
-  }
-  return resolved;
-}
-
-/**
  * Map a puppeteer page's CDP target id to its chrome.tabs id.
  *
  * chrome.debugger.getTargets() returns a TargetInfo with both ``id`` (CDP
@@ -70,44 +48,34 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
   const targetId = chromeUtils.getTargetIdFromPage(page);
   if (!targetId) return null;
 
-  const deadline = Date.now() + Math.max(1000, timeoutMs);
-  let helperPage = null;
+  console.error("[archivewebpage] start phase=opening tab-id popup");
+  // The debugger query does not use AWP's popup port. During concurrent
+  // collection starts the popup UI may be waiting on its own extension work;
+  // waiting for that port here can block tab-id resolution indefinitely.
+  const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs, {
+    requirePopupPort: false,
+  });
   try {
-    while (Date.now() < deadline) {
-      try {
-        if (!helperPage || helperPage.isClosed()) {
-          helperPage = await openAwpHelperTab(browser, extensionId);
-        }
-        const tabId = await helperPage.evaluate(async (idToFind) => {
-          const targets = await new Promise((resolve, reject) => {
-            chrome.debugger.getTargets((targetInfos) => {
-              const error = chrome.runtime.lastError;
-              if (error) {
-                reject(new Error(error.message || String(error)));
-                return;
-              }
-              resolve(targetInfos || []);
-            });
-          });
-          const match = targets.find(
-            (t) => t.type === "page" && t.id === idToFind
-          );
-          return match?.tabId ?? null;
-        }, targetId);
-        if (tabId !== null && tabId !== undefined) return tabId;
-      } catch (error) {
-        try {
-          if (helperPage && !helperPage.isClosed()) {
-            await helperPage.close({ runBeforeUnload: false });
+    console.error("[archivewebpage] start phase=querying debugger targets");
+    return await helperPage.evaluate(async (idToFind) => {
+      const targets = await new Promise((resolve, reject) => {
+        chrome.debugger.getTargets((targetInfos) => {
+          const error = chrome.runtime.lastError;
+          if (error) {
+            reject(new Error(error.message || String(error)));
+            return;
           }
-        } catch (closeError) {}
-        helperPage = null;
-      }
-      await sleep(75);
-    }
-    return null;
+          resolve(targetInfos || []);
+        });
+      });
+      const match = targets.find(
+        (target) => target.type === "page" && target.id === idToFind
+      );
+      return match?.tabId ?? null;
+    }, targetId);
   } finally {
     try {
+      console.error("[archivewebpage] start phase=closing tab-id popup");
       if (helperPage && !helperPage.isClosed()) {
         await helperPage.close({ runBeforeUnload: false });
       }
@@ -122,52 +90,72 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
  * tabs opened while a recording is running as candidates for auto-recording,
  * which triggers a Page.reload that destroys our evaluate() context.
  */
-async function openAwpHelperTab(browser, extensionId) {
+async function openAwpHelperTab(
+  browser,
+  extensionId,
+  timeoutMs = 5000,
+  { requirePopupPort = true } = {}
+) {
   const helperUrl = `chrome-extension://${extensionId}/popup.html`;
-  const browserSession = await browser.target().createCDPSession();
-  let targetId = null;
-  try {
-    const result = await browserSession.send("Target.createTarget", {
-      url: helperUrl,
-    });
-    targetId = result.targetId;
-  } finally {
-    try {
-      await browserSession.detach();
-    } catch (error) {}
-  }
+  const result = await chromeUtils.sendBrowserCommand(
+    browser,
+    "Target.createTarget",
+    { url: helperUrl, background: true }
+  );
+  const targetId = result.targetId;
+  console.error("[archivewebpage] helper phase=target created");
   if (!targetId) {
     throw new Error("Target.createTarget did not return a targetId");
   }
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    const match = browser
-      .targets()
-      .find(
-        (t) =>
-          chromeUtils.getTargetIdFromTarget(t) === targetId &&
-          t.type() === "page"
-      );
-    if (match) {
-      const page = await match.page();
-      if (page) {
-        try {
-          await page.waitForFunction(
-            (expectedUrl) =>
-              location.href === expectedUrl &&
-              document.readyState !== "loading" &&
-              typeof chrome !== "undefined" &&
-              Boolean(chrome.runtime?.connect),
-            { timeout: Math.max(250, deadline - Date.now()) },
-            helperUrl
-          );
-          return page;
-        } catch (error) {}
-      }
-    }
-    await sleep(50);
+  const matchesTarget = (target) =>
+    chromeUtils.getTargetIdFromTarget(target) === targetId &&
+    target.type() === "page";
+  const target =
+    browser.targets().find(matchesTarget) ||
+    (await browser.waitForTarget(matchesTarget, {
+      timeout: Math.max(250, timeoutMs),
+    }));
+  console.error("[archivewebpage] helper phase=target discovered");
+  const page = await target.page();
+  console.error("[archivewebpage] helper phase=page attached");
+  if (!page) {
+    throw new Error(`Helper target ${targetId} is not a page`);
   }
-  throw new Error(`Helper tab target ${targetId} did not become a page`);
+  const diagnosticTimer = setTimeout(() => {
+    page.evaluate(() => ({
+      url: location.href,
+      readyState: document.readyState,
+      visibility: document.visibilityState,
+      runtimeReady: Boolean(globalThis.chrome?.runtime?.connect),
+      debuggerReady: Boolean(globalThis.chrome?.debugger?.getTargets),
+      popupPresent: Boolean(document.querySelector("wr-popup-viewer")),
+      portReady: Boolean(document.querySelector("wr-popup-viewer")?.port),
+    })).then(
+      state => console.error("[archivewebpage] pending helper readiness:", JSON.stringify(state)),
+      error => console.error("[archivewebpage] helper readiness inspection failed:", error.message),
+    );
+  }, 5000);
+  diagnosticTimer.unref();
+  try {
+    await page.waitForFunction(
+      (expectedUrl, needsPopupPort) =>
+        location.href === expectedUrl &&
+        document.readyState !== "loading" &&
+        typeof chrome !== "undefined" &&
+        Boolean(chrome.runtime?.connect) &&
+        Boolean(chrome.debugger?.getTargets) &&
+        (!needsPopupPort || Boolean(document.querySelector("wr-popup-viewer")?.port)),
+      // The popup port is JS state, not a rendered element. Hidden helpers
+      // can stop receiving animation frames even after the port is ready.
+      { timeout: Math.max(250, timeoutMs), polling: 100 },
+      helperUrl,
+      requirePopupPort
+    );
+  } finally {
+    clearTimeout(diagnosticTimer);
+  }
+  console.error("[archivewebpage] helper phase=extension ready");
+  return page;
 }
 
 /**
@@ -199,6 +187,71 @@ function resolveChromeDirs(cwd, crawlDirEnv) {
 
 const fs = require("fs");
 
+function observePublishedFile(filePath, timeoutMs) {
+  const directory = path.dirname(filePath);
+  const expectedName = path.basename(filePath);
+  const abortController = new AbortController();
+  let settled = false;
+  let timer = null;
+
+  const close = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (!abortController.signal.aborted) abortController.abort();
+  };
+  const promise = new Promise((resolve, reject) => {
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      close();
+      callback(value);
+    };
+
+    timer = setTimeout(
+      () =>
+        finish(
+          reject,
+          new Error(
+            `Download ${expectedName} was not published within ${timeoutMs}ms`
+          )
+        ),
+      timeoutMs
+    );
+
+    (async () => {
+      try {
+        const watcher = fs.promises.watch(directory, {
+          signal: abortController.signal,
+        });
+        for await (const _event of watcher) {
+          try {
+            // fs.watch filenames are optional. Every notification is only a
+            // prompt to check the one exact path owned by this download.
+            const stat = await fs.promises.stat(filePath);
+            if (stat.size > 0) {
+              finish(resolve, stat);
+              return;
+            }
+          } catch (error) {
+            // Chrome can announce the temporary-file rename before its final
+            // name is visible. A later event is the publication boundary.
+            if (error?.code !== "ENOENT") {
+              finish(reject, error);
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        // Abort is our normal close path. Construction and later watcher
+        // backend failures reject the same promise awaited by the stop hook.
+        if (!abortController.signal.aborted) finish(reject, error);
+      }
+    })();
+  });
+
+  return { promise, close };
+}
+
 function hasSnapshotChromeSession(dir) {
   if (!dir) return false;
   // The snapshot-level chrome session is identified by target_id.txt being
@@ -208,45 +261,49 @@ function hasSnapshotChromeSession(dir) {
 }
 
 /**
- * Pick the candidate chrome session dir that has the snapshot tab's session
- * markers (target_id.txt). Falls back to the first candidate that at least
- * has cdp_url.txt, then to the first candidate.
+ * Pick the candidate chrome session dir that owns this snapshot's exact CDP
+ * target. A browser endpoint without target_id.txt is crawl-level state and
+ * cannot identify a snapshot tab.
  */
 function pickChromeSessionDir(candidates) {
   for (const dir of candidates) {
     if (hasSnapshotChromeSession(dir)) return dir;
   }
-  for (const dir of candidates) {
-    if (dir && fs.existsSync(path.join(dir, "cdp_url.txt"))) return dir;
-  }
-  return candidates[0] || null;
+  return null;
 }
 
 /**
- * Wait for one of the candidate chrome session dirs to publish target_id.txt,
- * returning that dir. Falls back to whichever candidate exists if the deadline
- * is reached so the downstream chromeUtils.connectToPage call surfaces a
- * specific error rather than us aborting blindly.
+ * Return the collection id from the message AWP sends after newColl.
+ *
+ * Keep this small selector shared with the real-browser regression test: the
+ * popup port can already contain other collections messages by the time the
+ * newColl response arrives.
  */
-async function waitForChromeSessionDir(candidates, timeoutMs) {
-  const deadline = Date.now() + Math.max(500, timeoutMs);
-  while (Date.now() < deadline) {
-    for (const dir of candidates) {
-      if (hasSnapshotChromeSession(dir)) return dir;
-    }
-    await sleep(100);
+function resolveCreatedCollectionId(
+  message,
+  collectionTitle,
+  existingCollectionIds = []
+) {
+  if (message?.type !== "collections" || !Array.isArray(message.collections)) {
+    return null;
   }
-  return pickChromeSessionDir(candidates);
+  const existingIds = new Set(existingCollectionIds);
+  const created = message.collections.find(
+    (collection) =>
+      collection?.title === collectionTitle &&
+      collection.id &&
+      !existingIds.has(collection.id)
+  );
+  return created?.id || null;
 }
 
 module.exports = {
   EXTENSION_NAME,
-  sleep,
   resolveAwpExtension,
-  waitForAwpExtension,
   getChromeTabIdForPage,
   openAwpHelperTab,
   resolveChromeDirs,
   pickChromeSessionDir,
-  waitForChromeSessionDir,
+  resolveCreatedCollectionId,
+  observePublishedFile,
 };

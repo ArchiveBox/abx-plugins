@@ -9,11 +9,13 @@ Tests verify:
 
 import json
 import os
+import signal
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
+import psutil
 
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
@@ -35,25 +37,46 @@ TEST_URL = "https://example.com"
 _readability_binary_path = None
 
 
+@pytest.fixture(scope="module", autouse=True)
+def readability_collection_cache(tmp_path_factory):
+    """Keep dependency preflight and hook launches in one real collection cache."""
+    previous_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
+    lib_dir = (
+        Path(previous_lib_dir)
+        if previous_lib_dir
+        else tmp_path_factory.mktemp("readability_collection_lib")
+    )
+    os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)
+    try:
+        yield lib_dir
+    finally:
+        if previous_lib_dir is None:
+            os.environ.pop("ABXPKG_LIB_DIR", None)
+        else:
+            os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir
+
+
 def create_example_html(tmpdir: Path) -> Path:
     """Create sample HTML that looks like example.com with enough content for Readability."""
     singlefile_dir = tmpdir / "singlefile"
     singlefile_dir.mkdir()
 
     html_file = singlefile_dir / "singlefile.html"
-    html_file.write_text("""
+    html_file.write_text(f"""
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Example Article</title>
+    <meta property="og:title" content="Example Article">
+    <meta name="author" content="Example Author">
+    <!-- DOM capture scripts can push the source charset beyond the sniffer window. -->
+    <script>{"x" * 2048}</script>
     <meta charset="utf-8">
-    <title>Example Domain</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
     <article>
-        <header>
-            <h1>Example Domain</h1>
-        </header>
+        <h1>Example Article</h1>
         <div class="content">
             <p>This domain is for use in illustrative examples in documents. You may use this
             domain in literature without prior coordination or asking for permission.</p>
@@ -70,12 +93,21 @@ def create_example_html(tmpdir: Path) -> Path:
             IANA website. They maintain several example domains including example.com, example.net,
             and example.org, all specifically reserved for this purpose.</p>
 
+            <p>Encoding check: café in Montréal…</p>
+
+            <picture>
+                <source srcset="/assets/example.webp 1x, /assets/example-2.webp 2x">
+                <img src="/assets/example.svg" srcset="/assets/example-2.svg 2x" alt="Example illustration">
+            </picture>
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Inline image">
+
             <p><a href="https://www.iana.org/domains/example">More information about example domains...</a></p>
         </div>
     </article>
 </body>
 </html>
     """)
+    assert html_file.read_bytes().index(b'<meta charset="utf-8">') > 1024
 
     return html_file
 
@@ -89,6 +121,9 @@ def require_readability_binary() -> str:
     )
     assert Path(binary_path).is_file(), (
         f"readability-extractor binary path invalid: {binary_path}"
+    )
+    assert Path(binary_path).is_relative_to(Path(os.environ["ABXPKG_LIB_DIR"])), (
+        "readability-extractor must be projected into the active collection cache"
     )
     return binary_path
 
@@ -123,9 +158,15 @@ def test_verify_deps_with_abxpkg():
     )
 
 
-def test_extracts_article_after_installation():
-    """Test full workflow: extract article using readability-extractor from real HTML."""
-    binary_path = require_readability_binary()
+def test_direct_hook_resolves_dependencies_and_extracts_article():
+    """Run the installed hook exactly as a user-facing executable.
+
+    WHY: ``required_plugins`` orders producers such as DOM and Responses, while
+    the hook shebang tells abxpkg which binaries this process needs.  Launching
+    the real hook with no READABILITY_BINARY override proves abxpkg resolves and
+    exports readability-extractor from the hook's own config.
+    """
+    require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -134,23 +175,59 @@ def test_extracts_article_after_installation():
 
         # Create example.com HTML for readability to process
         create_example_html(snap_dir)
+        archived_image = (
+            snap_dir / "responses" / "image" / "example.com" / "assets" / "example.svg"
+        )
+        archived_image.parent.mkdir(parents=True)
+        archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        wget_image = snap_dir / "wget" / "example.com" / "assets" / "example.svg"
+        wget_image.parent.mkdir(parents=True)
+        wget_image.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg"><text>wget</text></svg>',
+        )
+        stale_image = snap_dir / "readability" / "images" / "stale.example" / "old.png"
+        stale_image.parent.mkdir(parents=True)
+        stale_image.symlink_to("missing.png")
 
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
-        env["READABILITY_BINARY"] = binary_path
-        result = subprocess.run(
+        env.pop("READABILITY_BINARY", None)
+        with subprocess.Popen(
             [
                 str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
             ],
             cwd=tmpdir,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=30,
             env=env,
-        )
+            start_new_session=True,
+        ) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                root = psutil.Process(process.pid)
+                for child in [root, *root.children(recursive=True)]:
+                    try:
+                        print(
+                            child.as_dict(
+                                attrs=["pid", "ppid", "cmdline", "status", "cpu_times"],
+                            ),
+                        )
+                    except psutil.NoSuchProcess:
+                        pass
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate()
+                raise
+            result = subprocess.CompletedProcess(
+                process.args,
+                process.returncode,
+                stdout,
+                stderr,
+            )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -177,11 +254,42 @@ def test_extracts_article_after_installation():
         assert "example domain" in html_content.lower(), (
             "Missing 'Example Domain' in HTML"
         )
+        assert "café in Montréal…" in html_content
         assert (
             "illustrative examples" in html_content.lower()
             or "use in" in html_content.lower()
             or "literature" in html_content.lower()
         ), "Missing example.com description in HTML"
+        assert html_content.startswith("<!doctype html>")
+        assert "reader view" not in html_content.lower()
+        assert "reader mode" not in html_content.lower()
+        assert "<header" not in html_content.lower()
+        assert "<body><main><article>" in html_content
+        assert "main { width: 100%; min-height: 100vh" in html_content
+        assert "article { width: min(100%, 72rem); margin: 0 auto" in html_content
+        assert (
+            "article table { width: 100% !important; max-width: 100% !important"
+            in html_content
+        )
+        assert (
+            'article :is(div, section, article, main, figure, p, td, th)[style*="width"]'
+            in html_content
+        )
+        assert 'src="./images/example.com/assets/example.svg"' in html_content
+        assert "srcset=" not in html_content
+        assert "data:image" not in html_content
+        readability_image = (
+            snap_dir
+            / "readability"
+            / "images"
+            / "example.com"
+            / "assets"
+            / "example.svg"
+        )
+        assert readability_image.is_symlink()
+        assert readability_image.resolve() == archived_image.resolve()
+        assert not stale_image.is_symlink()
+        assert "../responses" not in html_content
 
         # Verify text content contains REAL example.com text
         txt_content = txt_file.read_text()
@@ -189,10 +297,86 @@ def test_extracts_article_after_installation():
             f"Text content too short: {len(txt_content)} bytes"
         )
         assert "example" in txt_content.lower(), "Missing 'example' in text"
+        assert "café in Montréal…" in txt_content
 
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
         assert isinstance(json_data, dict), "article.json should be a dict"
+
+
+def test_falls_back_to_wget_images():
+    """Readability should use wget requisites when response capture is unavailable."""
+    binary_path = require_readability_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True)
+        create_example_html(snap_dir)
+        archived_image = snap_dir / "wget" / "example.com" / "assets" / "example.svg"
+        archived_image.parent.mkdir(parents=True)
+        archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [str(READABILITY_HOOK), "--url", TEST_URL],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        html_content = (snap_dir / "readability" / "content.html").read_text()
+        readability_image = (
+            snap_dir
+            / "readability"
+            / "images"
+            / "example.com"
+            / "assets"
+            / "example.svg"
+        )
+        assert 'src="./images/example.com/assets/example.svg"' in html_content
+        assert "srcset=" not in html_content
+        assert "data:image" not in html_content
+        assert readability_image.is_symlink()
+        assert readability_image.resolve() == archived_image.resolve()
+        assert "../wget" not in html_content
+
+
+def test_omits_unarchived_images():
+    """Readability should stay self-contained when responses and wget are absent."""
+    binary_path = require_readability_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True)
+        create_example_html(snap_dir)
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [str(READABILITY_HOOK), "--url", TEST_URL],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        html_content = (snap_dir / "readability" / "content.html").read_text()
+        assert "<img" not in html_content.lower()
+        assert "<source" not in html_content.lower()
+        assert "<picture" not in html_content.lower()
+        assert "example.svg" not in html_content
+        assert "data:image" not in html_content
+        assert not (snap_dir / "readability" / "images").exists()
 
 
 def test_fails_gracefully_without_html_source():

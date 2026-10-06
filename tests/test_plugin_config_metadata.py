@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from abx_plugins.plugins.base.testing import install_required_binary_from_config
+from abx_plugins.plugins.base.testing import (
+    get_hydrated_required_binaries,
+    install_required_binary_from_config,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -115,7 +118,68 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
     )
 
 
-def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
+def test_plugin_presentation_metadata_is_generic_and_well_formed() -> None:
+    failures: list[str] = []
+    visible_orders: set[tuple[str, int]] = set()
+    for plugin_dir in _iter_plugin_dirs():
+        config = json.loads((plugin_dir / "config.json").read_text(encoding="utf-8"))
+        category = config.get("category", "")
+        display_order = config.get("display_order", 1000)
+        hidden = config.get("hidden", False)
+        auto_run = config.get("x-auto-run", True)
+        if not isinstance(category, str):
+            failures.append(f"{plugin_dir.name}: category must be a string")
+        if not isinstance(display_order, int) or isinstance(display_order, bool):
+            failures.append(f"{plugin_dir.name}: display_order must be an integer")
+        if not isinstance(hidden, bool):
+            failures.append(f"{plugin_dir.name}: hidden must be a boolean")
+        if not isinstance(auto_run, bool):
+            failures.append(f"{plugin_dir.name}: x-auto-run must be a boolean")
+        if not hidden and isinstance(category, str) and isinstance(display_order, int):
+            key = (category, display_order)
+            if key in visible_orders:
+                failures.append(
+                    f"{plugin_dir.name}: duplicate visible category/display_order {key!r}",
+                )
+            visible_orders.add(key)
+
+    assert not failures, (
+        "Plugin presentation metadata validation failed:\n" + "\n".join(failures)
+    )
+
+
+def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
+    for plugin_dir in _iter_plugin_dirs():
+        config = json.loads((plugin_dir / "config.json").read_text())
+        if "screenshot" not in config:
+            continue
+        recipe_path = (plugin_dir / config["screenshot"]).resolve()
+        assert recipe_path.is_relative_to(plugin_dir.resolve()), plugin_dir.name
+        recipe = json.loads(recipe_path.read_text())
+        assert recipe.keys() <= {
+            "url",
+            "wait_for_text",
+            "config",
+            "view",
+            "enabled",
+        }, recipe_path
+        assert not (recipe.get("url") and recipe.get("view")), recipe_path
+        assert isinstance(recipe.get("enabled", True), bool), recipe_path
+        for key in ("url", "view", "wait_for_text"):
+            if key in recipe:
+                assert _is_non_empty_string(recipe[key]), recipe_path
+                assert not any(character in recipe[key] for character in "\n\r|"), (
+                    recipe_path
+                )
+        if "url" in recipe:
+            assert recipe["url"].startswith(("https://", "http://")), recipe_path
+        assert isinstance(recipe.get("config", False), bool), recipe_path
+        if recipe.get("config"):
+            assert recipe.get("view"), recipe_path
+            assert config.get("properties"), recipe_path
+
+
+def test_required_binary_configs_follow_provider_policy() -> None:
     failures: list[str] = []
 
     for plugin_dir in _iter_plugin_dirs():
@@ -141,8 +205,6 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
             }
             if "pip" in binproviders:
                 failures.append(f"{label}.binproviders must use uv instead of pip")
-            if "npm" in binproviders:
-                failures.append(f"{label}.binproviders must use pnpm instead of npm")
             raw_overrides = item.get("overrides")
             overrides = (
                 cast(dict[str, Any], raw_overrides)
@@ -151,8 +213,6 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
             )
             if "pip" in overrides:
                 failures.append(f"{label}.overrides must use uv instead of pip")
-            if "npm" in overrides:
-                failures.append(f"{label}.overrides must use pnpm instead of npm")
             if any(
                 isinstance(value, dict) and "module_name" in value
                 for value in overrides.values()
@@ -225,11 +285,9 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
         config_path = plugin_dir / "config.json"
         if not config_path.exists():
             continue
-        config = cast(
-            dict[str, Any],
-            json.loads(config_path.read_text(encoding="utf-8")),
-        )
-        required_binaries = config.get("required_binaries")
+        # Validate the runtime defaults, including configurable provider lists.
+        # CI may deliberately select managed browsers; that is not the default.
+        required_binaries = get_hydrated_required_binaries(plugin_dir, env={})
         if not isinstance(required_binaries, list):
             continue
         for index, item in enumerate(required_binaries):
@@ -240,10 +298,56 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 for provider in str(item.get("binproviders") or "").split(",")
                 if provider.strip()
             ]
-            if not providers or providers[0] != "env":
-                failures.append(
-                    f"{plugin_dir.name}: required_binaries[{index}] must try env before managed providers",
+            overrides = item.get("overrides")
+            managed_package = False
+            for provider in ("uv", "pnpm"):
+                provider_overrides = (
+                    overrides.get(provider) if isinstance(overrides, dict) else None
                 )
+                install_args = (
+                    provider_overrides.get("install_args")
+                    if isinstance(provider_overrides, dict)
+                    else None
+                )
+                if (
+                    providers[:1] == [provider]
+                    and isinstance(provider_overrides, dict)
+                    and bool(provider_overrides.get("install_root"))
+                    and isinstance(install_args, list)
+                    and bool(install_args)
+                    and all(
+                        "==" in str(package)
+                        if provider == "uv"
+                        else bool(str(package).rpartition("@")[0])
+                        for package in install_args
+                    )
+                ):
+                    managed_package = True
+                    break
+            if (not providers or providers[0] != "env") and not managed_package:
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] must try env first or use an isolated package root with exact pins",
+                )
+            if "apt" in providers:
+                apt_index = providers.index("apt")
+                for preferred_provider in (
+                    "node",
+                    "nix",
+                    "uv",
+                    "pnpm",
+                    "puppeteer",
+                ):
+                    if (
+                        preferred_provider in providers
+                        and providers.index(preferred_provider) > apt_index
+                    ):
+                        failures.append(
+                            f"{plugin_dir.name}: required_binaries[{index}] must try {preferred_provider} before apt",
+                        )
+                if "brew" in providers and providers.index("brew") < apt_index:
+                    failures.append(
+                        f"{plugin_dir.name}: required_binaries[{index}] must try native apt before brew",
+                    )
 
     assert not failures, (
         "Plugin host binary preference validation failed:\n"
@@ -334,6 +438,18 @@ def test_pnpm_required_binaries_resolve_through_plugin_config() -> None:
             if "pnpm" not in binproviders:
                 continue
             binary_name = _hydrated_binary_name(str(item["name"]), config)
+            overrides = item.get("overrides")
+            pnpm_overrides = (
+                overrides.get("pnpm") if isinstance(overrides, dict) else None
+            )
+            if "min_release_age" in item and (
+                not isinstance(pnpm_overrides, dict)
+                or pnpm_overrides.get("min_release_age") != item["min_release_age"]
+            ):
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} must preserve min_release_age in overrides.pnpm",
+                )
+                continue
             try:
                 loaded = install_required_binary_from_config(plugin_dir, binary_name)
             except Exception as err:

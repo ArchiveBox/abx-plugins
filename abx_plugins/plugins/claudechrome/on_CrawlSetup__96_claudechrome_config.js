@@ -254,6 +254,7 @@ async function configureClaudeChrome() {
 }
 
 async function main() {
+  console.log("Claude for Chrome configuration started");
   const result = await configureClaudeChrome();
 
   if (result.skipped) {

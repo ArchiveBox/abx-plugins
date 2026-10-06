@@ -8,20 +8,20 @@
   "required_binaries": [
     {
       "name": "{YTDLP_BINARY}",
-      "binproviders": "env,uv,brew,apt",
-      "min_version": null,
+      "binproviders": "env,uv,apt,brew",
+      "min_version": "2026.08.19",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "yt-dlp[default]"
+            "yt-dlp[default]>=2026.8.19"
           ]
         }
       }
     },
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -81,7 +81,7 @@
     },
     "YTDLP_TIMEOUT": {
       "type": "integer",
-      "default": 3600,
+      "default": 120,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "x-aliases": [
@@ -116,6 +116,11 @@
         "type": "string"
       },
       "default": [
+        "--socket-timeout=5",
+        "--retries=0",
+        "--fragment-retries=0",
+        "--extractor-retries=0",
+        "--file-access-retries=0",
         "--restrict-filenames",
         "--trim-filenames=128",
         "--write-description",
@@ -151,5 +156,19 @@
       ],
       "description": "Extra arguments to append to yt-dlp command"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 40,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "YouTube-DL",
+  "archive_result_aliases": ["yt-dlp", "youtube-dl"],
+  "card_interactive": true,
+  "output_extension_preference": [
+    [".mp4", ".webm", ".m4v", ".ogv"],
+    [".mp3", ".m4a", ".aac", ".opus", ".ogg", ".wav", ".flac"],
+    [".mkv", ".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".3gp", ".3g2"],
+    [".html", ".htm", ".mhtml", ".mht", ".pdf"],
+    [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"],
+    [".json", ".jsonl", ".txt", ".md", ".csv", ".tsv", ".srt", ".vtt"]
+  ]
 }

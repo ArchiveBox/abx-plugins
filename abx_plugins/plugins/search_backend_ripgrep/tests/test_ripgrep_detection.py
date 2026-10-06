@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Tests for ripgrep binary detection and archivebox install functionality.
 
@@ -11,7 +10,6 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.testing import get_hydrated_required_binaries
-
 
 PLUGIN_DIR = Path(__file__).parent.parent
 

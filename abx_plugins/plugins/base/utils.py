@@ -1,7 +1,7 @@
 """Shared utilities for abx plugins.
 
 Provides common helpers used across multiple plugins:
-- Config loading from `config.json` using `jambo` with `x-aliases` and `x-fallback`
+- Typed config loading from `config.json` with `x-aliases` and `x-fallback`
 - JSONL record emission (archive results, binary requests, installed binaries)
 - Atomic file writing (`write_text_atomic`, `write_file_atomic`)
 - HTML source discovery (`find_html_source`)
@@ -14,11 +14,14 @@ Import directly via the package path::
 
 from __future__ import annotations
 
+import html
 import json
+import re
+from html.parser import HTMLParser
 import os
 import stat
 import sys
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
@@ -32,7 +35,6 @@ from typing import Any, TextIO, cast
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
 PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
 PROCESS_EXIT_SKIPPED = 10
-INTERNAL_INPUT_URL = "archivebox://internal"
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -152,13 +154,6 @@ def _maybe_skip_unsupported_snapshot_url(schema: Mapping[str, Any]) -> None:
         return
     if url.startswith(("http://", "https://", "file://")):
         return
-    # ArchiveBox represents pasted/stdin import content as one synthetic
-    # snapshot URL. Only plugins that explicitly declare they consume that
-    # internal input should run; every other snapshot hook should cheaply
-    # no-result before starting browsers/downloaders or touching the network.
-    if url == INTERNAL_INPUT_URL and bool(schema.get("x-accepts-internal-input")):
-        return
-
     record = {
         "type": "ArchiveResult",
         "status": "noresults",
@@ -441,6 +436,10 @@ _ABXPKG_OVERRIDE_KEYS = {
     "min_release_age",
     "install_timeout",
     "version_timeout",
+    "apt_gpg_keys",
+    "apt_sources",
+    "apt_system_groups",
+    "apt_system_users",
     "abspath",
     "version",
     "install_args",
@@ -629,82 +628,74 @@ def _hydrate_config_payload(
 
 @lru_cache(maxsize=None)
 def _schema_model(schema_json: str):
-    from jambo import SchemaConverter
-    from pydantic import ConfigDict
+    from enum import Enum
+
+    from pydantic import ConfigDict, Field, create_model
 
     schema = json.loads(schema_json)
-    model = SchemaConverter.build(schema)
-    model.model_config = ConfigDict(
-        validate_assignment=True,
-        use_enum_values=True,
-        validate_default=True,
-    )
-    model.model_rebuild(force=True)
-    return _patch_open_object_fields(model, _schema_properties(schema))
+    properties = _schema_properties(schema)
 
+    def annotation_for(prop: Mapping[str, Any]) -> Any:
+        enum = prop.get("enum")
+        if isinstance(enum, list) and enum:
+            return Enum("ConfigValue", {str(value): value for value in enum})
 
-def _open_object_annotation(prop: Mapping[str, Any]) -> type[Any] | None:
-    if prop.get("type") != "object":
-        return None
-    if prop.get("properties"):
-        return None
-    additional_properties = prop.get("additionalProperties")
-    if not isinstance(additional_properties, Mapping):
-        return None
-    item_model = build_config_model("OpenObjectValue", {"value": additional_properties})
-    item_annotation = item_model.model_fields["value"].annotation
-    if item_annotation is None:
-        return dict[str, Any]
-    return dict[str, item_annotation]
+        type_name = prop.get("type")
+        if type_name == "string":
+            return str
+        if type_name == "boolean":
+            return bool
+        if type_name == "integer":
+            return int
+        if type_name == "number":
+            return float
+        if type_name == "array":
+            items = prop.get("items")
+            item_annotation = (
+                annotation_for(items) if isinstance(items, Mapping) else Any
+            )
+            return list[item_annotation]
+        if type_name == "object":
+            additional = prop.get("additionalProperties")
+            value_annotation = (
+                annotation_for(additional) if isinstance(additional, Mapping) else Any
+            )
+            return dict[str, value_annotation]
+        raise ValueError(f"Unsupported config schema type: {type_name!r}")
 
+    fields: dict[str, tuple[Any, Any]] = {}
+    for name, raw_prop in properties.items():
+        if not isinstance(raw_prop, Mapping):
+            raise ValueError(f"Invalid config schema for {name}: expected an object")
+        annotation = annotation_for(raw_prop)
+        field_kwargs = {
+            key: raw_prop[key]
+            for key in ("description", "minimum", "maximum", "pattern")
+            if key in raw_prop
+        }
+        if "minimum" in field_kwargs:
+            field_kwargs["ge"] = field_kwargs.pop("minimum")
+        if "maximum" in field_kwargs:
+            field_kwargs["le"] = field_kwargs.pop("maximum")
+        if "default" in raw_prop:
+            field = Field(default=raw_prop["default"], **field_kwargs)
+        elif raw_prop.get("type") in {"array", "object"}:
+            field = Field(
+                default_factory=list if raw_prop["type"] == "array" else dict,
+                **field_kwargs,
+            )
+        else:
+            field = Field(default=None, **field_kwargs)
+        fields[str(name)] = (annotation, field)
 
-def _open_object_default(default_value: Any) -> Any:
-    from pydantic_core import PydanticUndefined
-
-    if default_value is None or default_value is PydanticUndefined:
-        return {}
-    return default_value
-
-
-def _patch_open_object_fields(
-    model,
-    properties: Mapping[str, Any],
-):
-    from pydantic import Field, create_model
-    from pydantic.fields import FieldInfo
-
-    fields: dict[str, tuple[Any, FieldInfo]] = {}
-    changed = False
-    for key, field in model.model_fields.items():
-        prop = properties.get(key)
-        annotation = (
-            _open_object_annotation(prop) if isinstance(prop, Mapping) else None
-        )
-        if annotation is None:
-            fields[key] = (field.annotation, field)
-            continue
-        patched_field = cast(
-            FieldInfo,
-            Field(
-                default_factory=lambda default=_open_object_default(field.default): (
-                    dict(default)
-                ),
-                description=field.description,
-                title=field.title,
-            ),
-        )
-        fields[key] = (annotation, patched_field)
-        changed = True
-    if not changed:
-        return model
-    return cast(
-        Any,
-        create_model(
-            model.__name__,
-            __config__=model.model_config,
-            __module__=model.__module__,
-            **cast(dict[str, Any], fields),
+    return create_model(
+        str(schema.get("title") or "PluginConfig"),
+        __config__=ConfigDict(
+            validate_assignment=True,
+            use_enum_values=True,
+            validate_default=True,
         ),
+        **cast(dict[str, Any], fields),
     )
 
 
@@ -849,6 +840,10 @@ def _find_hydrated_required_binary(
     hydrated_records = [
         (record, hydrate_required_binary(record, payload)) for record in records
     ]
+    requested_path = Path(name).expanduser()
+    requested_is_path = requested_path.is_absolute() or requested_path.parent != Path(
+        ".",
+    )
 
     # Prefer the effective runtime name so callers can select an explicitly
     # configured path without it being mistaken for another declaration.
@@ -857,17 +852,25 @@ def _find_hydrated_required_binary(
             return hydrated_record
 
     # A required binary whose name comes from a config property still has a
-    # stable declaration identity: that property's schema default.  Environment
-    # hydration may replace the runtime name with an absolute path, but callers
-    # must continue to be able to select the declaration by its configured
-    # command name (for example ``lit`` or ``wget``).
+    # stable declaration identity: that property's schema default. A projected
+    # managed path has the same identity as its basename even if stale process
+    # environment hydration still contains the original command name.
     for record, hydrated_record in hydrated_records:
         key = _placeholder_config_key(record.get("name"))
         property_schema = properties.get(key) if key is not None else None
-        if (
-            isinstance(property_schema, Mapping)
-            and property_schema.get("default") == name
-        ):
+        default_name = (
+            property_schema.get("default")
+            if isinstance(property_schema, Mapping)
+            else None
+        )
+        matches_projected_path = (
+            requested_is_path
+            and isinstance(default_name, str)
+            and Path(default_name).name == requested_path.name
+        )
+        if default_name == name or matches_projected_path:
+            if matches_projected_path:
+                hydrated_record["name"] = name
             return hydrated_record
 
     raise KeyError(f"{resolved_path} required_binaries is missing {name!r}")
@@ -938,7 +941,7 @@ def load_config(
     environ: Mapping[str, str] | None = None,
     hydrate_binaries: bool = True,
 ) -> Any:
-    """Load typed plugin config using `jambo` plus `x-aliases` and `x-fallback`.
+    """Load typed plugin config with `x-aliases` and `x-fallback`.
 
     The resolved config always includes shared `base/config.json` properties plus any
     `required_plugins` config it depends on. Values are resolved in this order:
@@ -1063,19 +1066,6 @@ def has_netscape_cookie_entries(path: Path | str | None) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _fsync_if_regular_file(fd: int) -> None:
-    try:
-        mode = os.fstat(fd).st_mode
-    except OSError:
-        return
-    if not stat.S_ISREG(mode):
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        return
-
-
 def print_and_flush(stream: TextIO, text: str) -> None:
     line = text if text.endswith("\n") else f"{text}\n"
     try:
@@ -1101,8 +1091,6 @@ def print_and_flush(stream: TextIO, text: str) -> None:
     except Exception:
         pass
 
-    _fsync_if_regular_file(fd)
-
 
 def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:
     try:
@@ -1124,7 +1112,8 @@ def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:
     return parsed
 
 
-def get_extra_context() -> dict[str, Any]:
+def _get_extra_context() -> dict[str, Any]:
+    """Opaque output-record reflection only; hooks must not inspect this data."""
     context: dict[str, Any] = {}
 
     env_raw = (os.environ.get("EXTRA_CONTEXT") or "").strip()
@@ -1152,7 +1141,7 @@ def get_extra_context() -> dict[str, Any]:
 
 
 def merge_EXTRA_CONTEXT(record: dict[str, Any]) -> dict[str, Any]:
-    extra_context = get_extra_context()
+    extra_context = _get_extra_context()
     if not extra_context:
         return record
     return {**extra_context, **record}
@@ -1298,6 +1287,89 @@ def find_html_source(*, prefer_dom: bool = False) -> str | None:
     return None
 
 
+def preserve_article_image_dimensions(content: str, source: str, url: str) -> str:
+    """Keep explicit image sizes lost by article parsers, using their existing input.
+
+    Only copy simple CSS dimensions, not arbitrary source styles. Ambiguous uses
+    of the same image retain the extractor's output rather than guessing a size.
+    """
+    dimensions = ("width", "height", "max-width", "max-height")
+
+    def sizes(attrs: dict[str, str | None]) -> dict[str, str]:
+        styles = {
+            key.strip().lower(): value.strip()
+            for declaration in (attrs.get("style") or "").split(";")
+            if ":" in declaration
+            for key, value in [declaration.split(":", 1)]
+        }
+        result = {}
+        for name in dimensions:
+            value = styles.get(name, attrs.get(name) or "")
+            value = re.sub(r"\s*!important\s*$", "", value, flags=re.I)
+            if re.fullmatch(
+                r"(?:\d+(?:\.\d+)?|\.\d+)(?:px|%|em|rem|vw|vh)?",
+                value,
+                re.I,
+            ):
+                result[name] = value + "px" if re.fullmatch(r"[\d.]+", value) else value
+        return result
+
+    originals: dict[str, dict[str, str] | None] = {}
+
+    class ImageParser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag != "img":
+                return
+            attrs = dict(attrs)
+            src = urljoin(url, attrs.get("src") or "")
+            size = sizes(attrs)
+            if src not in originals:
+                originals[src] = size
+            elif originals[src] != size:
+                originals[src] = None
+
+    ImageParser().feed(source)
+
+    def restore(match: re.Match) -> str:
+        tag = match.group(0)
+        parsed_attrs = {}
+
+        class TagParser(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                parsed_attrs.update(attrs)
+
+        TagParser().feed(tag)
+        attrs = parsed_attrs
+        original = originals.get(urljoin(url, attrs.get("src") or "")) or {}
+        size = {**sizes(attrs), **original}
+        if not size:
+            return tag
+        style = attrs.get("style") or ""
+        style = (
+            style.rstrip(";")
+            + ";"
+            + ";".join(f"{key}:{value}" for key, value in size.items())
+        )
+        tag = re.sub(
+            r"\sstyle\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)",
+            "",
+            tag,
+            flags=re.I,
+        )
+        return re.sub(
+            r"\s*/?>$",
+            lambda _: f' style="{html.escape(style.lstrip(";"), quote=True)}">',
+            tag,
+        )
+
+    return re.sub(
+        r"<img\b(?:[^>\"']|\"[^\"]*\"|'[^']*')*>",
+        restore,
+        content,
+        flags=re.I,
+    )
+
+
 def find_article_html_source() -> str | None:
     """Find the best HTML source for article/text extraction.
 
@@ -1311,6 +1383,32 @@ def find_article_html_source() -> str | None:
 # ---------------------------------------------------------------------------
 # Sibling plugin output checking
 # ---------------------------------------------------------------------------
+
+
+def is_non_html_document(navigation_path: str = "../chrome/navigation.json") -> bool:
+    """Whether the main response is known to be a non-HTML document.
+
+    Navigation records document.contentType before post-navigation hooks run.
+    A 2xx attachment may abort browser navigation after its non-HTML response
+    headers arrive. Other failed, missing, or older records do not suppress work.
+    """
+    try:
+        navigation = json.loads(Path(navigation_path).read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(navigation, dict):
+        return False
+    if navigation.get("error") and not (
+        "ERR_ABORTED" in str(navigation["error"])
+        and isinstance(navigation.get("status"), int)
+        and 200 <= navigation["status"] < 300
+    ):
+        return False
+    content_type = navigation.get("content_type")
+    if not isinstance(content_type, str):
+        return False
+    mimetype = content_type.split(";", 1)[0].strip().lower()
+    return "/" in mimetype and mimetype not in ("text/html", "application/xhtml+xml")
 
 
 def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:

@@ -58,6 +58,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, TextIO
+from collections.abc import Callable
 from contextlib import contextmanager
 
 import pytest
@@ -80,10 +81,10 @@ PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__91_chrome_wait.js"
 CHROME_SNAPSHOT_LAUNCH_HOOK = (
-    CHROME_PLUGIN_DIR / "on_Snapshot__09_chrome_launch.daemon.bg.js"
+    CHROME_PLUGIN_DIR / "on_Snapshot__00_chrome_launch.daemon.bg.js"
 )
-CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
-CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__11_chrome_wait.js"
+CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__01_chrome_tab.daemon.bg.js"
+CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "chrome_wait.js"
 _CHROME_NAVIGATE_HOOK = next(
     CHROME_PLUGIN_DIR.glob("on_Snapshot__*_chrome_navigate.*"),
     None,
@@ -518,7 +519,7 @@ ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
 
 
 @pytest.fixture
-def chrome_test_urls(request, httpserver, tmp_path_factory):
+def chrome_test_urls(request, httpserver_ipv4, tmp_path_factory):
     """Provide deterministic test URLs from pytest-httpserver."""
     for fixture_name in _ROOT_URL_FIXTURE_NAMES:
         try:
@@ -529,7 +530,7 @@ def chrome_test_urls(request, httpserver, tmp_path_factory):
         if urls:
             return urls
 
-    urls = _configure_chrome_httpserver(httpserver)
+    urls = _configure_chrome_httpserver(httpserver_ipv4)
     https_server = _create_https_test_server(tmp_path_factory)
     https_server.start()
     request.addfinalizer(https_server.stop)
@@ -688,6 +689,7 @@ def _chrome_provider_env_cache_key(env: dict) -> tuple[str, ...]:
             "PATH",
             "NODE_BINARY",
             "CHROME_BINARY",
+            "CHROME_BINPROVIDERS",
             "NODE_MODULES_DIR",
             "NODE_MODULE_DIR",
             "NODE_PATH",
@@ -751,34 +753,10 @@ def _call_base_utils(
 ) -> tuple[int, str, str]:
     """Call shared JS base utilities from Python test code."""
     payload = os.environ.copy() if env is None else env.copy()
-    node_binary = payload.get("NODE_BINARY")
-    if not node_binary or not Path(node_binary).is_file():
-        node_record = next(
-            (
-                record
-                for record in get_hydrated_required_binaries(
-                    CHROME_PLUGIN_DIR,
-                    payload,
-                )
-                if record.get("name") == str(node_binary or "node")
-            ),
-            None,
-        )
-        if node_record is None:
-            return 1, "", "Chrome config has no NODE_BINARY record"
-        try:
-            loaded_node = load_required_binary(
-                node_record,
-                config=payload,
-                environ=payload,
-                install=True,
-            )
-        except Exception as err:
-            return 1, "", f"NODE_BINARY was not resolved by abxpkg: {err}"
-        if not loaded_node.loaded_abspath:
-            return 1, "", "NODE_BINARY was not resolved by abxpkg"
-        node_binary = str(loaded_node.loaded_abspath)
-        payload["NODE_BINARY"] = node_binary
+    try:
+        node_binary = resolve_node_with_abxpkg(payload)
+    except Exception as err:
+        return 1, "", f"NODE_BINARY was not resolved by abxpkg: {err}"
     cmd = [node_binary, str(BASE_UTILS), command, *args]
     result = subprocess.run(
         cmd,
@@ -833,7 +811,7 @@ const options = JSON.parse(process.argv[3]);
   }
   const state = await chromeUtils.waitForChromeSessionState(chromeDir, options);
   if (!state) throw new Error(`Chrome session did not become ready: ${chromeDir}`);
-  process.stdout.write(JSON.stringify(state));
+  process.stdout.write(JSON.stringify(state), () => process.exit(0));
 })().catch((error) => {
   console.error(error.stack || error.message);
   process.exit(1);
@@ -1654,6 +1632,7 @@ def chrome_session(
     navigate: bool = True,
     timeout: int = 15,
     env_overrides: dict[str, str] | None = None,
+    crawl_setup: Callable[[dict[str, str], Path], None] | None = None,
 ):
     """Context manager for the full crawl -> snapshot -> optional navigate flow.
 
@@ -1661,8 +1640,9 @@ def chrome_session(
     1. provision crawl/snapshot dirs and runtime env
     2. launch the crawl-level shared browser
     3. wait for crawl readiness markers (including ``chrome.pid`` / ``cdp_url``)
-    4. create a snapshot tab with its own session markers
-    5. optionally run the navigate hook and wait for its outputs
+    4. optionally run crawl-setup work against the ready browser
+    5. create a snapshot tab with its own session markers
+    6. optionally run the navigate hook and wait for its outputs
 
     Runtime paths such as ``CHROME_BINARY`` and ``NODE_MODULES_DIR`` are
     consumed from the environment exported by the shared abxpkg fixture.
@@ -1766,6 +1746,9 @@ def chrome_session(
             timeout=startup_timeout,
         )
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+
+        if crawl_setup is not None:
+            crawl_setup(env, chrome_dir)
 
         # Create snapshot directory structure
         snap_dir.mkdir(parents=True, exist_ok=True)

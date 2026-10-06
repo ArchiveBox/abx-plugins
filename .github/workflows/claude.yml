@@ -50,15 +50,23 @@ jobs:
         with:
           version: "0.11.3"
           activate-environment: "true"
+          enable-cache: false
 
       - name: Project CI tooling through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          test -n "$ABXPKG_SPEC"
+          uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
       - name: Install locked Python dependencies through projected uv
         run: |
-          "${UV_BINARY}" sync --locked --dev --no-sources
+          "${UV_BINARY}" sync --locked --dev --no-sources --no-cache
 
       - name: Run Claude Code
         id: claude

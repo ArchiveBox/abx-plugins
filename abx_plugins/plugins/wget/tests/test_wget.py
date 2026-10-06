@@ -26,7 +26,6 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
 )
 
-
 PLUGIN_DIR = Path(__file__).parent.parent
 WGET_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_wget.*"))
 TEST_URL = "https://example.com"
@@ -39,8 +38,9 @@ def test_hook_script_exists():
 
 
 def test_wget_declares_only_env_apt_brew_providers():
-    """required_binaries should declare wget via env,apt,brew only."""
+    """required_binaries should prefer non-root Homebrew before apt."""
     required_binaries = PLUGIN_CONFIG["required_binaries"]
+    assert required_binaries[0]["name"] == "{WGET_BINARY}"
     binary_record = next(
         (
             record
@@ -53,6 +53,7 @@ def test_wget_declares_only_env_apt_brew_providers():
         f"Expected wget required_binaries entry: {required_binaries}"
     )
     assert binary_record["binproviders"] == "env,apt,brew"
+    assert PLUGIN_CONFIG["properties"]["WGET_BINARY"]["default"] == "wget"
 
 
 def test_verify_deps_with_abxpkg():
@@ -85,6 +86,7 @@ def test_resolves_wget_with_provider_managed_binary_path(local_example_url):
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -137,6 +139,7 @@ def test_archives_example_com(local_example_url):
             text=True,
             env=env,
             timeout=120,
+            check=False,
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
@@ -209,6 +212,7 @@ def test_config_save_wget_false_skips():
             text=True,
             env=env,
             timeout=30,
+            check=False,
         )
 
         # Should exit 0 when feature disabled
@@ -251,6 +255,7 @@ def test_config_save_warc(local_example_url):
             text=True,
             env=env,
             timeout=120,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -295,6 +300,7 @@ def test_staticfile_present_skips(real_staticfile_output, local_staticfile_urls)
             text=True,
             timeout=30,
             env=env,
+            check=False,
         )
 
         assert result.returncode == 0, (
@@ -337,6 +343,7 @@ def test_handles_404_gracefully(httpserver):
             capture_output=True,
             text=True,
             timeout=60,
+            check=False,
         )
 
         # Should fail
@@ -350,7 +357,11 @@ def test_handles_404_gracefully(httpserver):
         assert "ERROR: wget failed (exit=8)" in result.stderr
 
 
-def test_connection_refused_ignores_executor_process_artifacts(tmp_path):
+@pytest.mark.parametrize("artifact_hook_name", [WGET_HOOK.stem, WGET_HOOK.name])
+def test_connection_refused_ignores_executor_process_artifacts(
+    tmp_path,
+    artifact_hook_name,
+):
     """A failed download must not report abx-dl's process files as output."""
     loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
     assert loaded.loaded_abspath is not None, "wget should resolve through abxpkg"
@@ -358,7 +369,7 @@ def test_connection_refused_ignores_executor_process_artifacts(tmp_path):
     output_dir = tmp_path / "wget"
     output_dir.mkdir()
     process_id = "0123456789abcdef0123456789abcdef"
-    artifact_stem = f"{WGET_HOOK.stem}.{process_id}"
+    artifact_stem = f"{artifact_hook_name}.{process_id}"
     stdout_path = output_dir / f"{artifact_stem}.stdout.log"
     stderr_path = output_dir / f"{artifact_stem}.stderr.log"
     pid_path = output_dir / f"{artifact_stem}.pid"
@@ -435,6 +446,7 @@ def test_archives_legitimate_downloaded_shell_script(httpserver, tmp_path):
         text=True,
         env=env,
         timeout=30,
+        check=False,
     )
 
     assert result.returncode == 0, result.stderr
@@ -470,6 +482,7 @@ def test_config_timeout_honored(local_example_url):
             text=True,
             env=env,
             timeout=30,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -512,6 +525,7 @@ def test_config_user_agent(httpserver):
             text=True,
             env=env,
             timeout=120,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr

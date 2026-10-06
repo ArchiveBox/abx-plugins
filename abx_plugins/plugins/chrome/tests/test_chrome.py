@@ -16,6 +16,7 @@ before snapshot tabs are created.
 """
 
 import json
+import hashlib
 import os
 import signal
 import subprocess
@@ -65,6 +66,21 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 TEST_EXTENSION_NAME = "ublock"
 TEST_EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
+ARCHIVEWEBPAGE_PLUGIN_DIR = CHROME_UTILS.parent.parent / "archivewebpage"
+ARCHIVEWEBPAGE_PREPARE_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_CrawlSetup__80_archivewebpage_prepare.py"
+)
+ARCHIVEWEBPAGE_START_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__16_archivewebpage_start.js"
+)
+CHROME_EXTENSION_PLUGIN_NAMES = (
+    "archivewebpage",
+    "istilldontcareaboutcookies",
+    "singlefile",
+    "twocaptcha",
+    "ublock",
+)
+DAEMON_LIFECYCLE = CHROME_UTILS.parent.parent / "base" / "daemon_lifecycle.js"
 
 
 @dataclass
@@ -75,6 +91,46 @@ class _ConcurrentChromeSession:
     launch_process: subprocess.Popen[str]
     tab_process: subprocess.Popen[str] | None = None
     chrome_pid: int | None = None
+
+
+@pytest.mark.parametrize("synchronous_startup", [False, True])
+def test_daemon_lifecycle_replays_signal_received_during_startup(synchronous_startup):
+    install_handler = (
+        "install((signal) => {\n"
+        "  process.stdout.write(`HANDLED:${signal}\\n`);\n"
+        "  process.exit(0);\n"
+        "});\n"
+    )
+    startup = (
+        "require('fs').readSync(0, Buffer.alloc(1), 0, 1, null);\n" + install_handler
+        if synchronous_startup
+        else "setTimeout(() => {\n" + install_handler + "}, 250);\n"
+    )
+    script = (
+        f"const install = require({json.dumps(str(DAEMON_LIFECYCLE))}).captureShutdownSignals();\n"
+        "process.stdout.write('READY\\n');\n"
+        + startup
+        + "setTimeout(() => process.exit(2), 5000);\n"
+    )
+    env = {**os.environ, **get_test_env()}
+    process = subprocess.Popen(
+        [env["NODE_BINARY"], "-e", script],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    assert process.stdout is not None
+    assert process.stdout.readline().strip() == "READY"
+    process.send_signal(signal.SIGTERM)
+    stdout, stderr = process.communicate(
+        input="x" if synchronous_startup else None,
+        timeout=10,
+    )
+
+    assert process.returncode == 0, stderr
+    assert "HANDLED:SIGTERM" in stdout
 
 
 def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
@@ -332,6 +388,151 @@ def _install_test_extension(extensions_dir: Path, env: dict[str, str]) -> dict:
     return cache_data
 
 
+def test_cached_extension_respects_plugin_selection_and_enabled_config(tmp_path):
+    env = _isolated_test_env(str(tmp_path))
+    extensions_dir = Path(get_extensions_dir(env=env))
+    cached = _install_test_extension(extensions_dir, env)
+    script = "const u=require(process.argv[1]); console.log(JSON.stringify(u.loadInstalledExtensionsFromCache(process.argv[2]).installedExtensions.map(e=>e.name)));"
+
+    def loaded_names(overrides):
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(extensions_dir)],
+            env=env | overrides,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout)
+
+    assert cached["name"] == "ublock"
+    assert loaded_names({"PLUGINS": "title,screenshot"}) == []
+    assert loaded_names({"PLUGINS": "title,ublock", "UBLOCK_ENABLED": "true"}) == [
+        "ublock",
+    ]
+    assert loaded_names({"PLUGINS": "title,ublock", "UBLOCK_ENABLED": "false"}) == []
+    assert loaded_names({"PLUGINS": "", "UBLOCK_ENABLED": "true"}) == ["ublock"]
+
+
+def _hash_extension_tree(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def test_prepared_awp_extension_respects_selection_and_preserves_provider_cache(
+    tmp_path,
+):
+    env = _isolated_test_env(str(tmp_path))
+    extensions_dir = Path(get_extensions_dir(env=env))
+    loaded = install_required_binary_from_config(
+        ARCHIVEWEBPAGE_PLUGIN_DIR,
+        "archivewebpage",
+        env=env,
+    )
+    assert loaded.loaded_abspath is not None
+    cache_file = extensions_dir / "archivewebpage.extension.json"
+    cache_before = cache_file.read_bytes()
+    cache = json.loads(cache_before)
+    source = Path(cache["unpacked_path"])
+    source_digest = _hash_extension_tree(source)
+    source_bg = (source / "bg.js").read_bytes()
+
+    prepared = subprocess.run(
+        [str(ARCHIVEWEBPAGE_PREPARE_HOOK)],
+        cwd=env["CRAWL_DIR"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert prepared.returncode == 0, prepared.stderr
+    prepared_file = (
+        Path(env["CRAWL_DIR"])
+        / "chrome"
+        / "extensions"
+        / "archivewebpage.extension.json"
+    )
+    prepared_data = json.loads(prepared_file.read_text())
+    prepared_path = Path(prepared_data["unpacked_path"])
+    assert prepared_data["name"] == "archivewebpage"
+    assert prepared_data["version"] == cache["version"]
+    assert prepared_path.is_relative_to(Path(env["PERSONAS_DIR"]))
+    prepared_manifest = json.loads((prepared_path / "manifest.json").read_text())
+    assert prepared_manifest["version"] == cache["version"]
+    prepared_bg = (prepared_path / "bg.js").read_text()
+    assert b'"Network.setBypassServiceWorker",{bypass:!0}' in source_bg
+    assert '"Network.setBypassServiceWorker",{bypass:!1}' in prepared_bg
+
+    script = """
+const chrome = require(process.argv[1]);
+const extensions = chrome.loadInstalledExtensionsFromCache().installedExtensions;
+process.stdout.write(JSON.stringify(extensions.map(({name, version, unpacked_path}) => ({name, version, unpacked_path}))));
+"""
+
+    def selected_extensions(**overrides):
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS)],
+            env=env | overrides,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        return result
+
+    selected = selected_extensions(
+        PLUGINS="archivewebpage",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert selected.returncode == 0, selected.stderr
+    selected_data = json.loads(selected.stdout)
+    assert selected_data == [
+        {
+            "name": "archivewebpage",
+            "version": cache["version"],
+            "unpacked_path": str(prepared_path),
+        },
+    ]
+
+    unselected = selected_extensions(
+        PLUGINS="title,screenshot",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert unselected.returncode == 0, unselected.stderr
+    assert json.loads(unselected.stdout) == []
+
+    disabled = selected_extensions(
+        PLUGINS="archivewebpage",
+        ARCHIVEWEBPAGE_ENABLED="false",
+    )
+    assert disabled.returncode == 0, disabled.stderr
+    assert json.loads(disabled.stdout) == []
+
+    prepared_file.write_text("{malformed json")
+    unselected_malformed = selected_extensions(
+        PLUGINS="title,screenshot",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert unselected_malformed.returncode == 0, unselected_malformed.stderr
+    assert json.loads(unselected_malformed.stdout) == []
+
+    selected_malformed = selected_extensions(
+        PLUGINS="archivewebpage",
+        ARCHIVEWEBPAGE_ENABLED="true",
+    )
+    assert selected_malformed.returncode != 0
+    assert "SyntaxError" in selected_malformed.stderr
+
+    assert cache_file.read_bytes() == cache_before
+    assert _hash_extension_tree(source) == source_digest
+    assert (source / "bg.js").read_bytes() == source_bg
+
+
 def _probe_current_snapshot_page(chrome_session_dir: Path, env: dict) -> dict:
     base_utils = CHROME_UTILS.parent.parent / "base" / "utils.js"
     script = """
@@ -393,7 +594,7 @@ const puppeteer = resolvePuppeteer();
     return json.loads(result.stdout)
 
 
-def test_load_cached_extension_uses_runtime_browser_target():
+def test_load_cached_extension_publishes_runtime_id_without_stale_target_state():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         env = _isolated_test_env(
@@ -425,13 +626,55 @@ const extensionJson = process.argv[3];
   try {
     const extensions = [extension];
     await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
+    const launchMetadata = {...extensions[0]};
+    const manifest = chromeUtils.loadExtensionManifest(extensions[0].unpacked_path);
+    const preferredTargetUrl = `chrome-extension://${extensions[0].id}/${manifest.background.service_worker.replace(/^\/+/, '')}`;
+    const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
+      browser,
+      extensions[0].id,
+      5000,
+      preferredTargetUrl,
+      { wakePath: `/${manifest.action.default_popup}` },
+    );
+    const attachedExtension = await chromeUtils.loadExtensionFromTarget(
+      extensions,
+      extensionTarget,
+    );
     const targets = browser.targets()
       .filter(target => target.url().includes(extensions[0].id))
       .map(target => ({ type: target.type(), url: target.url() }));
+    const wakePath = `/${extensions[0].manifest.action.default_popup}`;
+    const wakeUrl = `chrome-extension://${extensions[0].id}${wakePath}`;
+    let targetError = null;
+    try {
+      await chromeUtils.waitForExtensionTargetHandle(
+        browser,
+        extensions[0].id,
+        1,
+        `${wakeUrl}-never-matches`,
+        { wakePath },
+      );
+    } catch (error) {
+      targetError = `${error.name}: ${error.message}`;
+    }
+    const wakePageStillOpen = (await browser.pages())
+      .some(page => page.url() === wakeUrl);
+    const runtimePath = extensions[0].unpacked_path;
+    const manifestInode = require('fs').statSync(`${runtimePath}/manifest.json`).ino;
+    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
+    require('assert').strictEqual(extensions[0].unpacked_path, runtimePath);
+    require('assert').strictEqual(
+      require('fs').statSync(`${runtimePath}/manifest.json`).ino,
+      manifestInode,
+    );
     process.stdout.write(JSON.stringify({
       cdpUrl: result.cdpUrl,
       extension: extensions[0],
+      launchMetadata,
+      attachedExtension,
       targets,
+      targetError,
+      wakePageStillOpen,
     }));
   } finally {
     await browser.close().catch(() => {});
@@ -441,31 +684,55 @@ const extensionJson = process.argv[3];
   process.exit(1);
 });
 """
-        result = subprocess.run(
-            [
-                env["NODE_BINARY"],
-                "-e",
-                script,
-                str(CHROME_UTILS),
-                str(output_dir),
-                json.dumps(cached_ext),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=env,
-        )
+        extensions_dir.chmod(0o555)
+        source_dir = Path(cached_ext["unpacked_path"])
+        source_directories = [
+            source_dir,
+            *(p for p in source_dir.rglob("*") if p.is_dir()),
+        ]
+        for directory in source_directories:
+            directory.chmod(0o555)
+        try:
+            result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    script,
+                    str(CHROME_UTILS),
+                    str(output_dir),
+                    json.dumps(cached_ext),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
+        finally:
+            for directory in source_directories:
+                directory.chmod(0o755)
+            extensions_dir.chmod(0o755)
 
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         assert payload["extension"]["id"], payload
-        target_url = payload["extension"].get("target_url", "")
+        assert payload["extension"]["unpacked_path"] != str(source_dir)
+        assert not (source_dir / "_metadata").exists()
+        launch_metadata = payload["launchMetadata"]
+        assert launch_metadata["id"] == payload["extension"]["id"], payload
+        assert launch_metadata["manifest_version"] == 3, payload
+        assert "target" not in launch_metadata, payload
+        assert "target_type" not in launch_metadata, payload
+        assert "target_url" not in launch_metadata, payload
+        assert "target_error" not in launch_metadata, payload
+        target_url = payload["attachedExtension"].get("target_url", "")
         assert target_url.startswith(
             f"chrome-extension://{payload['extension']['id']}/",
         ), payload
         assert any(target.get("url") == target_url for target in payload["targets"])
         assert "load_error" not in payload["extension"], payload
         assert any(target["type"] == "service_worker" for target in payload["targets"])
+        assert payload["targetError"].startswith("TimeoutError:"), payload
+        assert payload["wakePageStillOpen"] is False, payload
 
 
 def test_launch_chromium_replaces_static_user_agent_version_with_real_browser_version(
@@ -768,6 +1035,9 @@ def test_chrome_launch_configures_downloads_via_cdp_not_profile_prefs():
             "test-downloads-via-cdp",
         )
         try:
+            command = (chrome_dir / "cmd.sh").read_text()
+            assert "--enable-features=ThrottleMainFrameTo60Hz" in command, command
+            assert "--disable-frame-rate-limit" not in command, command
             chrome_launch_process._stderr_handle.flush()
             stderr = chrome_launch_process._stderr_log.read_text(
                 encoding="utf-8",
@@ -1211,8 +1481,17 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             None,
         )
         assert extension_entry is not None, browser_metadata
+        assert extension_entry.get("id"), extension_entry
+        assert extension_entry.get("id") != cached_ext["id"], extension_entry
+        assert extension_entry.get("manifest_version") == 3, extension_entry
         assert "load_path" not in extension_entry, extension_entry
-        assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
+        assert "load_error" not in extension_entry, extension_entry
+        assert "target" not in extension_entry, extension_entry
+        assert "target_type" not in extension_entry, extension_entry
+        assert "target_url" not in extension_entry, extension_entry
+        assert "target_error" not in extension_entry, extension_entry
+        assert extension_entry["source_unpacked_path"] == cached_ext["unpacked_path"]
+        assert extension_entry["unpacked_path"] != cached_ext["unpacked_path"]
         assert Path(extension_entry["unpacked_path"]).is_dir(), extension_entry
         assert (Path(extension_entry["unpacked_path"]) / "manifest.json").is_file()
 
@@ -1277,7 +1556,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
 
 
 def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_url):
-    """Concurrent snapshot browsers must load one shared abxpkg extension cache."""
+    """Concurrent browsers must fork the shared extension cache before loading it."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
@@ -1288,58 +1567,140 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
         }
         extensions_dir = Path(get_extensions_dir(env=base_env))
         cached_ext = _install_test_extension(extensions_dir, base_env)
+        for plugin_name in CHROME_EXTENSION_PLUGIN_NAMES:
+            loaded = install_required_binary_from_config(
+                CHROME_UTILS.parent.parent / plugin_name,
+                plugin_name,
+                env=base_env,
+            )
+            assert loaded.loaded_abspath is not None
 
         sessions: list[_ConcurrentChromeSession] = []
-        for index in range(3):
-            snapshot_dir = Path(tmpdir) / f"snapshot-{index}"
-            chrome_dir = snapshot_dir / "chrome"
-            chrome_dir.mkdir(parents=True)
-            snapshot_id = f"snap-concurrent-isolated-{index}"
-            env = base_env | {
-                "SNAP_DIR": str(snapshot_dir),
-                "PERSONAS_DIR": str(snapshot_dir / ".persona"),
+        runtime_paths = []
+        first_rules_dir = None
+        first_rules_before = None
+
+        def rules_fingerprint(directory):
+            # Reindexing can produce identical bytes. Inodes and mtimes expose
+            # replacement by a competing browser without relying on the narrow
+            # timing window that makes Chrome reject a recreated _metadata dir.
+            return {
+                str(file.relative_to(directory)): (
+                    file.stat().st_ino,
+                    file.stat().st_mtime_ns,
+                    hashlib.sha256(file.read_bytes()).hexdigest(),
+                )
+                for file in directory.rglob("*")
+                if file.is_file()
             }
-            stdout_handle = (chrome_dir / "snapshot_launch.stdout.log").open(
-                "w+",
-                encoding="utf-8",
-            )
-            stderr_handle = (chrome_dir / "snapshot_launch.stderr.log").open(
-                "w+",
-                encoding="utf-8",
-            )
-            launch_process = LoggedPopen(
-                [
-                    str(CHROME_SNAPSHOT_LAUNCH_HOOK),
-                    f"--url={chrome_test_url}",
-                    f"--snapshot-id={snapshot_id}",
-                    "--crawl-id=test-concurrent-snapshot-isolation",
-                ],
-                cwd=str(chrome_dir),
-                stdout=stdout_handle,
-                stderr=stderr_handle,
-                text=True,
-                env=env,
-            )
-            launch_process._stdout_handle = stdout_handle
-            launch_process._stderr_handle = stderr_handle
-            sessions.append(
-                _ConcurrentChromeSession(
-                    snapshot_id=snapshot_id,
-                    chrome_dir=chrome_dir,
-                    env=env,
-                    launch_process=launch_process,
-                ),
-            )
 
         try:
+            for index in range(3):
+                snapshot_dir = Path(tmpdir) / f"snapshot-{index}"
+                chrome_dir = snapshot_dir / "chrome"
+                chrome_dir.mkdir(parents=True)
+                snapshot_id = f"snap-concurrent-isolated-{index}"
+                env = base_env | {
+                    "SNAP_DIR": str(snapshot_dir),
+                    "PERSONAS_DIR": str(snapshot_dir / ".persona"),
+                }
+                stdout_handle = (chrome_dir / "snapshot_launch.stdout.log").open(
+                    "w+",
+                    encoding="utf-8",
+                )
+                stderr_handle = (chrome_dir / "snapshot_launch.stderr.log").open(
+                    "w+",
+                    encoding="utf-8",
+                )
+                launch_process = LoggedPopen(
+                    [
+                        str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+                        f"--url={chrome_test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                        "--crawl-id=test-concurrent-snapshot-isolation",
+                    ],
+                    cwd=str(chrome_dir),
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    text=True,
+                    env=env,
+                )
+                launch_process._stdout_handle = stdout_handle
+                launch_process._stderr_handle = stderr_handle
+                tab_stdout_handle = (chrome_dir / "chrome_tab.stdout.log").open(
+                    "w+",
+                    encoding="utf-8",
+                )
+                tab_stderr_handle = (chrome_dir / "chrome_tab.stderr.log").open(
+                    "w+",
+                    encoding="utf-8",
+                )
+                tab_process = LoggedPopen(
+                    [
+                        str(CHROME_TAB_HOOK),
+                        f"--url={chrome_test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                        "--crawl-id=test-concurrent-snapshot-isolation",
+                    ],
+                    cwd=str(chrome_dir),
+                    stdout=tab_stdout_handle,
+                    stderr=tab_stderr_handle,
+                    text=True,
+                    env=env,
+                )
+                tab_process._stdout_handle = tab_stdout_handle
+                tab_process._stderr_handle = tab_stderr_handle
+                sessions.append(
+                    _ConcurrentChromeSession(
+                        snapshot_id=snapshot_id,
+                        chrome_dir=chrome_dir,
+                        env=env,
+                        launch_process=launch_process,
+                        tab_process=tab_process,
+                    ),
+                )
+                if index == 0:
+                    wait_for_chrome_session_state(
+                        chrome_dir,
+                        env=env,
+                        timeout_seconds=60,
+                        require_browser_ready=True,
+                        require_target_id=True,
+                        require_connectable=True,
+                    )
+                    metadata = json.loads((chrome_dir / "browser.json").read_text())
+                    first_extension = next(
+                        entry
+                        for entry in metadata["extensions"]
+                        if entry["name"] == TEST_EXTENSION_NAME
+                    )
+                    first_rules_dir = (
+                        Path(first_extension["unpacked_path"])
+                        / "_metadata"
+                        / "generated_indexed_rulesets"
+                    )
+                    first_rules_before = rules_fingerprint(first_rules_dir)
+                    assert first_rules_before, (
+                        "Chrome must generate real uBlock rules indexes"
+                    )
+
             for session in sessions:
                 wait_for_chrome_session_state(
                     session.chrome_dir,
                     env=session.env,
                     timeout_seconds=60,
                     require_browser_ready=True,
+                    require_target_id=True,
+                    require_connectable=True,
                 )
+            assert rules_fingerprint(first_rules_dir) == first_rules_before, (
+                "Launching another browser overwrote the first live browser's "
+                "generated extension metadata"
+            )
+            for session in sessions:
                 assert session.launch_process.poll() is None
+                assert session.tab_process is not None
+                assert session.tab_process.poll() is None
                 browser_metadata = json.loads(
                     (session.chrome_dir / "browser.json").read_text(),
                 )
@@ -1352,24 +1713,35 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                     None,
                 )
                 assert extension_entry is not None, browser_metadata
-                assert (
-                    extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
+                runtime_path = Path(extension_entry["unpacked_path"])
+                runtime_paths.append(runtime_path)
+                cached_path = Path(cached_ext["unpacked_path"])
+                assert runtime_path != cached_path
+                assert runtime_path.is_relative_to(Path(session.env["PERSONAS_DIR"]))
+                assert (runtime_path / "manifest.json").read_bytes() == (
+                    cached_path / "manifest.json"
+                ).read_bytes()
+                assert not (runtime_path / "manifest.json").samefile(
+                    cached_path / "manifest.json",
                 )
-                assert extension_entry.get("id") == cached_ext["id"]
+                assert not (cached_path / "_metadata").exists()
+                assert extension_entry.get("id")
+                targets = fetch_devtools_targets(
+                    (session.chrome_dir / "cdp_url.txt").read_text().strip(),
+                )
+                assert any(
+                    target.get("url", "").startswith(
+                        f"chrome-extension://{extension_entry['id']}/",
+                    )
+                    for target in targets
+                ), targets
                 assert "load_error" not in extension_entry, extension_entry
                 session.chrome_pid = int(
                     (session.chrome_dir / "chrome.pid").read_text().strip(),
                 )
 
+            archivewebpage_processes = []
             for session in sessions:
-                session.tab_process = launch_snapshot_tab(
-                    snapshot_chrome_dir=session.chrome_dir,
-                    tab_env=session.env,
-                    test_url=chrome_test_url,
-                    snapshot_id=session.snapshot_id,
-                    crawl_id="test-concurrent-snapshot-isolation",
-                    require_pid=True,
-                )
                 wait_result = subprocess.run(
                     [
                         str(CHROME_WAIT_HOOK),
@@ -1386,6 +1758,35 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                     f"snapshot wait failed for {session.snapshot_id}:\n"
                     f"Stdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
                 )
+                archivewebpage_dir = session.chrome_dir.parent / "archivewebpage"
+                archivewebpage_dir.mkdir()
+                archivewebpage_processes.append(
+                    (
+                        session,
+                        archivewebpage_dir,
+                        subprocess.Popen(
+                            [
+                                str(ARCHIVEWEBPAGE_START_HOOK),
+                                f"--url={chrome_test_url}",
+                                f"--snapshot-id={session.snapshot_id}",
+                                "--crawl-id=test-concurrent-snapshot-isolation",
+                            ],
+                            cwd=str(archivewebpage_dir),
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            env=session.env,
+                        ),
+                    ),
+                )
+
+            for session, archivewebpage_dir, process in archivewebpage_processes:
+                stdout, stderr = process.communicate(timeout=60)
+                assert process.returncode == 0, (
+                    f"ArchiveWeb.page start failed for {session.snapshot_id}:\n"
+                    f"Stdout: {stdout}\nStderr: {stderr}"
+                )
+                assert (archivewebpage_dir / "recording.json").is_file()
         finally:
             for session in sessions:
                 tab_process = session.tab_process
@@ -1417,6 +1818,7 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
             assert chrome_pid is not None
             assert not is_pid_alive(chrome_pid)
             _assert_snapshot_chrome_state_cleared(session.chrome_dir)
+        assert all(not runtime_path.exists() for runtime_path in runtime_paths)
 
 
 def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_exit(
@@ -1436,6 +1838,8 @@ def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_e
             CHROME_KEEPALIVE="true",
         )
 
+        _install_test_extension(Path(get_extensions_dir(env=env)), env)
+
         launch = subprocess.run(
             [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-keepalive-true"],
             cwd=str(chrome_dir),
@@ -1451,6 +1855,15 @@ def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_e
         assert is_pid_alive(chrome_pid), (
             "Chrome should still be running after launch hook exits"
         )
+
+        browser_metadata = json.loads((chrome_dir / "browser.json").read_text())
+        extension = next(
+            entry
+            for entry in browser_metadata["extensions"]
+            if entry["name"] == TEST_EXTENSION_NAME
+        )
+        runtime_extension_dir = Path(extension["unpacked_path"])
+        assert (runtime_extension_dir / "manifest.json").is_file()
 
         crawl_wait = subprocess.run(
             [
@@ -1503,6 +1916,7 @@ def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_e
         assert is_pid_alive(chrome_pid), (
             "Chrome should remain alive after snapshot tab cleanup when crawl keepalive=true"
         )
+        assert (runtime_extension_dir / "manifest.json").is_file()
         assert kill_chrome(chrome_pid, str(chrome_dir))
         assert not is_pid_alive(chrome_pid), (
             "manual cleanup should terminate keepalive browser"
@@ -1779,8 +2193,10 @@ def test_snapshot_isolation_external_cdp_keepalive_true_ignores_is_local_true_an
         )
 
 
+@pytest.mark.parametrize("columns", ["80", "240"])
 def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_cleanup(
     chrome_test_url,
+    columns,
 ):
     """snapshot isolation + external CDP + keepalive=false should close the adopted browser on hook cleanup."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1811,6 +2227,7 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
             CHROME_CDP_URL=provider_cdp_url,
             CHROME_IS_LOCAL="false",
             CHROME_KEEPALIVE="false",
+            COLUMNS=columns,
         )
 
         launch_process = subprocess.Popen(
@@ -1944,7 +2361,6 @@ def test_cdp_url_is_published_before_extensions_metadata():
             "CRAWL_DIR": str(shared_dir),
             "SNAP_DIR": str(shared_dir),
             "CHROME_HEADLESS": "true",
-            "CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "5000",
         }
         browser_file = chrome_dir / "browser.json"
         cdp_file = chrome_dir / "cdp_url.txt"
@@ -2061,6 +2477,54 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
             assert provider_http_url in crawl_wait.stdout
         finally:
             _cleanup_launch_process(provider_process, provider_chrome_dir)
+
+
+def test_missing_netscape_cookies_does_not_abort_launch(tmp_path):
+    env = _isolated_test_env(
+        tmp_path,
+        COOKIES_FILE=str(tmp_path / "missing-cookies.txt"),
+    )
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    process, cdp_url = launch_chromium_session(env, chrome_dir, "missing-cookies")
+    try:
+        assert process.poll() is None
+        assert get_cookies_via_cdp(port_from_cdp_url(cdp_url), env) == []
+        assert (
+            "continuing without cookie import"
+            in (chrome_dir / "chrome_launch.stderr.log").read_text()
+        )
+    finally:
+        _cleanup_launch_process(process, chrome_dir)
+
+
+@pytest.mark.parametrize("contents", [None, "", "not JSON"])
+def test_missing_or_invalid_auth_export_fails_launch(tmp_path, contents):
+    auth_file = tmp_path / "auth.json"
+    if contents is not None:
+        auth_file.write_text(contents)
+    env = _isolated_test_env(
+        tmp_path,
+        AUTH_STORAGE_FILE=str(auth_file),
+        CHROME_KEEPALIVE="true",
+    )
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    chrome_dir.mkdir()
+    result = subprocess.run(
+        [str(CHROME_LAUNCH_HOOK), "--crawl-id=invalid-auth"],
+        cwd=chrome_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "ERROR:" in result.stderr
+    assert "session started" not in result.stdout
+    assert not (chrome_dir / "cdp_url.txt").exists()
+    if contents is None:
+        assert f"Cookies file not found: {auth_file}" in result.stderr
+    else:
+        assert f"Invalid JSON cookie export: {auth_file}" in result.stderr
 
 
 def test_cookies_imported_on_launch():
@@ -2232,6 +2696,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             "navigation": chrome_dir / "navigation.json",
         }
         chrome_launch_process = None
+        crawl_screencast_process = None
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
@@ -2242,6 +2707,23 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 text=True,
                 env=env,
             )
+
+            crawl_screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_CrawlSetup__90_chrome_screencast.daemon.bg.js"
+            )
+            crawl_screencast_process = subprocess.Popen(
+                [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+            assert crawl_screencast_process.stdout is not None
+            screencast_start = crawl_screencast_process.stdout.readline()
+            assert screencast_start.strip() == "chrome screencast ready"
 
             wait_for_chrome_session_state(
                 chrome_dir,
@@ -2267,6 +2749,23 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             os.kill(int(chrome_pid_before), 0)
             assert fetch_devtools_targets(cdp_url_before), (
                 "crawl launch should expose a live DevTools target list"
+            )
+
+            screencast_stdout, screencast_stderr = crawl_screencast_process.communicate(
+                timeout=30,
+            )
+            assert crawl_screencast_process.returncode == 0, (
+                "crawl screencast should publish startup and exit:\n"
+                f"Stdout: {screencast_start}{screencast_stdout}\n"
+                f"Stderr: {screencast_stderr}"
+            )
+            assert "chrome screencast starting" in screencast_stderr
+            assert '"type"' not in screencast_start + screencast_stdout
+            assert not (shared_dir / "chrome_screencast" / "latest.jpg").exists(), (
+                "crawl setup should not publish a blank bootstrap frame"
+            )
+            assert not any(path.exists() for path in snapshot_files.values()), (
+                "crawl screencast must not synthesize snapshot-scoped files"
             )
 
             crawl_wait = subprocess.run(
@@ -2435,6 +2934,12 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "/",
             ) == chrome_test_url.rstrip("/")
         finally:
+            if (
+                crawl_screencast_process is not None
+                and crawl_screencast_process.poll() is None
+            ):
+                crawl_screencast_process.send_signal(signal.SIGTERM)
+                crawl_screencast_process.wait(timeout=10)
             if tab_process is not None:
                 tab_process.send_signal(signal.SIGTERM)
                 tab_process.wait(timeout=10)
@@ -2507,11 +3012,19 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             )
             assert extension_entry is not None, crawl_extensions
             assert extension_entry.get("webstore_id") == cached_ext["webstore_id"]
-            assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
+            assert (
+                extension_entry["source_unpacked_path"] == cached_ext["unpacked_path"]
+            )
+            assert extension_entry["unpacked_path"] != cached_ext["unpacked_path"]
             assert extension_entry.get("id"), extension_entry
-            assert extension_entry.get("id") == cached_ext.get("id"), extension_entry
+            assert extension_entry.get("id") != cached_ext["id"], extension_entry
+            assert extension_entry.get("manifest_version") == 3, extension_entry
             assert "load_error" not in extension_entry, extension_entry
             assert "load_path" not in extension_entry, extension_entry
+            assert "target" not in extension_entry, extension_entry
+            assert "target_type" not in extension_entry, extension_entry
+            assert "target_url" not in extension_entry, extension_entry
+            assert "target_error" not in extension_entry, extension_entry
             assert Path(extension_entry["unpacked_path"]).is_dir(), extension_entry
             assert (Path(extension_entry["unpacked_path"]) / "manifest.json").is_file()
             assert (
@@ -2594,10 +3107,10 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
         )
 
 
-def test_crawl_wait_reacts_when_published_cdp_endpoint_changes(
+def test_crawl_wait_rechecks_connectability_with_and_without_file_changes(
     chrome_test_url,
 ):
-    """crawl wait should revalidate the session when its published CDP URL changes."""
+    """crawl wait should revalidate changed and transiently busy endpoints."""
     with tempfile.TemporaryDirectory() as tmpdir:
         (
             _stale_provider_dir,
@@ -2667,8 +3180,39 @@ def test_crawl_wait_reacts_when_published_cdp_endpoint_changes(
                 f"Stdout: {stdout}\nStderr: {stderr}"
             )
             assert "ready pid=external" in stdout.lower(), stdout
+
+            os.kill(provider_pid, signal.SIGSTOP)
+            wait_process = subprocess.Popen(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-crawl-wait-connectability",
+                ],
+                cwd=str(adopted_chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=adopted_env,
+            )
+            assert wait_process.stdout is not None
+            startup_line = wait_process.stdout.readline()
+            assert startup_line.startswith("waiting for "), startup_line
+            time.sleep(1.5)
+            assert wait_process.poll() is None
+            os.kill(provider_pid, signal.SIGCONT)
+
+            stdout, stderr = wait_process.communicate(timeout=15)
+            assert wait_process.returncode == 0, (
+                "crawl wait should accept the same endpoint after it resumes:\n"
+                f"Stdout: {stdout}\nStderr: {stderr}"
+            )
+            assert "ready pid=external" in stdout.lower(), stdout
         finally:
-            if wait_process is not None:
+            try:
+                os.kill(provider_pid, signal.SIGCONT)
+            except OSError:
+                pass
+            if wait_process is not None and wait_process.poll() is None:
                 wait_process.send_signal(signal.SIGTERM)
                 wait_process.wait(timeout=15)
             assert kill_chrome(provider_pid, str(provider_chrome_dir))
@@ -3274,7 +3818,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(
 
 
 def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_url):
-    """Fresh CDP clients must resolve the exact target_id.txt target before navigation."""
+    """Fresh CDP clients must resolve and capture the published target before navigation."""
     with tempfile.TemporaryDirectory() as tmpdir:
         shared_dir = Path(tmpdir) / "shared"
         shared_dir.mkdir()
@@ -3289,6 +3833,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
 
         chrome_launch_process = None
         tab_process = None
+        screencast_process = None
         try:
             chrome_launch_process, cdp_url = launch_chromium_session(
                 env=env,
@@ -3296,6 +3841,25 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
                 crawl_id="test-fresh-target-resolve",
                 timeout=60,
             )
+            crawl_screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_CrawlSetup__90_chrome_screencast.daemon.bg.js"
+            )
+            crawl_screencast_result = subprocess.run(
+                [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert crawl_screencast_result.returncode == 0, (
+                crawl_screencast_result.stderr
+            )
+            latest_frame = shared_dir / "chrome_screencast" / "latest.jpg"
+            assert not latest_frame.exists()
+
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=chrome_dir,
                 tab_env=env,
@@ -3306,6 +3870,71 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             target_id = (chrome_dir / "target_id.txt").read_text().strip()
             raw_targets = fetch_devtools_targets(cdp_url)
             assert any(target.get("id") == target_id for target in raw_targets)
+
+            screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_Snapshot__02_chrome_screencast.daemon.bg.js"
+            )
+            screencast_process = subprocess.Popen(
+                [str(screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env | {"CHROME_SCREENCAST_KEEP": "1"},
+            )
+            screencast_start = time.monotonic()
+            assert screencast_process.stdout is not None
+            assert (
+                screencast_process.stdout.readline().strip()
+                == "chrome screencast attached"
+            )
+            assert time.monotonic() - screencast_start < 10
+            assert screencast_process.stderr is not None
+            frame_deadline = time.monotonic() + 10
+            while time.monotonic() < frame_deadline and not latest_frame.is_file():
+                assert screencast_process.poll() is None, (
+                    "screencast exited before capturing the published target: "
+                    f"{screencast_process.stderr.read()}"
+                )
+                time.sleep(0.1)
+            assert latest_frame.is_file(), (
+                "snapshot screencast did not capture its target"
+            )
+            initial_frame = latest_frame.read_bytes()
+            assert initial_frame.startswith(b"\xff\xd8\xff")
+            initial_frame_mtime = latest_frame.stat().st_mtime_ns
+
+            navigate_result = subprocess.run(
+                [
+                    str(CHROME_NAVIGATE_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-fresh-target-resolve",
+                ],
+                cwd=str(chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert navigate_result.returncode == 0, (
+                "published target navigation failed:\n"
+                f"Stdout: {navigate_result.stdout}\nStderr: {navigate_result.stderr}"
+            )
+
+            next_frame_deadline = time.monotonic() + 10
+            while (
+                time.monotonic() < next_frame_deadline
+                and latest_frame.stat().st_mtime_ns <= initial_frame_mtime
+            ):
+                time.sleep(0.1)
+            assert latest_frame.stat().st_mtime_ns > initial_frame_mtime, (
+                "screencast stopped updating after target navigation"
+            )
+            assert latest_frame.read_bytes() != initial_frame, (
+                "screencast rewrote the initial frame without publishing the navigated page"
+            )
 
             script = f"""
 const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
@@ -3350,7 +3979,7 @@ const expectedTargetId = process.argv[2];
                 f"Stdout: {result.stdout}\nStderr: {result.stderr}"
             )
         finally:
-            for proc in (tab_process, chrome_launch_process):
+            for proc in (screencast_process, tab_process, chrome_launch_process):
                 if proc is None:
                     continue
                 proc.send_signal(signal.SIGTERM)
@@ -3611,7 +4240,14 @@ def test_chrome_cleanup_during_launch_uses_persisted_session_state(
     isolation,
     launch_hook,
 ):
-    """SIGTERM after chrome.pid publication must stop the in-progress browser."""
+    """SIGTERM after chrome.pid publication must stop the in-progress browser.
+
+    WHY: daemon stdout is the executor's readiness boundary. Publishing it at
+    process spawn lets the executor start consumers or request cleanup while
+    extension loading is still using CDP, which closes their targets mid-setup.
+    An interrupted launch may persist enough private state to clean itself up,
+    but it must never advertise that incomplete session as ready.
+    """
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / "crawl"
         snapshot_dir = Path(tmpdir) / "snapshot"
@@ -3685,9 +4321,8 @@ def test_chrome_cleanup_during_launch_uses_persisted_session_state(
                 f"early cleanup failed:\nstdout:\n{stdout}\nstderr:\n{stderr}"
             )
             assert "Cleaning up in-progress local Chrome from persisted state" in stderr
-            if isolation == "crawl":
-                assert "[+] chromium session started" not in stderr
-            else:
+            assert "session started" not in stdout
+            if isolation == "snapshot":
                 assert '"status":"succeeded"' not in stdout
             assert not is_pid_alive(chrome_pid)
             _assert_snapshot_browser_state_cleared(chrome_dir)
@@ -3766,8 +4401,9 @@ def test_zombie_prevention_hook_killed():
             os.kill(chrome_pid, 0)
 
 
-def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
-    """Zombie cleanup must not kill Chrome while the owning crawl heartbeat is live."""
+@pytest.mark.parametrize("columns", ["80", "240"])
+def test_kill_zombie_chrome_respects_live_crawl_hook_without_heartbeat(columns):
+    """A live hook is the passive signal that its Chrome session is still owned."""
     with tempfile.TemporaryDirectory() as tmpdir:
         root_dir = Path(tmpdir)
         crawl_dir = root_dir / "crawl"
@@ -3781,7 +4417,7 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
             CHROME_HEADLESS="true",
         )
         chrome_launch_process = subprocess.Popen(
-            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-live-heartbeat"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-live-hook"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -3801,31 +4437,154 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
             chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
             os.kill(chrome_pid, 0)
 
-            (crawl_dir / ".heartbeat.json").write_text(
-                json.dumps(
-                    {
-                        "runtime": "abx-dl",
-                        "crawl_id": "test-live-heartbeat",
-                        "owner_pid": os.getpid(),
-                        "last_alive_at": time.time(),
-                        "kill_after_seconds": 180,
-                    },
-                    separators=(",", ":"),
-                    sort_keys=True,
-                ),
-            )
-
             returncode, stdout, stderr = _call_chrome_utils(
                 "killZombieChrome",
                 str(root_dir),
-                env=get_test_env(),
+                env=get_test_env() | {"COLUMNS": columns},
             )
             assert returncode == 0, stderr
-            assert stdout.strip() == "0", stdout
+            assert stdout.strip() == "0", f"{stdout}\n{stderr}"
             os.kill(chrome_pid, 0)
         finally:
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_kill_zombie_chrome_does_not_kill_its_launcher(tmp_path):
+    """The executable hook must preserve the abxpkg launcher in its own PID file."""
+    crawl_dir = tmp_path / "crawl"
+    chrome_dir = crawl_dir / "chrome"
+    chrome_dir.mkdir(parents=True)
+    hook_path = CHROME_UTILS.parent / "on_CrawlSetup__89_chrome_kill_zombies.js"
+    env = _isolated_test_env(
+        tmp_path,
+        CRAWL_DIR=str(crawl_dir),
+        SNAP_DIR=str(crawl_dir / "snapshot"),
+        CHROME_USER_DATA_DIR=str(chrome_dir / "profile"),
+    )
+    process = subprocess.Popen(
+        [str(hook_path)],
+        cwd=str(chrome_dir),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        start_new_session=True,
+    )
+    pid_file = chrome_dir / (
+        "on_CrawlSetup__89_chrome_kill_zombies.js.0123456789abcdef0123456789abcdef.pid"
+    )
+    pid_file.write_text(str(process.pid))
+
+    stdout, stderr = process.communicate(timeout=30)
+
+    assert process.returncode == 0, stderr
+    assert "chrome zombies. cpu usage:" in stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_extension_cookie_sync_reconciles_removed_domains(tmp_path, chrome_test_url):
+    """Real Chrome preserves other domains while synced cookies change and clear."""
+    with chrome_session(tmp_path, test_url=chrome_test_url, navigate=False) as (
+        _,
+        _,
+        chrome_dir,
+        env,
+    ):
+        script = r"""
+const fs = require('fs');
+const assert = require('node:assert/strict');
+const utils = require(process.argv[1]);
+(async () => {
+  const browser = await utils.resolvePuppeteerModule().connect({browserWSEndpoint: fs.readFileSync(process.argv[2], 'utf8').trim()});
+  const authFile = process.argv[3];
+  const userDataDir = process.argv[4];
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const cookie = (domain, name, value, sameSite = 'lax') => ({domain, name, value, path: '/', expirationDate: expires, sameSite, secure: true, httpOnly: true});
+  try {
+    await browser.setCookie({domain: 'other.example', name: 'unrelated', value: 'keep', path: '/'});
+    const sync = async (cookies) => {
+      fs.writeFileSync(authFile, JSON.stringify({SOURCE: 'archivebox-browser-extension', cookies}));
+      const session = await utils.ensureChromeSession({outputDir: process.argv[5], cookiesFile: authFile, CHROME_USER_DATA_DIR: userDataDir});
+      assert.equal(session.reusedExisting, true);
+    };
+    await sync([cookie('first.example', 'session', 'old'), cookie('removed.example', 'session', 'remove'), cookie('first.example', 'cross-site', 'allowed', 'no_restriction'), cookie('first.example', 'strict', 'strict', 'strict'), {...cookie('first.example', 'unspecified', 'default', 'unspecified'), expirationDate: null}]);
+    let imported = await browser.cookies();
+    assert.equal(imported.find(c => c.name === 'session' && c.domain === 'first.example').sameSite, 'Lax');
+    assert.equal(imported.find(c => c.name === 'cross-site').sameSite, 'None');
+    assert.equal(imported.find(c => c.name === 'strict').sameSite, 'Strict');
+    assert.equal(imported.find(c => c.name === 'unspecified').sameSite, undefined);
+    assert.equal(imported.find(c => c.name === 'unspecified').session, true);
+    assert.equal(imported.find(c => c.name === 'cross-site').expires, expires);
+    assert.equal(imported.find(c => c.name === 'cross-site').httpOnly, true);
+    assert.equal(imported.find(c => c.name === 'cross-site').secure, true);
+    await assert.rejects(sync([cookie('first.example', 'session', 'bad', 'invalid')]), /Invalid cookie sameSite/);
+    assert.equal((await browser.cookies()).find(c => c.name === 'session' && c.domain === 'first.example').value, 'old');
+    await assert.rejects(sync([{...cookie('first.example', 'session', 'bad'), partitionKey: {topLevelSite: 'https://example.com'}}]), /Partitioned extension cookies/);
+    assert.equal((await browser.cookies()).find(c => c.name === 'session' && c.domain === 'first.example').value, 'old');
+    await sync([cookie('first.example', 'session', 'new')]);
+    let cookies = await browser.cookies();
+    assert.equal(cookies.find(c => c.domain === 'first.example').value, 'new');
+    assert.equal(cookies.some(c => c.domain === 'removed.example'), false);
+    assert.equal(cookies.find(c => c.domain === 'other.example').value, 'keep');
+    await sync([]);
+    cookies = await browser.cookies();
+    assert.equal(cookies.some(c => c.domain === 'first.example'), false);
+    assert.equal(cookies.find(c => c.domain === 'other.example').value, 'keep');
+  } finally { browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(chrome_dir / "cdp_url.txt"),
+                str(tmp_path / "auth.json"),
+                str(tmp_path / "personas" / "Default" / "chrome_profile"),
+                str(Path(env["CRAWL_DIR"]) / "chrome"),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("color_scheme", ["dark", "light"])
+def test_snapshot_uses_synced_color_scheme(tmp_path, color_scheme, chrome_test_url):
+    with chrome_session(
+        tmp_path,
+        test_url=chrome_test_url,
+        env_overrides={"BROWSER_COLOR_SCHEME": color_scheme},
+    ) as (_, _, chrome_dir, env):
+        script = r"""
+const assert = require('node:assert/strict');
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2], requireTargetId: true});
+  try {
+    const actual = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    assert.equal(actual, process.argv[3]);
+  } finally { browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(chrome_dir),
+                color_scheme,
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr

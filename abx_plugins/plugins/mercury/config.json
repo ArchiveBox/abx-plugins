@@ -4,29 +4,23 @@
   "description": "Extract article HTML, text, and metadata using the Postlight Mercury parser.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [],
+  "required_plugins": ["dom"],
   "required_binaries": [
     {
       "name": "{MERCURY_BINARY}",
-      "binproviders": "env,pnpm",
+      "binproviders": "env,npm",
       "min_version": null,
       "overrides": {
-        "pnpm": {
-          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/mercury",
+        "env": {
+          "version": "2.2.3"
+        },
+        "npm": {
+          "install_root": "{ABXPKG_LIB_DIR}/npm/packages/mercury",
           "install_args": [
-            "--config.blockExoticSubdeps=false",
-            "@postlight/parser"
+            "@postlight/parser@2.2.3"
           ],
           "postinstall_scripts": true,
-          "version": [
-            "pnpm",
-            "--dir",
-            "{ABXPKG_LIB_DIR}/pnpm/packages/mercury",
-            "exec",
-            "node",
-            "-p",
-            "require('@postlight/parser/package.json').version"
-          ]
+          "version": "2.2.3"
         }
       }
     }
@@ -80,5 +74,9 @@
       ],
       "description": "Extra arguments to append to Mercury parser command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 50,
+  "snapshot_output_group": "article_text",
+  "snapshot_output_order": 2
 }

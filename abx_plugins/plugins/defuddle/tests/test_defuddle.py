@@ -71,8 +71,9 @@ def test_crawl_hook_emits_defuddle_binary_request_record():
     binary = get_hydrated_required_binary(PLUGIN_DIR, "defuddle")
     assert binary.get("binproviders") == "env,pnpm"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
-        "defuddle",
+        "defuddle@0.14.0",
     ]
+    assert binary.get("overrides", {}).get("pnpm", {}).get("version") == "0.14.0"
 
 
 def test_verify_deps_with_abxpkg():
@@ -164,8 +165,8 @@ def test_prefers_dom_output_over_singlefile_when_both_exist(
     html_output = (output_dir / "content.html").read_text().lower()
     text_output = (output_dir / "content.txt").read_text().lower()
     metadata = json.loads((output_dir / "article.json").read_text())
-    assert "documentation examples without needing permission" in html_output
-    assert "documentation examples without needing permission" in text_output
+    assert "example domain dom source" in html_output
+    assert "example domain dom source" in text_output
     assert "archivebox" not in html_output
     assert "archivebox" not in text_output
     assert metadata.get("title") == "Example Domain"

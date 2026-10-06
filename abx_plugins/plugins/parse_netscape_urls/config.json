@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Parse Netscape URLs",
   "description": "Parse Netscape bookmark HTML exports and emit discovered URLs as JSONL snapshot records.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -19,5 +20,8 @@
       "description": "Enable Netscape bookmarks HTML URL parsing"
     }
   },
-  "x-accepts-internal-input": true
+  "x-accepts-internal-input": true,
+  "category": "postprocessing",
+  "display_order": 40,
+  "snapshot_output_group": "metadata"
 }

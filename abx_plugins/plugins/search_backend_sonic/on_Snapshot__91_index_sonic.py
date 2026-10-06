@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -18,17 +18,18 @@ Environment variables:
     SONIC_BUCKET: Bucket name (default: snapshots)
 """
 
+import sys
+import json
 import argparse
 import os
 import re
-import sys
 from importlib import import_module
 from pathlib import Path
 from typing import Any
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_extra_context,
+    load_required_binary_from_config,
 )
 from abx_plugins.plugins.search_backend_sonic.daemon import (
     is_sonic_backend_enabled,
@@ -163,19 +164,41 @@ def _metadata_values(raw_value: Any, *, split_tags: bool = False) -> list[str]:
 
 def build_metadata_content(
     url: str,
-    extra_context: dict[str, Any] | None = None,
+    snapshot_id: str,
 ) -> str:
-    """Build always-indexed Snapshot metadata text for Sonic."""
-    context = extra_context or get_extra_context()
+    """Read archived metadata from the snapshot manifest, never process config."""
+    metadata = {}
+    index_path = SNAP_DIR / "index.jsonl"
+    if index_path.is_file():
+        with index_path.open(encoding="utf-8") as index:
+            for line in index:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                if (
+                    record.get("type") == "Snapshot"
+                    and str(record.get("id")) == snapshot_id
+                ):
+                    metadata.update(record)
     values = [
-        *_metadata_values(context.get("snapshot_url") or context.get("url") or url),
-        *_metadata_values(context.get("snapshot_title") or context.get("title")),
-        *_metadata_values(
-            context.get("snapshot_tags") or context.get("tags"),
-            split_tags=True,
-        ),
+        *_metadata_values(url),
+        *_metadata_values(metadata.get("title")),
+        *_metadata_values(metadata.get("tags"), split_tags=True),
     ]
     return "\n".join(dict.fromkeys(values))
+
+
+def escape_sonic_backslashes(text: str) -> str:
+    """Preserve existing backslashes through sonic-client's quote escaping.
+
+    sonic-client escapes double quotes but leaves backslashes untouched. A
+    source sequence of backslash + quote therefore becomes an even number of
+    escapes on the wire, which Sonic reads as the end of the text argument and
+    parses any remaining content as metadata. Double existing backslashes
+    first; sonic-client then escapes quotes, producing the correct odd escape
+    count at embedded quotes.
+    """
+    return text.replace("\\", "\\\\")
 
 
 def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
@@ -185,8 +208,6 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
     except ModuleNotFoundError:
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     ingest_client: Any = sonic.IngestClient
-    control_client: Any = sonic.ControlClient
-
     with ingest_client(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,
         config.SEARCH_BACKEND_SONIC_PORT,
@@ -202,37 +223,82 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
         except Exception:
             pass
 
-        # Index new content in chunks (Sonic has size limits)
+        # Sonic's buffer limit is for the complete UTF-8 command on the wire,
+        # including identifiers and sonic-client's quoting/escaping.
         content = " ".join(texts)
-        chunk_size = 10000
-        for i in range(0, len(content), chunk_size):
-            chunk = content[i : i + chunk_size]
-            ingest.push(
-                config.SEARCH_BACKEND_SONIC_COLLECTION,
-                config.SEARCH_BACKEND_SONIC_BUCKET,
+        # IngestClient.bufsize stays zero; the handshake populates the pooled
+        # connection instead. Reuse its formatter so byte accounting matches
+        # the command that push() actually sends, including its trailing field.
+        connection = ingest.get_active_connection()
+        try:
+            max_command_bytes = int(connection.bufsize)
+            format_command = connection._format_command
+        finally:
+            ingest.pool.release(connection)
+        quote_text = import_module("sonic.client").quote_text
+        collection = config.SEARCH_BACKEND_SONIC_COLLECTION
+        bucket = config.SEARCH_BACKEND_SONIC_BUCKET
+
+        def wire_bytes(chunk: str) -> int:
+            command = format_command(
+                "PUSH",
+                collection,
+                bucket,
                 snapshot_id,
-                chunk,
+                quote_text(escape_sonic_backslashes(chunk)),
+                "",
             )
+            return len(command.encode("utf-8"))
 
-    with control_client(
-        config.SEARCH_BACKEND_SONIC_HOST_NAME,
-        config.SEARCH_BACKEND_SONIC_PORT,
-        config.SEARCH_BACKEND_SONIC_PASSWORD,
-    ) as control:
-        control.trigger("consolidate")
-
-
-def get_snapshot_id_from_context() -> str:
-    extra_context = get_extra_context()
-    return str(
-        extra_context.get("snapshot_id") or extra_context.get("id") or "",
-    ).strip()
+        if max_command_bytes <= wire_bytes(""):
+            raise ValueError("Sonic PUSH identifiers exceed the negotiated buffer")
+        start = 0
+        while start < len(content):
+            low = start + 1
+            high = min(len(content), start + max_command_bytes)
+            end = start
+            while low <= high:
+                middle = (low + high) // 2
+                if wire_bytes(content[start:middle]) <= max_command_bytes:
+                    end = middle
+                    low = middle + 1
+                else:
+                    high = middle - 1
+            if end == start:
+                raise ValueError("A Sonic PUSH character exceeds the negotiated buffer")
+            if end < len(content):
+                # Keep ordinary words intact when a separator already fits.
+                boundary = next(
+                    (i + 1 for i in range(end - 1, start, -1) if content[i].isspace()),
+                    None,
+                )
+                if boundary is not None:
+                    end = boundary
+            # A server closing an overflowing connection can yield an empty
+            # response without raising in sonic-client. Only OK proves that
+            # this chunk was indexed; otherwise we must not report success.
+            if (
+                ingest.push(
+                    collection,
+                    bucket,
+                    snapshot_id,
+                    escape_sonic_backslashes(content[start:end]),
+                )
+                is not True
+            ):
+                raise RuntimeError("Sonic rejected a PUSH command")
+            start = end
 
 
 def main() -> None:
     """Index snapshot content in Sonic."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="URL that was archived")
+    parser.add_argument(
+        "--snapshot-id",
+        default="",
+        help="Snapshot identifier to index",
+    )
     args, _unknown_args = parser.parse_known_args()
 
     status = "failed"
@@ -243,11 +309,7 @@ def main() -> None:
     try:
         config = load_sonic_config()
 
-        if config.ABX_RUNTIME != "archivebox":
-            print("Skipping Sonic indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
-            status = "skipped"
-            output_str = f"ABX_RUNTIME={config.ABX_RUNTIME}"
-        elif not is_sonic_backend_enabled(config):
+        if not is_sonic_backend_enabled(config):
             print(
                 "Skipping indexing (SEARCH_BACKEND_SONIC_ENABLED=False)",
                 file=sys.stderr,
@@ -255,12 +317,22 @@ def main() -> None:
             status = "skipped"
             output_str = "SEARCH_BACKEND_SONIC_ENABLED=False"
         else:
-            snapshot_id = get_snapshot_id_from_context()
+            print("Sonic indexing started", flush=True)
+            snapshot_id = args.snapshot_id
             if not snapshot_id:
-                raise RuntimeError("missing snapshot_id in extra context")
+                raise RuntimeError("missing --snapshot-id")
+
+            # Reject invalid inputs before installing the plugin's dependencies.
+            # Valid invocations retain the same config-owned auto-install path.
+            load_required_binary_from_config(
+                config.SONIC_BINARY,
+                Path(__file__).with_name("config.json"),
+                global_config=vars(config),
+                install=True,
+            )
 
             contents = []
-            metadata_content = build_metadata_content(args.url)
+            metadata_content = build_metadata_content(args.url, snapshot_id)
             if metadata_content:
                 contents.append(("metadata", metadata_content))
             contents.extend(find_indexable_content())

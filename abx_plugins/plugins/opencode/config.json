@@ -2,13 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenCode Agent",
   "description": "Expose an admin-only embedded OpenCode web agent UI for ArchiveBox.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -20,7 +21,7 @@
     },
     {
       "name": "{NPM_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -43,15 +44,16 @@
     {
       "name": "{OPENCODE_BINARY}",
       "binproviders": "env,pnpm",
-      "min_version": null,
+      "min_version": "1.18.31",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode",
+          "min_release_age": 0,
           "postinstall_scripts": true,
           "install_args": [
-            "opencode-ai"
+            "opencode-ai@1.18.31"
           ]
         }
       }
@@ -72,7 +74,7 @@
     "GIT_BINARY": {
       "type": "string",
       "default": "git",
-      "description": "Path to Git binary used by OpenCode project initialization"
+      "description": "Path to Git binary used by OpenCode to inspect existing projects; ArchiveBox never initializes a repository"
     },
     "OPENCODE_ENABLED": {
       "type": "boolean",
@@ -99,7 +101,7 @@
     "OPENCODE_WORKDIR": {
       "type": "string",
       "default": "",
-      "description": "Working directory for OpenCode. Defaults to the ArchiveBox data directory"
+      "description": "Working directory for OpenCode. Defaults to DATA_DIR; no Git repository is created and checkpointing is disabled by default"
     },
     "OPENCODE_STATE_DIR": {
       "type": "string",
@@ -108,12 +110,14 @@
     },
     "OPENCODE_TIMEOUT": {
       "type": "integer",
-      "default": 30,
+      "default": 120,
       "minimum": 1,
-      "description": "Seconds to wait for OpenCode startup and proxied requests"
+      "description": "Seconds to wait for OpenCode startup and proxied requests, including cold provider catalog loading"
     }
   },
   "x-runtimes": [
     "archivebox"
-  ]
+  ],
+  "x-auto-run": false,
+  "hidden": true
 }

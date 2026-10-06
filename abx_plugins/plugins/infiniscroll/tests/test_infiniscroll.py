@@ -66,6 +66,9 @@ INFINISCROLL_TEST_PAGE_HTML = """
 </head>
 <body>
   <div id="status">loads: 0</div>
+  <p>Show more context is static text, not a control.</p>
+  <a href="/i/connect_people?user_id=262147093">Show more</a>
+  <a role="button" href="/explore/tabs/for-you"><span>Load more</span></a>
   <main id="feed"></main>
   <script>
     const feed = document.getElementById('feed');
@@ -125,7 +128,10 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg after hook installation."""
-    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node_loaded = install_binary_with_abxpkg(
+        "node",
+        binproviders="env,node,brew,apt",
+    )
     assert node_loaded and node_loaded.abspath, (
         "Node.js required for infiniscroll plugin"
     )
@@ -220,6 +226,7 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             env["INFINISCROLL_SCROLL_LIMIT"] = "3"  # Limit scrolls for faster test
             env["INFINISCROLL_SCROLL_DELAY"] = "500"  # Faster scrolling
             env["INFINISCROLL_MIN_HEIGHT"] = "1000"  # Lower threshold for test
+            env["INFINISCROLL_TIMEOUT"] = "8"
 
             result = subprocess.run(
                 [
@@ -237,6 +244,7 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             assert result.returncode == 0, (
                 f"Infiniscroll failed: {result.stderr}\nStdout: {result.stdout}"
             )
+            assert "Clicked" not in result.stderr, result.stderr
 
             # Parse JSONL output
             result_json = None

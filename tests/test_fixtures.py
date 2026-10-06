@@ -14,10 +14,30 @@ import pytest
 from abx_plugins.plugins.base.testing import (
     assert_isolated_snapshot_env,
 )
+from abx_plugins.plugins.singlefile.tests.conftest import (
+    singlefile_install_state as singlefile_install_state,
+)
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    if call.excinfo is None or not isinstance(
+        call.excinfo.value,
+        subprocess.TimeoutExpired,
+    ):
+        return
+    report = outcome.get_result()
+    for name in ("stdout", "stderr"):
+        output = getattr(call.excinfo.value, name)
+        if isinstance(output, bytes):
+            output = output.decode(errors="replace")
+        if output:
+            report.sections.append((f"Timed-out subprocess {name}", output))
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -35,6 +55,75 @@ def test_shared_pytest_fixtures_import_from_tests_package():
     assert REPO_ROOT.is_dir()
     assert PLUGINS_ROOT.is_dir()
     assert CLAUDECODE_CONFIG.is_file()
+
+
+@pytest.mark.parametrize("platform", ["linux", "macos"])
+def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
+    tmp_path,
+    platform,
+):
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-cache",
+            "--no-project",
+            "python",
+            str(REPO_ROOT / ".github/ci_test_matrix.py"),
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "UGNAS_CI_MAX_JOBS": "3", "CI_TEST_PLATFORM": platform},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    matrix = json.loads(result.stdout.removeprefix("test-matrix="))
+    expected = sorted(
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in {
+            *PLUGINS_ROOT.rglob("test_*.py"),
+            *(REPO_ROOT / "tests").rglob("test_*.py"),
+        }
+    )
+    assignments = [
+        (path, item["os"], item["python"]) for item in matrix for path in item["paths"]
+    ]
+    assert len(assignments) == len({path for path, _, _ in assignments})
+    assert len(matrix) < len(expected)
+    assert all(1 <= len(item["paths"]) <= 8 for item in matrix)
+    assert all(item["workers"] in (0, 2) for item in matrix)
+    assert all(item["workers"] == 0 for item in matrix if item["ugnas"])
+    cells = [
+        (os_name, python)
+        for os_name in ("ubuntu-24.04", "macos-15")
+        for python in ("3.12", "3.13", "3.14")
+    ]
+    expected_assignments = []
+    for index, path in enumerate(expected):
+        os_name, python = cells[index % len(cells)]
+        header = (REPO_ROOT / path).read_text().splitlines()[:5]
+        if "# ci-runner: hosted-linux" in header:
+            os_name = "ubuntu-24.04"
+        if platform == "macos":
+            if os_name != "macos-15":
+                continue
+        else:
+            os_name = "ubuntu-24.04"
+        expected_assignments.append((path, os_name, python))
+    assert sorted(assignments) == expected_assignments
+    if platform == "linux":
+        assert sorted(path for path, _, _ in assignments) == expected
+    assert sum(item["ugnas"] for item in matrix) == (3 if platform == "linux" else 0)
+    for item in matrix:
+        if item["ugnas"]:
+            assert item["os"] == "ubuntu-24.04"
+            assert all(
+                not any(
+                    line.startswith("# ci-runner: hosted")
+                    for line in (REPO_ROOT / path).read_text().splitlines()[:5]
+                )
+                for path in item["paths"]
+            )
 
 
 @pytest.fixture
@@ -130,27 +219,42 @@ def real_html_snapshot(ensure_chrome_test_prereqs):
 
 
 @pytest.fixture
-def real_competing_html_snapshot(real_html_snapshot):
-    """Produce real SingleFile and DOM outputs from distinct live pages."""
-    from abx_plugins.plugins.base.testing import parse_jsonl_output
+def real_competing_html_snapshot(
+    real_html_snapshot,
+    httpserver,
+    singlefile_install_state,
+):
+    """Produce real SingleFile and DOM outputs from distinct local pages."""
+    from abx_plugins.plugins.base.testing import get_hook_script, parse_jsonl_output
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
-    from abx_plugins.plugins.singlefile.tests.test_singlefile import (
-        SNAPSHOT_HOOK,
-        ensure_singlefile_extension_installed,
+
+    snapshot_hook = get_hook_script(
+        PLUGINS_ROOT / "singlefile",
+        "on_Snapshot__*_singlefile.py",
     )
+    assert snapshot_hook is not None
 
     def run(root: Path, snapshot_id: str) -> Path:
+        httpserver.expect_request("/singlefile-source").respond_with_data(
+            "<html><head><title>ArchiveBox</title></head><body><article>ArchiveBox single-file source</article></body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+        httpserver.expect_request("/dom-source").respond_with_data(
+            "<html><head><title>Example Domain</title></head><body><article>Example Domain DOM source</article></body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+        httpserver.expect_request("/favicon.ico").respond_with_data("", status=404)
+        singlefile_url = httpserver.url_for("/singlefile-source")
+        dom_url = httpserver.url_for("/dom-source")
         singlefile_root = root / "singlefile-capture"
-        install_state = ensure_singlefile_extension_installed(root)
+        install_state = singlefile_install_state
         with chrome_session(
             tmpdir=singlefile_root,
             crawl_id=f"singlefile-{snapshot_id}",
             snapshot_id=snapshot_id,
-            test_url="https://archivebox.io",
-            navigate=False,
+            test_url=singlefile_url,
             timeout=30,
             env_overrides={
-                "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
                 "ABXPKG_CHROMEWEBSTORE_ROOT": str(
                     install_state["extensions_dir"].parent,
                 ),
@@ -164,7 +268,7 @@ def real_competing_html_snapshot(real_html_snapshot):
             output_dir.mkdir()
             env["SINGLEFILE_ENABLED"] = "true"
             result = subprocess.run(
-                [str(SNAPSHOT_HOOK), "--url=https://archivebox.io"],
+                [str(snapshot_hook), f"--url={singlefile_url}"],
                 cwd=output_dir,
                 env=env,
                 capture_output=True,
@@ -177,7 +281,7 @@ def real_competing_html_snapshot(real_html_snapshot):
 
         dom_snapshot = real_html_snapshot(
             root / "dom-capture",
-            "https://example.com",
+            dom_url,
             f"dom-{snapshot_id}",
         )
         shutil.move(dom_snapshot / "dom", snapshot_dir / "dom")
@@ -352,7 +456,9 @@ def installed_claude_code_prereqs(tmp_path_factory):
     from abx_plugins.plugins.base.utils import load_required_binary_from_config
 
     env = os.environ.copy()
-    env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
+    env["ABXPKG_LIB_DIR"] = env.get("ABXPKG_LIB_DIR") or str(
+        tmp_path_factory.mktemp("claudecode_test_lib"),
+    )
     env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
     env["CLAUDECODE_ENABLED"] = "true"
 

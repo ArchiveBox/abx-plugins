@@ -4,14 +4,17 @@
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
+import sys
 import argparse
+import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     find_article_html_source,
     load_config,
     write_text_atomic,
@@ -34,6 +37,44 @@ FORMAT_TO_FILE = {
     "xmltei": "content.xmltei",
 }
 
+TRAFILATURA_WORKER = r"""
+import json
+import sys
+from copy import deepcopy
+from pathlib import Path
+
+from trafilatura.core import bare_extraction, determine_returnstring
+from trafilatura.settings import Extractor
+
+html_source, url, raw_formats = sys.argv[1:]
+formats = json.loads(raw_formats)
+html = Path(html_source).read_text(encoding="utf-8", errors="replace")
+extraction_options = Extractor(
+    output_format="python",
+    url=url,
+    with_metadata=True,
+    formatting=True,
+)
+document = bare_extraction(html, options=extraction_options)
+if document is None:
+    print("{}")
+    raise SystemExit(0)
+
+outputs = {}
+for output_format in formats:
+    output_options = Extractor(
+        output_format=output_format,
+        url=url,
+        with_metadata=output_format != "html",
+        formatting=output_format == "markdown",
+    )
+    outputs[output_format] = determine_returnstring(
+        deepcopy(document),
+        output_options,
+    )
+print(json.dumps(outputs))
+"""
+
 
 def get_enabled_formats() -> list[str]:
     """Return enabled output formats from TRAFILATURA_OUTPUT_FORMATS CSV config."""
@@ -49,24 +90,21 @@ def get_enabled_formats() -> list[str]:
 def run_trafilatura(
     binary: str,
     html_source: str,
-    fmt: str,
+    url: str,
+    formats: list[str],
     timeout: int,
 ) -> tuple[bool, str]:
-    html = Path(html_source).read_text(encoding="utf-8", errors="replace")
-
+    managed_python = Path(binary).resolve().with_name("python")
     cmd = [
-        binary,
-        "--output-format",
-        fmt,
+        str(managed_python),
+        "-c",
+        TRAFILATURA_WORKER,
+        html_source,
+        url,
+        json.dumps(formats),
     ]
-    if fmt != "html":
-        # trafilatura 2.0.0 can emit a traceback and empty output for HTML when
-        # metadata contains list values, so only request metadata on formats
-        # that serialize it correctly.
-        cmd.append("--with-metadata")
     result = subprocess.run(
         cmd,
-        input=html,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -75,13 +113,24 @@ def run_trafilatura(
         sys.stderr.write(result.stderr)
         sys.stderr.flush()
     if result.returncode != 0:
-        return False, f"trafilatura failed for format={fmt} (exit={result.returncode})"
+        return False, f"trafilatura failed (exit={result.returncode})"
 
-    write_text_atomic(OUTPUT_DIR / FORMAT_TO_FILE[fmt], result.stdout or "")
+    outputs = json.loads(result.stdout)
+    if not outputs:
+        return False, "trafilatura returned no extracted content"
+    for fmt in formats:
+        if fmt not in outputs:
+            return False, f"trafilatura returned no format={fmt} output"
+        write_text_atomic(OUTPUT_DIR / FORMAT_TO_FILE[fmt], outputs[fmt] or "")
     return True, ""
 
 
 def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     config = load_config()
     timeout = config.TRAFILATURA_TIMEOUT
     html_source = find_article_html_source()
@@ -92,10 +141,9 @@ def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
     if not formats:
         return "noresults", "No output formats enabled"
 
-    for fmt in formats:
-        success, error = run_trafilatura(binary, html_source, fmt, timeout)
-        if not success:
-            return "failed", error
+    success, error = run_trafilatura(binary, html_source, url, formats, timeout)
+    if not success:
+        return "failed", error
 
     output_file = FORMAT_TO_FILE[formats[0]]
     return "succeeded", f"{PLUGIN_DIR}/{output_file}"
@@ -113,6 +161,7 @@ def main() -> None:
             emit_archive_result_record("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
+        print("Trafilatura extraction started", flush=True)
         status, output = extract_trafilatura(args.url, config.TRAFILATURA_BINARY)
 
         if status == "failed":

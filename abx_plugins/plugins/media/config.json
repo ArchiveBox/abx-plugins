@@ -7,5 +7,7 @@
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [],
-  "properties": {}
+  "properties": {},
+  "hidden": true,
+  "snapshot_output_group": "embedded_media"
 }

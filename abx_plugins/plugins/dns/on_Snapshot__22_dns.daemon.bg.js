@@ -14,27 +14,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -85,7 +65,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   }
 }
 
@@ -179,9 +159,6 @@ async function setupListener(targetUrl) {
   primaryHostname = extractHostname(targetUrl) || "";
   configuredNameservers = getConfiguredNameservers();
 
-  // Initialize output file
-  fs.writeFileSync(outputPath, "");
-
   // Track seen hostname -> IP mappings to avoid duplicates per request
   const seenResolutions = new Map();
   // Track request IDs to their URLs for correlation
@@ -193,9 +170,6 @@ async function setupListener(targetUrl) {
     timeoutMs: timeout,
     puppeteer,
   });
-
-  // Enable network domain to receive events
-  await client.send("Network.enable");
 
   // Listen for request events to track URLs
   client.on("Network.requestWillBeSent", (params) => {
@@ -292,6 +266,11 @@ async function setupListener(targetUrl) {
     }
   });
 
+  // Enable events only after every listener is attached, then publish the
+  // output file as the pre-navigation readiness marker.
+  await client.send("Network.enable");
+  fs.writeFileSync(outputPath, "");
+
   return { browser, page, client, seenResolutions };
 }
 
@@ -357,10 +336,11 @@ async function main() {
     const connection = await setupListener(url);
     browser = connection.browser;
     page = connection.page;
+    console.log("dns listener attached");
     emitProgress("0 DNS records");
 
     // Register signal handlers for graceful shutdown
-    __abxInstallShutdownHandler(handleShutdown);
+    installShutdownHandler(handleShutdown);
 
     // Wait for chrome_navigate to complete (non-fatal)
     try {

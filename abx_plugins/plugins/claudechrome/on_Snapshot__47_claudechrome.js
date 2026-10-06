@@ -42,7 +42,6 @@ const {
   connectToPage,
   resolvePuppeteerModule,
   resolveChromeLaunchOptions,
-  setBrowserDownloadBehavior,
 } = require("../chrome/chrome_utils.js");
 
 // Check if enabled BEFORE requiring puppeteer
@@ -144,17 +143,6 @@ async function takeScreenshot(page, viewport, options = {}) {
       `.claudechrome-screenshot-${process.pid}-${attempt}.png`
     );
     try {
-      try {
-        await Promise.race([
-          page.bringToFront(),
-          new Promise((_, reject) => {
-            setTimeout(
-              () => reject(new Error("Page.bringToFront timed out")),
-              5000
-            );
-          }),
-        ]);
-      } catch (error) {}
       try {
         await Promise.race([
           page.screenshot({ path: tempOutputPath, fullPage: false }),
@@ -491,9 +479,6 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
     Buffer.from(initialScreenshot, "base64")
   );
 
-  // Configure download behavior only after the initial screenshot step finishes.
-  await setBrowserDownloadBehavior({ page, downloadPath: downloadsDir });
-
   if (!screenshotAvailable) {
     const visibleText = await page
       .evaluate(() => document.body?.innerText || "")
@@ -780,6 +765,7 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
     const cdpClient = connection.cdpSession;
+    console.log("Claude for Chrome extraction started");
 
     // Get viewport dimensions
     const viewport = await page.evaluate(() => ({

@@ -78,6 +78,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     env.update(
         {
             "CHROME_BINARY": browser_name,
+            "CHROME_BINPROVIDERS": "playwright,puppeteer",
             "CHROME_HEADLESS": "true",
             "CHROME_KEEPALIVE": "false",
             "CRAWL_DIR": str(crawl_dir),
@@ -98,6 +99,10 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     installed_browser = Path(env["CHROME_BINARY"]).resolve()
     assert installed_browser.exists(), env["CHROME_BINARY"]
     assert installed_browser.samefile(resolved_browser)
+    assert installed_browser.is_relative_to(lib_dir), (
+        "Managed browser selection must not reuse a host-image executable",
+        installed_browser,
+    )
     chrome_launch_process = None
     tab_process = None
     try:

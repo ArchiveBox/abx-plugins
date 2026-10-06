@@ -53,7 +53,7 @@ def read_closed_count(process: subprocess.Popen[str]) -> int:
     return int(token)
 
 
-def _modal_page_url(httpserver) -> str:
+def _modal_page_url(httpserver, *, download_active=False) -> str:
     """Serve a deterministic page with a visible non-cookie modal."""
     html = """<!doctype html>
 <html>
@@ -69,6 +69,8 @@ def _modal_page_url(httpserver) -> str:
 </body>
 </html>
 """
+    if download_active:
+        html = html.replace("<html>", '<html data-abx-download-active="true">')
     httpserver.expect_request("/modal").respond_with_data(
         html,
         content_type="text/html; charset=utf-8",
@@ -194,7 +196,10 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg after hook installation."""
-    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node_loaded = install_binary_with_abxpkg(
+        "node",
+        binproviders="env,node,brew,apt",
+    )
     assert node_loaded and node_loaded.abspath, (
         "Node.js required for modalcloser plugin"
     )
@@ -469,14 +474,15 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 terminate_hook_process(modalcloser_process)
 
 
-def test_default_poll_cycle_closes_modal(httpserver):
+@pytest.mark.parametrize("download_active", [False, True])
+def test_default_poll_cycle_closes_modal(httpserver, download_active):
     """Test that the production polling cycle closes a visible modal."""
     with tempfile.TemporaryDirectory() as tmpdir:
         chrome_launch_process = None
         chrome_pid = None
         modalcloser_process = None
         try:
-            test_url = _modal_page_url(httpserver)
+            test_url = _modal_page_url(httpserver, download_active=download_active)
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-poll",
@@ -502,6 +508,38 @@ def test_default_poll_cycle_closes_modal(httpserver):
                 )
 
                 assert read_closed_count(modalcloser_process) == 0
+                if download_active:
+                    # Watch the real DOM across multiple default 500ms polling
+                    # cycles, then release the provider's marker and wait for
+                    # the daemon to dismiss the same modal.
+                    inspect = subprocess.run(
+                        [
+                            env["NODE_BINARY"],
+                            "-e",
+                            r"""
+const {connectToPage} = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    for (let cycle = 0; cycle < 6; cycle++) {
+      const visible = await page.$eval('#blocking-modal', el => getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden');
+      if (!visible) throw new Error('Provider confirmation modal was dismissed during its download');
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    await page.evaluate(() => delete document.documentElement.dataset.abxDownloadActive);
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#blocking-modal')).display === 'none', {timeout: 5000, polling: 100});
+  } finally {await browser.disconnect();}
+})().catch(error => {console.error(error); process.exitCode = 1;});
+""",
+                            str(PLUGIN_DIR.parent / "chrome/chrome_utils.js"),
+                            str(snapshot_chrome_dir),
+                        ],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+                    assert inspect.returncode == 0, inspect.stderr
                 assert read_closed_count(modalcloser_process) > 0
 
                 # Clean exit

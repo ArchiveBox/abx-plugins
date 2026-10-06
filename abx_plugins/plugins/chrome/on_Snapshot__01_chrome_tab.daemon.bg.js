@@ -1,0 +1,568 @@
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// ///
+/**
+ * Create a Chrome tab for this snapshot in the shared crawl Chrome session.
+ *
+ * Connects to the crawl-level Chrome session (from on_CrawlSetup__90_chrome_launch.daemon.bg.js)
+ * and creates a new tab. This hook does NOT launch its own Chrome instance.
+ *
+ * Usage: on_Snapshot__01_chrome_tab.daemon.bg.js --url=<url>
+ * Output: Creates chrome/ directory under snapshot output dir with:
+ *   - cdp_url.txt: WebSocket URL for CDP connection
+ *   - chrome.pid: Chrome process ID (from crawl)
+ *   - target_id.txt: Target ID of this snapshot's tab
+ *   - url.txt: The URL to be navigated to
+ *
+ * Environment variables:
+ *     CRAWL_DIR: Crawl output directory (to find crawl's Chrome session)
+ * This is a background hook that stays alive until SIGTERM so the tab
+ * can be closed cleanly at the end of the snapshot run.
+ */
+
+
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
+
+const fs = require("fs");
+const path = require("path");
+const {
+  ensureNodeModuleResolution,
+  parseArgs,
+  getEnv,
+  getEnvBool,
+  getEnvInt,
+  loadConfig,
+  emitArchiveResultRecord,
+  writeFileAtomic,
+} = require("../base/utils.js");
+ensureNodeModuleResolution(module);
+
+const {
+  openTabInChromeSession,
+  acquireSessionLock,
+  inspectChromeSessionArtifacts,
+  connectToPage,
+  waitForChromeSessionState,
+  closeTabInChromeSession,
+  resolvePuppeteerModule,
+} = require("./chrome_utils.js");
+const puppeteer = resolvePuppeteerModule();
+
+// Extractor metadata
+const PLUGIN_NAME = "chrome_tab";
+const PLUGIN_DIR = path.basename(__dirname);
+const hookConfig = loadConfig();
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
+const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
+const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
+const CHROME_SESSION_DIR = ".";
+const TARGET_LOCK_FILE = path.join(OUTPUT_DIR, ".target.lock");
+
+let finalStatus = "failed";
+let finalOutput = "";
+let finalError = "";
+let cmdVersion = "";
+let finalized = false;
+let targetId = null;
+let keepAliveTimer = null;
+let currentCdpUrl = null;
+let monitorBrowser = null;
+let monitorPage = null;
+let shuttingDown = false;
+let cleanupPromise = null;
+const SNAPSHOT_PAGE_MARKER_FILES = ["target_id.txt", "url.txt"];
+// The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
+// `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
+// snapshot isolation, and are still needed by the browser-owning launch hook to
+// close Chrome and clean extension staging directories.
+const SNAPSHOT_ARTIFACT_FILES = [
+  "target_id.txt",
+  "url.txt",
+  "navigation.json",
+];
+
+function getPortFromCdpUrl(cdpUrl) {
+  const match = (cdpUrl || "").match(/:(\d+)\/devtools\//);
+  return match ? match[1] : "?";
+}
+
+function emitResult(statusOverride) {
+  if (finalized) return;
+  finalized = true;
+
+  const status = statusOverride || finalStatus;
+  const outputStr =
+    status === "succeeded" ? finalOutput : finalError || finalOutput || "";
+
+  emitArchiveResultRecord(
+    status,
+    outputStr,
+    cmdVersion ? { cmd_version: cmdVersion } : {}
+  );
+}
+
+function publishSuccess(outputStr, versionOverride = "") {
+  finalStatus = "succeeded";
+  finalOutput = outputStr || "";
+  finalError = "";
+  cmdVersion = versionOverride || cmdVersion || "";
+  emitResult("succeeded");
+}
+
+function cleanupFiles(fileNames, reason) {
+  let removed = 0;
+  for (const fileName of fileNames) {
+    const filePath = path.join(OUTPUT_DIR, fileName);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      fs.unlinkSync(filePath);
+      removed += 1;
+    } catch (error) {}
+  }
+  if (removed > 0 && reason) {
+    console.error(`[*] Removed stale Chrome snapshot markers (${reason})`);
+  }
+}
+
+function cleanupSnapshotPageMarkers(reason) {
+  cleanupFiles(SNAPSHOT_PAGE_MARKER_FILES, reason);
+}
+
+function cleanupSnapshotArtifacts(reason) {
+  cleanupFiles(SNAPSHOT_ARTIFACT_FILES, reason);
+}
+
+function getPublishedTargetId() {
+  try {
+    return fs
+      .readFileSync(path.join(OUTPUT_DIR, "target_id.txt"), "utf-8")
+      .trim();
+  } catch (error) {
+    return null;
+  }
+}
+
+async function cleanupOwnedSnapshotPageMarkers(expectedTargetId, reason) {
+  if (!expectedTargetId) return false;
+  const releaseLock = await acquireSessionLock(TARGET_LOCK_FILE);
+  try {
+    if (getPublishedTargetId() !== expectedTargetId) {
+      return false;
+    }
+    cleanupSnapshotPageMarkers(reason);
+    return true;
+  } finally {
+    releaseLock();
+  }
+}
+
+async function stopTargetMonitor() {
+  if (monitorPage) {
+    try {
+      monitorPage.removeAllListeners("close");
+    } catch (error) {}
+    monitorPage = null;
+  }
+  if (monitorBrowser) {
+    try {
+      await monitorBrowser.disconnect();
+    } catch (error) {}
+    monitorBrowser = null;
+  }
+}
+
+async function startTargetMonitor() {
+  await stopTargetMonitor();
+  if (!currentCdpUrl || !targetId) {
+    return;
+  }
+
+  const expectedTargetId = targetId;
+  const connection = await connectToPage({
+    chromeSessionDir: OUTPUT_DIR,
+    timeoutMs: 5000,
+    missingTargetGraceMs: 0,
+    requireTargetId: true,
+    puppeteer,
+  });
+  monitorBrowser = connection.browser;
+  monitorPage = connection.page;
+  if (hookConfig.BROWSER_COLOR_SCHEME) {
+    await monitorPage.emulateMediaFeatures([
+      { name: "prefers-color-scheme", value: hookConfig.BROWSER_COLOR_SCHEME },
+    ]);
+  }
+  monitorPage.once("close", async () => {
+    if (shuttingDown) {
+      return;
+    }
+    if (targetId !== expectedTargetId) {
+      return;
+    }
+    console.error("tab closed unexpectedly!");
+    console.error(
+      `[*] Snapshot target ${expectedTargetId} closed unexpectedly, clearing snapshot page markers`
+    );
+    let markersCleaned = false;
+    try {
+      markersCleaned = await cleanupOwnedSnapshotPageMarkers(
+        expectedTargetId,
+        `target ${expectedTargetId} disappeared`
+      );
+    } catch (error) {
+      console.error(
+        `[*] Could not clean markers for closed target ${expectedTargetId}: ${error.message}`
+      );
+    } finally {
+      if (markersCleaned && targetId === expectedTargetId) {
+        targetId = null;
+      }
+      await stopTargetMonitor();
+    }
+  });
+}
+
+async function startTargetMonitorBestEffort() {
+  try {
+    await startTargetMonitor();
+  } catch (error) {
+    const message = error?.message || String(error);
+    console.error(`[*] Skipping target monitor setup: ${message}`);
+    await stopTargetMonitor();
+    if (hookConfig.BROWSER_COLOR_SCHEME) throw error;
+  }
+}
+
+// Cleanup handler for SIGTERM - close this snapshot's tab
+async function cleanupOnce(signal) {
+  if (signal) {
+    console.error(`\nReceived ${signal}, closing chrome tab...`);
+  }
+  shuttingDown = true;
+  const ownedTargetId = targetId;
+  targetId = null;
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
+  await stopTargetMonitor();
+  if (ownedTargetId) {
+    try {
+      await closeTabInChromeSession({
+        cdpUrl: currentCdpUrl,
+        targetId: ownedTargetId,
+        puppeteer,
+      });
+    } catch (error) {
+      console.error(
+        `[*] Could not close snapshot target ${ownedTargetId}: ${error.message}`
+      );
+    }
+    try {
+      await cleanupOwnedSnapshotPageMarkers(
+        ownedTargetId,
+        "snapshot teardown"
+      );
+    } catch (error) {
+      console.error(
+        `[*] Could not clean snapshot target markers ${ownedTargetId}: ${error.message}`
+      );
+    }
+  }
+  emitResult(finalStatus);
+  process.exit(finalStatus === "succeeded" ? 0 : 1);
+}
+
+function cleanup(signal) {
+  if (!cleanupPromise) {
+    cleanupPromise = cleanupOnce(signal);
+  }
+  return cleanupPromise;
+}
+
+// Register signal handlers
+installShutdownHandler(cleanup);
+
+async function main() {
+  const args = parseArgs();
+  const url = args.url;
+  let releaseLock = null;
+
+  if (!url) {
+    console.error("Usage: on_Snapshot__01_chrome_tab.daemon.bg.js --url=<url>");
+    process.exit(1);
+  }
+
+  let status = "failed";
+  let output = "";
+  let error = "";
+  let version = "";
+
+  try {
+    releaseLock = await acquireSessionLock(TARGET_LOCK_FILE);
+    const isolation =
+      getEnv("CHROME_ISOLATION", "crawl").toLowerCase() === "snapshot"
+        ? "snapshot"
+        : "crawl";
+    const cdpUrlOverride = getEnv("CHROME_CDP_URL", "");
+    const processIsLocal = cdpUrlOverride
+      ? false
+      : getEnvBool("CHROME_IS_LOCAL", true);
+    const timeoutSeconds = getEnvInt(
+      "CHROME_TAB_TIMEOUT",
+      getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60))
+    );
+    const existingSnapshotSession = await inspectChromeSessionArtifacts(
+      OUTPUT_DIR,
+      {
+        requireTargetId: true,
+        processIsLocal,
+      }
+    );
+    const existingTargetId = existingSnapshotSession.state?.targetId;
+    if (!existingTargetId) {
+      cleanupSnapshotArtifacts("missing target_id.txt");
+    }
+    if (
+      existingSnapshotSession.hasArtifacts &&
+      !existingSnapshotSession.stale &&
+      existingSnapshotSession.state?.targetId
+    ) {
+      let reusableTarget = false;
+      let existingBrowser = null;
+      try {
+        const existingConnection = await connectToPage({
+          chromeSessionDir: OUTPUT_DIR,
+          // This is only a fast liveness probe for the currently
+          // published target. If it is already dead, this same hook
+          // invocation is responsible for replacing it, so do not
+          // tolerate any stale-target grace period here.
+          timeoutMs: Math.min(timeoutSeconds * 1000, 1000),
+          missingTargetGraceMs: 0,
+          requireTargetId: true,
+          puppeteer,
+        });
+        existingBrowser = existingConnection.browser;
+        reusableTarget = true;
+      } catch (error) {
+        reusableTarget = false;
+      } finally {
+        if (existingBrowser) {
+          try {
+            existingBrowser.disconnect();
+          } catch (error) {}
+        }
+      }
+      if (reusableTarget) {
+        const existingUrlFile = path.join(OUTPUT_DIR, "url.txt");
+        const existingUrl = fs.existsSync(existingUrlFile)
+          ? fs.readFileSync(existingUrlFile, "utf-8").trim()
+          : "";
+        if (existingUrl && existingUrl !== url) {
+          throw new Error(
+            `Live snapshot target already exists for different URL (${existingUrl})`
+          );
+        }
+        if (existingSnapshotSession.state.browser) {
+          writeFileAtomic(
+            path.join(OUTPUT_DIR, "browser.json"),
+            JSON.stringify(existingSnapshotSession.state.browser, null, 2)
+          );
+        }
+        currentCdpUrl = existingSnapshotSession.state.cdpUrl;
+        targetId = existingSnapshotSession.state.targetId;
+        fs.writeFileSync(path.join(OUTPUT_DIR, "cdp_url.txt"), currentCdpUrl);
+        if (existingSnapshotSession.state.pid) {
+          fs.writeFileSync(
+            path.join(OUTPUT_DIR, "chrome.pid"),
+            String(existingSnapshotSession.state.pid)
+          );
+        } else {
+          try {
+            fs.unlinkSync(path.join(OUTPUT_DIR, "chrome.pid"));
+          } catch (error) {}
+        }
+        fs.writeFileSync(existingUrlFile, url);
+        status = "succeeded";
+        output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
+        releaseLock();
+        releaseLock = null;
+        await startTargetMonitorBestEffort();
+        publishSuccess(output, version || "");
+        keepAliveTimer = setInterval(() => {}, 1000);
+        await new Promise(() => {});
+      }
+      cleanupSnapshotArtifacts(
+        `discarded dead target ${existingSnapshotSession.state.targetId}`
+      );
+    }
+
+    if (isolation === "snapshot") {
+      const snapshotSession = await waitForChromeSessionState(OUTPUT_DIR, {
+        timeoutMs: timeoutSeconds * 1000,
+        requireBrowserReady: true,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
+        puppeteer,
+      });
+      if (!snapshotSession?.cdpUrl) {
+        throw new Error("No snapshot-scoped Chrome session found");
+      }
+      currentCdpUrl = snapshotSession.cdpUrl;
+
+      const opened = await openTabInChromeSession({
+        cdpUrl: currentCdpUrl,
+        timeoutMs: timeoutSeconds * 1000,
+        puppeteer,
+      });
+      targetId = opened.targetId;
+      if (!targetId) {
+        throw new Error("Failed to resolve target ID for snapshot-scoped tab");
+      }
+
+      if (snapshotSession.browser) {
+        writeFileAtomic(
+          path.join(OUTPUT_DIR, "browser.json"),
+          JSON.stringify(snapshotSession.browser, null, 2)
+        );
+      }
+      fs.writeFileSync(path.join(OUTPUT_DIR, "cdp_url.txt"), currentCdpUrl);
+      if (snapshotSession.pid) {
+        fs.writeFileSync(
+          path.join(OUTPUT_DIR, "chrome.pid"),
+          String(snapshotSession.pid)
+        );
+      } else {
+        try {
+          fs.unlinkSync(path.join(OUTPUT_DIR, "chrome.pid"));
+        } catch (error) {}
+      }
+      fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
+      fs.writeFileSync(path.join(OUTPUT_DIR, "url.txt"), url);
+
+      status = "succeeded";
+      output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
+
+      console.log(`[+] Chrome tab ready`);
+      console.error(`[+] CDP URL: ${currentCdpUrl}`);
+      console.error(`[+] Page target ID: ${targetId}`);
+      releaseLock();
+      releaseLock = null;
+      await startTargetMonitorBestEffort();
+      publishSuccess(output, version || "");
+    } else {
+      const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
+      const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
+        timeoutMs: timeoutSeconds * 1000,
+        requireBrowserReady: true,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
+        puppeteer,
+      });
+      if (!crawlSession?.cdpUrl) {
+        throw new Error(
+          "No Chrome session found (chrome plugin must run first)"
+        );
+      }
+      console.error("[*] Found existing Chrome session");
+      currentCdpUrl = crawlSession.cdpUrl;
+
+      if (existingTargetId) {
+        try {
+          await closeTabInChromeSession({
+            cdpUrl: crawlSession.cdpUrl,
+            targetId: existingTargetId,
+            puppeteer,
+          });
+          cleanupSnapshotArtifacts(
+            `replaced stale target ${existingTargetId}`
+          );
+        } catch (error) {
+          cleanupSnapshotArtifacts(
+            `failed to reuse target ${existingTargetId}`
+          );
+        }
+      }
+
+      const opened = await openTabInChromeSession({
+        cdpUrl: crawlSession.cdpUrl,
+        puppeteer,
+        timeoutMs: timeoutSeconds * 1000,
+      });
+      targetId = opened.targetId;
+      if (!targetId) {
+        throw new Error("Failed to resolve target ID for new tab");
+      }
+
+      fs.writeFileSync(
+        path.join(OUTPUT_DIR, "cdp_url.txt"),
+        crawlSession.cdpUrl
+      );
+      if (crawlSession.pid) {
+        fs.writeFileSync(
+          path.join(OUTPUT_DIR, "chrome.pid"),
+          String(crawlSession.pid)
+        );
+      } else {
+        try {
+          fs.unlinkSync(path.join(OUTPUT_DIR, "chrome.pid"));
+        } catch (error) {}
+      }
+      fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
+      fs.writeFileSync(path.join(OUTPUT_DIR, "url.txt"), url);
+      if (crawlSession.browser) {
+        writeFileAtomic(
+          path.join(OUTPUT_DIR, "browser.json"),
+          JSON.stringify(crawlSession.browser, null, 2)
+        );
+      }
+
+      status = "succeeded";
+      output = `target=${targetId} port=${getPortFromCdpUrl(
+        crawlSession.cdpUrl
+      )}`;
+
+      console.log(`[+] Chrome tab ready`);
+      console.error(`[+] CDP URL: ${crawlSession.cdpUrl}`);
+      console.error(`[+] Page target ID: ${targetId}`);
+      releaseLock();
+      releaseLock = null;
+      await startTargetMonitorBestEffort();
+      publishSuccess(output, version || "");
+    }
+  } catch (e) {
+    error = `${e.name}: ${e.message}`;
+    status = "failed";
+  }
+
+  if (releaseLock) {
+    releaseLock();
+  }
+
+  if (error) {
+    console.error(`ERROR: ${error}`);
+  }
+
+  finalStatus = status;
+  finalOutput = output || "";
+  finalError = error || "";
+  cmdVersion = version || "";
+
+  if (status !== "succeeded") {
+    emitResult(status);
+    process.exit(1);
+  }
+
+  // console.log('tab is loaded, waiting for cleanup...');
+  keepAliveTimer = setInterval(() => {}, 1000);
+  await new Promise(() => {}); // Keep alive until SIGTERM
+}
+
+main().catch((e) => {
+  console.error(`Fatal error: ${e.message}`);
+  process.exit(1);
+});

@@ -13,27 +13,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -86,6 +66,8 @@ let preferredOutputSize = -1;
 let lastProgressLine = "";
 let lastProgressAt = 0;
 let pendingProgressTimer = null;
+let pendingResponseWork = Promise.resolve();
+let responseListener = null;
 const PROGRESS_DEBOUNCE_MS = 3000;
 
 // Resource types to capture (by default, capture everything)
@@ -97,6 +79,7 @@ const DEFAULT_TYPES = [
   "image",
   "media",
   "xhr",
+  "fetch",
   "websocket",
 ];
 
@@ -112,7 +95,7 @@ function emitProgress(line) {
     pendingProgressTimer = null;
     lastProgressAt = Date.now();
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   };
   if (lastProgressAt === 0 || now - lastProgressAt >= PROGRESS_DEBOUNCE_MS) {
     if (pendingProgressTimer) {
@@ -144,7 +127,7 @@ function emitResponseProgress(force = false) {
     }
     lastProgressAt = Date.now();
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
     return;
   }
   emitProgress(line);
@@ -186,8 +169,10 @@ async function setupListener() {
     puppeteer,
   });
 
-  // Set up response listener
-  page.on("response", async (response) => {
+  const indexPath = path.join(OUTPUT_DIR, "index.jsonl");
+  writeFileAtomic(indexPath, "");
+
+  async function captureResponse(response) {
     try {
       const request = response.request();
       const url = response.url();
@@ -309,9 +294,14 @@ async function setupListener() {
       const urlSha256 = crypto.createHash("sha256").update(url).digest("hex");
 
       // Write to index
+      const originalRequest = request.redirectChain()[0];
       const indexEntry = {
         ts: timestamp,
         method,
+        ...(originalRequest ? {
+          requestUrl: originalRequest.url(),
+          requestMethod: originalRequest.method(),
+        } : {}),
         url: method === "DATA" ? url.slice(0, 128) : url,
         urlSha256,
         status,
@@ -328,10 +318,17 @@ async function setupListener() {
     } catch (e) {
       // Ignore errors
     }
-  });
+  }
 
-  const indexPath = path.join(OUTPUT_DIR, "index.jsonl");
-  writeFileAtomic(indexPath, "");
+  // Queue only completed requests: the response event fires at headers, and
+  // its body promise can remain unresolved if Chrome closes before completion.
+  // Materialize one body at a time to bound retained response buffers.
+  responseListener = (request) => {
+    const response = request.response();
+    if (!response) return;
+    pendingResponseWork = pendingResponseWork.then(() => captureResponse(response));
+  };
+  page.on("requestfinished", responseListener);
 
   return { browser, page };
 }
@@ -351,7 +348,11 @@ function emitResult(
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
-  await emitResult("succeeded");
+  if (page && responseListener) {
+    page.off("requestfinished", responseListener);
+  }
+  await pendingResponseWork;
+  await emitResult(responseCount > 0 ? "succeeded" : "noresults");
   if (browser) {
     try {
       browser.disconnect();
@@ -380,10 +381,11 @@ async function main() {
     const connection = await setupListener();
     browser = connection.browser;
     page = connection.page;
+    console.log("responses listener attached");
     emitResponseProgress(true);
 
     // Register signal handlers for graceful shutdown
-    __abxInstallShutdownHandler(handleShutdown);
+    installShutdownHandler(handleShutdown);
 
     // Wait for chrome_navigate to complete (non-fatal)
     try {

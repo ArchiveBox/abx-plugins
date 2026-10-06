@@ -9,11 +9,17 @@ cd "${REPO_DIR}"
 
 TAG_PREFIX="v"
 PYPI_PACKAGE="abx-plugins"
+
+pypi_release_json() {
+    "${CURL_BINARY}" -fsSL \
+        -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
+        "https://pypi.org/pypi/${PYPI_PACKAGE}/$1/json?cache_bust=$(date +%s)-${RANDOM}"
+}
 VERIFY_DIR_TO_CLEAN=""
 
 cleanup_verify_dir() {
     if [[ -n "${VERIFY_DIR_TO_CLEAN}" ]]; then
-        VERIFY_DIR_TO_CLEAN="${VERIFY_DIR_TO_CLEAN}" "${UV_BINARY}" run --no-project python - <<'PY'
+        VERIFY_DIR_TO_CLEAN="${VERIFY_DIR_TO_CLEAN}" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
 import os
 import shutil
 
@@ -50,7 +56,7 @@ repo_slug() {
 }
 
 current_version() {
-    "${UV_BINARY}" run --no-project python - <<'PY'
+    "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
 from pathlib import Path
 import re
 
@@ -62,7 +68,7 @@ PY
 }
 
 compare_versions() {
-    "${UV_BINARY}" run --no-project python - "$1" "$2" <<'PY'
+    "${UV_BINARY}" run --no-cache --no-project python - "$1" "$2" <<'PY'
 import re
 import sys
 
@@ -83,7 +89,7 @@ latest_published_version() {
     local pypi_versions github_tags
     pypi_versions="$("${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | "${JQ_BINARY}" -r '.releases | keys[]')"
     github_tags="$("${GH_BINARY}" api "repos/${slug}/releases?per_page=100" --jq '.[].tag_name')"
-    PYPI_VERSIONS="${pypi_versions}" GITHUB_TAGS="${github_tags}" TAG_PREFIX="${TAG_PREFIX}" "${UV_BINARY}" run --no-project python - <<'PY'
+    PYPI_VERSIONS="${pypi_versions}" GITHUB_TAGS="${github_tags}" TAG_PREFIX="${TAG_PREFIX}" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
 import os
 import re
 
@@ -106,8 +112,8 @@ PY
 
 pypi_artifact_status() {
     local version="$1" build_dir="$2" pypi_urls
-    pypi_urls="$("${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | "${JQ_BINARY}" -c --arg version "${version}" ".releases[\$version] // []")" || return 1
-    PYPI_URLS="${pypi_urls}" BUILD_DIR="${build_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY'
+    pypi_urls="$(pypi_release_json "${version}" | "${JQ_BINARY}" -c '.urls')" || pypi_urls='[]'
+    PYPI_URLS="${pypi_urls}" BUILD_DIR="${build_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
 import hashlib
 import json
 import os
@@ -172,7 +178,7 @@ github_release_has_version() {
 github_release_metadata_is_valid() {
     local version="$1" slug="$2" release_json
     release_json="$("${GH_BINARY}" release view "${TAG_PREFIX}${version}" --repo "${slug}" --json isDraft,isPrerelease,tagName)" || return 1
-    RELEASE_JSON="${release_json}" EXPECTED_VERSION="${version}" TAG_PREFIX="${TAG_PREFIX}" "${UV_BINARY}" run --no-project python - <<'PY'
+    RELEASE_JSON="${release_json}" EXPECTED_VERSION="${version}" TAG_PREFIX="${TAG_PREFIX}" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
 import json
 import os
 import re
@@ -190,11 +196,11 @@ PY
 github_release_has_assets() {
     local version="$1" slug="$2" assets_json verify_dir validation_status=0
     assets_json="$("${GH_BINARY}" release view "${TAG_PREFIX}${version}" --repo "${slug}" --json assets)" || return 1
-    verify_dir="$("${UV_BINARY}" run --no-project python -c 'import tempfile; print(tempfile.mkdtemp())')" || return 1
+    verify_dir="$("${UV_BINARY}" run --no-cache --no-project python -c 'import tempfile; print(tempfile.mkdtemp())')" || return 1
     VERIFY_DIR_TO_CLEAN="${verify_dir}"
     "${GH_BINARY}" release download "${TAG_PREFIX}${version}" --repo "${slug}" --pattern SHA256SUMS --dir "${verify_dir}" || validation_status=$?
     if [[ "${validation_status}" -eq 0 ]]; then
-        ASSETS_JSON="${assets_json}" VERIFY_DIR="${verify_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY' || validation_status=$?
+        ASSETS_JSON="${assets_json}" VERIFY_DIR="${verify_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-cache --no-project python - <<'PY' || validation_status=$?
 import json
 import os
 import re
@@ -251,12 +257,14 @@ require_clean_exact_checkout() {
     [[ "$("${GIT_BINARY}" rev-parse HEAD)" == "${sha}" ]] || { echo "HEAD does not match RELEASE_SHA ${sha}" >&2; return 1; }
     [[ -z "$("${GIT_BINARY}" status --short)" ]] || { echo "Refusing to release from a dirty worktree" >&2; return 1; }
     "${GIT_BINARY}" fetch --quiet --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}"
-    "${GIT_BINARY}" merge-base --is-ancestor "${sha}" "refs/remotes/origin/${branch}" || { echo "${sha} is not on ${branch}" >&2; return 1; }
+    local branch_head
+    branch_head="$("${GIT_BINARY}" rev-parse "refs/remotes/origin/${branch}")"
+    [[ "${sha}" == "${branch_head}" ]] || { echo "Skipping obsolete release ${sha}: current origin/${branch} is ${branch_head}" >&2; exit 0; }
 }
 
 publish_to_pypi() (
-    local build_dir="$1"
-    shift
+    local version="$1" build_dir="$2"
+    shift 2
     local filenames=("$@") artifacts=() filename
     [[ "${#filenames[@]}" -gt 0 ]] || {
         echo "No missing PyPI artifacts were selected for publication" >&2
@@ -269,7 +277,7 @@ publish_to_pypi() (
         }
         artifacts+=("${build_dir}/${filename}")
     done
-    "${UV_BINARY}" publish --trusted-publishing always "${artifacts[@]}"
+    "${UV_BINARY}" publish --no-cache --trusted-publishing always "${artifacts[@]}"
 )
 
 create_release() {
@@ -353,7 +361,7 @@ main() {
 
     create_release_tag "${version}" "${release_sha}"
     if [[ "${pypi_state}" != "complete" ]]; then
-        publish_to_pypi "${artifact_dir}" "${pypi_missing[@]}"
+        publish_to_pypi "${version}" "${artifact_dir}" "${pypi_missing[@]}"
     fi
     create_release "${slug}" "${version}" "${release_sha}"
     "${GH_BINARY}" release upload "${TAG_PREFIX}${version}" --repo "${slug}" \

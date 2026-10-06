@@ -5,7 +5,7 @@
  * Launch a shared Chromium browser session for the entire crawl.
  *
  * This runs once per crawl and keeps Chromium alive for all snapshots to share.
- * Each snapshot creates its own tab via on_Snapshot__10_chrome_tab.daemon.bg.js.
+ * Each snapshot creates its own tab via on_Snapshot__01_chrome_tab.daemon.bg.js.
  *
  * Extension caches are loaded after startup through CDP so Chrome assigns and
  * publishes the real runtime extension IDs in browser.json.
@@ -26,27 +26,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -96,8 +76,27 @@ let chromeProcessIsLocal = CHROME_IS_LOCAL;
 let shouldCloseOnCleanup = false;
 let puppeteer = null;
 let cleanupPromise = null;
-let launchInProgress = false;
+let launchInProgress = true;
 let cleanupRequestedDuringLaunch = false;
+let launchPublished = false;
+
+function recordLaunch(pid) {
+  chromePid = pid;
+}
+
+function recordCdpSession(session, shouldClose) {
+  chromePid = session.pid;
+  chromeCdpUrl = session.cdpUrl;
+  shouldCloseOnCleanup = shouldClose;
+}
+
+function publishReadiness(session, shouldClose) {
+  recordCdpSession(session, shouldClose);
+  if (!launchPublished) {
+    launchPublished = true;
+    console.log(`[+] ${CHROME_BINARY} session started`);
+  }
+}
 
 // Cleanup handler for SIGTERM
 async function cleanup() {
@@ -130,7 +129,7 @@ async function cleanup() {
     cleanupRequestedDuringLaunch && chromeProcessIsLocal;
   cleanupPromise = (async () => {
     if (shouldCloseOnCleanup || cleanupDuringLocalLaunch) {
-      console.log(`shutting down ${CHROME_BINARY} cleanly...`);
+      console.error(`shutting down ${CHROME_BINARY} cleanly...`);
       const closed = await closeBrowserInChromeSession({
         cdpUrl: chromeCdpUrl,
         pid: chromePid,
@@ -144,7 +143,7 @@ async function cleanup() {
         );
         process.exit(1);
       }
-      console.log(`${CHROME_BINARY} exited successfully`);
+      console.error(`${CHROME_BINARY} exited successfully`);
       console.log(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
     } else {
       if (!chromeCdpUrl) {
@@ -153,7 +152,7 @@ async function cleanup() {
         );
         process.exit(1);
       }
-      console.log(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
+      console.error(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
       console.log(
         JSON.stringify({
           succeeded: true,
@@ -167,7 +166,7 @@ async function cleanup() {
 }
 
 // Register signal handlers
-__abxInstallShutdownHandler(cleanup);
+installShutdownHandler(cleanup);
 
 async function main() {
   let releaseLock = null;
@@ -209,25 +208,28 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
+      // These callbacks expose private state for cancellation cleanup only.
+      // stdout is the daemon protocol's public readiness boundary and must not
+      // be emitted until ensureChromeSession finishes extension/cookie setup.
+      onSpawn: (spawnedSession) => recordLaunch(spawnedSession.pid),
+      onCdpReady: (readySession) =>
+        recordCdpSession(readySession, !keepAlive),
     });
     launchInProgress = false;
 
-    chromePid = session.pid;
-    chromeCdpUrl = session.cdpUrl;
-    shouldCloseOnCleanup = !keepAlive;
+    publishReadiness(session, !keepAlive);
 
     for (const extension of session.installedExtensions) {
       console.error(
-        `loading extension: ${
+        `${extension.load_on_demand ? "extension available on demand" : "loading extension"}: ${
           extension.name || extension.id || extension.unpacked_path
-        }...`
+        }${extension.load_on_demand ? "" : "..."}`
       );
     }
     if (session.reusedExisting) {
       console.error(`reusing live ${CHROME_BINARY} session in ${OUTPUT_DIR}`);
     }
 
-    console.error(`[+] ${CHROME_BINARY} session started`);
     console.error(`[+] CDP URL: ${chromeCdpUrl}`);
     releaseLock();
     releaseLock = null;

@@ -24,9 +24,11 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.testing import get_hydrated_required_binary
-from abx_plugins.plugins.base.testing import install_required_binary_from_config
-from abx_plugins.plugins.base.testing import parse_jsonl_output
+from abx_plugins.plugins.base.testing import (
+    get_hydrated_required_binary,
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 from abx_plugins.plugins.base.utils import load_required_binary
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -43,7 +45,7 @@ HYBRID_BINARY_RECORD = {
     "overrides": {
         "uv": {
             "install_root": "{ABXPKG_LIB_DIR}/uv/packages/opendataloader-hybrid",
-            "install_args": ["opendataloader-pdf[hybrid]"],
+            "install_args": ["--torch-backend=cpu", "opendataloader-pdf[hybrid]"],
             "postinstall_scripts": True,
         },
     },
@@ -214,6 +216,13 @@ def test_hook_script_exists():
     assert OPENDATALOADER_HOOK.exists(), f"Hook script not found: {OPENDATALOADER_HOOK}"
 
 
+def test_parser_runs_after_papersdl_finishes():
+    papers_hook = next((PLUGINS_ROOT / "papersdl").glob("on_Snapshot__*.py"))
+    assert papers_hook.name < OPENDATALOADER_HOOK.name
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert "papersdl" in config["wait_for_plugins"]
+
+
 def test_verify_deps_with_install_hooks():
     binary_path = require_opendataloader_binary()
     assert Path(binary_path).is_file(), (
@@ -231,7 +240,7 @@ def test_install_hook_requests_java_dependency():
 
 
 def test_opendataloader_env_executes_exact_abxpkg_selected_java():
-    from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
+    from abx_plugins.plugins.opendataloader.on_Snapshot__67_opendataloader import (
         _opendataloader_env,
     )
 
@@ -255,6 +264,7 @@ def test_opendataloader_env_executes_exact_abxpkg_selected_java():
 
     version = subprocess.run(
         [str(java_path), "--version"],
+        check=False,
         capture_output=True,
         text=True,
         timeout=10,
@@ -275,6 +285,7 @@ def test_config_disabled_skips():
                 "--url",
                 TEST_URL,
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -309,6 +320,7 @@ def test_noresults_without_sources():
                 "--url",
                 TEST_URL,
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -321,7 +333,13 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
-def test_extract_single_pdf():
+@pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl"])
+@pytest.mark.parametrize(
+    "html_response",
+    [False, True],
+    ids=["pdf-only", "with-html-response"],
+)
+def test_extract_single_pdf(source_dir, html_response):
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
     java_binary = require_java_binary()
@@ -331,10 +349,20 @@ def test_extract_single_pdf():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place PDF as if the responses plugin saved an original PDF response.
-        responses_dir = snap_dir / "responses" / "application" / "example.com"
-        responses_dir.mkdir(parents=True, exist_ok=True)
-        (responses_dir / "output.pdf").write_bytes(pdf_content)
+        # Place a real PDF in an upstream downloader output directory.
+        wget_dir = snap_dir / source_dir
+        wget_dir.mkdir(parents=True, exist_ok=True)
+        (wget_dir / "output.pdf").write_bytes(pdf_content)
+        if html_response:
+            # A response named .pdf can contain HTML (e.g. Chrome's PDF viewer),
+            # while wget saved the actual PDF. Use real HTML bytes alongside the
+            # live PDF, and require that only the PDF reaches the converter.
+            html = requests.get("https://example.com", timeout=30)
+            html.raise_for_status()
+            assert "text/html" in html.headers["Content-Type"]
+            responses_dir = snap_dir / "responses" / "all"
+            responses_dir.mkdir(parents=True)
+            (responses_dir / "document.pdf").write_bytes(html.content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -348,6 +376,7 @@ def test_extract_single_pdf():
                 "--url",
                 "https://example.com/test.pdf",
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -413,6 +442,7 @@ def test_extract_multiple_pdfs():
                 "--url",
                 "https://example.com/docs",
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -471,6 +501,7 @@ def test_force_ocr_adds_hybrid_flag():
                     "--url",
                     "https://example.com/scanned.pdf",
                 ],
+                check=False,
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,

@@ -13,27 +13,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -82,7 +62,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   }
 }
 
@@ -135,7 +115,7 @@ function tlsDateToEpochSeconds(value) {
 function buildCtSearchUrl(fingerprint256) {
   const normalized = normalizeFingerprint(fingerprint256);
   return normalized
-    ? `https://crt.sh/?q=${encodeURIComponent(normalized)}`
+    ? `https://ctlogs.dev/search?q=${encodeURIComponent(normalized)}`
     : null;
 }
 
@@ -269,6 +249,14 @@ async function setupListener(url) {
     }
 
     const record = { url: resolvedUrl, ...sslInfo };
+    if (
+      !record.protocol &&
+      !record.subjectName &&
+      !record.issuer &&
+      !record.certificateChain?.length
+    ) {
+      return;
+    }
     const sanList = Array.isArray(record.subjectAlternativeNames)
       ? record.subjectAlternativeNames
       : [];
@@ -534,7 +522,26 @@ function responseHostFromUrl(url) {
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
-  await emitResult("succeeded");
+  // The runner stops listeners even after navigation fails. A clean listener
+  // shutdown is not evidence that Chrome captured a certificate.
+  const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+  const navigationPath = path.join(CHROME_SESSION_DIR, "navigation.json");
+  if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+    await emitResult("succeeded");
+  } else {
+    let navigationError = "";
+    if (fs.existsSync(navigationPath)) {
+      try {
+        navigationError = JSON.parse(fs.readFileSync(navigationPath, "utf8")).error || "";
+      } catch (error) {
+        navigationError = `Invalid navigation state: ${error.message}`;
+      }
+    }
+    await emitResult(
+      navigationError ? "failed" : "noresults",
+      navigationError || "No SSL certificate captured"
+    );
+  }
   if (browser) {
     try {
       browser.disconnect();
@@ -553,12 +560,14 @@ async function main() {
   }
 
   if (!getEnvBool("SSLCERTS_ENABLED", true)) {
+    fs.writeFileSync(path.join(OUTPUT_DIR, OUTPUT_FILE), "");
     console.error("Skipping (SSLCERTS_ENABLED=False)");
     emitArchiveResultRecord("skipped", "SSLCERTS_ENABLED=False");
     process.exit(0);
   }
 
   if (!url.startsWith("https://")) {
+    fs.writeFileSync(path.join(OUTPUT_DIR, OUTPUT_FILE), "");
     emitArchiveResultRecord("noresults", "URL is not HTTPS");
     process.exit(0);
   }
@@ -568,10 +577,11 @@ async function main() {
     const connection = await setupListener(url);
     browser = connection.browser;
     page = connection.page;
+    console.log("sslcerts listener attached");
     emitProgress("0 SSL certificates");
 
     // Register signal handlers for graceful shutdown
-    __abxInstallShutdownHandler(handleShutdown);
+    installShutdownHandler(handleShutdown);
 
     // Wait for chrome_navigate to complete (non-fatal)
     try {

@@ -9,20 +9,26 @@
 # Usage:
 #     ./on_Snapshot__57_mercury.py [...] > events.jsonl
 
+import sys
 import html
 import json
 import os
 import argparse
 import re
 import shlex
+import shutil
 import subprocess
-import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
 from abx_plugins.plugins.base.utils import (
+    find_article_html_source,
+    preserve_article_image_dimensions,
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     write_text_atomic,
 )
 
@@ -30,11 +36,80 @@ from abx_plugins.plugins.base.utils import (
 # Extractor metadata
 PLUGIN_NAME = "mercury"
 BIN_NAME = "postlight-parser"
-BIN_PROVIDERS = "env,pnpm"
+BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 HTML_FILE = "content.html"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
+
+_PARSER_API_SCRIPT = r"""
+const fs = require('fs');
+const legacyUrl = require('url');
+const cheerio = require('cheerio');
+const Parser = require(process.argv[1]);
+const pageUrl = process.argv[2];
+const html = fs.readFileSync(0, 'utf8');
+const $ = cheerio.load(html);
+const removed = { href: 0, src: 0, srcset: 0 };
+
+let baseUrl = $('base').first().attr('href') || pageUrl;
+try {
+    legacyUrl.resolve(pageUrl, baseUrl);
+} catch (_error) {
+    $('base').first().removeAttr('href');
+    baseUrl = pageUrl;
+}
+
+// Match Postlight 2.2.3's per-attribute URL.resolve passes. Drop only an
+// attribute that would throw; keep its element and all article text.
+for (const attr of ['href', 'src']) {
+    const resolutionBase = $('base').first().attr('href') || pageUrl;
+    $(`[${attr}]`).each((_index, element) => {
+        const node = $(element);
+        const value = node.attr(attr);
+        if (!value) return;
+        try {
+            legacyUrl.resolve(resolutionBase, value);
+        } catch (_error) {
+            node.removeAttr(attr);
+            removed[attr] += 1;
+        }
+    });
+}
+
+// Postlight resolves each srcset candidate against the page URL. Use its
+// candidate splitter and remove only the attribute if that call would throw.
+$('[srcset]').each((_index, element) => {
+    const node = $(element);
+    const value = node.attr('srcset');
+    const candidates = value && value.match(/(?:\s*)(\S+(?:\s*[\d.]+[wx])?)(?:\s*,\s*)?/g);
+    if (!candidates) return;
+    try {
+        for (const candidate of candidates) {
+            const parts = candidate.trim().replace(/,$/, '').split(/\s+/);
+            legacyUrl.resolve(pageUrl, parts[0]);
+        }
+    } catch (_error) {
+        node.removeAttr('srcset');
+        removed.srcset += 1;
+    }
+});
+
+(async () => {
+    const result = await Parser.parse(pageUrl, {
+        html: $.html(),
+        contentType: 'html',
+        fetchAllPages: false,
+    });
+    if (Object.values(removed).some(count => count > 0)) {
+        console.error(`Removed unresolvable URL attributes: ${JSON.stringify(removed)}`);
+    }
+    process.stdout.write(JSON.stringify(result));
+})().catch(error => {
+    console.error(error && error.stack ? error.stack : error);
+    process.exitCode = 1;
+});
+"""
 
 
 @dataclass(frozen=True)
@@ -98,25 +173,113 @@ def load_mercury_config(environ: dict[str, str] | None = None) -> MercuryConfig:
     )
 
 
+def parse_captured_html(
+    url: str,
+    source_html: str,
+    binary: str,
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
+    """Run the installed Postlight API against the already captured DOM."""
+    parser_module = Path(binary).resolve().parent / "dist" / "mercury.js"
+    node = shutil.which("node")
+    if not parser_module.is_file() or not node:
+        missing = (
+            "Postlight parser module" if not parser_module.is_file() else "Node.js"
+        )
+        raise RuntimeError(f"{missing} is unavailable for captured HTML parsing")
+    return subprocess.run(
+        [node, "-e", _PARSER_API_SCRIPT, str(parser_module), url],
+        capture_output=True,
+        timeout=timeout,
+        text=True,
+        input=source_html,
+        cwd=parser_module.parent,
+    )
+
+
 def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
     """
     Extract article using Mercury Parser.
 
-    Returns: (success, output_path, error_message)
+    Returns: (status, output_path_or_error)
     """
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     timeout = config.MERCURY_TIMEOUT
     mercury_args = config.MERCURY_ARGS
     mercury_args_extra = config.MERCURY_ARGS_EXTRA
     binary = config.MERCURY_BINARY
 
     try:
-        cmd_html = [binary, *mercury_args, *mercury_args_extra, url, "--format=html"]
-        result_html = subprocess.run(
-            cmd_html,
-            capture_output=True,
-            timeout=timeout,
-            text=True,
-        )
+        deadline = time.monotonic() + timeout
+        # CLI-specific arguments keep their established behavior; the default
+        # API path consumes the best already-captured HTML source when present.
+        html_source_path = find_article_html_source()
+        source = html_source_path if not (mercury_args or mercury_args_extra) else None
+        if source:
+            result_html = parse_captured_html(
+                url,
+                Path(source).read_text(encoding="utf-8", errors="replace"),
+                binary,
+                timeout,
+            )
+        else:
+            cmd_html = [
+                binary,
+                *mercury_args,
+                *mercury_args_extra,
+                url,
+                "--format=html",
+            ]
+            result_html = subprocess.run(
+                cmd_html,
+                capture_output=True,
+                timeout=timeout,
+                text=True,
+            )
+        # Postlight 2.2.3 can parse the requested page, then crash when a
+        # linked page fails to load: _collectAllPages calls $.html() on the
+        # error object. Keep the requested page using its official API. A
+        # configured CLI invocation keeps its own arguments and failure.
+        if (
+            result_html.returncode == 1
+            and not mercury_args
+            and not mercury_args_extra
+            and "TypeError: $.html is not a function" in result_html.stderr
+            and "dist/mercury.js:8012:" in result_html.stderr
+        ):
+            parser_module = Path(binary).resolve().parent / "dist" / "mercury.js"
+            node = shutil.which("node")
+            if parser_module.is_file() and node:
+                fallback = subprocess.run(
+                    [
+                        node,
+                        "-e",
+                        "const Parser = require(process.argv[1]); "
+                        "Parser.parse(process.argv[2], {contentType: 'html', fetchAllPages: false})"
+                        ".then(result => console.log(JSON.stringify(result)))"
+                        ".catch(error => { console.error(error); process.exit(1); });",
+                        str(parser_module),
+                        url,
+                    ],
+                    capture_output=True,
+                    timeout=max(deadline - time.monotonic(), 0),
+                    text=True,
+                )
+                if fallback.returncode == 0:
+                    try:
+                        first_page = json.loads(fallback.stdout)
+                    except json.JSONDecodeError:
+                        first_page = None
+                    if isinstance(first_page, dict) and not first_page.get("failed"):
+                        print(
+                            "Mercury could not load a linked page; saved the requested page only.",
+                            file=sys.stderr,
+                        )
+                        result_html = fallback
         if result_html.stdout:
             sys.stderr.write(result_html.stdout)
             sys.stderr.flush()
@@ -131,6 +294,10 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
         except json.JSONDecodeError:
             return "failed", "postlight-parser returned invalid JSON"
 
+        if html_json.get("error"):
+            return "failed", str(
+                html_json.get("message") or "postlight-parser returned an error",
+            )
         if html_json.get("failed"):
             return "noresults", "Mercury was not able to extract article"
 
@@ -143,6 +310,12 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
             tag_count = html_content.count("<")
             if escaped_count and escaped_count > tag_count * 2:
                 html_content = html.unescape(html_content)
+        if html_source_path:
+            html_content = preserve_article_image_dimensions(
+                html_content,
+                Path(html_source_path).read_text(encoding="utf-8", errors="replace"),
+                url,
+            )
         write_text_atomic(output_dir / HTML_FILE, html_content)
 
         text_content = " ".join(
@@ -211,6 +384,7 @@ def main():
             raise RuntimeError("MERCURY_BINARY was not resolved by abxpkg")
 
         # Run extraction
+        print("Mercury extraction started", flush=True)
         status, output = extract_mercury(args.url, config, output_dir)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

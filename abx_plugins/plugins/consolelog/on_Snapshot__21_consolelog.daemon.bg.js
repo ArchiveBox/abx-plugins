@@ -13,27 +13,7 @@
  */
 
 
-// Cleanup can SIGTERM the process immediately after spawn; remember early
-// signals and replay them to the hook-specific cleanup handler once it exists.
-let __abxEarlyShutdownSignal = null;
-function __abxRememberEarlyShutdown(signal) {
-  if (__abxEarlyShutdownSignal === null) {
-    __abxEarlyShutdownSignal = signal;
-  }
-}
-function __abxInstallShutdownHandler(handler) {
-  process.removeAllListeners("SIGTERM");
-  process.removeAllListeners("SIGINT");
-  process.on("SIGTERM", () => handler("SIGTERM"));
-  process.on("SIGINT", () => handler("SIGINT"));
-  if (__abxEarlyShutdownSignal !== null) {
-    const signal = __abxEarlyShutdownSignal;
-    __abxEarlyShutdownSignal = null;
-    setImmediate(() => handler(signal));
-  }
-}
-process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
-process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
 const path = require("path");
@@ -74,6 +54,7 @@ let page = null;
 let errorCount = 0;
 let warningCount = 0;
 let shuttingDown = false;
+const pendingConsoleWrites = new Set();
 let lastProgressLine = "";
 let lastProgressAt = 0;
 let pendingProgressTimer = null;
@@ -91,7 +72,7 @@ function emitProgress(force = false) {
     pendingProgressTimer = null;
     lastProgressAt = Date.now();
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   };
   if (
     force ||
@@ -146,27 +127,31 @@ async function setupListeners() {
   });
 
   // Set up listeners that write directly to file
-  page.on("console", async (msg) => {
-    try {
-      const msgType = msg.type();
-      const logEntry = {
-        timestamp: new Date().toISOString(),
-        type: msgType,
-        text: msg.text(),
-        args: await serializeArgs(msg.args()),
-        location: msg.location(),
-      };
-      fs.appendFileSync(outputPath, JSON.stringify(logEntry) + "\n");
-      if (msgType === "warning" || msgType === "warn") {
-        warningCount += 1;
-        emitProgress();
-      } else if (msgType === "error" || msgType === "assert") {
-        errorCount += 1;
-        emitProgress();
+  page.on("console", (msg) => {
+    const write = (async () => {
+      try {
+        const msgType = msg.type();
+        const logEntry = {
+          timestamp: new Date().toISOString(),
+          type: msgType,
+          text: msg.text(),
+          args: await serializeArgs(msg.args()),
+          location: msg.location(),
+        };
+        fs.appendFileSync(outputPath, JSON.stringify(logEntry) + "\n");
+        if (msgType === "warning" || msgType === "warn") {
+          warningCount += 1;
+          emitProgress();
+        } else if (msgType === "error" || msgType === "assert") {
+          errorCount += 1;
+          emitProgress();
+        }
+      } catch (e) {
+        // Ignore errors
       }
-    } catch (e) {
-      // Ignore errors
-    }
+    })();
+    pendingConsoleWrites.add(write);
+    void write.finally(() => pendingConsoleWrites.delete(write));
   });
 
   page.on("pageerror", (error) => {
@@ -223,12 +208,23 @@ function emitResult(
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
-  await emitResult("succeeded");
+  if (page) {
+    try {
+      // A navigation hook can finish before this CDP client receives its last
+      // console event. A round trip on the same page session drains those
+      // events before we close the connection and collect pending writes.
+      await page.evaluate(() => undefined);
+    } catch (e) {
+      // The tab may already be closed during crawl shutdown.
+    }
+  }
+  await Promise.allSettled([...pendingConsoleWrites]);
   if (browser) {
     try {
       browser.disconnect();
     } catch (e) {}
   }
+  await emitResult("succeeded");
   process.exit(0);
 }
 
@@ -252,10 +248,11 @@ async function main() {
     const connection = await setupListeners();
     browser = connection.browser;
     page = connection.page;
+    console.log("consolelog listener attached");
     emitProgress();
 
     // Register signal handlers for graceful shutdown
-    __abxInstallShutdownHandler(handleShutdown);
+    installShutdownHandler(handleShutdown);
 
     // Wait for chrome_navigate to complete (non-fatal)
     try {

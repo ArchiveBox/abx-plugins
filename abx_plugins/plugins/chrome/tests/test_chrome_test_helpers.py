@@ -283,39 +283,23 @@ const downloadDir = process.argv[3];
 const filename = 'abx-download.txt';
 const expectedPath = path.join(downloadDir, filename);
 
-function waitForDownload(filename, expectedContent) {
-  return new Promise((resolve, reject) => {
-    const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
-      if (!changedName || changedName.toString() !== filename) return;
-      let actualContent;
-      try {
-        actualContent = fs.readFileSync(expectedPath, 'utf8');
-      } catch (error) {
-        return;
-      }
-      if (actualContent !== expectedContent) return;
-      clearTimeout(timeout);
-      watcher.close();
-      resolve();
-    });
-    const timeout = setTimeout(() => {
-      watcher.close();
-      reject(new Error(`Timed out waiting for download event for ${filename}`));
-    }, 15000);
-  });
-}
-
 (async () => {
   const { browser, page } = await chromeUtils.connectToPage({
     chromeSessionDir,
     timeoutMs: 30000,
   });
+  const session = await browser.target().createCDPSession();
   try {
-    const ok = await chromeUtils.setBrowserDownloadBehavior({
-      page,
+    await session.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
       downloadPath: downloadDir,
+      eventsEnabled: true,
     });
-    const downloadCompleted = waitForDownload(filename, 'archivebox-download-ok');
+    const downloadCompleted = chromeUtils.waitForBrowserDownload(
+      session,
+      filename,
+      15000,
+    );
     await page.bringToFront();
     await page.evaluate((name) => {
       const blob = new Blob(['archivebox-download-ok'], { type: 'text/plain' });
@@ -330,12 +314,12 @@ function waitForDownload(filename, expectedContent) {
     }, filename);
     await downloadCompleted;
     process.stdout.write(JSON.stringify({
-      ok,
       expectedPath,
       pageUrl: page.url(),
       content: fs.readFileSync(expectedPath, 'utf8'),
     }));
   } finally {
+    await session.detach();
     await browser.disconnect();
   }
 })().catch((error) => {
@@ -361,16 +345,15 @@ function waitForDownload(filename, expectedContent) {
 
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
-        assert payload["ok"] is True
         assert payload["pageUrl"].startswith(TEST_URL)
         assert payload["content"] == "archivebox-download-ok"
         assert Path(payload["expectedPath"]).exists()
 
 
-def test_set_browser_download_behavior_keeps_shared_dir_stable_for_live_pages(
+def test_set_browser_download_behavior_configures_once_for_live_pages(
     ensure_chrome_test_prereqs,
 ):
-    """Two pages in one browser should download into one stable shared dir."""
+    """One browser-owned download dir must serve concurrent live pages."""
     with (
         tempfile.TemporaryDirectory() as tmpdir,
         chrome_session(
@@ -445,11 +428,7 @@ function waitForDownloads(expectedContents) {
   try {
     await pageTwo.goto('data:text/html,<html><body>two</body></html>');
     await chromeUtils.setBrowserDownloadBehavior({
-      page: pageOne,
-      downloadPath: downloadDir,
-    });
-    await chromeUtils.setBrowserDownloadBehavior({
-      page: pageTwo,
+      browser,
       downloadPath: downloadDir,
     });
 
@@ -457,8 +436,10 @@ function waitForDownloads(expectedContents) {
       'one.txt': 'page-one-ok',
       'two.txt': 'page-two-ok',
     });
-    await triggerDownload(pageOne, 'one.txt', 'page-one-ok');
-    await triggerDownload(pageTwo, 'two.txt', 'page-two-ok');
+    await Promise.all([
+      triggerDownload(pageOne, 'one.txt', 'page-one-ok'),
+      triggerDownload(pageTwo, 'two.txt', 'page-two-ok'),
+    ]);
     await downloadsCompleted;
 
     const onePath = path.join(downloadDir, 'one.txt');
@@ -500,6 +481,30 @@ function waitForDownloads(expectedContents) {
         assert payload["twoContent"] == "page-two-ok"
         assert Path(payload["onePath"]).exists()
         assert Path(payload["twoPath"]).exists()
+
+
+def test_only_download_consumers_enable_browser_download_events():
+    """Only download consumers configure browser-wide download behavior.
+
+    WACZ exports and attachments match their download GUID; SingleFile matches
+    its tab/blob/content and keeps collision-safe names in the configured folder.
+    Staticfile also matches the snapshot frame before accepting that GUID. The
+    live download tests cover isolation; this inventory catches other plugins
+    introducing browser-wide download configuration accidentally.
+    """
+    plugins_dir = CHROME_UTILS.parent.parent
+    callers = [
+        script.relative_to(plugins_dir)
+        for script in plugins_dir.glob("*/*.js")
+        if script != CHROME_UTILS
+        and '"Browser.setDownloadBehavior"' in script.read_text()
+    ]
+
+    assert sorted(callers) == [
+        Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js"),
+        Path("singlefile/singlefile_extension_save.js"),
+        Path("staticfile/on_Snapshot__26_staticfile.daemon.bg.js"),
+    ]
 
 
 def test_set_browser_download_behavior_requires_download_path_with_live_page(
@@ -706,6 +711,7 @@ def test_install_chromium_with_abxpkg_links_existing_chrome_into_managed_env(
     env.update(
         {
             "CHROME_BINARY": str(real_chromium_binary),
+            "CHROME_BINPROVIDERS": "env",
             "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
         },
     )

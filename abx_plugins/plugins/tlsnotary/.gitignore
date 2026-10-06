@@ -1,0 +1,5 @@
+__pycache__/
+server/state/
+server/cloudflared/
+server/node_modules/
+server/.env

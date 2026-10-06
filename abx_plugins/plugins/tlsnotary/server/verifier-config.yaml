@@ -1,0 +1,4 @@
+webhooks:
+  "*":
+    url: http://gateway:7049/webhook
+    headers: {}

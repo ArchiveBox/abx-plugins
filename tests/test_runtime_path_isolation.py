@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import assert_isolated_snapshot_env
+from abx_plugins.plugins.base.testing import (
+    assert_isolated_snapshot_env,
+    install_required_binary_from_config,
+)
 from abx_plugins.plugins.base.utils import (
     BASE_CONFIG_PATH,
     build_binproviders,
@@ -219,6 +222,24 @@ def test_build_config_model_infers_typed_fields_from_schema() -> None:
                 "default": {},
                 "additionalProperties": {"type": "string"},
             },
+            "TIMEOUT": {
+                "type": "integer",
+                "default": 30,
+                "minimum": 1,
+                "maximum": 60,
+            },
+            "SCALE": {"type": "number", "default": 0.5, "minimum": 0.1},
+            "RESOLUTION": {
+                "type": "string",
+                "default": "1440,2000",
+                "pattern": r"^\d+,\d+$",
+            },
+            "MODE": {
+                "type": "string",
+                "default": "snapshot",
+                "enum": ["crawl", "snapshot"],
+            },
+            "ENABLED": {"type": "boolean", "default": True},
         },
     )
 
@@ -226,6 +247,7 @@ def test_build_config_model_infers_typed_fields_from_schema() -> None:
         {
             "CHROME_ARGS": ["--no-first-run"],
             "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+            "TIMEOUT": 45,
         },
     )
 
@@ -234,6 +256,18 @@ def test_build_config_model_infers_typed_fields_from_schema() -> None:
     assert payload["ABX_INSTALL_CACHE"] == {
         "wget": "2026-03-24T00:00:00+00:00",
     }
+    assert payload["TIMEOUT"] == 45
+    assert payload["SCALE"] == 0.5
+    assert payload["RESOLUTION"] == "1440,2000"
+    assert payload["MODE"] == "snapshot"
+    assert payload["ENABLED"] is True
+
+    with pytest.raises(ValueError):
+        config_model.model_validate({"TIMEOUT": 0})
+    with pytest.raises(ValueError):
+        config_model.model_validate({"RESOLUTION": "invalid"})
+    with pytest.raises(ValueError):
+        config_model.model_validate({"MODE": "invalid"})
 
 
 def test_load_config_resolves_aliases_to_canonical_fields() -> None:
@@ -250,13 +284,21 @@ def test_load_config_resolves_aliases_to_canonical_fields() -> None:
 def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     tmp_path: Path,
 ) -> None:
+    # The env provider can only discover installed binaries. CI images differ;
+    # install Node separately so this still tests projection into a fresh lib.
+    node = install_required_binary_from_config(
+        CHROME_CONFIG.parent,
+        "node",
+        env={**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "dependencies")},
+    )
+    assert node and node.loaded_abspath
     lib_dir = tmp_path / "lib"
     personas_dir = tmp_path / "personas"
     environ = {
         **os.environ,
         "ABXPKG_LIB_DIR": str(lib_dir),
         "NODE_BINARY": "node",
-        "PATH": os.environ.get("PATH", ""),
+        "PATH": f"{node.loaded_abspath.parent}{os.pathsep}{os.environ.get('PATH', '')}",
     }
 
     config = load_config(

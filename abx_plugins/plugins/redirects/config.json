@@ -28,5 +28,8 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for redirect capture in seconds"
     }
-  }
+  },
+  "category": "metadata",
+  "display_order": 40,
+  "snapshot_output_group": "metadata"
 }

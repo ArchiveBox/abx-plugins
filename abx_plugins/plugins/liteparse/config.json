@@ -2,9 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "LiteParse",
   "description": "Extract text and metadata from PDFs, Office documents, and images using LiteParse (by LlamaIndex). Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
+  "wait_for_plugins": [
+    "papersdl"
+  ],
   "required_binaries": [
     {
       "name": "{LITEPARSE_BINARY}",
@@ -14,14 +18,14 @@
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/liteparse",
           "install_args": [
-            "@llamaindex/liteparse"
+            "@llamaindex/liteparse@2.9.0"
           ]
         }
       }
     },
     {
       "name": "{LITEPARSE_TESSERACT_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": "5.0.0",
       "overrides": {
         "brew": {
@@ -39,7 +43,7 @@
     },
     {
       "name": "{LITEPARSE_IMAGEMAGICK_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": "6.0.0",
       "overrides": {
         "brew": {
@@ -192,5 +196,8 @@
       ],
       "description": "Extra arguments to append to LiteParse command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 70,
+  "snapshot_output_group": "embedded_media"
 }

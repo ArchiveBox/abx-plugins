@@ -46,7 +46,10 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg after hook installation."""
-    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node_loaded = install_binary_with_abxpkg(
+        "node",
+        binproviders="env,node,brew,apt",
+    )
     assert node_loaded and node_loaded.abspath, "Node.js required for pdf plugin"
 
 
@@ -100,6 +103,9 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
         # Check PDF magic bytes
         pdf_data = pdf_file.read_bytes()
         assert pdf_data[:4] == b"%PDF", "Should be valid PDF file"
+        preview_file = pdf_dir / "preview.png"
+        assert preview_file.is_file(), "First PDF page should have a card preview"
+        assert preview_file.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_config_save_pdf_false_skips():

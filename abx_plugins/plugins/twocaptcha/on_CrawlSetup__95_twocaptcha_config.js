@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+#!/usr/bin/env -S abxpkg run --script --binproviders=env,pnpm,apt,brew node
 // /// script
 // ///
 /**
@@ -65,6 +65,10 @@ function chromeExtensionReadyTimeoutMs() {
       getEnvInt("CHROME_EXTENSION_LOAD_TIMEOUT", 30)
     ) * 1000
   );
+}
+
+function twoCaptchaLoginTimeoutMs() {
+  return getEnvInt("TWOCAPTCHA_LOGIN_TIMEOUT", 20) * 1000;
 }
 
 function hasConfiguredApiKey() {
@@ -273,11 +277,19 @@ async function configure2Captcha() {
           timeout: 10000,
         });
 
-        const result = await configPage.evaluate((cfg) => {
+        const result = await configPage.evaluate((cfg, loginTimeoutMs) => {
           return new Promise((resolve) => {
             const popup = chrome.runtime.connect({ name: "popup" });
+            const timeout = setTimeout(() => {
+              popup.disconnect();
+              resolve({
+                success: false,
+                error: `2captcha login did not respond within ${loginTimeoutMs}ms`,
+              });
+            }, loginTimeoutMs);
             popup.onMessage.addListener(async (message) => {
               if (message.action !== "login") return;
+              clearTimeout(timeout);
               if (message.error) {
                 popup.disconnect();
                 resolve({ success: false, error: message.error });
@@ -289,10 +301,10 @@ async function configure2Captcha() {
             });
             popup.postMessage({ action: "login", apiKey: cfg.apiKey });
           });
-        }, config);
+        }, config, twoCaptchaLoginTimeoutMs());
 
         if (result.success) {
-          console.error(`Configured via ${result.method}`);
+          console.log(`Configured via ${result.method}`);
 
           // Verify the extension's persisted configuration after its login and
           // Config.set APIs have both completed.
@@ -325,7 +337,7 @@ async function configure2Captcha() {
             };
           }
 
-          console.error("Ready.");
+          console.log("Ready.");
 
           fs.writeFileSync(
             CONFIG_MARKER,
@@ -388,6 +400,7 @@ async function main() {
   let error = "";
 
   try {
+    console.log("2Captcha configuration started");
     const result = await configure2Captcha();
 
     if (result.skipped) {
