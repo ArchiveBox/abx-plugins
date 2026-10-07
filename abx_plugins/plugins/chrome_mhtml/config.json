@@ -33,5 +33,6 @@
   "category": "main",
   "display_order": 70,
   "snapshot_output_group": "html",
-  "snapshot_output_order": 2
+  "snapshot_output_order": 2,
+  "archive_result_aliases": ["chrome_extension_mhtml"]
 }
