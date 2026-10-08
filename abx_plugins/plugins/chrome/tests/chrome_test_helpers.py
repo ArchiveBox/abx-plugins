@@ -682,7 +682,7 @@ def _run_chrome_required_binary_env(
                 ["ps", "-eo", "pid=,ppid=,stat=,wchan:32=,comm="],
                 capture_output=True,
                 text=True,
-                timeout=3,
+                timeout=1,
             )
             rows = [line.split(maxsplit=4) for line in state.stdout.splitlines()]
             descendants = {os.getpid()}
@@ -706,6 +706,95 @@ def _run_chrome_required_binary_env(
                     file=sys.stderr,
                     flush=True,
                 )
+                apt_descendants = {
+                    int(row[0])
+                    for row in rows
+                    if len(row) == 5
+                    and row[4] == "apt-get"
+                    and int(row[0]) in descendants
+                }
+                while True:
+                    children = {
+                        int(row[0])
+                        for row in rows
+                        if len(row) == 5 and int(row[1]) in apt_descendants
+                    }
+                    if children <= apt_descendants:
+                        break
+                    apt_descendants.update(children)
+                apt_processes = [
+                    {"pid": int(row[0]), "ppid": int(row[1]), "comm": row[4]}
+                    for row in rows
+                    if len(row) == 5
+                    and int(row[0]) in apt_descendants
+                    and row[4] in {"apt-get", "http", "https"}
+                ]
+                if apt_processes and not finished.is_set():
+                    # Restrict privileged reads to the observed apt tree. Never
+                    # emit command arguments, environment, or unrelated sockets.
+                    inspect_apt = r"""
+import json, os, socket, struct, sys
+from pathlib import Path
+result = []
+for process in json.load(sys.stdin):
+    root = Path('/proc') / str(process['pid'])
+    try:
+        stat = (root / 'stat').read_text().rsplit(')', 1)[1].split()
+        if int(stat[1]) != process['ppid'] or (root / 'comm').read_text().strip() != process['comm']:
+            continue
+        if process['comm'] == 'apt-get':
+            args = (root / 'cmdline').read_bytes().split(b'\0')
+            action = next((arg.decode() for arg in args[1:] if arg in (b'update', b'install')), 'unknown')
+            result.append({'pid': process['pid'], 'apt_action': action})
+        inodes = set()
+        for fd in (root / 'fd').iterdir():
+            try:
+                target = os.readlink(fd)
+                if target.startswith('socket:['):
+                    inodes.add(target[8:-1])
+                elif target.startswith(('/var/lib/apt/lists/partial/', '/var/cache/apt/archives/partial/')):
+                    result.append({'pid': process['pid'], 'partial_file': Path(target).name, 'bytes': fd.stat().st_size})
+            except OSError:
+                continue
+        if process['comm'] == 'apt-get':
+            continue
+        for table, family in [('tcp', socket.AF_INET), ('tcp6', socket.AF_INET6)]:
+            for line in (root / 'net' / table).read_text().splitlines()[1:]:
+                columns = line.split()
+                if columns[9] not in inodes:
+                    continue
+                address, port = columns[2].split(':')
+                if int(port, 16) == 0:
+                    continue
+                packed = b''.join(struct.pack('<I', int(address[i:i+8], 16)) for i in range(0, len(address), 8))
+                result.append({'pid': process['pid'], 'remote_ip': socket.inet_ntop(family, packed), 'remote_port': int(port, 16), 'tcp_state': columns[3]})
+    except (OSError, ValueError, IndexError):
+        result.append({'pid': process['pid'], 'inspection': 'unavailable'})
+print(json.dumps(result))
+"""
+                    privileged = any(
+                        Path(f"/proc/{process['pid']}").stat().st_uid != os.geteuid()
+                        for process in apt_processes
+                    )
+                    inspection = subprocess.run(
+                        (["sudo", "-n", "--"] if privileged else [])
+                        + [sys.executable, "-I", "-S", "-B", "-c", inspect_apt],
+                        input=json.dumps(apt_processes),
+                        capture_output=True,
+                        text=True,
+                        timeout=3,
+                    )
+                    if not finished.is_set():
+                        print(
+                            "Chrome bootstrap apt acquisition: "
+                            + (
+                                inspection.stdout.strip()
+                                if inspection.returncode == 0
+                                else "inspection unavailable"
+                            ),
+                            file=sys.stderr,
+                            flush=True,
+                        )
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             if not finished.is_set():
                 print(
