@@ -7,7 +7,7 @@ import re
 # https://mathiasbynens.be/demo/url-regex
 URL_REGEX = re.compile(
     r"(?=("
-    r"http[s]?://"  # start matching from allowed schemes
+    r"(?:https?|webcals?)://"  # subscription links use the HTTPS transport below
     r"(?:[a-zA-Z]|[0-9]"  # followed by allowed alphanum characters
     r"|[-_$@.&+!*\(\),]"  #   or allowed symbols (keep hyphen first to match literal hyphen)
     r"|[^\u0000-\u007F])+"  #   or allowed unicode bytes
@@ -40,6 +40,10 @@ def sanitize_extracted_url(url: str) -> str:
     cleaned = (url or "").strip()
     if not cleaned:
         return cleaned
+
+    # Subscription schemes identify calendar feeds, not browser protocols.
+    # Normalize before Chrome or other capture hooks receive the URL.
+    cleaned = re.sub(r"^webcals?://", "https://", cleaned, flags=re.IGNORECASE)
 
     # Decode after matching boundaries: &#39; inside a single-quoted HTML
     # attribute is content, not the end of that attribute. Never decode %27.

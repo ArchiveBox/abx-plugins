@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 8px;
+        background: white;
+        color: #334155;
+        font: 10px/1.4 system-ui;
+      }
+      h1 {
+        margin: 0;
+        font-size: 12px;
+      }
+      p {
+        color: #64748b;
+        margin: 3px 0;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 4px 0;
+      }
+      li {
+        padding: 3px 0;
+        border-top: 1px solid #edf0f4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body data-output="{{ output_path }}">
+    <h1 id="title">Calendar</h1>
+    <p id="count">Loading saved events…</p>
+    <ul id="events"></ul>
+    <script>
+      const url = new URL(document.body.dataset.output, document.baseURI);
+      url.search = "";
+      url.hash = "";
+      url.searchParams.set("raw", "1");
+      fetch(url)
+        .then((r) => {
+          if (!r.ok) throw Error();
+          return r.json();
+        })
+        .then((m) => {
+          document.getElementById("title").textContent = m.title || "Calendar";
+          document.getElementById("count").textContent =
+            m.event_count + " saved events";
+          for (const e of (m.events || []).slice(0, 4)) {
+            const li = document.createElement("li");
+            li.textContent =
+              (e.start || "") + " · " + (e.summary || "Untitled event");
+            li.title = li.textContent;
+            document.getElementById("events").append(li);
+          }
+        })
+        .catch(
+          () =>
+            (document.getElementById("count").textContent =
+              "Saved calendar unavailable")
+        );
+    </script>
+  </body>
+</html>
