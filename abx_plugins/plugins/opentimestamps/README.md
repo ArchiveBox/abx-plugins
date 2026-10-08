@@ -6,7 +6,7 @@ and the upstream `ots` CLI. No ArchiveBox database or abx-dl imports are require
 
 The stamped bytes include the Merkle root **and** the file paths, hashes, sizes,
 and metadata. The client sends only a blinded commitment to the configured calendars.
-See [the archive trust chain](https://tlsnotary.zervice.io/) for how the evidence
+See [the archive trust chain](https://tlsnotary.archivebox.io/) for how the evidence
 fits together, and the [upstream client](https://github.com/opentimestamps/opentimestamps-client)
 for OpenTimestamps commands.
 
@@ -125,7 +125,7 @@ Custom calendars may require `ots -l https://your-calendar.example upgrade ...`.
 Verification with the upstream client normally uses your Bitcoin node. Keep the
 manifest alongside its proof. The complete explanation of TLS certificates,
 TLSNotary, archive hashes, and timestamps lives at
-[tlsnotary.zervice.io](https://tlsnotary.zervice.io/).
+[tlsnotary.archivebox.io](https://tlsnotary.archivebox.io/).
 
 ## Tests
 

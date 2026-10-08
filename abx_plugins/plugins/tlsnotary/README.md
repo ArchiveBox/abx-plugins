@@ -63,7 +63,7 @@ The snapshot's `tlsnotary/` contains:
 The hook writes no HTML or viewer assets. Its result points to `receipt.json`;
 ArchiveBox renders `templates/full.html` dynamically, with the shared verifier
 module included from the installed plugin. The preview links to
-https://tlsnotary.zervice.io/ for independent verification without embedding it.
+https://tlsnotary.archivebox.io/ for independent verification without embedding it.
 
 The viewer checks Ed25519, the blinded SHA-256 commitment, response length,
 authenticated hostname and HTTP framing. It displays only the authenticated
@@ -128,9 +128,9 @@ YouTube's watch page did not complete within 180 seconds; ordinary title and
 screenshot outputs still succeeded. Large-response hashing remains constrained by
 the pinned upstream extension. This plugin does not certify video prefixes.
 
-The working public endpoint and verification UI are https://tlsnotary.zervice.io/.
-The `tlsnotary.archivebox.io` and `verify.archivebox.io` aliases still need
-Cloudflare DNS changes before they can be added to the ingress and used.
+The public hostname for the endpoint and verification UI is
+https://tlsnotary.archivebox.io/. It is a Cloudflare CNAME alias to the existing
+verifier service; see the [server routing requirements](server/README.md#publish-through-cloudflare-tunnel).
 
 For an offline check with Node 22+, obtain this plugin and its public key from an
 independently trusted source, then run (no network access is used):

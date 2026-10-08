@@ -76,7 +76,7 @@ response, truncated response, altered signed payload, wrong opening and wrong ke
 It also requires a compact receipt without a response/transcript copy. These checks
 passed for Hacker News, Sweeting and the cookie response.
 
-The live public UI at <https://tlsnotary.zervice.io/> accepted the ArchiveBox
+The live public UI at <https://tlsnotary.archivebox.io/> accepted the ArchiveBox
 receipt plus `response.http`, displayed the verified hostname and decoded response,
 and made **zero network requests during file verification**, observed through the
 browser Network event stream. A changed response displayed a commitment mismatch.

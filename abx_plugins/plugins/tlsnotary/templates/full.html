@@ -15,7 +15,7 @@
   </style>
 </head>
 <body>
-  <header><h1>{{ plugin_icon }} TLSNotary</h1><nav aria-label="Output actions"><a id="files">View all files</a><a id="receipt" download>Download receipt</a><a id="response" download>Download response</a><a href="https://tlsnotary.zervice.io/" target="_blank" rel="noopener noreferrer">Verify independently ↗</a></nav></header>
+  <header><h1>{{ plugin_icon }} TLSNotary</h1><nav aria-label="Output actions"><a id="files">View all files</a><a id="receipt" download>Download receipt</a><a id="response" download>Download response</a><a href="https://tlsnotary.archivebox.io/" target="_blank" rel="noopener noreferrer">Verify independently ↗</a></nav></header>
   <main>
     <p id="status" class="status" role="status">Checking signature and archived response…</p>
     <p id="summary"></p>
@@ -25,9 +25,9 @@
       <h2>Verify authenticity</h2>
       <p>The remote verifier signs an attestation that this HTTP response came from the named website over TLS, recording the time on its own clock. TLSNotary uses secure multiparty computation (MPC) to authenticate the response while keeping its contents private from the verifier; this browser checks the signature and matches the saved response to the signed fingerprint.</p>
       <p>When OpenTimestamps is also enabled, its Bitcoin timestamp covers this receipt and saved response, proving that the attestation and content fingerprints existed by the confirmed block’s timestamp.</p>
-      <details id="verifier-key" open><summary>Verifier signing key</summary><p>ArchiveBox includes the public signing key for tlsnotary.zervice.io with its TLSNotary plugin. This browser used that key to check the verifier’s signature. For a self-hosted verifier, enter the public key supplied by its operator through a trusted channel.</p><label>Ed25519 public key (SPKI, base64)<input id="key" autocomplete="off" spellcheck="false"></label><button id="verify" type="button">Verify again</button></details>
+      <details id="verifier-key" open><summary>Verifier signing key</summary><p>ArchiveBox includes the public signing key for tlsnotary.archivebox.io with its TLSNotary plugin. This browser used that key to check the verifier’s signature. For a self-hosted verifier, enter the public key supplied by its operator through a trusted channel.</p><label>Ed25519 public key (SPKI, base64)<input id="key" autocomplete="off" spellcheck="false"></label><button id="verify" type="button">Verify again</button></details>
       <details id="content" hidden><summary>Authenticated response content</summary><pre id="body"></pre></details>
-      <p>To verify independently, download both files and open <a href="https://tlsnotary.zervice.io/" target="_blank" rel="noopener noreferrer">tlsnotary.zervice.io</a>. This preview verifies the saved files in your browser.</p>
+      <p>To verify independently, download both files and open <a href="https://tlsnotary.archivebox.io/" target="_blank" rel="noopener noreferrer">tlsnotary.archivebox.io</a>. This preview verifies the saved files in your browser.</p>
     </div>
   </main>
   <script type="module">

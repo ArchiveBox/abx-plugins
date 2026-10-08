@@ -63,17 +63,16 @@ Route the public hostname's DNS to that tunnel before advertising it. Start with
 Alternatively, use any HTTPS reverse proxy in front of `127.0.0.1:7047` that
 supports WebSockets and connections lasting at least 180 seconds.
 
-Our deployment uses `tlsnotary.zervice.io` routed through Cloudflare Tunnel to the
-gateway container. To add `tlsnotary.archivebox.io` or `verify.archivebox.io`, first
-create the proxied DNS aliases to that working hostname, then add matching ingress
-entries. They are not required to run your own instance. The shipped
-`cloudflared.yaml` records our currently routed hostname; use the example for a
-new deployment. Credentials, `.env`, and signing state are ignored by Git.
+Our public hostname is `tlsnotary.archivebox.io`, a proxied CNAME to
+`tlsnotary.zervice.io`. The existing Cloudflare Tunnel accepts both hostnames and
+routes them to the same gateway container. The shipped `cloudflared.yaml` records
+both ingress entries; use the example for a new deployment. Credentials, `.env`,
+and signing state are ignored by Git.
 
 ## Point the plugin at your instance
 
 The plugin's `config.json` defines `TLSNOTARY_VERIFIER_URL`; its default is
-`https://tlsnotary.zervice.io`. Set it to your HTTPS endpoint and set
+`https://tlsnotary.archivebox.io`. Set it to your HTTPS endpoint and set
 `TLSNOTARY_TRUSTED_KEY` to the `publicKey` from your server's `/key` response,
 obtained over an independently trusted connection. Enable `TLSNOTARY_ENABLED=true`.
 These can be normal ArchiveBox config values or environment variables for abx-dl.
