@@ -526,6 +526,9 @@ jobs:
 
   provider-capture:
     name: Authenticated provider / ${{ matrix.test.path }}
+    # Temporarily nonblocking by maintainer request: dedicated-account access
+    # is still unreliable. Keep running the real tests and retaining failures.
+    continue-on-error: ${{ contains(fromJSON('["abx_plugins/plugins/figma/tests/test_figma_authenticated.py","abx_plugins/plugins/miro/tests/test_miro_authenticated.py","abx_plugins/plugins/canva/tests/test_canva_authenticated.py"]'), matrix.test.path) }}
     needs: prepare
     if: needs.prepare.outputs.run_tests == 'true' && needs.prepare.outputs.platform == 'linux' && needs.prepare.outputs.provider-matrix != '[]' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     # A required egress must not fall back to a different network. This job is

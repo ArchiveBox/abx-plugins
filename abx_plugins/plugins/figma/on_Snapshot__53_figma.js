@@ -73,9 +73,9 @@ async function main() {
       return null;
     });
     if (blocked === "403")
-      throw new Error("Figma blocked this browser session (HTTP 403)");
+      throw new ExportPrerequisiteError("Figma blocked this browser session (HTTP 403)");
     if (blocked === "human-verification")
-      throw new Error("Figma requires human verification for this browser session");
+      throw new ExportPrerequisiteError("Figma requires human verification");
     // Export controls must never modify the shared capture tab.
     phase = "Opening background export page";
     page = await openExportPage({
