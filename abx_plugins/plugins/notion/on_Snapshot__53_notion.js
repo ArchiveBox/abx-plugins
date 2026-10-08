@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,../defuddle/config.json:required_binaries node
+#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries node
 // /// script
 // ///
 const fs = require("fs");
@@ -137,13 +137,23 @@ async function main() {
     const htmlPath = path.join(staging, "public-page.html");
     const markdownPath = path.join(staging, "public-page.md");
     writeFileAtomic(htmlPath, saved.html);
-    const converter = loadConfig(
-      path.join(__dirname, "../defuddle/config.json"),
+    // Resolve the existing converter only when there is a page to convert.
+    // Unrelated captures must not install Defuddle or emit installer logs.
+    const { stdout: converterEnv } = await promisify(execFile)(
+      "abxpkg",
+      [
+        "env",
+        "--install",
+        "--json",
+        `--deps-from=${path.join(__dirname, "../defuddle/config.json")}:required_binaries`,
+      ],
+      { timeout: remaining(), maxBuffer: 1024 * 1024 },
     );
+    const env = { ...process.env, ...JSON.parse(converterEnv) };
     const { stdout } = await promisify(execFile)(
-      converter.DEFUDDLE_BINARY,
+      env.DEFUDDLE_BINARY,
       ["parse", htmlPath, "--markdown"],
-      { timeout: remaining(), maxBuffer: 32 * 1024 * 1024 },
+      { env, timeout: remaining(), maxBuffer: 32 * 1024 * 1024 },
     );
     if (!stdout.trim())
       throw new Error("Saved public page produced no Markdown");

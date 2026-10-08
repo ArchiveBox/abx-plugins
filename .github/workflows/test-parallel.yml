@@ -439,6 +439,15 @@ jobs:
         run: |
           uv sync --locked --dev --no-sources --no-cache
 
+      - name: Install display for headed anonymous provider tests
+        if: >-
+          runner.os == 'Linux' &&
+          (contains(matrix.test.paths, 'abx_plugins/plugins/figma/tests/test_figma.py') ||
+           contains(matrix.test.paths, 'abx_plugins/plugins/canva/tests/test_canva.py'))
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth
+
       - name: Run ${{ matrix.test.path }}
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
@@ -453,7 +462,15 @@ jobs:
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
             test_slug="${test_path//[^A-Za-z0-9_.-]/_}"
-            uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
+            display_command=()
+            if [[ "$RUNNER_OS" == Linux ]]; then
+              case "$test_path" in
+                abx_plugins/plugins/figma/tests/test_figma.py|abx_plugins/plugins/canva/tests/test_canva.py)
+                  display_command=(xvfb-run -a)
+                  ;;
+              esac
+            fi
+            "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
               --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
           done
