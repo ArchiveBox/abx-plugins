@@ -58,7 +58,7 @@ def test_public_export_requires_login_is_skipped(tmp_path, ensure_chrome_test_pr
                 timeout=20,
             )
             (tmp_path / "figma-page.log").write_text(
-                diagnostic.stdout + diagnostic.stderr
+                diagnostic.stdout + diagnostic.stderr,
             )
             assert result.returncode == 0, (
                 result.stderr

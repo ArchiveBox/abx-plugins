@@ -33,7 +33,7 @@ The test uses the real Chrome lifecycle and executable hook subprocess.
 
 Final combined real test run: **4 passed in 24.75s**, covering the Office DOCX original, native SharePoint PDF, ordinary SharePoint tenant root, and Office homepage. Both ordinary homepages return `noresults` without provider selector waits or provider download artifacts.
 
-Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered document; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are stored beside this record. Source run: `replay-final2`, case `0` in the external evidence directory.
+Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered document; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are retained in the external historical acceptance evidence directory. Source run: `replay-final2`, case `0` in the external evidence directory.
 
 Applicability audit: attachment now precedes URL classification and navigation
 waiting. Clearly unrelated original/current URLs return `noresults` before the
@@ -68,3 +68,5 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-microsoft365); screenshot binaries are not checked in beside this record.

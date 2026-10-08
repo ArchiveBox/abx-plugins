@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -34,10 +36,11 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
   });
+  let page = sourcePage;
   let downloads = [];
   try {
     const isShare = (candidate) =>
@@ -66,6 +69,16 @@ async function main() {
       );
     }
     const folder = share[1] === "folder";
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     const click = async (selector) => {
       await (
         await page.waitForSelector(selector, {
@@ -101,6 +114,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "mega/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

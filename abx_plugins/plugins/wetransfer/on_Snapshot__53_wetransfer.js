@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -34,10 +36,11 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
   });
+  let page = sourcePage;
   let downloads = [];
   try {
     const isTransfer = (candidate) =>
@@ -67,7 +70,16 @@ async function main() {
       console.error("Not a WeTransfer download");
       return emitArchiveResultRecord("noresults", "Not a WeTransfer download");
     }
-    await page.bringToFront();
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     await page.waitForFunction(
       () =>
         [...document.querySelectorAll("button")].some((button) =>
@@ -130,6 +142,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "wetransfer/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

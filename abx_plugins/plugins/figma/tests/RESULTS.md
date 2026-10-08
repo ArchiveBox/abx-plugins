@@ -29,7 +29,7 @@ TMPDIR=/tmp ABXPKG_LIB_DIR=/Users/squash/Local/Code/archiveboxes/workspace-artif
 2 passed in 23.80s
 ```
 
-Real ArchiveBox CLI and replay UI acceptance passed in 35.72 seconds on 2026-10-07 (`replay-figma.log`). The test captured the public source with the authorized browser session, opened the Embedded media card, downloaded an original with byte comparison, and verified the eight-page native PDF viewer. Unmodified desktop/tablet/mobile screenshots are stored beside this record.
+Real ArchiveBox CLI and replay UI acceptance passed in 35.72 seconds on 2026-10-07 (`replay-figma.log`). The test captured the public source with the authorized browser session, opened the Embedded media card, downloaded an original with byte comparison, and verified the eight-page native PDF viewer. Unmodified desktop/tablet/mobile screenshots are retained in the external historical acceptance evidence directory.
 
 ## Quiet applicability and export prerequisites
 
@@ -66,3 +66,5 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-figma); screenshot binaries are not checked in beside this record.

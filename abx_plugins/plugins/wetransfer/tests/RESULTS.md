@@ -14,7 +14,7 @@ Both real tests passed in **34.55 seconds**. Evidence: `wetransfer-positive-test
 uv run pytest abx_plugins/plugins/wetransfer/tests/test_wetransfer.py -q
 ```
 
-Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered saved content; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are stored beside this record. Source run: `replay-wetransfer`, case `0` in the external evidence directory.
+Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered saved content; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are retained in the external historical acceptance evidence directory. Source run: `replay-wetransfer`, case `0` in the external evidence directory.
 
 ## Final presentation acceptance
 
@@ -24,3 +24,5 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-wetransfer); screenshot binaries are not checked in beside this record.

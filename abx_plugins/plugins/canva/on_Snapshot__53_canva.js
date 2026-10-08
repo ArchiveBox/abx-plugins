@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -49,10 +51,11 @@ async function main() {
       return false;
     }
   };
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
   });
+  let page = sourcePage;
   const downloads = [];
   try {
     if (!isDesign(url) && !isDesign(page.url())) {
@@ -73,6 +76,16 @@ async function main() {
       console.error("No export in public view");
       return emitArchiveResultRecord("noresults", "No export in public view");
     }
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     const click = async (
       role,
       name,
@@ -148,7 +161,6 @@ async function main() {
       if (!box) throw new Error("Canva export control is not visible");
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     };
-    await page.bringToFront();
     if (
       current.pathname.endsWith("/view") &&
       current.searchParams.get("mode") === "preview"
@@ -273,7 +285,11 @@ async function main() {
       await page.keyboard.press("Escape");
     }
     for (const download of downloads) {
-      const data = await fs.promises.readFile(download.filePath);
+      const file = await fs.promises.open(download.filePath, "r");
+      const { buffer, bytesRead } = await file
+        .read(Buffer.alloc(5), 0, 5, 0)
+        .finally(() => file.close());
+      const data = buffer.subarray(0, bytesRead);
       const extension = path.extname(download.suggestedFilename).toLowerCase();
       if (
         extension === ".pdf"
@@ -291,6 +307,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "canva/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

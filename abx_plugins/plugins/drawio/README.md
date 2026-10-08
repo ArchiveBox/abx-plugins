@@ -1,9 +1,14 @@
 # draw.io
 
 Exports a shared draw.io / diagrams.net editor document as SVG with the editable
-diagram embedded. The hook uses File → Export as → SVG in the existing Chrome
-tab, keeps “Include a copy of my diagram” enabled, and downloads locally.
+diagram embedded. The hook uses File → Export as → SVG in an isolated background
+export tab, keeps “Include a copy of my diagram” enabled, and downloads locally.
 It does not edit or save the source document remotely.
+
+Applicability is checked on the main capture tab. Eligible UI exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 Uses the existing Chrome download helper and `saveDownloads` without additional
 dependencies. `downloads.json` records the saved SVG's path, size and SHA-256.
@@ -23,8 +28,10 @@ Run `uv run pytest -xq abx_plugins/plugins/drawio/tests` in this repository.
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![drawio real capture replay](tests/replay-desktop.jpg)
+![drawio real capture replay](https://archivebox.io/screenshots/snapshot-view-drawio-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-drawio-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-drawio-mobile.png).
 
 ArchiveBox previews the saved SVG directly and keeps the editable SVG available through Download. Nested collections or duplicate formats use the file explorer.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-drawio).

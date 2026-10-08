@@ -17,6 +17,8 @@ Run `uv run pytest abx_plugins/plugins/iclouddrive/tests -q` with real Chrome pr
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![iclouddrive real capture replay](tests/replay-desktop.jpg)
+![iclouddrive real capture replay](https://archivebox.io/screenshots/snapshot-view-iclouddrive-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-iclouddrive-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-iclouddrive-mobile.png).
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-iclouddrive).

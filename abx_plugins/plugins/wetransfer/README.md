@@ -1,6 +1,11 @@
 # WeTransfer
 
-Uses the transfer page's Download control in the existing Chrome session and the shared browser-download and manifest helpers. A delivery ZIP is retained unchanged and can be browsed with ArchiveBox's existing ZIP viewer. No WeTransfer API, credentials, or new dependencies.
+Uses the transfer page's Download control in a background tab in the existing Chrome session and the shared browser-download and manifest helpers. A delivery ZIP is retained unchanged and can be browsed with ArchiveBox's existing ZIP viewer. No WeTransfer API, credentials, or new dependencies.
+
+Applicability is checked on the main capture tab. Eligible UI exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 One snapshot hook attaches to the existing tab and returns `noresults` on unrelated
 pages before waiting for navigation. Only `WETRANSFER_ENABLED` (default true) and
@@ -16,6 +21,8 @@ The [SAMSA training share](https://we.tl/t-JU6cMxNNFJMrW72K) is expired. A separ
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![wetransfer real capture replay](tests/replay-desktop.jpg)
+![wetransfer real capture replay](https://archivebox.io/screenshots/snapshot-view-wetransfer-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-wetransfer-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-wetransfer-mobile.png).
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-wetransfer).

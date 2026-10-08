@@ -1,9 +1,14 @@
 # Box
 
 Downloads Box public file and folder shares with the provider's Download control in the
-snapshot's existing Chrome tab. One snapshot hook attaches to the existing page;
+background export tab in the snapshot's Chrome session. One snapshot hook attaches to the existing page;
 unrelated pages return `noresults` without provider requests or selector waits.
 No OAuth, API key, new browser, or extra packages are required.
+
+Applicability is checked on the main capture tab. Eligible UI exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 Outputs are `downloads.json` and original files under `files/`. The manifest
 records filenames, sizes, and SHA-256 hashes; the embedded-media stack uses the
@@ -23,12 +28,14 @@ is verified to produce its 30 individual logos.
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![box real capture replay](tests/replay-desktop.jpg)
+![box real capture replay](https://archivebox.io/screenshots/snapshot-view-box-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-box-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-box-mobile.png).
 
 The hook attaches to Chrome before checking original/current document URLs and
 waiting for navigation. Ordinary provider homepages return `noresults` without
 provider selector waits or downloads. Identifiable document navigation and
 export errors remain `failed`.
 Explicit Box share redirects to recognized account login pages return `skipped`.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-box).

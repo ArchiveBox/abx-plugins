@@ -22,7 +22,7 @@ viewers are not covered.
 Evidence: `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/parent-plugins-final.log`
 and `replay-ten.log`. The final replay and screenshot evidence follows below.
 
-Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered saved content; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are stored beside this record. Source run: `replay-images-green2`, case `1` in the external evidence directory.
+Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered saved content; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are retained in the external historical acceptance evidence directory. Source run: `replay-images-green2`, case `1` in the external evidence directory.
 
 ## Final presentation acceptance
 
@@ -57,3 +57,5 @@ snapshot index, Embedded media card, format viewer, file explorer, and original
 downloads, with byte comparisons against saved artifacts. Evidence:
 `drawio-container-replay2.log` and retained collection
 `drawio-container-replay2/` under the external evidence directory.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-drawio); screenshot binaries are not checked in beside this record.

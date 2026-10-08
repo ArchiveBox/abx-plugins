@@ -1,6 +1,11 @@
 # iWork
 
-Uses one snapshot hook to export public Keynote, Pages and Numbers documents through the attached Chrome session's actual Tools → Download a Copy → PDF controls. English UI labels are currently required. First-time guest onboarding uses the nickname `ArchiveBox`, then closes Current Participants before opening export controls. The hook does not edit the document. No browser launch, navigation, new tab, API key, OAuth setup, or new dependency is added.
+Uses one snapshot hook to export public Keynote, Pages and Numbers documents through the attached Chrome session's actual Tools → Download a Copy → PDF controls. English UI labels are currently required. First-time guest onboarding uses the nickname `ArchiveBox`, then closes Current Participants before opening export controls. The hook does not edit the document. Exports use a background tab in the existing Chrome session. No browser launch, API key, OAuth setup, or new dependency is added.
+
+Applicability is checked on the main capture tab. Eligible UI exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 Outputs, when the provider completes its download, use the shared `downloads.json` manifest and local `files/` explorer. Enabled by default. Configuration is limited to `IWORK_ENABLED` and `IWORK_TIMEOUT` (seconds, default 120, with `TIMEOUT` fallback).
 
@@ -17,9 +22,9 @@ The 61-slide fixture needed about 70 seconds for Apple's export queue and render
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![iwork real capture replay](tests/replay-desktop.jpg)
+![iwork real capture replay](https://archivebox.io/screenshots/snapshot-view-iwork-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-iwork-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-iwork-mobile.png).
 
 The hook attaches to Chrome before checking original/current document URLs and
 waiting for navigation. Ordinary provider homepages return `noresults` without
@@ -27,3 +32,5 @@ provider selector waits or downloads. Identifiable document navigation and
 export errors remain `failed`.
 
 ArchiveBox previews the saved PDF directly and keeps that PDF available through Download. Nested collections or duplicate formats use the file explorer.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-iwork).

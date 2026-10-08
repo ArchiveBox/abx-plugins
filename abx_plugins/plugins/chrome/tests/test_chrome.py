@@ -804,6 +804,76 @@ def _cleanup_launch_process(
         kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
+def _run_keepalive_launch(
+    command: list[str],
+    *,
+    cwd: str,
+    env: dict[str, str],
+    timeout: int,
+    capture_output: bool,
+    text: bool,
+) -> subprocess.CompletedProcess[str]:
+    """Exercise daemon readiness and SIGTERM cleanup while retaining its browser."""
+    assert capture_output and text
+    assert env["CHROME_KEEPALIVE"] == "true"
+    with tempfile.TemporaryDirectory(prefix="chrome-keepalive-launch-") as log_dir:
+        stdout_path = Path(log_dir) / "stdout.log"
+        stderr_path = Path(log_dir) / "stderr.log"
+        with stdout_path.open("w") as stdout, stderr_path.open("w") as stderr:
+            process = LoggedPopen(
+                command,
+                cwd=cwd,
+                env=env,
+                stdout=stdout,
+                stderr=stderr,
+                text=True,
+            )
+        deadline = time.monotonic() + timeout
+        try:
+            # Fresh process output distinguishes this launch from reused session markers.
+            while True:
+                output = stdout_path.read_text()
+                errors = stderr_path.read_text()
+                assert process.poll() is None, (output, errors, process.returncode)
+                if "session started" in output:
+                    break
+                assert time.monotonic() < deadline, (output, errors)
+                time.sleep(0.1)
+            remaining = deadline - time.monotonic()
+            assert remaining > 0, (output, errors)
+            state = wait_for_chrome_session_state(
+                Path(cwd),
+                env=env,
+                timeout_seconds=remaining,
+                require_browser_ready=True,
+                require_connectable=True,
+            )
+            process.send_signal(signal.SIGTERM)
+            process.wait(timeout=15)
+            output = stdout_path.read_text()
+            errors = stderr_path.read_text()
+            assert process.returncode == 0, (output, errors)
+            if state.get("pid"):
+                assert is_pid_alive(int(state["pid"])), (
+                    "Keepalive browser died during SIGTERM cleanup"
+                )
+            fetch_devtools_targets(state["cdpUrl"])
+            return subprocess.CompletedProcess(
+                command,
+                process.returncode,
+                output,
+                errors,
+            )
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGTERM)
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+
+
 def _launch_keepalive_local_provider_browser(
     tmpdir: str | Path,
     *,
@@ -821,7 +891,7 @@ def _launch_keepalive_local_provider_browser(
         CHROME_HEADLESS="true",
         CHROME_KEEPALIVE="true",
     )
-    provider_launch = subprocess.run(
+    provider_launch = _run_keepalive_launch(
         [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_dir_name}"],
         cwd=str(provider_chrome_dir),
         capture_output=True,
@@ -1252,7 +1322,7 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
                 CHROME_KEEPALIVE="true",
             )
 
-            launch = subprocess.run(
+            launch = _run_keepalive_launch(
                 [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-adopted-crawl"],
                 cwd=str(chrome_dir),
                 capture_output=True,
@@ -1364,7 +1434,7 @@ def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_br
             CHROME_KEEPALIVE="true",
         )
         try:
-            first_launch = subprocess.run(
+            first_launch = _run_keepalive_launch(
                 [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-reinvoke"],
                 cwd=str(adopted_chrome_dir),
                 capture_output=True,
@@ -1383,7 +1453,7 @@ def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_br
                 "provider browser should still be alive after first adopted launch"
             )
 
-            second_launch = subprocess.run(
+            second_launch = _run_keepalive_launch(
                 [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-reinvoke"],
                 cwd=str(adopted_chrome_dir),
                 capture_output=True,
@@ -1840,7 +1910,7 @@ def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_e
 
         _install_test_extension(Path(get_extensions_dir(env=env)), env)
 
-        launch = subprocess.run(
+        launch = _run_keepalive_launch(
             [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-keepalive-true"],
             cwd=str(chrome_dir),
             capture_output=True,
@@ -1944,7 +2014,7 @@ def test_snapshot_isolation_local_keepalive_true_keeps_browser_running_after_hoo
             CHROME_KEEPALIVE="true",
         )
 
-        launch = subprocess.run(
+        launch = _run_keepalive_launch(
             [
                 str(CHROME_SNAPSHOT_LAUNCH_HOOK),
                 f"--url={chrome_test_url}",
@@ -2130,7 +2200,7 @@ def test_snapshot_isolation_external_cdp_keepalive_true_ignores_is_local_true_an
             CHROME_KEEPALIVE="true",
         )
 
-        launch = subprocess.run(
+        launch = _run_keepalive_launch(
             [
                 str(CHROME_SNAPSHOT_LAUNCH_HOOK),
                 f"--url={chrome_test_url}",
@@ -2440,7 +2510,7 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
                 CHROME_KEEPALIVE="true",
             )
 
-            adopted_launch = subprocess.run(
+            adopted_launch = _run_keepalive_launch(
                 [str(CHROME_LAUNCH_HOOK), "--crawl-id=adopt-http-crawl"],
                 cwd=str(adopted_chrome_dir),
                 capture_output=True,

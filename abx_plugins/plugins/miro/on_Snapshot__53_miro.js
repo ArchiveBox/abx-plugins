@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -47,10 +49,11 @@ async function main() {
       return false;
     }
   };
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
   });
+  let page = sourcePage;
   const downloads = [];
   try {
     if (!isBoard(url) && !isBoard(page.url())) {
@@ -62,7 +65,16 @@ async function main() {
       console.error("Not a Miro board");
       return emitArchiveResultRecord("noresults", "Not a Miro board");
     }
-    await page.bringToFront();
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     const waitForControl = async (selector) => {
       await page
         .waitForFunction(
@@ -158,7 +170,11 @@ async function main() {
         })),
       );
       for (const download of downloads) {
-        const data = await fs.promises.readFile(download.filePath);
+        const file = await fs.promises.open(download.filePath, "r");
+        const { buffer, bytesRead } = await file
+          .read(Buffer.alloc(200), 0, 200, 0)
+          .finally(() => file.close());
+        const data = buffer.subarray(0, bytesRead);
         if (
           !download.suggestedFilename.endsWith(".rtb") ||
           !data.length ||
@@ -196,9 +212,11 @@ async function main() {
         });
     downloads.push(...pdfDownloads);
     for (const download of pdfDownloads) {
-      const signature = (
-        await fs.promises.readFile(download.filePath)
-      ).subarray(0, 5);
+      const file = await fs.promises.open(download.filePath, "r");
+      const { buffer, bytesRead } = await file
+        .read(Buffer.alloc(5), 0, 5, 0)
+        .finally(() => file.close());
+      const signature = buffer.subarray(0, bytesRead);
       if (
         !download.suggestedFilename.endsWith(".pdf") ||
         !signature.equals(Buffer.from("%PDF-"))
@@ -213,6 +231,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "miro/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

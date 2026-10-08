@@ -5,13 +5,19 @@ original Word, Excel, and PowerPoint files referenced by the Office web
 viewer's `src` parameter (`view.officeapps.live.com/op/view.aspx` and
 `/op/embed.aspx`). The snapshot hook first attaches to the existing
 Chrome target and checks the original/current URLs before waiting for navigation.
-It downloads the original through
-Chrome's authenticated resource stream; no separate HTTP client, OAuth setup,
-new tab, or extra dependency. Unrelated pages return `noresults` immediately.
+Office-viewer originals download through Chrome's authenticated resource stream
+without opening a tab, a separate HTTP client, OAuth setup, or extra dependency. Unrelated pages return `noresults` immediately.
+
+Applicability is checked on the main capture tab. Eligible SharePoint exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 Produces `downloads.json` and the original in `files/`, with sizes and SHA-256
-hashes. Checks OpenXML ZIP or legacy Office compound-file signatures and rejects
-HTML/login responses. Outputs use the existing embedded-media stack.
+hashes. Office-viewer source downloads check OpenXML ZIP or legacy Office
+compound-file signatures and reject HTML/login responses. Native SharePoint
+downloads use Chrome's completed-download boundary. Outputs use the existing
+embedded-media stack.
 Configuration (enabled by default): `MICROSOFT365_ENABLED` and `MICROSOFT365_TIMEOUT` (120 seconds,
 with `TIMEOUT` fallback).
 
@@ -39,8 +45,10 @@ fixtures.
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![microsoft365 real capture replay](tests/replay-desktop.jpg)
+![microsoft365 real capture replay](https://archivebox.io/screenshots/snapshot-view-microsoft365-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-microsoft365-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-microsoft365-mobile.png).
 
 ArchiveBox shows document-format controls and uses its built-in PDF preview for saved PDFs. Office originals remain downloadable; formats without a saved preview companion offer Download and View all files. Nested collections or duplicate formats use the file explorer.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-microsoft365).

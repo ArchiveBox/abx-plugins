@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -36,10 +38,11 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
   });
+  let page = sourcePage;
   const downloads = [];
   try {
     const isDocument = (candidate) =>
@@ -67,6 +70,16 @@ async function main() {
       )
     )
       throw new Error("Figma blocked this browser session (HTTP 403)");
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     const click = async (selector) => {
       const element = await page.waitForSelector(selector, {
         visible: true,
@@ -188,7 +201,11 @@ async function main() {
       })),
     );
     for (const download of downloads) {
-      const data = await fs.promises.readFile(download.filePath);
+      const file = await fs.promises.open(download.filePath, "r");
+      const { buffer, bytesRead } = await file
+        .read(Buffer.alloc(200), 0, 200, 0)
+        .finally(() => file.close());
+      const data = buffer.subarray(0, bytesRead);
       if (
         !/\.(fig|jam|deck|buzz|site|make)$/i.test(download.suggestedFilename) ||
         data.length < 8 ||
@@ -225,9 +242,11 @@ async function main() {
         });
         downloads.push(...rendered);
         for (const download of rendered) {
-          const signature = (
-            await fs.promises.readFile(download.filePath)
-          ).subarray(0, 5);
+          const file = await fs.promises.open(download.filePath, "r");
+          const { buffer, bytesRead } = await file
+            .read(Buffer.alloc(5), 0, 5, 0)
+            .finally(() => file.close());
+          const signature = buffer.subarray(0, bytesRead);
           if (
             !download.suggestedFilename.endsWith(".pdf") ||
             !signature.equals(Buffer.from("%PDF-"))
@@ -244,6 +263,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "figma/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

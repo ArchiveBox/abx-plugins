@@ -34,8 +34,10 @@ displays its pipe rows as paragraphs. The HTML output preserves the table layout
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![notion real capture replay](tests/replay-desktop.jpg)
+![notion real capture replay](https://archivebox.io/screenshots/snapshot-view-notion-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-notion-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-notion-mobile.png).
 
 ArchiveBox defaults to the saved HTML preview, preserving the table layout. Format buttons select the HTML or Markdown original; Download retrieves that selected file. Nested collections or duplicate formats use the file explorer.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-notion).

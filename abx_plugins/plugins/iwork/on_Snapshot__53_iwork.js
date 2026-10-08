@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -35,10 +37,11 @@ async function main() {
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const chromeSessionDir = path.join(snapshotDir, "chrome");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
   });
+  let page = sourcePage;
   let downloads = [];
   try {
     const candidate = (value) =>
@@ -68,7 +71,16 @@ async function main() {
         "Not a public iWork document",
       );
     }
-    await page.bringToFront();
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     const title = await page.title();
     const application =
       documentMatch[1][0].toUpperCase() + documentMatch[1].slice(1);
@@ -180,6 +192,11 @@ async function main() {
     });
     emitArchiveResultRecord("succeeded", "iwork/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

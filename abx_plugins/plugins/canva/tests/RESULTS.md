@@ -84,3 +84,5 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-canva); screenshot binaries are not checked in beside this record.

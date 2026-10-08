@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -41,7 +42,7 @@ def test_public_keynote_pdf(tmp_path, ensure_chrome_test_prereqs):
         assert data.startswith(b"%PDF-")
         assert b"%%EOF" in data[-1024:]
         assert b"/Title (CoT-zuzalu-final)" in data
-        assert b"/Count 61" in data
+        assert re.search(rb"/Count\s+61(?=\s|/|>)", data)
         assert len(data) == item["size"] > 10000
         assert hashlib.sha256(data).hexdigest() == item["sha256"]
 
@@ -96,7 +97,7 @@ def test_public_pages_and_numbers_pdf(
         data = (output / item["path"]).read_bytes()
         assert data.startswith(b"%PDF-") and b"%%EOF" in data[-1024:]
         assert f"/Title ({title})".encode() in data
-        assert f"/Count {pages}".encode() in data
+        assert re.search(rb"/Count\s+" + str(pages).encode() + rb"(?=\s|/|>)", data)
         assert len(data) == item["size"] > 10000
         assert hashlib.sha256(data).hexdigest() == item["sha256"]
 

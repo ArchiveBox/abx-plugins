@@ -1,8 +1,13 @@
 # Nextcloud / ownCloud
 
 Downloads public file and folder shares from Nextcloud and ownCloud using the
-snapshot's existing Chrome tab. Uses the provider's Download control and the
+background export tab in the snapshot's Chrome session. Uses the provider's Download control and the
 shared browser download/unpacking helpers. No API credentials or extra packages.
+
+Applicability is checked on the main capture tab. Eligible UI exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 One snapshot hook checks the settled page's URL and provider markers. Unrelated
 pages return `noresults` without requests or selector waits. Password-protected
@@ -28,6 +33,8 @@ Run `uv run pytest -xq abx_plugins/plugins/nextcloud/tests` in this repository.
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![nextcloud real capture replay](tests/replay-desktop.jpg)
+![nextcloud real capture replay](https://archivebox.io/screenshots/snapshot-view-nextcloud-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-nextcloud-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-nextcloud-mobile.png).
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-nextcloud).

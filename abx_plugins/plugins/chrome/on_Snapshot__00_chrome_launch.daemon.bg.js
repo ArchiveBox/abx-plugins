@@ -38,6 +38,7 @@ const {
   getChromeSessionOptionsFromConfig,
   findChromium,
   resolvePuppeteerModule,
+  startBrowserExportSweep,
 } = require("./chrome_utils.js");
 
 const PLUGIN_DIR = path.basename(__dirname);
@@ -62,6 +63,7 @@ let cleanupRequestedDuringLaunch = false;
 let activeChromeDir = OUTPUT_DIR;
 let launchPublished = false;
 let puppeteer = null;
+let stopExportSweep = null;
 
 function recordLaunch(pid) {
   chromePid = pid;
@@ -110,6 +112,13 @@ async function cleanup() {
   const cleanupDuringLocalLaunch =
     cleanupRequestedDuringLaunch && chromeProcessIsLocal;
   cleanupPromise = (async () => {
+    if (stopExportSweep) {
+      try {
+        await stopExportSweep();
+      } catch (error) {
+        console.error(`[*] Could not close browser export targets: ${error.message}`);
+      }
+    }
     if (shouldCloseOnCleanup || cleanupDuringLocalLaunch) {
       const closed = await closeBrowserInChromeSession({
         cdpUrl: chromeCdpUrl,
@@ -164,6 +173,8 @@ async function main() {
     launchInProgress = false;
 
     publishReadiness(session, !keepAlive);
+    stopExportSweep = startBrowserExportSweep({ chromeSessionDir: activeChromeDir,
+      cdpUrl: chromeCdpUrl, puppeteer });
 
     emitArchiveResultRecord(
       "succeeded",
@@ -178,11 +189,6 @@ async function main() {
       return;
     }
 
-    if (!shouldCloseOnCleanup) {
-      process.exit(0);
-    }
-
-    setInterval(() => {}, 1000000);
   } catch (error) {
     if (cleanupRequestedDuringLaunch && cleanupPromise) {
       await cleanupPromise;

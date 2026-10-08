@@ -24,7 +24,7 @@ does not offer Download board backup. [Miro's documented backup requirements](ht
 remain necessary. The anonymous real test independently checks the actionable
 sign-in failure and absence of an export manifest.
 
-Real ArchiveBox CLI and replay UI acceptance passed in 32.65 seconds on 2026-10-07 (`replay-miro.log`). The test captured the public board with the authorized browser session, opened the Embedded media card, downloaded the original with byte comparison, and verified the native PDF viewer rendering the real Hello sticky note. Unmodified desktop/tablet/mobile screenshots are stored beside this record.
+Real ArchiveBox CLI and replay UI acceptance passed in 32.65 seconds on 2026-10-07 (`replay-miro.log`). The test captured the public board with the authorized browser session, opened the Embedded media card, downloaded the original with byte comparison, and verified the native PDF viewer rendering the real Hello sticky note. Unmodified desktop/tablet/mobile screenshots are retained in the external historical acceptance evidence directory.
 
 Final anonymous restriction test (with authorized cookies present in the outer
 process but explicitly removed from this browser): **1 passed in 11.35s**.
@@ -62,3 +62,5 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-miro); screenshot binaries are not checked in beside this record.

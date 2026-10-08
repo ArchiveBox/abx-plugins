@@ -6,7 +6,13 @@ This hook attaches to the existing Chrome target for modern `mega.nz/file/…#�
 or `mega.nz/folder/…#…` public shares. It requests the real webclient Download
 control for files and the ZIP download menu for folders. The webclient owns
 decryption and delivery. The hook adds no crypto library, API key, OAuth flow,
-browser launch, tab creation, navigation, or internal application calls.
+browser launch or internal application calls; downloads use an isolated
+background tab in the existing Chrome session.
+
+Applicability is checked on the main capture tab. Eligible UI exports open the
+source URL in a background tab using the same Chrome persona; the main capture
+tab stays untouched. Export tabs close on completion or shutdown signals.
+Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
 The implementation uses MEGA's official source controls:
 

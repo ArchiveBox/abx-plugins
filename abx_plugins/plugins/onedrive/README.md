@@ -27,12 +27,14 @@ ZIP CRC and workbook/worksheet XML are verified.
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![onedrive real capture replay](tests/replay-desktop.jpg)
+![onedrive real capture replay](https://archivebox.io/screenshots/snapshot-view-onedrive-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-onedrive-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-onedrive-mobile.png).
 
 The hook attaches to Chrome before checking original/current document URLs and
 waiting for navigation. Ordinary provider homepages return `noresults` without
 provider selector waits or downloads. Identifiable document navigation and
 export errors remain `failed`.
 Explicit OneDrive share redirects to recognized account login pages return `skipped`.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-onedrive).

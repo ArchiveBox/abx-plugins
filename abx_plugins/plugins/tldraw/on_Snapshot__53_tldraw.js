@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -34,10 +36,11 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
   });
+  let page = sourcePage;
   const downloads = [];
   try {
     const isBoard = (candidate) =>
@@ -57,6 +60,16 @@ async function main() {
       console.error("Not a tldraw board");
       return emitArchiveResultRecord("noresults", "Not a tldraw board");
     }
+    // Export controls must never modify the shared capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     const click = async (selector) => {
       const element = await page.waitForSelector(selector, {
         visible: true,
@@ -66,7 +79,6 @@ async function main() {
       if (!box) throw new Error(`tldraw control is not visible: ${selector}`);
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     };
-    await page.bringToFront();
     await page.waitForSelector(".tl-shape", { timeout: remaining() });
     const close = await page.$('[data-testid="dialog.close"]');
     if (close) await click('[data-testid="dialog.close"]');
@@ -122,6 +134,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "tldraw/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

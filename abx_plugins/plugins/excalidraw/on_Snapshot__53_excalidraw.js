@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   waitForNavigationComplete,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -34,10 +36,11 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
   });
+  let page = sourcePage;
   const downloads = [];
   try {
     const original = new URL(url);
@@ -74,19 +77,29 @@ async function main() {
         "Not an Excalidraw shared scene",
       );
     }
+    const share = isShare(original) ? original : current;
+    // Excalidraw consumes the share fragment and stores its canvas locally.
+    // Import the actual share in temporary storage, preserving the persona's
+    // existing scene and any overwrite dialog in the main capture tab.
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+      isolateStorage: true,
+    });
+    await page.goto(share.href, {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     if (
       await page.evaluate(() => typeof window.showSaveFilePicker === "function")
     )
       throw new Error(
         "Excalidraw requires Chrome launched with --disable-blink-features=FileSystemAccessLocal for automatic browser downloads",
       );
-    // A consumed fragment alone is ambiguous: canceling the provider's import
-    // confirmation also clears it and keeps the persona's previous local scene.
-    // Corroborate a JSON import with the provider's existing resource timing,
-    // and never accept or dismiss a destructive overwrite confirmation.
-    const share = isShare(original) ? original : current;
+    // Corroborate the completed import with the provider's real resource
+    // timing; a cleared fragment alone does not prove the share loaded.
     const [, id] = share.hash.slice(1).split(/[=,]/);
-    await page.bringToFront();
     const readyHandle = await page.waitForFunction(
       (expectedId, expectedHash) => {
         const visible = (selector) =>
@@ -218,6 +231,11 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "excalidraw/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
         if (error.code !== "ENOENT") console.error(error.message);

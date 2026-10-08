@@ -13,20 +13,17 @@ attached browser must also launch with
 error if native save pickers remain enabled. The hook does not modify browser
 APIs or the application.
 
-The hook attaches to the snapshot's existing Chrome target. It uses the browser's
-current session and never launches a browser, opens a tab, navigates, or asks for
-API keys. Saved shared scenes use `#json=` links. Live `#room=` sessions return
-`noresults`: a retained room URL does not prove that collaboration has finished
-synchronizing, so exporting it could save an incomplete scene. When the provider removes
-a JSON share fragment, the hook requires a matching successful provider request
-in the current document's resource timing before exporting. The original URL
-alone cannot authorize exporting a previous local scene after a canceled import.
-Other pages, including the empty homepage, return `noresults` after attachment.
+The hook checks the snapshot's existing Chrome target and immediately returns
+`noresults` for unrelated pages. Saved `#json=` shares open in a separate
+background tab in the same browser with temporary storage. Excalidraw loads and
+decrypts the original share there; the persona's existing canvas and any overwrite
+dialog in the main tab remain untouched. No API keys are needed.
 
-If the persona already has a local scene, Excalidraw may ask before replacing it.
-The hook fails promptly and preserves that scene and its confirmation dialog;
-it never accepts the overwrite. Resolve the provider's import in the existing
-browser before capturing again. Visible import-error dialogs also fail capture.
+The export tab closes on completion or termination. Chrome's existing daemons
+clean up crashed exporters and cap tab lifetime at 60 minutes. A successful
+provider request must confirm the scene import before export; import errors fail
+the capture. Live `#room=` sessions return `noresults` because their URL alone
+does not prove collaboration has finished synchronizing.
 
 `EXCALIDRAW_ENABLED` defaults to true; set it false to disable extraction.
 `EXCALIDRAW_TIMEOUT` bounds the operation (120 seconds, with `TIMEOUT` fallback). Outputs are ordinary files under
@@ -44,8 +41,10 @@ public URLs. See `tests/RESULTS.md` for the actual evidence and limitations.
 
 Real public capture replayed through ArchiveBox's normal file browser:
 
-![excalidraw real capture replay](tests/replay-desktop.jpg)
+![excalidraw real capture replay](https://archivebox.io/screenshots/snapshot-view-excalidraw-desktop.png)
 
-[Tablet](tests/replay-tablet.jpg) · [Mobile](tests/replay-mobile.jpg).
+[Tablet](https://archivebox.io/screenshots/snapshot-view-excalidraw-tablet.png) · [Mobile](https://archivebox.io/screenshots/snapshot-view-excalidraw-mobile.png).
 
 ArchiveBox offers native scene and SVG format buttons. The saved SVG previews the drawing; Download retains the selected editable scene or SVG original. Nested collections or duplicate formats use the file explorer.
+
+[Live scheduled screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-excalidraw).

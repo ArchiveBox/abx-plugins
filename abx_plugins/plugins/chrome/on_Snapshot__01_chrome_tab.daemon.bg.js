@@ -45,6 +45,7 @@ const {
   waitForChromeSessionState,
   closeTabInChromeSession,
   resolvePuppeteerModule,
+  sweepExportPages,
 } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
@@ -74,6 +75,23 @@ let monitorBrowser = null;
 let monitorPage = null;
 let shuttingDown = false;
 let cleanupPromise = null;
+let exportSweepPromise = null;
+
+function startExportSweep() {
+  keepAliveTimer = setInterval(() => {
+    if (shuttingDown || exportSweepPromise || !targetId) return;
+    exportSweepPromise = sweepExportPages({ chromeSessionDir: OUTPUT_DIR,
+      cdpUrl: currentCdpUrl, ownerTargetId: targetId, puppeteer })
+      .catch(error => console.error(`[*] Could not clean Chrome export targets: ${error.message}`))
+      .finally(() => { exportSweepPromise = null; });
+  }, 1000);
+}
+
+async function closeOwnedExportPages(ownerTargetId) {
+  if (exportSweepPromise) await exportSweepPromise;
+  await sweepExportPages({ chromeSessionDir: OUTPUT_DIR, cdpUrl: currentCdpUrl,
+    ownerTargetId, puppeteer, closeAll: true });
+}
 const SNAPSHOT_PAGE_MARKER_FILES = ["target_id.txt", "url.txt"];
 // The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
 // `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
@@ -209,6 +227,7 @@ async function startTargetMonitor() {
     );
     let markersCleaned = false;
     try {
+      await closeOwnedExportPages(expectedTargetId);
       markersCleaned = await cleanupOwnedSnapshotPageMarkers(
         expectedTargetId,
         `target ${expectedTargetId} disappeared`
@@ -251,6 +270,11 @@ async function cleanupOnce(signal) {
   }
   await stopTargetMonitor();
   if (ownedTargetId) {
+    try {
+      await closeOwnedExportPages(ownedTargetId);
+    } catch (error) {
+      console.error(`[*] Could not close snapshot export targets: ${error.message}`);
+    }
     try {
       await closeTabInChromeSession({
         cdpUrl: currentCdpUrl,
@@ -393,7 +417,7 @@ async function main() {
         releaseLock = null;
         await startTargetMonitorBestEffort();
         publishSuccess(output, version || "");
-        keepAliveTimer = setInterval(() => {}, 1000);
+        startExportSweep();
         await new Promise(() => {});
       }
       cleanupSnapshotArtifacts(
@@ -558,7 +582,7 @@ async function main() {
   }
 
   // console.log('tab is loaded, waiting for cleanup...');
-  keepAliveTimer = setInterval(() => {}, 1000);
+  startExportSweep();
   await new Promise(() => {}); // Keep alive until SIGTERM
 }
 

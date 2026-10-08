@@ -45,6 +45,11 @@
         color: var(--accent);
         font-size: 24px;
       }
+      .mark > .abx-output-icon > svg {
+        display: block;
+        width: 28px;
+        height: 28px;
+      }
       .heading {
         min-width: 0;
         flex: 1;
@@ -175,7 +180,7 @@
   </head>
   <body data-output="{{ output_path }}">
     <header>
-      <span class="mark" aria-hidden="true">▤</span>
+      <span class="mark" aria-hidden="true">{{ plugin_icon }}</span>
       <div class="heading">
         <h1 id="title">Excalidraw exports</h1>
         <p class="subtitle" id="summary">Saved document formats</p>

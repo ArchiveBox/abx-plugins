@@ -161,24 +161,34 @@ const {{connectToPage}} = require({json.dumps(str(CHROME_UTILS))});
         scenes = json.loads(prepared.stdout)
         assert scenes["before"] == scenes["after"]
         assert "ArchiveBox existing local scene must stay unchanged" in scenes["before"]
-        hook_env = dict(env, EXCALIDRAW_TIMEOUT="12")
-        started = time.monotonic()
         result = subprocess.run(
             [str(HOOK), f"--url={URL}"],
             cwd=chrome.parent,
-            env=hook_env,
+            env=env,
             capture_output=True,
             text=True,
-            timeout=20,
+            timeout=150,
         )
-        assert result.returncode == 1, result.stdout
+        assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
         assert record is not None, result.stdout
-        assert record["status"] == "failed", result.stdout
-        expected_error = "not imported" if cancel_overwrite else "overwrite"
-        assert expected_error in result.stdout, result.stdout
-        assert time.monotonic() - started < 8
-        assert not (chrome.parent / "excalidraw" / "downloads.json").exists()
+        assert record["status"] == "succeeded", result.stdout
+        output = chrome.parent / "excalidraw"
+        manifest = json.loads((output / "downloads.json").read_text())
+        assert {item["format"] for item in manifest["files"]} == {"excalidraw", "svg"}
+        for item in manifest["files"]:
+            data = (output / item["path"]).read_bytes()
+            assert len(data) == item["size"] > 0
+            assert hashlib.sha256(data).hexdigest() == item["sha256"]
+            if item["format"] == "excalidraw":
+                saved = json.loads(data)
+                assert len(saved["elements"]) > 10
+                texts = [element.get("text", "") for element in saved["elements"]]
+                assert any("Excalidraw" in text for text in texts)
+                assert not any(
+                    "ArchiveBox existing local scene must stay unchanged" in text
+                    for text in texts
+                )
         inspect = f"""
 const {{connectToPage}} = require({json.dumps(str(CHROME_UTILS))});
 (async () => {{

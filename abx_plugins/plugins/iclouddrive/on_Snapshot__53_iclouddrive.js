@@ -119,9 +119,9 @@ async function main() {
       "base64",
     ).toString("utf8");
     const extension = fields.extension?.value;
-    if (!basename || !extension)
+    if (!basename)
       throw new Error("iCloud did not return the original filename");
-    const filename = `${basename}.${extension}`;
+    const filename = extension ? `${basename}.${extension}` : basename;
     const downloadURL = new URL(
       asset.downloadURL.replace("${f}", encodeURIComponent(filename)),
     );

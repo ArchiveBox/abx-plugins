@@ -23,7 +23,7 @@ TMPDIR=/tmp ABXPKG_LIB_DIR=/Users/squash/Local/Code/archiveboxes/workspace-artif
 1 passed in 76.78s
 ```
 
-Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered saved document; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are stored beside this record. Source run: `replay-iwork`, case `0` in the external evidence directory.
+Real ArchiveBox CLI and replay UI acceptance passed on 2026-10-07. The test followed the public index, provider stack, file browser, original download and rendered saved document; downloaded bytes matched the capture. Unmodified browser screenshots at desktop/tablet/mobile sizes are retained in the external historical acceptance evidence directory. Source run: `replay-iwork`, case `0` in the external evidence directory.
 
 Pages and Numbers were added through the same Tools/export flow after each real public test first failed with `noresults`. The complete three-app suite then passed **3 tests in 155.02 seconds** (`iwork-three-apps.log`). Pages exported the author's real `Protocole Raman.pdf` (5,395,491 bytes, 21 pages); text inspection confirmed “Spectroscopie Raman”, “Travaux pratiques en biophotonique”, and the WinSpec protocol sections. Numbers exported Swift Package Index's `NIO-dependency-check.pdf` (178,559 bytes, one 1283 × 6189-point page) with the real package table and compatibility summary. No new hook, dependency, browser or config field was needed. Public source links are in the README.
 
@@ -54,3 +54,5 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+Historical browser screenshots and captures remain in `/Users/squash/Local/Code/archiveboxes/workspace-artifacts/provider-plugins-20261007/`. Current screenshots are regenerated and published by scheduled CI in the [live screenshot gallery](https://archivebox.io/screenshots/#snapshot-view-iwork); screenshot binaries are not checked in beside this record.
