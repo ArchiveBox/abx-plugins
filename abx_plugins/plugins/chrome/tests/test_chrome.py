@@ -839,7 +839,7 @@ def _run_keepalive_launch(
                     break
                 assert time.monotonic() < deadline, (output, errors)
                 time.sleep(0.1)
-            remaining = deadline - time.monotonic()
+            remaining = int(deadline - time.monotonic())
             assert remaining > 0, (output, errors)
             state = wait_for_chrome_session_state(
                 Path(cwd),

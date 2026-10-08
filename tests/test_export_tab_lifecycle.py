@@ -142,6 +142,7 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
                 assert provider.poll() is None, (tmp_path / "provider.log").read_text()
                 time.sleep(0.02)
             assert lease is not None, (tmp_path / "provider.log").read_text()
+            assert lease_path is not None
             owner_pid = lease["pid"]
             owner_command = subprocess.check_output(
                 ["ps", "-p", str(owner_pid), "-o", "command="],

@@ -124,11 +124,11 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
 
         before = observe_page("start")
         provider_env = env
+        blocked_personas = tmp_path / "blocked-personas"
+        blocked_downloads = blocked_personas / "Default" / "chrome_downloads"
         if blocked_download_dir:
             # Exercise a genuine filesystem failure only in the provider hook.
             # The already-running capture browser retains its normal persona.
-            blocked_personas = tmp_path / "blocked-personas"
-            blocked_downloads = blocked_personas / "Default" / "chrome_downloads"
             blocked_downloads.parent.mkdir(parents=True)
             blocked_downloads.write_text(
                 "A regular file obstructs the download directory",
