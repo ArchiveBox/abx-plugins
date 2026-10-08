@@ -30,9 +30,12 @@ callbacks remain open while OpenCode waits for authorization or cancellation;
 the ordinary API read timeout must not abort a pending human login.
 
 For ChatGPT on a remote server or in Docker, choose **ChatGPT Pro/Plus (headless)**
-and complete the device-code flow. OpenCode's **browser** method requires its
-`localhost:1455` callback listener to be reachable from the user's browser; that
-loopback callback is not the ArchiveBox HTTP proxy. Anthropic uses an API key.
+and complete the device-code flow. The embedded picker makes a best-effort tweak
+to put this choice first, preserving every method and its original OAuth ID.
+Unrecognized future UI builds are left unchanged. OpenCode's **browser** method
+requires its `localhost:1455` callback listener to be reachable from the user's
+browser; that loopback callback is not the ArchiveBox HTTP proxy. Anthropic uses
+an API key.
 
 The wrapper preserves existing browser-side servers and projects. Unavailable
 or full browser storage cannot suppress the access warning or block dismissal.

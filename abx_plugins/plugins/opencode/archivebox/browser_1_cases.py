@@ -147,8 +147,11 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
       await frame.locator('[data-action="prompt-model"]').click();
       await frame.locator('::-p-aria(' + provider + '[role="button"])').click();
       if (provider === 'OpenAI') {
-        await frame.waitForSelector('::-p-aria(ChatGPT Pro/Plus Headless[role="button"])');
-        await frame.waitForSelector('::-p-aria(ChatGPT Pro/Plus Browser[role="button"])');
+        const headless = await frame.waitForSelector('::-p-aria(ChatGPT Pro/Plus Headless[role="button"])');
+        const browserLogin = await frame.waitForSelector('::-p-aria(ChatGPT Pro/Plus Browser[role="button"])');
+        assert.ok(await headless.evaluate((node, other) =>
+          Boolean(node.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING), browserLogin),
+          'Device login should be first; browser login must remain available');
         await frame.locator('::-p-aria(API key Browser[role="button"])').click();
       }
       const input = await frame.waitForSelector('::-p-aria(' + provider + ' API key[role="textbox"])');

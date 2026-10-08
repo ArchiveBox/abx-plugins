@@ -522,6 +522,17 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
         r'new URL(\1.replace(/^\//,""),\2.replace(/\/?$/,"/"))',
         text,
     )
+    # Prefer device login in the embedded ChatGPT picker: browser login returns
+    # to localhost:1455 on the user's machine, not this server. Sort only after
+    # OpenCode assigns method IDs, retaining every option and its original ID.
+    # This is cosmetic and best-effort: unknown UI builds simply do not match.
+    text = re.sub(
+        r"(id:([$\w]+)\.integrationID,name:\2\.integrationID,methods:)([$\w]+)(,connections:\[\])",
+        r'\1\2.integrationID==="openai"?\3.slice().sort((a,b)=>'
+        r'Number(b.label==="ChatGPT Pro/Plus (headless)")-'
+        r'Number(a.label==="ChatGPT Pro/Plus (headless)")):\3\4',
+        text,
+    )
     text = text.replace('"/assets/', f'"{_PROXY_PREFIX}/assets/')
     text = text.replace("'/assets/", f"'{_PROXY_PREFIX}/assets/")
     text = re.sub(

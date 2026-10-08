@@ -98,6 +98,13 @@ def test_opencode_native_router_pathname_is_unchanged():
     assert runtime._rewrite_text(expression, "http://127.0.0.1:4096") == expression
 
 
+def test_opencode_unrecognized_provider_picker_is_unchanged():
+    from abx_plugins.plugins.opencode import runtime
+
+    expression = b"return r({id:i.integrationID,methods:s},i.location)"
+    assert runtime._rewrite_text(expression, "http://127.0.0.1:4096") == expression
+
+
 def test_stop_owned_process_falls_back_for_stopped_process_without_dedicated_group():
     from abx_plugins.plugins.opencode import runtime
 
