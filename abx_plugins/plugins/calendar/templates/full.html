@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Saved calendar</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #fff;
+        color: #243244;
+        font: 14px/1.5 system-ui;
+      }
+      header,
+      nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 14px 20px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      h1 {
+        font-size: 19px;
+        margin: 0;
+        flex: 1;
+      }
+      button,
+      input,
+      select,
+      a.action {
+        font: inherit;
+        padding: 6px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        background: white;
+        color: #244b8d;
+      }
+      button {
+        cursor: pointer;
+      }
+      button[aria-pressed="true"] {
+        background: #eaf2ff;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #93c5fd;
+        outline-offset: 2px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 310px;
+        gap: 18px;
+        padding: 20px;
+      }
+      #month {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        border-left: 1px solid #e2e8f0;
+        border-top: 1px solid #e2e8f0;
+      }
+      .day,
+      .weekday {
+        padding: 7px;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .day {
+        min-height: 110px;
+      }
+      .outside {
+        background: #f8fafc;
+        color: #64748b;
+      }
+      .weekday {
+        font-weight: 600;
+        text-align: center;
+      }
+      .event {
+        display: block;
+        width: 100%;
+        margin: 4px 0;
+        text-align: left;
+        font-size: 12px;
+        padding: 4px;
+        background: #eff6ff;
+        overflow-wrap: anywhere;
+      }
+      .cancelled {
+        text-decoration: line-through;
+      }
+      #agenda .event {
+        font-size: 14px;
+        padding: 10px;
+      }
+      aside {
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 16px;
+        align-self: start;
+        overflow-wrap: anywhere;
+      }
+      h2 {
+        font-size: 17px;
+        margin: 0 0 12px;
+      }
+      dt {
+        font-weight: 600;
+        margin-top: 10px;
+      }
+      dd {
+        margin: 2px 0;
+        white-space: pre-wrap;
+      }
+      #notice {
+        margin: 12px 20px;
+        color: #64748b;
+      }
+      #files {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      #period {
+        min-width: 180px;
+        text-align: center;
+        font-weight: 600;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 850px) {
+        main {
+          grid-template-columns: 1fr;
+          padding: 10px;
+        }
+        .day {
+          min-height: 90px;
+          padding: 3px;
+        }
+        .event {
+          font-size: 10px;
+          padding: 2px;
+        }
+        header,
+        nav {
+          padding: 10px;
+        }
+        #period {
+          min-width: 120px;
+        }
+      }
+    </style>
+  </head>
+  <body data-output="{{ output_path }}">
+    <header>
+      <h1 id="title">Saved calendar</h1>
+      <label
+        >Calendar
+        <select id="file"></select></label
+      ><a id="download" class="action">Download ICS</a
+      ><a id="raw" class="action">Raw manifest</a
+      ><a id="files" class="action">View all files</a>
+    </header>
+    <nav aria-label="Calendar controls">
+      <button id="monthView" aria-pressed="true">Month</button
+      ><button id="agendaView" aria-pressed="false">Agenda</button
+      ><button id="previous" aria-label="Previous month">←</button
+      ><span id="period" aria-live="polite"></span
+      ><button id="next" aria-label="Next month">→</button
+      ><button id="today">Today</button
+      ><label>Go to month <input id="date" type="month" /></label>
+    </nav>
+    <p id="notice" role="status">Loading saved calendar…</p>
+    <main>
+      <section aria-label="Calendar events">
+        <div id="month"></div>
+        <div id="agenda" hidden></div>
+      </section>
+      <aside id="detail" aria-label="Event details">
+        <h2>Select an event</h2>
+        <p>
+          This is a saved calendar. Invitations and RSVP actions remain offline.
+        </p>
+      </aside>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id),
+        manifestURL = new URL(document.body.dataset.output, document.baseURI);
+      manifestURL.search = "";
+      manifestURL.hash = "";
+      manifestURL.searchParams.set("raw", "1");
+      const rawURL = (path) => {
+        const u = new URL(path, manifestURL);
+        u.searchParams.set("raw", "1");
+        return u;
+      };
+      $("raw").href = manifestURL;
+      const filesURL = new URL("files/?files=1", manifestURL);
+      $("files").href = filesURL;
+      const fileURL = (f) =>
+        new URL(
+          f.path.split("/").map(encodeURIComponent).join("/"),
+          manifestURL
+        );
+      const validFile = (f) => {
+        if (
+          typeof f.path !== "string" ||
+          typeof f.filename !== "string" ||
+          typeof f.format !== "string"
+        )
+          return false;
+        const u = fileURL(f);
+        return (
+          f.path.startsWith("files/") &&
+          u.origin === manifestURL.origin &&
+          u.pathname.startsWith(filesURL.pathname) &&
+          !u.search &&
+          !u.hash
+        );
+      };
+      let cursor = new Date(),
+        events = [],
+        agenda = false;
+      cursor.setDate(1);
+      const gridDate = (t) =>
+        t.isDate ? new Date(t.year, t.month - 1, t.day) : t.toJSDate();
+      const label = (t) =>
+        t.toString() +
+        (t.isDate
+          ? " (all day)"
+          : t.zone.tzid === "floating"
+          ? " (floating time)"
+          : ` (${t.zone.tzid})`);
+      function details(o) {
+        const c = o.item.component;
+        const panel = $("detail");
+        panel.replaceChildren();
+        const h = document.createElement("h2");
+        h.textContent = o.item.summary || "Untitled event";
+        panel.append(h);
+        const dl = document.createElement("dl");
+        panel.append(dl);
+        const add = (name, value) => {
+          if (!value) return;
+          const dt = document.createElement("dt"),
+            dd = document.createElement("dd");
+          dt.textContent = name;
+          dd.textContent = String(value);
+          dl.append(dt, dd);
+        };
+        add("Start", label(o.startDate));
+        const sourceZone = c.getFirstProperty("dtstart")?.getParameter("tzid");
+        if (sourceZone && o.startDate.zone.tzid === "floating")
+          add(
+            "Calendar timezone",
+            sourceZone + " (unresolved; wall time preserved)"
+          );
+        add("End", label(o.endDate) + (o.endDate.isDate ? " (exclusive)" : ""));
+        for (const [name, prop] of [
+          ["Location", "location"],
+          ["Description", "description"],
+          ["Status", "status"],
+        ])
+          add(name, c.getFirstPropertyValue(prop));
+        for (const prop of ["organizer", "attendee"])
+          for (const p of c.getAllProperties(prop)) {
+            const value = String(p.getFirstValue()),
+              dt = document.createElement("dt"),
+              dd = document.createElement("dd");
+            dt.textContent = prop === "organizer" ? "Organizer" : "Attendee";
+            const title = p.getParameter("cn");
+            if (/^(https?:|mailto:)/i.test(value)) {
+              const a = document.createElement("a");
+              a.href = value;
+              a.textContent = title ? `${title} (${value})` : value;
+              a.rel = "noopener noreferrer";
+              dd.append(a);
+            } else dd.textContent = title ? `${title} (${value})` : value;
+            dl.append(dt, dd);
+          }
+      }
+      function occurrences(from, to) {
+        const result = [];
+        let steps = 0,
+          limited = false;
+        for (const item of events) {
+          if (result.length >= 2000) {
+            limited = true;
+            break;
+          }
+          if (!item.startDate) continue;
+          if (!item.isRecurring()) {
+            const o = {
+              item,
+              startDate: item.startDate,
+              endDate: item.endDate,
+            };
+            if (
+              (gridDate(o.endDate) > from ||
+                (o.startDate.compare(o.endDate) === 0 &&
+                  gridDate(o.startDate) >= from)) &&
+              gridDate(o.startDate) < to
+            )
+              result.push(o);
+            continue;
+          }
+          const seen = new Set();
+          const include = (o) => {
+            const key = o.recurrenceId.toUnixTime();
+            if (seen.has(key)) return;
+            seen.add(key);
+            if (
+              gridDate(o.startDate) < to &&
+              (gridDate(o.endDate) > from ||
+                (o.startDate.compare(o.endDate) === 0 &&
+                  gridDate(o.startDate) >= from))
+            )
+              result.push(o);
+          };
+          // Detached occurrences may move into this month from a later series date.
+          for (const exception of Object.values(item.exceptions)) {
+            if (result.length >= 2000) {
+              limited = true;
+              break;
+            }
+            include(item.getOccurrenceDetails(exception.recurrenceId));
+          }
+          const ranges = Object.values(item.exceptions).filter((e) =>
+            e.modifiesFuture()
+          );
+          const iter = item.iterator();
+          let time;
+          while (!limited && (time = iter.next())) {
+            if (++steps > 50000 || result.length >= 2000) {
+              limited = true;
+              break;
+            }
+            // Stop by the unmodified series date, accounting for all range shifts.
+            // An individual moved occurrence cannot terminate the series early.
+            if (
+              gridDate(time) >= to &&
+              ranges.every((exception) => {
+                const base = exception.recurrenceId.clone();
+                base.zone = exception.startDate.zone;
+                const shift = exception.startDate.subtractDate(base);
+                const shifted = time.clone();
+                shifted.zone = exception.startDate.zone;
+                shifted.addDuration(shift);
+                return gridDate(shifted) >= to;
+              })
+            )
+              break;
+            include(item.getOccurrenceDetails(time));
+          }
+          if (limited) break;
+        }
+        return {
+          result: result.sort((a, b) => a.startDate.compare(b.startDate)),
+          limited,
+        };
+      }
+      function chooseInitialMonth() {
+        const from = new Date(cursor.getFullYear(), cursor.getMonth(), 1),
+          to = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+        if (occurrences(from, to).result.length) return;
+        const starts = events
+          .map((e) => (e.startDate ? gridDate(e.startDate) : null))
+          .filter(Boolean)
+          .sort((a, b) => a - b);
+        const chosen = starts.find((d) => d >= from) || starts.at(-1);
+        if (chosen)
+          cursor = new Date(chosen.getFullYear(), chosen.getMonth(), 1);
+      }
+      function eventButton(o) {
+        const b = document.createElement("button");
+        b.className = "event";
+        if (o.item.component.getFirstPropertyValue("status") === "CANCELLED")
+          b.classList.add("cancelled");
+        b.textContent =
+          (o.startDate.isDate
+            ? "All day"
+            : o.startDate.toString().slice(11, 16)) +
+          " · " +
+          (o.item.summary || "Untitled event");
+        b.addEventListener("click", () => details(o));
+        return b;
+      }
+      function render() {
+        const year = cursor.getFullYear(),
+          month = cursor.getMonth(),
+          first = new Date(year, month, 1),
+          last = new Date(year, month + 1, 1),
+          from = new Date(year, month, 1 - first.getDay()),
+          to = new Date(from);
+        to.setDate(to.getDate() + 42);
+        const { result, limited } = occurrences(from, to);
+        $("period").textContent = first.toLocaleDateString(undefined, {
+          month: "long",
+          year: "numeric",
+        });
+        $("date").value = year + "-" + String(month + 1).padStart(2, "0");
+        $("month").hidden = agenda;
+        $("agenda").hidden = !agenda;
+        $("monthView").setAttribute("aria-pressed", String(!agenda));
+        $("agendaView").setAttribute("aria-pressed", String(agenda));
+        $("month").replaceChildren();
+        $("agenda").replaceChildren();
+        for (const name of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
+          const d = document.createElement("div");
+          d.className = "weekday";
+          d.textContent = name;
+          $("month").append(d);
+        }
+        for (let i = 0; i < 42; i++) {
+          const day = new Date(from);
+          day.setDate(day.getDate() + i);
+          const next = new Date(day);
+          next.setDate(next.getDate() + 1);
+          const cell = document.createElement("div");
+          cell.className = "day" + (day.getMonth() === month ? "" : " outside");
+          const n = document.createElement("span");
+          n.textContent = day.getDate();
+          cell.append(n);
+          for (const o of result)
+            if (
+              gridDate(o.startDate) < next &&
+              (gridDate(o.endDate) > day ||
+                (o.startDate.compare(o.endDate) === 0 &&
+                  gridDate(o.startDate) >= day))
+            )
+              cell.append(eventButton(o));
+          $("month").append(cell);
+        }
+        for (const o of result)
+          if (
+            gridDate(o.startDate) < last &&
+            (gridDate(o.endDate) > first ||
+              (o.startDate.compare(o.endDate) === 0 &&
+                gridDate(o.startDate) >= first))
+          ) {
+            const b = eventButton(o);
+            b.textContent =
+              label(o.startDate) + " · " + (o.item.summary || "Untitled event");
+            $("agenda").append(b);
+          }
+        if (!$("agenda").children.length)
+          $("agenda").textContent = "No events this month.";
+        $("notice").textContent = limited
+          ? "Display limit reached (2,000 occurrences or 50,000 recurrence steps). Some events are not shown. Download the complete original ICS for all events."
+          : "Grid dates follow this browser’s local timezone for timed events; event labels retain the source calendar timezone. All-day dates stay on their named calendar day, and end dates are exclusive. Original ICS files are complete.";
+      }
+      async function load(file) {
+        $("notice").textContent = "Loading saved events…";
+        const response = await fetch(rawURL(fileURL(file)));
+        if (!response.ok) throw Error("Saved ICS unavailable");
+        ICAL.TimezoneService.reset();
+        const root = new ICAL.Component(ICAL.parse(await response.text()));
+        for (const tz of root.getAllSubcomponents("vtimezone")) {
+          const id = tz.getFirstPropertyValue("tzid");
+          if (id)
+            ICAL.TimezoneService.register(
+              id,
+              new ICAL.Timezone({ component: tz, tzid: id })
+            );
+        }
+        const components = root.getAllSubcomponents("vevent");
+        events = components
+          .filter((c) => !c.hasProperty("recurrence-id"))
+          .map(
+            (c) => new ICAL.Event(c, { exceptions: [], strictExceptions: true })
+          );
+        for (const c of components.filter((c) =>
+          c.hasProperty("recurrence-id")
+        )) {
+          const master = events.find(
+            (e) => e.uid === c.getFirstPropertyValue("uid")
+          );
+          if (master) master.relateException(new ICAL.Event(c));
+          else events.push(new ICAL.Event(c));
+        }
+        $("download").href = rawURL(fileURL(file));
+        $("download").setAttribute("download", file.filename);
+        chooseInitialMonth();
+        render();
+        const first = occurrences(
+          new Date(cursor.getFullYear(), cursor.getMonth(), 1),
+          new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+        ).result[0];
+        if (first) details(first);
+      }
+      $("previous").onclick = () => {
+        cursor.setMonth(cursor.getMonth() - 1);
+        render();
+      };
+      $("next").onclick = () => {
+        cursor.setMonth(cursor.getMonth() + 1);
+        render();
+      };
+      $("today").onclick = () => {
+        cursor = new Date();
+        cursor.setDate(1);
+        render();
+      };
+      $("date").onchange = () => {
+        if ($("date").value) {
+          const [y, m] = $("date").value.split("-").map(Number);
+          cursor = new Date(y, m - 1, 1);
+          render();
+        }
+      };
+      $("monthView").onclick = () => {
+        agenda = false;
+        render();
+      };
+      $("agendaView").onclick = () => {
+        agenda = true;
+        render();
+      };
+      const failure = (e) =>
+        ($("notice").textContent =
+          "Calendar could not be displayed: " + e.message);
+      (async () => {
+        const script = document.createElement("script");
+        script.src = rawURL("ical.js");
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = () =>
+            reject(Error("Bundled calendar parser unavailable"));
+          document.head.append(script);
+        });
+        const response = await fetch(manifestURL);
+        if (!response.ok) throw Error("Manifest unavailable");
+        const manifest = await response.json();
+        $("title").textContent = manifest.title || "Saved calendar";
+        const files = (manifest.files || []).filter(validFile);
+        for (const f of files) {
+          if (f.format === "ics") {
+            const option = document.createElement("option");
+            option.value = f.path;
+            option.textContent = f.filename || f.path;
+            $("file").append(option);
+          }
+        }
+        if (!$("file").options.length) throw Error("No saved ICS file");
+        $("file").onchange = () =>
+          load(files.find((f) => f.path === $("file").value)).catch(failure);
+        await load(files.find((f) => f.path === $("file").value));
+      })().catch(failure);
+    </script>
+  </body>
+</html>

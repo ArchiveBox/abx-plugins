@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Calendar",
+  "description": "Save calendar feeds and ICS invitations with an offline calendar and event viewer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "required_binaries": [],
+  "output_mimetypes": ["text/calendar", "application/json", "text/html"],
+  "properties": {
+    "CALENDAR_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Save calendar feeds and invitations"
+    },
+    "CALENDAR_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total calendar download timeout in seconds"
+    }
+  },
+  "category": "text",
+  "display_order": 225,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}

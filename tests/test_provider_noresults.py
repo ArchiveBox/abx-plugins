@@ -14,6 +14,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 )
 
 PROVIDERS = (
+    "calendar",
     "onedrive",
     "microsoft365",
     "notion",
