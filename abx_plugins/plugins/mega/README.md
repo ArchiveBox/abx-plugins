@@ -14,7 +14,9 @@ The implementation uses MEGA's official source controls:
 - [File manager toolbar](https://github.com/meganz/webclient/blob/a3900cd4c19be52ef6e0daad423acf89edaa2e02/html/fm.html): `fm-download` is the public-folder download control.
 - [Toolbar download menu](https://github.com/meganz/webclient/blob/a3900cd4c19be52ef6e0daad423acf89edaa2e02/js/ui/components/meganz/fm-secondary-nav.js#L353-L383): its native ZIP button contains `icon-download-zip` and requests a browser ZIP of the current folder.
 
-`MEGA_ENABLED` defaults to true. `MEGA_TIMEOUT` (default 120 seconds) bounds provider preparation,
+`MEGA_ENABLED` defaults to false while native capture remains unverified. Set it
+to true to opt in. The plugin remains visible in both configuration grids, but
+the gallery does not require an unverified example. `MEGA_TIMEOUT` (default 120 seconds) bounds provider preparation,
 decryption, download and extraction, inheriting `TIMEOUT`. Browser download
 events must complete before publication. A public-folder ZIP is CRC-checked and
 extracted into `mega/files/`; an individual file retains its original bytes.

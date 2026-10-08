@@ -15,7 +15,7 @@
   "properties": {
     "MEGA_ENABLED": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "description": "Request MEGA public-share downloads"
     },
     "MEGA_TIMEOUT": {

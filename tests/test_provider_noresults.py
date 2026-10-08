@@ -88,7 +88,7 @@ def test_provider_noresults(provider, unrelated_page):
         result = subprocess.run(
             [str(hooks[0]), f"--url={url}"],
             cwd=snapshot,
-            env=env,
+            env={**env, f"{provider.upper()}_ENABLED": "true"},
             capture_output=True,
             text=True,
             timeout=10,
