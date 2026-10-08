@@ -5,11 +5,38 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
 URL = "https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Fjgraph%2Fdrawio-diagrams%2Fmaster%2Fdiagrams%2Fschema.xml"
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_drawio.js"
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://app.diagrams.net/#foo", "https://app.draw.io/#foo"],
+)
+def test_unrelated_editor_fragment(tmp_path, ensure_chrome_test_prereqs, url):
+    with chrome_session(tmp_path, test_url=url, timeout=60) as (_, _, chrome, env):
+        result = subprocess.run(
+            [str(HOOK), f"--url={url}"],
+            cwd=chrome.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "noresults", result.stdout
+        assert (
+            result.stderr.strip()
+            == record["output_str"]
+            == "Not a shared draw.io diagram"
+        )
+        assert not (chrome.parent / "drawio").exists()
 
 
 def test_public_schema_diagram(tmp_path, ensure_chrome_test_prereqs):

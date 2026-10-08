@@ -76,12 +76,23 @@ def test_public_encrypted_scene(tmp_path, ensure_chrome_test_prereqs):
                 }
 
 
-def test_empty_homepage_has_no_scene(tmp_path, ensure_chrome_test_prereqs):
-    homepage = "https://excalidraw.com/"
-    with chrome_session(tmp_path, test_url=homepage, timeout=90) as (_, _, chrome, env):
+@pytest.mark.parametrize(
+    ("url", "reason"),
+    [
+        ("https://excalidraw.com/", "Not an Excalidraw shared scene"),
+        # Public workshop room linked by Hochschule Bremerhaven:
+        # https://informatik.hs-bremerhaven.de/ideathon/Ideathon-Workshops-Doku.pdf
+        (
+            "https://excalidraw.com/#room=1a2912ca0852c41eef79,S4VMrFiSIGhof-exCIRBFQ",
+            "Live rooms need a saved #json scene link",
+        ),
+    ],
+)
+def test_page_without_saved_scene(tmp_path, ensure_chrome_test_prereqs, url, reason):
+    with chrome_session(tmp_path, test_url=url, timeout=90) as (_, _, chrome, env):
         started = time.monotonic()
         result = subprocess.run(
-            [str(HOOK), f"--url={homepage}"],
+            [str(HOOK), f"--url={url}"],
             cwd=chrome.parent,
             env=env,
             capture_output=True,
@@ -92,6 +103,7 @@ def test_empty_homepage_has_no_scene(tmp_path, ensure_chrome_test_prereqs):
         record = parse_jsonl_output(result.stdout)
         assert record is not None, result.stdout
         assert record["status"] == "noresults", result.stdout
+        assert result.stderr.strip() == record["output_str"] == reason
         assert time.monotonic() - started < 10
         assert not (chrome.parent / "excalidraw" / "downloads.json").exists()
 

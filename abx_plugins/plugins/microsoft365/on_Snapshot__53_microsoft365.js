@@ -70,12 +70,11 @@ async function main() {
         : null;
     };
     const attached = new URL(page.url());
-    if (
-      !sharepointCandidate(original) &&
-      !sharepointCandidate(attached) &&
-      !officeSource(original) &&
-      !officeSource(attached)
-    ) {
+    const initialDocument =
+      sharepointCandidate(original) ||
+      sharepointCandidate(attached) ||
+      Boolean(officeSource(original) || officeSource(attached));
+    if (!initialDocument) {
       console.error("Not a Microsoft365 document URL");
       return emitArchiveResultRecord(
         "noresults",
@@ -122,7 +121,7 @@ async function main() {
       );
     }
     if (
-      originalDocument &&
+      initialDocument &&
       ["login.microsoftonline.com", "login.live.com"].includes(current.hostname)
     ) {
       console.error("Persona must be logged in to microsoft.com");

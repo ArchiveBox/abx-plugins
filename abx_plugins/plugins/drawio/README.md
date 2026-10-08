@@ -13,7 +13,9 @@ unrelated settled pages.
 
 Settings (enabled by default): `DRAWIO_ENABLED` and `DRAWIO_TIMEOUT` (120 seconds, with `TIMEOUT`
 fallback). The initial export surface is shared editor URLs on app.diagrams.net
-and app.draw.io; lightbox-only viewers are not yet covered.
+and app.draw.io with a document location hash (`G`, `W`, `T`, `D`, `A`, `H`,
+`R`, or a valid HTTP(S) `U` source). Arbitrary anchors, browser-local files,
+editor configuration links, and lightbox-only viewers are not covered.
 
 The live fixture is draw.io's official public schema.xml example. The test
 checks its UserRole and AccountName content and embedded mxfile source.

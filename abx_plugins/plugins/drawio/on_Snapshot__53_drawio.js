@@ -40,10 +40,24 @@ async function main() {
   });
   let downloads = [];
   try {
-    const isDiagram = (candidate) =>
-      candidate.protocol === "https:" &&
-      ["app.diagrams.net", "app.draw.io"].includes(candidate.hostname) &&
-      Boolean(candidate.hash);
+    const isDiagram = (candidate) => {
+      if (
+        candidate.protocol !== "https:" ||
+        !["app.diagrams.net", "app.draw.io"].includes(candidate.hostname)
+      )
+        return false;
+      // https://www.drawio.com/docs/reference/supported-location-hash-properties/
+      // Storage/document references differ from editor settings and local files.
+      const reference = candidate.hash.slice(1).split("#", 1)[0];
+      if (/^[GWTDAHR].+/.test(reference)) return true;
+      if (!reference.startsWith("U")) return false;
+      try {
+        const source = new URL(decodeURIComponent(reference.slice(1)));
+        return ["http:", "https:"].includes(source.protocol);
+      } catch {
+        return false;
+      }
+    };
     if (!isDiagram(new URL(url)) && !isDiagram(new URL(page.url()))) {
       console.error("Not a shared draw.io diagram");
       return emitArchiveResultRecord(

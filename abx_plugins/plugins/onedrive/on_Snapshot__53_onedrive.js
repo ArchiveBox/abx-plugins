@@ -103,7 +103,7 @@ async function main() {
     const filename = encoded
       ? decodeURIComponent(encoded)
       : disposition.match(/filename="([^"]+)"/i)?.[1];
-    if (!filename || !/attachment/i.test(disposition))
+    if (!filename || !/^\s*attachment(?:\s*;|$)/i.test(disposition))
       throw new Error("OneDrive did not return an original file attachment");
     if (!fs.statSync(temporary).size)
       throw new Error("OneDrive returned an empty download");

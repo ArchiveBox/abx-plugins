@@ -447,6 +447,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb xauth
+          if [[ "$RUNNER_ENVIRONMENT" == github-hosted ]]; then
+            test -x /opt/google/chrome/chrome-sandbox
+            test -u /opt/google/chrome/chrome-sandbox
+            test "$(stat -c '%u' /opt/google/chrome/chrome-sandbox)" = 0
+            echo 'CHROME_DEVEL_SANDBOX=/opt/google/chrome/chrome-sandbox' >> "$GITHUB_ENV"
+          fi
 
       - name: Run ${{ matrix.test.path }}
         env:
@@ -519,6 +525,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb xauth poppler-utils
+          test -x /opt/google/chrome/chrome-sandbox
+          test -u /opt/google/chrome/chrome-sandbox
+          test "$(stat -c '%u' /opt/google/chrome/chrome-sandbox)" = 0
+          echo 'CHROME_DEVEL_SANDBOX=/opt/google/chrome/chrome-sandbox' >> "$GITHUB_ENV"
       - name: Install locked test dependencies
         run: uv sync --locked --dev --no-sources --no-cache
       - name: Prepare authorized provider persona

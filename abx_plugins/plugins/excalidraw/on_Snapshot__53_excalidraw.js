@@ -44,13 +44,19 @@ async function main() {
     const isShare = (candidate) =>
       candidate.protocol === "https:" &&
       ["excalidraw.com", "app.excalidraw.com"].includes(candidate.hostname) &&
-      /^#(?:json|room)=[A-Za-z0-9_-]+,[A-Za-z0-9_-]+$/.test(candidate.hash);
+      /^#json=[A-Za-z0-9_-]+,[A-Za-z0-9_-]+$/.test(candidate.hash);
     if (!isShare(original) && !isShare(new URL(page.url()))) {
-      console.error("Not an Excalidraw shared scene");
-      return emitArchiveResultRecord(
-        "noresults",
-        "Not an Excalidraw shared scene",
+      const liveRoom = [original, new URL(page.url())].some(
+        (candidate) =>
+          candidate.protocol === "https:" &&
+          ["excalidraw.com", "app.excalidraw.com"].includes(candidate.hostname) &&
+          candidate.hash.startsWith("#room="),
       );
+      const reason = liveRoom
+        ? "Live rooms need a saved #json scene link"
+        : "Not an Excalidraw shared scene";
+      console.error(reason);
+      return emitArchiveResultRecord("noresults", reason);
     }
     await waitForNavigationComplete(
       path.join(snapshotDir, "chrome"),
@@ -79,10 +85,10 @@ async function main() {
     // Corroborate a JSON import with the provider's existing resource timing,
     // and never accept or dismiss a destructive overwrite confirmation.
     const share = isShare(original) ? original : current;
-    const [kind, id] = share.hash.slice(1).split(/[=,]/);
+    const [, id] = share.hash.slice(1).split(/[=,]/);
     await page.bringToFront();
     const readyHandle = await page.waitForFunction(
-      (expectedKind, expectedId, expectedHash) => {
+      (expectedId, expectedHash) => {
         const visible = (selector) =>
           [...document.querySelectorAll(selector)].some(
             (element) =>
@@ -102,8 +108,6 @@ async function main() {
           visible(".LoadingMessage")
         )
           return false;
-        if (expectedKind === "room")
-          return location.hash === expectedHash ? "ready" : "not imported";
         if (location.hash === expectedHash) return false;
         if (location.hash) return "not imported";
         const navigation = performance.getEntriesByType("navigation")[0];
@@ -122,7 +126,6 @@ async function main() {
           : "not imported";
       },
       { timeout: remaining(), polling: 100 },
-      kind,
       id,
       share.hash,
     );
@@ -140,16 +143,10 @@ async function main() {
       throw new Error(
         "Excalidraw shared scene was not imported; refusing to export the persona's previous local scene",
       );
-    const click = async (selector) => {
-      const element = await page.waitForSelector(selector, {
-        visible: true,
-        timeout: remaining(),
-      });
-      const box = await element.boundingBox();
-      if (!box)
-        throw new Error(`Excalidraw control is not visible: ${selector}`);
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    };
+    // Wait for stable control layout instead of clicking a previously sampled
+    // coordinate while the export dialog is still rendering its preview.
+    const click = async (selector) =>
+      page.locator(selector).setTimeout(remaining()).click();
     for (const format of ["excalidraw", "svg"]) {
       downloads.push(
         ...(await captureBrowserDownloads({

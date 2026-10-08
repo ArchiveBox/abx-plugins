@@ -49,6 +49,36 @@ def test_public_word_original(tmp_path, ensure_chrome_test_prereqs):
 
 SHAREPOINT_URL = "https://pennstateoffice365.sharepoint.com/:b:/s/Research-to-PolicyCollaboration/EdtX1PTKSn5Apst-a_IKjIYBiP156uATgWctqeH0DK0v1A?e=mCHpWq"
 
+# Actual settled document URL from the public share's Chrome navigation. Opening
+# it directly in a fresh anonymous session lacks the share's access context.
+SHAREPOINT_DOCUMENT_URL = "https://pennstateoffice365.sharepoint.com/sites/Research-to-PolicyCollaboration/Manuscripts/Forms/AllItems.aspx?id=%2Fsites%2FResearch%2Dto%2DPolicyCollaboration%2FManuscripts%2F2%2E%20Final%20Papers%2FGay%20%282018%29%20Network%20Engagement%20Survey%20Report%5FFINAL%2Epdf&parent=%2Fsites%2FResearch%2Dto%2DPolicyCollaboration%2FManuscripts%2F2%2E%20Final%20Papers&p=true&ga=1"
+
+
+def test_sharepoint_document_login_prerequisite(tmp_path, ensure_chrome_test_prereqs):
+    with chrome_session(
+        tmp_path,
+        test_url=SHAREPOINT_DOCUMENT_URL,
+        timeout=60,
+        env_overrides={"AUTH_STORAGE_FILE": "", "CHROME_HEADLESS": "true"},
+    ) as (_, _, chrome, env):
+        navigation = json.loads((chrome / "navigation.json").read_text())
+        assert navigation["finalUrl"].startswith(
+            "https://login.microsoftonline.com/",
+        ), navigation
+        result = subprocess.run(
+            [str(HOOK), f"--url={SHAREPOINT_DOCUMENT_URL}"],
+            cwd=chrome.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "skipped", result.stdout
+        assert record["output_str"] == "Persona must be logged in to microsoft.com"
+        assert not (chrome.parent / "microsoft365").exists()
+
 
 def test_public_sharepoint_pdf(tmp_path, ensure_chrome_test_prereqs):
     with chrome_session(tmp_path, test_url=SHAREPOINT_URL, timeout=60) as (

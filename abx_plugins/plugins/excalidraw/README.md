@@ -15,7 +15,9 @@ APIs or the application.
 
 The hook attaches to the snapshot's existing Chrome target. It uses the browser's
 current session and never launches a browser, opens a tab, navigates, or asks for
-API keys. Shared scenes use `#json=` or `#room=` links. When the provider removes
+API keys. Saved shared scenes use `#json=` links. Live `#room=` sessions return
+`noresults`: a retained room URL does not prove that collaboration has finished
+synchronizing, so exporting it could save an incomplete scene. When the provider removes
 a JSON share fragment, the hook requires a matching successful provider request
 in the current document's resource timing before exporting. The original URL
 alone cannot authorize exporting a previous local scene after a canceled import.
