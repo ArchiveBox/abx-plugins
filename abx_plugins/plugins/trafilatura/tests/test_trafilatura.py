@@ -60,6 +60,41 @@ def test_hook_script_exists():
     assert TRAFILATURA_HOOK.exists(), f"Hook script not found: {TRAFILATURA_HOOK}"
 
 
+def test_extracts_article_without_closed_consent_dialog(tmp_path):
+    """Real Ars DOM excerpts: metadata, consent overlay, and the full article."""
+    binary_path = require_trafilatura_binary()
+    dom = tmp_path / "dom"
+    dom.mkdir()
+    source = Path(__file__).parent / "fixtures" / "ars-article.html"
+    (dom / "output.html").write_bytes(source.read_bytes())
+    result = subprocess.run(
+        [
+            str(TRAFILATURA_HOOK),
+            "--url=https://arstechnica.com/science/2017/04/watch-militarized-microbes-use-some-sophisticated-weapons-to-snare-prey/",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "TRAFILATURA_BINARY": binary_path,
+            "TRAFILATURA_OUTPUT_FORMATS": "txt,markdown,html,json",
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", record
+    for name in ("content.txt", "content.md", "content.html", "content.json"):
+        content = (tmp_path / "trafilatura" / name).read_text()
+        assert "When you think of plankton" in content, name
+        assert "Gatling gun" in content, name
+        assert "If you are a resident of California" not in content, name
+        assert "Targeted Advertising" not in content, name
+
+
 def test_verify_deps_with_install_hooks():
     config = json.loads((PLUGIN_DIR / "config.json").read_text())
     assert config["required_binaries"][0]["binproviders"] == "uv,env"

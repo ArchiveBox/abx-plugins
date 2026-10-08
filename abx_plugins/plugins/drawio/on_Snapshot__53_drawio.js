@@ -42,6 +42,7 @@ async function main() {
   });
   let page = sourcePage;
   let downloads = [];
+  let phase = "Checking shared diagram";
   try {
     const isDiagram = (candidate) => {
       if (
@@ -81,17 +82,21 @@ async function main() {
       );
     }
     // Export controls must never modify the shared capture tab.
+    phase = "Opening background export page";
     page = await openExportPage({
       page: sourcePage,
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
+    phase = "Loading background diagram";
     await page.goto(sourcePage.url(), {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
-    const click = async (selector) =>
-      page.locator(selector).setTimeout(remaining()).click();
+    const click = async (selector) => {
+      phase = `Clicking ${selector}`;
+      await page.locator(selector).setTimeout(remaining()).click();
+    };
     downloads = await captureBrowserDownloads({
       browser,
       page,
@@ -101,17 +106,21 @@ async function main() {
         // EditorUi.fileLoaded calls setGraphEnabled(true) after file.open();
         // that makes the diagram container visible, even for empty diagrams.
         // The filename header is optional across editor layouts.
+        phase = "Waiting for loaded diagram";
         await page.waitForSelector(".geDiagramContainer", {
           visible: true,
           timeout: remaining(),
         });
         await click(".geMenubar ::-p-text(File)");
+        phase = "Waiting for Export as menu";
         const exportMenu = await page.waitForSelector("::-p-text(Export as)", {
           visible: true,
           timeout: remaining(),
         });
+        phase = "Opening Export as submenu";
         await exportMenu.hover();
         await click("::-p-text(SVG...)");
+        phase = "Waiting for SVG options";
         await page.waitForSelector('.geDialog input[type="checkbox"]', {
           timeout: remaining(),
         });
@@ -123,6 +132,7 @@ async function main() {
         if (!(await include.evaluate((el) => el.checked)))
           await include.click();
         await click(".geDialog ::-p-text(Export)");
+        phase = "Waiting for download destination";
         await page.waitForSelector(
           '.geDialog select option[value="download"]',
           { timeout: remaining() },
@@ -146,6 +156,9 @@ async function main() {
       { timeoutMs: remaining() },
     );
     emitArchiveResultRecord("succeeded", "drawio/downloads.json");
+  } catch (error) {
+    error.message = `${phase} (${timeoutMs - (deadline - Date.now())}ms elapsed): ${error.message}`;
+    throw error;
   } finally {
     if (page !== sourcePage)
       await closeExportPage({
