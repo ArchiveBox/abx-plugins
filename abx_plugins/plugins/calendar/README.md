@@ -4,9 +4,7 @@ Saves complete iCalendar feeds and ICS invitations through the snapshot's Chrome
 session, then displays them in an offline month or agenda viewer. The original
 ICS files remain available to download or import into another calendar app.
 
-```bash
-abx-dl dl --plugins=calendar 'https://www.gov.uk/bank-holidays/england-and-wales.ics'
-```
+Run `abx-dl dl --plugins=calendar 'https://www.gov.uk/bank-holidays/england-and-wales.ics'`.
 
 Supported sources include direct `.ics`, `.ical`, and `.ifb` URLs, `/ical` feed
 endpoints, calendar MIME
