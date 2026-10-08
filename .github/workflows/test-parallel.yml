@@ -532,6 +532,12 @@ jobs:
     # restricted to main above; public PR code never runs on private runners.
     runs-on: ${{ matrix.test.ugnas && fromJSON('["self-hosted","ugnas-linux"]') || matrix.test.os }}
     environment: provider-capture
+    env:
+      # ugNAS workers are unprivileged Docker containers; their seccomp policy
+      # cannot create the namespaces required by Chrome's setuid sandbox.
+      IN_DOCKER: ${{ matrix.test.ugnas && 'true' || 'false' }}
+      CHROME_SANDBOX: ${{ matrix.test.ugnas && 'false' || 'true' }}
+      CHROME_ARGS_EXTRA: '["--use-gl=angle","--use-angle=swiftshader"]'
     permissions:
       contents: read
     timeout-minutes: 30
@@ -555,6 +561,7 @@ jobs:
       - name: Install locked test dependencies
         run: uv sync --locked --dev --no-sources --no-cache
       - name: Install the matching Chrome sandbox helper
+        if: runner.environment == 'github-hosted'
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/provider-runtime
         run: |
@@ -576,8 +583,6 @@ jobs:
           )"
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
-          # GPU-less CI needs an explicit OpenGL ES renderer for Figma.
-          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader"]' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
