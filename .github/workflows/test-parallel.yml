@@ -494,7 +494,14 @@ jobs:
                   ;;
               esac
             fi
-            "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
+            pytest_args=()
+            if [[ "$test_path" == abx_plugins/plugins/claudechrome/tests/test_claudechrome.py ]]; then
+              # Temporarily omit the paid capture while the account has no credits.
+              # Restore this case when funding returns; all other Claude checks run.
+              pytest_args+=(--deselect="$test_path::TestClaudeChromeIntegration::test_full_pipeline_with_chrome_session")
+              echo '::notice::Paid Claude capture deselected: Anthropic credits unavailable.'
+            fi
+            "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" "${pytest_args[@]}" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
               --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
           done
