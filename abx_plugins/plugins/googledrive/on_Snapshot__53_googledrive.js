@@ -16,6 +16,7 @@ const {
   closeExportPage,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
+  withTimeout,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -115,6 +116,40 @@ async function main() {
           await first.click({ button: "right" });
         }
         console.error("Opening Drive Download action");
+        // Retain only UI state, before the deadline closes the owned tab.
+        // This observation must not consume more than the existing budget.
+        try {
+          const state = await withTimeout(
+            () => page.$$eval(
+                '::-p-aria([name="Download"][role="menuitem"])',
+                (matches) => {
+                  const visible = (element) => {
+                    const box = element.getBoundingClientRect();
+                    const style = getComputedStyle(element);
+                    return box.width > 0 && box.height > 0 &&
+                      style.visibility !== "hidden" && style.display !== "none";
+                  };
+                  return {
+                    phase: "Drive Download menu",
+                    focused: document.hasFocus(),
+                    visibility: document.visibilityState,
+                    selectedRows: document.querySelectorAll('[role="row"][aria-selected="true"]').length,
+                    visibleMenuItems: [...document.querySelectorAll('[role="menuitem"]')].filter(visible).length,
+                    visibleButtons: [...document.querySelectorAll('[role="button"]')].filter(visible).length,
+                    downloadMatches: matches.map((element) => ({
+                      visible: visible(element),
+                      box: element.getBoundingClientRect().toJSON(),
+                    })),
+                  };
+                },
+              ),
+            Math.min(1000, remaining()),
+            "Drive UI observation exceeded its remaining budget",
+          );
+          console.error(`Drive Download UI: ${JSON.stringify(state)}`);
+        } catch {
+          console.error("Drive Download UI observation unavailable within budget");
+        }
         await page
           .locator('::-p-aria([name="Download"][role="menuitem"])')
           .setTimeout(remaining())

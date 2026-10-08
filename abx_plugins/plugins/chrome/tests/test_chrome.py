@@ -3994,9 +3994,9 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             )
 
             next_frame_deadline = time.monotonic() + 10
-            while (
-                time.monotonic() < next_frame_deadline
-                and latest_frame.stat().st_mtime_ns <= initial_frame_mtime
+            while time.monotonic() < next_frame_deadline and (
+                latest_frame.stat().st_mtime_ns <= initial_frame_mtime
+                or latest_frame.read_bytes() == initial_frame
             ):
                 time.sleep(0.1)
             assert latest_frame.stat().st_mtime_ns > initial_frame_mtime, (

@@ -526,12 +526,21 @@ jobs:
 
   provider-capture:
     name: Authenticated provider / ${{ matrix.test.path }}
+    # Temporarily nonblocking by maintainer request: dedicated-account access
+    # is still unreliable. Keep running the real tests and retaining failures.
+    continue-on-error: ${{ contains(fromJSON('["abx_plugins/plugins/figma/tests/test_figma_authenticated.py","abx_plugins/plugins/miro/tests/test_miro_authenticated.py","abx_plugins/plugins/canva/tests/test_canva_authenticated.py"]'), matrix.test.path) }}
     needs: prepare
     if: needs.prepare.outputs.run_tests == 'true' && needs.prepare.outputs.platform == 'linux' && needs.prepare.outputs.provider-matrix != '[]' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     # A required egress must not fall back to a different network. This job is
     # restricted to main above; public PR code never runs on private runners.
     runs-on: ${{ matrix.test.ugnas && fromJSON('["self-hosted","ugnas-linux"]') || matrix.test.os }}
     environment: provider-capture
+    env:
+      # ugNAS workers are unprivileged Docker containers; their seccomp policy
+      # cannot create the namespaces required by Chrome's setuid sandbox.
+      IN_DOCKER: ${{ matrix.test.ugnas && 'true' || 'false' }}
+      CHROME_SANDBOX: ${{ matrix.test.ugnas && 'false' || 'true' }}
+      CHROME_ARGS_EXTRA: '["--use-gl=angle","--use-angle=swiftshader"]'
     permissions:
       contents: read
     timeout-minutes: 30
@@ -555,6 +564,7 @@ jobs:
       - name: Install locked test dependencies
         run: uv sync --locked --dev --no-sources --no-cache
       - name: Install the matching Chrome sandbox helper
+        if: runner.environment == 'github-hosted'
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/provider-runtime
         run: |
@@ -576,8 +586,6 @@ jobs:
           )"
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
-          # GPU-less CI needs an explicit OpenGL ES renderer for Figma.
-          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader"]' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
@@ -604,6 +612,20 @@ jobs:
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
             --basetemp="$RUNNER_TEMP/provider-pytest" \
             -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+      - name: Save failed public export evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: provider-exports-${{ strategy.job-index }}
+          # Only the public fixture exports; never upload personas or cookies.
+          path: |
+            ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/*/downloads.json
+            ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/*/files/*
+            ${{ runner.temp }}/provider-pytest/**/exported-frame-*.jpg
+            ${{ runner.temp }}/provider-pytest/**/exported-*.ppm
+            ${{ runner.temp }}/provider-pytest/**/exported-sticky-ocr.txt
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Remove authentication and browser profiles
         if: always()
         run: |
