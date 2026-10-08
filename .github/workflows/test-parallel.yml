@@ -602,6 +602,20 @@ jobs:
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
             --basetemp="$RUNNER_TEMP/provider-pytest" \
             -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+      - name: Save failed public export evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: provider-exports-${{ strategy.job-index }}
+          # Only the public fixture exports; never upload personas or cookies.
+          path: |
+            ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/*/downloads.json
+            ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/*/files/*
+            ${{ runner.temp }}/provider-pytest/**/exported-frame-*.jpg
+            ${{ runner.temp }}/provider-pytest/**/exported-*.ppm
+            ${{ runner.temp }}/provider-pytest/**/exported-sticky-ocr.txt
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Remove authentication and browser profiles
         if: always()
         run: |
