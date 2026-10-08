@@ -62,17 +62,6 @@ SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-EXECUTOR_PROCESS_ARTIFACT_RE = re.compile(
-    rf"^(?:{re.escape(Path(__file__).stem)}|{re.escape(Path(__file__).name)})\.[0-9a-f]{{32}}\."
-    r"(?:stdout\.log|stderr\.log|pid|sh)$",
-)
-
-
-def is_executor_process_artifact(path: Path) -> bool:
-    """Match only abx-dl's top-level per-process files for this exact hook."""
-    return path.parent == Path(".") and bool(
-        EXECUTOR_PROCESS_ARTIFACT_RE.fullmatch(path.name),
-    )
 
 
 def rel_output(path_str: str | None) -> str | None:
@@ -131,7 +120,10 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     if wget_args_extra:
         cmd.extend(wget_args_extra)
 
-    cmd.append(url)
+    # Wget reports the requested document before its page requisites. Use its
+    # actual filename, including redirects and --adjust-extension, rather than
+    # guessing from directory traversal order (which can pick an ad iframe).
+    cmd.extend(["--no-quiet", "--verbose", url])
 
     # Run wget
     try:
@@ -140,33 +132,20 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
             cmd,
             capture_output=True,
             text=True,
+            env={**os.environ, "LC_ALL": "C"},
             timeout=timeout * 2,  # Allow extra time for large downloads
         )
+        print(result.stderr, file=sys.stderr, end="")
+        for line in result.stderr.splitlines():
+            saved = re.search(r"'(.+)' saved \[", line)
+            unchanged = re.match(r"File '(.+)' not modified on server\.", line)
+            match = saved or unchanged
+            if match and Path(match[1]).is_file():
+                return True, match[1], ""
 
-        # Find downloaded files
-        downloaded_files = [
-            f
-            for f in Path(".").rglob("*")
-            if f.is_file()
-            and f.name != ".gitkeep"
-            and not str(f).startswith("warc/")
-            and not is_executor_process_artifact(f)
-        ]
-
-        if not downloaded_files:
-            if result.returncode != 0:
-                return False, None, f"wget failed (exit={result.returncode})"
-            return True, "No files downloaded", ""
-
-        # Find main HTML file
-        html_files = [
-            f
-            for f in downloaded_files
-            if re.search(r"\.[Ss]?[Hh][Tt][Mm][Ll]?$", str(f))
-        ]
-        output_path = str(html_files[0]) if html_files else str(downloaded_files[0])
-
-        return True, output_path, ""
+        if result.returncode != 0:
+            return False, None, f"wget failed (exit={result.returncode})"
+        return True, "No files downloaded", ""
 
     except subprocess.TimeoutExpired:
         return False, None, f"Timed out after {timeout * 2} seconds"

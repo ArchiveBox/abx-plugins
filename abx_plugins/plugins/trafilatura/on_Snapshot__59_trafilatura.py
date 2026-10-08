@@ -55,7 +55,12 @@ extraction_options = Extractor(
     with_metadata=True,
     formatting=True,
 )
-document = bare_extraction(html, options=extraction_options)
+document = bare_extraction(
+    html,
+    options=extraction_options,
+    # Saved browser DOMs include closed consent dialogs and hidden app panels.
+    prune_xpath='//*[@hidden or @aria-hidden="true"]',
+)
 if document is None:
     print("{}")
     raise SystemExit(0)

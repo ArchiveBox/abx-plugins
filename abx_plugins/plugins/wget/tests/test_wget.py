@@ -458,6 +458,51 @@ def test_archives_legitimate_downloaded_shell_script(httpserver, tmp_path):
     assert downloaded_shell.read_text(encoding="utf-8") == shell_content
 
 
+@pytest.mark.parametrize("redirect", [False, True])
+def test_selects_requested_page_instead_of_previously_downloaded_iframe(
+    httpserver,
+    tmp_path,
+    redirect,
+):
+    """Existing requisites must not become the main output when re-extracting."""
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request("/ad.html").respond_with_data(
+        "<html><body>Advertisement iframe</body></html>",
+        content_type="text/html",
+    )
+    httpserver.expect_request("/news/article.html").respond_with_data(
+        '<html><body><h1>The requested article</h1><iframe src="/ad.html"></iframe></body></html>',
+        content_type="text/html",
+    )
+    httpserver.expect_request("/start").respond_with_data(
+        status=302,
+        headers={"Location": "/news/article.html"},
+    )
+    env = {
+        **os.environ,
+        "SNAP_DIR": str(tmp_path),
+        "WGET_BINARY": str(loaded.loaded_abspath),
+        "WGET_WARC_ENABLED": "False",
+    }
+    for path in ("/ad.html", "/start" if redirect else "/news/article.html"):
+        result = subprocess.run(
+            [str(WGET_HOOK), "--url", httpserver.url_for(path)],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", record
+    expected_name = "/start.html" if redirect else "/news/article.html"
+    assert record["output_str"].endswith(expected_name), record
+    assert "The requested article" in (tmp_path / record["output_str"]).read_text()
+
+
 def test_config_timeout_honored(local_example_url):
     """Test that WGET_TIMEOUT config is respected."""
     install_required_binary_from_config(PLUGIN_DIR, "wget")
