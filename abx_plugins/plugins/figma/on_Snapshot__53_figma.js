@@ -44,6 +44,7 @@ async function main() {
   });
   let page = sourcePage;
   const downloads = [];
+  let phase = "Checking Figma document";
   try {
     const isDocument = (candidate) =>
       candidate.protocol === "https:" &&
@@ -64,23 +65,31 @@ async function main() {
       console.error("Not a Figma document");
       return emitArchiveResultRecord("noresults", "Not a Figma document");
     }
-    if (
-      await page.evaluate(() =>
-        /403 ERROR|Request blocked/.test(document.body.innerText),
-      )
-    )
+    const blocked = await page.evaluate(() => {
+      const text = document.body.innerText;
+      if (/403 ERROR|Request blocked/.test(text)) return "403";
+      if (document.title === "Human Verification" && text.includes("Let's confirm you are human"))
+        return "human-verification";
+      return null;
+    });
+    if (blocked === "403")
       throw new Error("Figma blocked this browser session (HTTP 403)");
+    if (blocked === "human-verification")
+      throw new Error("Figma requires human verification for this browser session");
     // Export controls must never modify the shared capture tab.
+    phase = "Opening background export page";
     page = await openExportPage({
       page: sourcePage,
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
+    phase = "Loading background Figma document";
     await page.goto(sourcePage.url(), {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
     const click = async (selector) => {
+      phase = `Clicking ${selector}`;
       const element = await page.waitForSelector(selector, {
         visible: true,
         timeout: remaining(),
@@ -151,6 +160,7 @@ async function main() {
         submenu,
       );
     };
+    phase = "Exporting native Figma document";
     downloads.push(
       ...(await captureBrowserDownloads({
         browser,
@@ -176,6 +186,7 @@ async function main() {
           await click('[role="menuitem"]::-p-text(Save local copy)');
           // Anonymous viewers can see this command, but activating it opens
           // Figma's actual sign-up dialog instead of starting a download.
+          phase = "Waiting for native Figma download";
           await Promise.race([
             downloadStarted,
             page
@@ -200,6 +211,7 @@ async function main() {
         },
       })),
     );
+    phase = "Validating native Figma download";
     for (const download of downloads) {
       const file = await fs.promises.open(download.filePath, "r");
       const { buffer, bytesRead } = await file
@@ -216,6 +228,7 @@ async function main() {
     // Design's PDF command exports every top-level frame on the current page.
     // Other Figma document types do not expose this command.
     if (/^\/(?:design|file)\//.test(current.pathname)) {
+      phase = "Opening PDF export menu";
       await openFileMenu();
       const pdf = await page.$(
         '[role="menuitem"]::-p-text(Export frames to PDF)',
@@ -226,6 +239,7 @@ async function main() {
           Boolean(el.closest('[aria-disabled="true"], [disabled]')),
         ))
       ) {
+        phase = "Exporting Figma PDF";
         const rendered = await captureBrowserDownloads({
           browser,
           page,
@@ -238,6 +252,7 @@ async function main() {
             await item.asElement().focus();
             await page.keyboard.press("Enter");
             await click('::-p-aria([name="Export"][role="button"])');
+            phase = "Waiting for Figma PDF download";
           },
         });
         downloads.push(...rendered);
@@ -255,6 +270,7 @@ async function main() {
         }
       } else await page.keyboard.press("Escape");
     }
+    phase = "Saving Figma downloads";
     await saveDownloads(
       path.join(snapshotDir, "figma"),
       await page.title(),
@@ -262,6 +278,13 @@ async function main() {
       { timeoutMs: remaining() },
     );
     emitArchiveResultRecord("succeeded", "figma/downloads.json");
+  } catch (error) {
+    if (!(error instanceof ExportPrerequisiteError)) {
+      error.message = `${phase} (${timeoutMs - (deadline - Date.now())}ms elapsed, ${timeoutMs}ms budget): ${error.message}`;
+      // Record the primary failure before target teardown can fail separately.
+      console.error(error.stack || error.message);
+    }
+    throw error;
   } finally {
     if (page !== sourcePage)
       await closeExportPage({
@@ -280,7 +303,7 @@ main().catch((error) => {
     console.error(error.message);
     return emitArchiveResultRecord("skipped", error.message);
   }
-  console.error(error.message);
+  console.error(error.stack || error.message);
   emitArchiveResultRecord("failed", error.message);
   process.exitCode = 1;
 });

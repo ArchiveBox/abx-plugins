@@ -33,6 +33,8 @@ const {
 
 ensureNodeModuleResolution(module);
 
+const exportFocusSessions = new WeakMap();
+
 const CHROME_SESSION_REQUIRED_ERROR =
   "No Chrome session found (chrome plugin must run first)";
 const CHROME_PROFILE_LOCK_FILES = [
@@ -2958,6 +2960,7 @@ async function captureBrowserDownloads({
 }) {
   if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
   let succeeded = false;
+  let captureError = null;
   let releaseDownloadLock;
   const deadline = Date.now() + timeoutMs;
   const remaining = () => {
@@ -3032,7 +3035,11 @@ async function captureBrowserDownloads({
     timer = setTimeout(
       () =>
         reject(
-          new Error("Provider download did not complete before the timeout")
+          new Error(
+            "Provider download did not complete before the timeout: " +
+            JSON.stringify([...downloads.values()].map(({ state, receivedBytes, totalBytes }) =>
+              ({ state, receivedBytes, totalBytes })))
+          )
         ),
       remaining()
     );
@@ -3062,6 +3069,11 @@ async function captureBrowserDownloads({
     }
     succeeded = true;
     return results;
+  } catch (error) {
+    captureError = error;
+    if (session.detached)
+      console.error(`Provider download session closed: ${error.stack || error.message}`);
+    throw error;
   } finally {
     clearTimeout(timer);
     await page.evaluate(() => { delete document.documentElement.dataset.abxDownloadActive; }).catch(() => {});
@@ -3091,7 +3103,29 @@ async function captureBrowserDownloads({
       }).catch(() => {});
       releaseDownloadLock();
     }
-    await session.detach();
+    if (!session.detached) {
+      try {
+        await session.detach();
+      } catch (error) {
+        if (!captureError) throw error;
+        console.error(`Provider download cleanup failed: ${error.stack || error.message}`);
+      }
+    }
+    // Detaching a temporary session clears focus emulation for the target.
+    // Restore only the persistent session belonging to our export tab.
+    const exportFocusSession = exportFocusSessions.get(page);
+    if (exportFocusSession && !exportFocusSession.detached && !page.isClosed() && Date.now() < deadline) {
+      try {
+        await withTimeout(
+          () => exportFocusSession.send("Emulation.setFocusEmulationEnabled", { enabled: true }),
+          remaining(),
+          "Timed out restoring background export rendering"
+        );
+      } catch (error) {
+        if (!captureError) throw error;
+        console.error(`Provider export focus cleanup failed: ${error.stack || error.message}`);
+      }
+    }
   }
 }
 
@@ -3855,6 +3889,7 @@ async function createExportPage({
       remaining(),
       "Timed out enabling background export rendering"
     );
+    exportFocusSessions.set(exportPage, focusSession);
     checkLease();
     return exportPage;
   } catch (error) {

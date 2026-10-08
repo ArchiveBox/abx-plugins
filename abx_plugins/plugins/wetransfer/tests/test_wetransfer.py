@@ -87,16 +87,97 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs):
 
 def test_expired_transfer_after_terms_acceptance(tmp_path, ensure_chrome_test_prereqs):
     with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome, env):
-        result = subprocess.run(
-            [str(HOOK), f"--url={URL}"],
-            cwd=chrome.parent,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=90,
+        # Record the actual export tab while it exists: the hook closes it on
+        # failure. This observer reads DOM state without changing page behavior.
+        observer_script = tmp_path / "observe-wetransfer.js"
+        observer_script.write_text(
+            """const fs = require('fs');
+const puppeteer = require('puppeteer');
+let browser;
+let stopped = false;
+const started = Date.now();
+const record = value => fs.appendFileSync(process.argv[3],
+  JSON.stringify({elapsed: (Date.now() - started) / 1000, ...value}) + '\\n');
+process.on('SIGTERM', () => {
+  stopped = true;
+  if (browser) browser.disconnect();
+  process.exit(0);
+});
+(async () => {
+  browser = await puppeteer.connect({
+    browserWSEndpoint: fs.readFileSync(process.argv[2], 'utf8').trim(),
+    defaultViewport: null,
+    protocolTimeout: 1000,
+  });
+  record({phase: 'observer_attached'});
+  const previous = new Map();
+  while (!stopped) {
+    for (const page of await browser.pages()) {
+      if (!/(^|\\.)wetransfer\\.com$/.test(new URL(page.url()).hostname)) continue;
+      try {
+        const state = await page.evaluate(() => {
+          const buttons = [...document.querySelectorAll('button')]
+            .filter(button => /agree|download|recover|refresh|reload|retry/i.test(button.innerText))
+            .map(button => ({text: button.innerText.slice(0, 100),
+              visible: !!(button.offsetWidth || button.offsetHeight), disabled: button.disabled}));
+          const expired = /transfer (?:has )?expired|transfer (?:was )?deleted|Oops, the transfer you requested/i
+            .test(document.body.innerText);
+          return {url: location.origin + location.pathname, title: document.title.slice(0, 200),
+            headings: [...document.querySelectorAll('h1,h2,[role="heading"]')]
+              .filter(heading => !!(heading.offsetWidth || heading.offsetHeight))
+              .map(heading => heading.innerText.slice(0, 200)).slice(0, 5), buttons, expired,
+            focus: document.hasFocus(), visibility: document.visibilityState};
+        });
+        const encoded = JSON.stringify(state);
+        const last = previous.get(page);
+        if (!last || last.encoded !== encoded || Date.now() - last.at >= 5000) {
+          const phase = state.expired ? 'expired' : state.buttons.some(button => button.text === 'I agree')
+            ? 'terms' : state.buttons.some(button => /^(Download|Download all)$/.test(button.text))
+            ? 'download' : 'loading';
+          record({phase, page: previous.has(page) ? [...previous.keys()].indexOf(page) : previous.size, state});
+          previous.set(page, {encoded, at: Date.now()});
+        }
+      } catch (error) { record({phase: 'page_read_error', name: error.name}); }
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+})().catch(error => record({phase: 'observer_error', name: error.name}))
+  .finally(() => { if (browser) browser.disconnect(); });
+""",
         )
+        observations = tmp_path / "wetransfer-expiry-observations.log"
+        with observations.open("a") as observer_log:
+            observer = subprocess.Popen(
+                [
+                    env["NODE_BINARY"],
+                    str(observer_script),
+                    str(chrome / "cdp_url.txt"),
+                    str(observations),
+                ],
+                env=env,
+                stdout=observer_log,
+                stderr=observer_log,
+            )
+            try:
+                result = subprocess.run(
+                    [str(HOOK), f"--url={URL}"],
+                    cwd=chrome.parent,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                )
+            finally:
+                observer.terminate()
+                try:
+                    observer.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    observer.kill()
+                    observer.wait(timeout=2)
         record = parse_jsonl_output(result.stdout)
-        assert result.returncode == 1, result.stderr
-        assert record and record["status"] == "failed", result.stdout
-        assert "expired or was deleted" in record["output_str"], result.stdout
+        evidence = "\n".join(observations.read_text().splitlines()[-20:])
+        diagnostic = f"{result.stdout}\n{result.stderr}\nRead-only page observations:\n{evidence}"
+        assert result.returncode == 1, diagnostic
+        assert record and record["status"] == "failed", diagnostic
+        assert "expired or was deleted" in record["output_str"], diagnostic
         assert not (chrome.parent / "wetransfer/downloads.json").exists()
