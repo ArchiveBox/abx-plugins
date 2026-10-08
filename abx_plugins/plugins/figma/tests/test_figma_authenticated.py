@@ -1,4 +1,6 @@
 # ci-environment: provider-capture
+# ci-runner: ugnas
+# Use the operator's residential egress for the authenticated Figma session.
 """Explicit live acceptance: requires an authorized AUTH_STORAGE_FILE persona."""
 
 import hashlib

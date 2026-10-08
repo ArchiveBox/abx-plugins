@@ -528,7 +528,9 @@ jobs:
     name: Authenticated provider / ${{ matrix.test.path }}
     needs: prepare
     if: needs.prepare.outputs.run_tests == 'true' && needs.prepare.outputs.platform == 'linux' && needs.prepare.outputs.provider-matrix != '[]' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    # A required egress must not fall back to a different network. This job is
+    # restricted to main above; public PR code never runs on private runners.
+    runs-on: ${{ matrix.test.ugnas && fromJSON('["self-hosted","ugnas-linux"]') || matrix.test.os }}
     environment: provider-capture
     permissions:
       contents: read
