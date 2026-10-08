@@ -482,6 +482,7 @@
       }
 
       .plugin-card__frame {
+        position: relative;
         display: block;
         padding: var(--ab-s-4);
         border: 1px solid transparent;
@@ -495,6 +496,8 @@
       }
 
       .plugin-title-row {
+        min-height: 36px;
+        padding-right: 48px;
         display: flex;
         align-items: baseline;
         gap: var(--ab-s-3);
@@ -529,15 +532,18 @@
       }
 
       .plugin-icon {
-        width: 72px;
-        height: 72px;
+        position: absolute;
+        top: var(--ab-s-4);
+        right: var(--ab-s-4);
+        width: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
         border: 1px solid var(--ab-rule-strong);
         background: var(--ab-bg-sunken);
         color: var(--ab-accent);
-        padding: 10px;
+        padding: 6px;
         border-radius: var(--ab-r-2);
       }
 
@@ -1269,6 +1275,7 @@ abx-dl 'https://example.com'</code></pre>
             >
               <summary>
                 <div class="plugin-card__frame">
+                  <div class="plugin-icon" aria-hidden="true">{{ plugin.icon_html }}</div>
                   <div class="plugin-main">
                     <div class="plugin-title-row">
                       <h2>{{ plugin.display_title }}</h2>

@@ -23,9 +23,10 @@ workflow. Common files are ordinary committed copies; update them deliberately.
    Android's checked-in bootstrap captures retain their local provenance.
 5. Render current content and layout around those captures. Site revision and
    capture revision are separate facts; reusing captures must not relabel them.
-6. Serialize production restore/build/deploy under one concurrency group and
-   check out the latest default-branch revision when each build starts. Keep the
-   built revision in provenance; later release-bot commits must not block deploys.
+6. Serialize production restore/build/deploy under one concurrency group. New
+   pushes cancel superseded runs, including deployments waiting to start, so a
+   stale run cannot block later website updates. Check out the latest default
+   branch when each build starts and keep the built revision in provenance.
 7. Keep platform-specific build, installation, capture, and completeness checks
    in the application's existing capture workflow. Site-only edits do not need
    to rerun those jobs.
