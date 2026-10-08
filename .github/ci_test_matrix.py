@@ -51,14 +51,15 @@ if __name__ == "__main__":
         "seconds"
     ]
     # Ordinary Linux tests can use either runner. Genuine exceptions declare
-    # a # ci-runner: hosted[-linux] header in the first five lines.
+    # a # ci-runner: hosted[-linux] header in the first five lines. Authenticated
+    # provider jobs may require ugNAS egress with # ci-runner: ugnas.
     runner_requirements = {
         str(path): line.removeprefix("# ci-runner: ").strip()
         for path in all_tests
         for line in (REPO_ROOT / path).read_text().splitlines()[:5]
         if line.startswith("# ci-runner: ")
     }
-    if set(runner_requirements.values()) - {"hosted", "hosted-linux"}:
+    if set(runner_requirements.values()) - {"hosted", "hosted-linux", "ugnas"}:
         raise SystemExit("Unknown ci-runner requirement")
     environments = {
         str(path): line.removeprefix("# ci-environment: ").strip()
@@ -68,7 +69,16 @@ if __name__ == "__main__":
     }
     if set(environments.values()) - {"provider-capture"}:
         raise SystemExit("Unknown ci-environment requirement")
-    hosted = set(runner_requirements)
+    if any(
+        requirement == "ugnas" and path not in environments
+        for path, requirement in runner_requirements.items()
+    ):
+        raise SystemExit("Required ugNAS jobs must use a protected CI environment")
+    hosted = {
+        path
+        for path, requirement in runner_requirements.items()
+        if requirement.startswith("hosted")
+    }
     short_tests: dict[tuple[str, str, bool], list[str]] = {}
 
     for test_path in all_tests:
@@ -81,7 +91,7 @@ if __name__ == "__main__":
                     "paths": [str(test_path)],
                     "os": "ubuntu-24.04",
                     "python": "3.13",
-                    "ugnas": False,
+                    "ugnas": runner_requirements.get(str(test_path)) == "ugnas",
                     "workers": 0,
                 },
             )

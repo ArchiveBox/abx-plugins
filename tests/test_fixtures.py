@@ -79,6 +79,19 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     )
     outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
     matrix = json.loads(outputs.pop("test-matrix"))
+    assert sum(item["ugnas"] for item in matrix) == (3 if platform == "linux" else 0)
+    provider_matrix = json.loads(outputs["provider-matrix"])
+    pinned_providers = {
+        path
+        for path in PLUGINS_ROOT.rglob("test_*.py")
+        if "# ci-runner: ugnas" in path.read_text().splitlines()[:5]
+    }
+    assert pinned_providers == {
+        PLUGINS_ROOT / "figma/tests/test_figma_authenticated.py",
+    }
+    for item in provider_matrix:
+        assert item["ugnas"] == (REPO_ROOT / item["path"] in pinned_providers)
+        assert item["workers"] == 0
     ordinary_paths = {path for item in matrix for path in item["paths"]}
     matrix += [item for output in outputs.values() for item in json.loads(output)]
     expected = sorted(
@@ -121,7 +134,6 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     )
     if platform == "linux":
         assert sorted(path for path, _, _ in assignments) == expected
-    assert sum(item["ugnas"] for item in matrix) == (3 if platform == "linux" else 0)
     for item in matrix:
         if item["ugnas"]:
             assert item["os"] == "ubuntu-24.04"
