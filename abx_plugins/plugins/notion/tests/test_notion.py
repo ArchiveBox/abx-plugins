@@ -6,6 +6,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
@@ -13,9 +15,41 @@ URL = "https://notion.notion.site/Notion-Cookie-Tables-c38abeb47f8e420a94ade9ac0
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_notion.js"
 
 
-def test_public_page_html_and_markdown(tmp_path, ensure_chrome_test_prereqs):
+@pytest.mark.parametrize(
+    "pnpm_converter",
+    [False, True],
+    ids=["default", "configured-pnpm"],
+)
+def test_public_page_html_and_markdown(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    pnpm_converter,
+):
     assert HOOK.is_file(), "Notion capture hook is missing"
     with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome, env):
+        if pnpm_converter:
+            # ArchiveBox supplies the actual installed .bin launcher as an
+            # explicit binary override, rather than just its command name.
+            converter = subprocess.run(
+                [
+                    "abxpkg",
+                    "env",
+                    "--install",
+                    "--json",
+                    "--binproviders=pnpm",
+                    f"--deps-from={HOOK.parent.parent / 'defuddle/config.json'}:required_binaries",
+                ],
+                env={**env, "DEFUDDLE_BINARY": "defuddle"},
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            assert converter.returncode == 0, converter.stderr
+            installed = json.loads(converter.stdout)
+            launcher = Path(installed["PNPM_HOME"]) / "defuddle"
+            assert launcher.is_file()
+            assert ".pnpm/defuddle@0.14.0" in launcher.read_text()
+            env = {**env, "DEFUDDLE_BINARY": str(launcher)}
         result = subprocess.run(
             [str(HOOK), f"--url={URL}"],
             cwd=chrome.parent,

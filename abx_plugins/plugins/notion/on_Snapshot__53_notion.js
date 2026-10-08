@@ -150,9 +150,18 @@ async function main() {
       { timeout: remaining(), maxBuffer: 1024 * 1024 },
     );
     const env = { ...process.env, ...JSON.parse(converterEnv) };
+    // Run the configured launcher through abxpkg: an env/bin projection of a
+    // pnpm shell shim changes its $0-based package path when executed directly.
     const { stdout } = await promisify(execFile)(
-      env.DEFUDDLE_BINARY,
-      ["parse", htmlPath, "--markdown"],
+      "abxpkg",
+      [
+        "run",
+        "--binproviders=env",
+        process.env.DEFUDDLE_BINARY || env.DEFUDDLE_BINARY,
+        "parse",
+        htmlPath,
+        "--markdown",
+      ],
       { env, timeout: remaining(), maxBuffer: 32 * 1024 * 1024 },
     );
     if (!stdout.trim())
