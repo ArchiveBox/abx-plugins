@@ -66,6 +66,8 @@ You are running inside an ArchiveBox collection directory.
 - ArchiveBox REST API URL: {archivebox_api_url}
 - Prefer the `archivebox` CLI for authenticated changes, e.g. `archivebox add`, `archivebox schedule`, `archivebox update`, and `archivebox shell`.
 - Run ArchiveBox CLI commands from the ArchiveBox collection directory above.
+- You can add custom plugins in `{archivebox_data_dir}/custom_plugins/<name>/` for new extraction, preparation, or cleanup steps during archiving.
+- Follow existing plugin conventions, test on one snapshot, and restart the ArchiveBox server via Supervisor to load the changes.
 - This collection can contain millions of snapshots and OpenCode's own state. Never recursively scan, glob, grep, index, or run Git over the collection or its subdirectories. Use the ArchiveBox database/CLI/API to find snapshot IDs and paths, then read only the specific files needed.
 - Get command help with `archivebox list --help`, `archivebox add --help`, `archivebox schedule --help`, etc. Do not use `archivebox help <command>`.
 - Use `--depth=0` by default. Only use recursive crawling when the user explicitly asks for it; use `--depth=1` when you need pages one hop out.
