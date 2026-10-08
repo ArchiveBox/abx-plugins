@@ -17,8 +17,8 @@ and app.draw.io with a document location hash (`G`, `W`, `T`, `D`, `A`, `H`,
 `R`, or a valid HTTP(S) `U` source). Arbitrary anchors, browser-local files,
 editor configuration links, and lightbox-only viewers are not covered.
 
-The live fixture is draw.io's official public schema.xml example. The test
-checks its UserRole and AccountName content and embedded mxfile source.
+The live fixtures are draw.io's official public schema.xml and empty.xml examples.
+Tests check the schema content and preserve the empty file's embedded native data.
 Run `uv run pytest -xq abx_plugins/plugins/drawio/tests` in this repository.
 
 Real public capture replayed through ArchiveBox's normal file browser:

@@ -32,3 +32,28 @@ its originals were downloaded through the replayer and byte-compared, and the
 three screenshots were regenerated directly from the browser. Document providers
 also verify every format button, returning from the file explorer, and native PDF
 reloads where applicable. No screenshots or provider responses were fabricated.
+
+## Empty diagram regression
+
+The official mxgraph `empty.xml` fixture failed before the fix: the hook waited
+for drawing shapes which a valid empty file never contains. A filename header
+wait passed isolated plugin tests but failed ArchiveBox capture because that
+header is absent in some real editor layouts. The hook now waits for the visible
+diagram container: the provider's `EditorUi.fileLoaded` opens the native file,
+then `setGraphEnabled(true)` reveals this container. The same readiness state
+applies to empty and populated diagrams without depending on optional headers.
+
+The complete real-browser draw.io test file passed: **4 passed in 38.81 seconds**.
+It checks both the schema and empty diagram exports, embedded native data,
+manifest sizes and hashes, and unrelated editor fragments. The empty SVG retains
+its `MyWorkflow` and `Default Layer` native data without vertex or edge objects.
+
+Evidence: `visual_docs/drawio-empty-red.log` and
+`visual_docs/drawio-container-green.log` under the external evidence directory above.
+
+The corrected readiness also passed the full real ArchiveBox CLI capture and
+browser replay: **1 passed in 39.89 seconds**. This run followed the public
+snapshot index, Embedded media card, format viewer, file explorer, and original
+downloads, with byte comparisons against saved artifacts. Evidence:
+`drawio-container-replay2.log` and retained collection
+`drawio-container-replay2/` under the external evidence directory.

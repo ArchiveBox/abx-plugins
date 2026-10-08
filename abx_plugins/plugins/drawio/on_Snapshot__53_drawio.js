@@ -85,12 +85,13 @@ async function main() {
       timeoutMs: remaining(),
       downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
       trigger: async () => {
-        // The editor menu exists before its asynchronous source has loaded.
-        // Opening it early freezes its export items in the disabled state.
-        await page.waitForSelector(
-          ".geDiagramContainer svg :is(path,rect,ellipse,text,image,foreignObject)",
-          { timeout: remaining() },
-        );
+        // EditorUi.fileLoaded calls setGraphEnabled(true) after file.open();
+        // that makes the diagram container visible, even for empty diagrams.
+        // The filename header is optional across editor layouts.
+        await page.waitForSelector(".geDiagramContainer", {
+          visible: true,
+          timeout: remaining(),
+        });
         await click(".geMenubar ::-p-text(File)");
         const exportMenu = await page.waitForSelector("::-p-text(Export as)", {
           visible: true,
