@@ -15,10 +15,11 @@ env:
   SITE_OUTPUT: _site
   DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
-# One production queue covers restore, build and deploy. PRs have separate queues.
+# One production queue covers build and deploy. New pushes supersede stale
+# runs, including deployments waiting to start. PRs have separate queues.
 concurrency:
   group: pages-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
