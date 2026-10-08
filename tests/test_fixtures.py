@@ -77,7 +77,10 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
         text=True,
         check=True,
     )
-    matrix = json.loads(result.stdout.removeprefix("test-matrix="))
+    outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    matrix = json.loads(outputs.pop("test-matrix"))
+    ordinary_paths = {path for item in matrix for path in item["paths"]}
+    matrix += [item for output in outputs.values() for item in json.loads(output)]
     expected = sorted(
         path.relative_to(REPO_ROOT).as_posix()
         for path in {
@@ -100,6 +103,8 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     ]
     expected_assignments = []
     for index, path in enumerate(expected):
+        if path not in ordinary_paths:
+            continue
         os_name, python = cells[index % len(cells)]
         header = (REPO_ROOT / path).read_text().splitlines()[:5]
         if "# ci-runner: hosted-linux" in header:
@@ -110,7 +115,10 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
         else:
             os_name = "ubuntu-24.04"
         expected_assignments.append((path, os_name, python))
-    assert sorted(assignments) == expected_assignments
+    assert (
+        sorted(item for item in assignments if item[0] in ordinary_paths)
+        == expected_assignments
+    )
     if platform == "linux":
         assert sorted(path for path, _, _ in assignments) == expected
     assert sum(item["ugnas"] for item in matrix) == (3 if platform == "linux" else 0)

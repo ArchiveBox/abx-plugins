@@ -12,6 +12,8 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -53,7 +55,7 @@ async function main() {
   if (["dl", "raw"].some((key) => new URL(url).searchParams.get(key) === "1"))
     return emitArchiveResultRecord(
       "noresults",
-      "Direct Dropbox downloads are captured by staticfile"
+      "Direct Dropbox downloads are captured by staticfile",
     );
   const timeoutMs = getEnvInt("DROPBOX_TIMEOUT", 120) * 1000;
   const deadline = Date.now() + timeoutMs;
@@ -63,17 +65,27 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
     waitForNavigationComplete: true,
   });
+  let page = sourcePage;
   let downloads = [];
   try {
     if (sharePath(page.url()) !== original)
       throw new Error(
-        "Chrome tab is not on the requested Dropbox share (login may be required)"
+        "Chrome tab is not on the requested Dropbox share (login may be required)",
       );
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     let folderDownload = false;
     downloads = await captureBrowserDownloads({
       browser,
@@ -82,11 +94,15 @@ async function main() {
       downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
       trigger: async ({ downloadStarted }) => {
         // This action downloads the current share, not any individual child item.
-        await page.waitForSelector('[data-testid="action-bar-download-button"], #fvsdk-mount-point button[aria-label="Download"]', {timeout: remaining()});
-        folderDownload = await page.$('[data-testid="action-bar-download-button"]') !== null;
+        await page.waitForSelector(
+          '[data-testid="action-bar-download-button"], #fvsdk-mount-point button[aria-label="Download"]',
+          { timeout: remaining() },
+        );
+        folderDownload =
+          (await page.$('[data-testid="action-bar-download-button"]')) !== null;
         await page
           .locator(
-            '[data-testid="action-bar-download-button"], #fvsdk-mount-point button[aria-label="Download"]'
+            '[data-testid="action-bar-download-button"], #fvsdk-mount-point button[aria-label="Download"]',
           )
           .setTimeout(remaining())
           .click();
@@ -95,7 +111,7 @@ async function main() {
           downloadStarted.then(() => null),
           page.waitForSelector(
             ":is(#folder-preview-modal, #shared-link-download-signup-modal) .dig-Modal-footer button",
-            { timeout: remaining() }
+            { timeout: remaining() },
           ),
         ]);
         if (continueButton) {
@@ -103,7 +119,7 @@ async function main() {
           // visible control before clicking, including after infiniscroll.
           await page
             .locator(
-              ":is(#folder-preview-modal, #shared-link-download-signup-modal) .dig-Modal-footer button"
+              ":is(#folder-preview-modal, #shared-link-download-signup-modal) .dig-Modal-footer button",
             )
             .setTimeout(remaining())
             .click();
@@ -115,15 +131,21 @@ async function main() {
       path.join(snapshotDir, "dropbox"),
       await page.title(),
       downloads,
-      { requireZip: folderDownload, timeoutMs: remaining() }
+      { requireZip: folderDownload, timeoutMs: remaining() },
     );
     emitArchiveResultRecord("succeeded", "dropbox/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     // These paths were validated and claimed by this tab, even if unpacking
     // or the remaining deadline failed after Chrome completed its download.
     for (const { filePath } of downloads) {
       await fs.promises.unlink(filePath).catch((error) => {
-        if (error.code !== "ENOENT") console.error(`Cannot remove provider download: ${error.message}`);
+        if (error.code !== "ENOENT")
+          console.error(`Cannot remove provider download: ${error.message}`);
       });
     }
     await browser.disconnect();

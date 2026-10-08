@@ -230,7 +230,7 @@ from abx_plugins.plugins.base.testing import (
   - the exception to always overwriting files is: chrome.pid. target_id.txt, navigation.json, etc. chrome state which gets reused if it's not stale. we should detect if any of it is stale during chrome launch and tab creation, and clear all of it together if it is stale to prevent subtle drift errors / reuse of stale values.
   - status `succeeded` if they ran and produced output
   - status `noresults` if they ran successfully but produced no meaningful output (e.g. git on a non-github url, ytdlp on a site with no media, paperdl on a site with no pdfs, etc.)
-  - status `skipped` if only if *config* caused them not to run (e.g. `YTDLP_ENABLED=False`)
+  - status `skipped` if config disables them (e.g. `YTDLP_ENABLED=False`) or an explicit provider authentication/export-permission prerequisite is unavailable; navigation, missing-control and invalid-content errors remain `failed`
   - status `failed` if any hard dependencies are missing/invalid (e.g. chrome) or if the process exited non-0 / raised an exception
   - return a short, meaningful `output_str` e.g. the page title, mimetype, return status code, or the relative path of the primary output file produced like `output.pdf` or `0 modals closed` or `The Page Title Verbatim` or `favicon.io` or `Not a git URL`
   - define execution order solely using lexicographic sort order of hook filenames

@@ -56,10 +56,12 @@ path selects an existing browser, and `CHROME_CDP_URL` adopts a running browser.
 | `CHROME_BINARY`    | `chromium` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser.                                    |
 | `CHROME_CDP_URL`   | `""`       | Adopt an already-running browser instead of launching a local one. Accepts WS or HTTP CDP endpoints.                                            |
 | `CHROME_IS_LOCAL`  | `true`     | Whether the owned browser process is local and should publish `chrome.pid`. If `CHROME_CDP_URL` is set, runtime behavior is external/non-local. |
-| `CHROME_KEEPALIVE` | `false`    | Whether the owning launch hook should exit immediately and leave the browser running, instead of staying alive and closing it during cleanup.   |
+| `CHROME_KEEPALIVE` | `false`    | Leave the browser running after cleanup. The owning launch daemon stays alive to reap owned export tabs.                                      |
 | `CHROME_ISOLATION` | `crawl`    | `crawl` for one browser per crawl, `snapshot` for one browser per snapshot.                                                                     |
 
 ### Runtime browser options
+
+Provider export pages use separate background targets in the capture page's existing browser context; anonymous exports that would overwrite local document storage can use a disposable isolated context. They never replace the snapshot's `target_id.txt` or navigate its main page. The snapshot tab daemon closes registered export targets when their provider exits, their hook deadline expires (at most 60 minutes), or the snapshot finishes. The existing browser launch daemon provides the same cleanup if the snapshot tab daemon is killed, including with `CHROME_KEEPALIVE=True`; normal launch-daemon cleanup drains owned export tabs before leaving that browser alive. Providers also close their export pages immediately after use. Cleanup matches exact browser and target ownership, including a unique creation intent if a provider crashes before recording its new target ID.
 
 | Variable                    | Default     | Meaning                                      |
 | --------------------------- | ----------- | -------------------------------------------- |
@@ -82,6 +84,11 @@ path selects an existing browser, and `CHROME_CDP_URL` adopts a running browser.
 | `CHROME_DOWNLOADS_DIR`  | persona-derived                              | Download output directory configured via CDP after launch/adoption. |
 | `CHROME_ARGS`           | see config                                   | Static Chromium flags, including `--enable-features=ThrottleMainFrameTo60Hz` for compositor frame pacing. |
 | `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |
+
+The default flags disable Blink's `FileSystemAccessLocal` so applications such
+as Excalidraw use their supported browser-download fallback. Native save pickers
+cannot complete unattended headless saving and do not emit browser download
+events for CDP capture. Origin-private filesystem storage remains available.
 
 Cached extensions belonging to bundled plugins follow `PLUGINS` selection
 (including required plugin dependencies) and their `<PLUGIN>_ENABLED` setting.

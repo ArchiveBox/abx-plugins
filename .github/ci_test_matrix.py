@@ -45,6 +45,7 @@ if __name__ == "__main__":
     expected_tests: list[Path] = []
     targets = cycle(SUPPORTED_CELLS)
     test_matrix: list[TestMatrixItem] = []
+    provider_matrix: list[TestMatrixItem] = []
     cells_used: set[tuple[str, str]] = set()
     durations = json.loads((REPO_ROOT / ".github/test-durations.json").read_text())[
         "seconds"
@@ -59,11 +60,32 @@ if __name__ == "__main__":
     }
     if set(runner_requirements.values()) - {"hosted", "hosted-linux"}:
         raise SystemExit("Unknown ci-runner requirement")
+    environments = {
+        str(path): line.removeprefix("# ci-environment: ").strip()
+        for path in all_tests
+        for line in (REPO_ROOT / path).read_text().splitlines()[:5]
+        if line.startswith("# ci-environment: ")
+    }
+    if set(environments.values()) - {"provider-capture"}:
+        raise SystemExit("Unknown ci-environment requirement")
     hosted = set(runner_requirements)
     short_tests: dict[tuple[str, str, bool], list[str]] = {}
 
     for test_path in all_tests:
         os_name, python_version = next(targets)
+        if str(test_path) in environments:
+            expected_tests.append(test_path)
+            provider_matrix.append(
+                {
+                    "path": str(test_path),
+                    "paths": [str(test_path)],
+                    "os": "ubuntu-24.04",
+                    "python": "3.13",
+                    "ugnas": False,
+                    "workers": 0,
+                },
+            )
+            continue
         if runner_requirements.get(str(test_path)) == "hosted-linux":
             os_name = "ubuntu-24.04"
         if platform == "macos":
@@ -153,7 +175,9 @@ if __name__ == "__main__":
         ):
             item["workers"] = 2
 
-    assigned = Counter(Path(path) for item in test_matrix for path in item["paths"])
+    assigned = Counter(
+        Path(path) for item in test_matrix + provider_matrix for path in item["paths"]
+    )
     if assigned != Counter(expected_tests):
         raise SystemExit(
             "Test matrix must contain every discovered test file exactly once",
@@ -172,3 +196,4 @@ if __name__ == "__main__":
         raise SystemExit("Every test must use one supported OS/Python cell")
 
     print(f"test-matrix={json.dumps(test_matrix)}")
+    print(f"provider-matrix={json.dumps(provider_matrix)}")

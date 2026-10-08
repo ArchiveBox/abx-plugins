@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Notion",
+  "description": "Save rendered public Notion pages as HTML and Markdown.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome",
+    "defuddle"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "text/html",
+    "text/markdown",
+    "application/json"
+  ],
+  "properties": {
+    "NOTION_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Save public Notion pages"
+    },
+    "NOTION_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total public-page capture and conversion timeout in seconds"
+    }
+  },
+  "category": "text",
+  "display_order": 203,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}

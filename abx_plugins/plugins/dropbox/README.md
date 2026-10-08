@@ -5,9 +5,10 @@ Download action. Shared folders are downloaded as the provider's ZIP, including
 nested contents. Shared files retain their original format. No child enumeration,
 recursive crawling, additional packages, API keys, or OAuth setup are required.
 
-The hook uses the snapshot's settled tab, preserving share tokens, passwords
-already entered in the browser, and the active login. It does not log in or submit
-passwords. Access restrictions and the provider's folder-download limits remain
+The hook checks the snapshot's settled URL, then opens it in a background tab
+with the same persona and share tokens. It closes that export tab after use; the
+capture tab stays unchanged. It reuses existing browser authentication and does
+not log in or submit passwords. Access restrictions and the provider's folder-download limits remain
 in effect; unavailable controls and incomplete downloads fail explicitly.
 
 `downloads.json` records each saved file's relative path, size, and SHA-256.

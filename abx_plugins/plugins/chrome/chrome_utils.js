@@ -28,6 +28,7 @@ const {
   ensureNodeModuleResolution,
   parseArgs,
   writeFileAtomic,
+  loadConfig,
 } = require("../base/utils.js");
 
 ensureNodeModuleResolution(module);
@@ -1812,6 +1813,48 @@ async function sendBrowserCommand(browser, method, params = {}) {
   return await getBrowserConnection(browser).send(method, params);
 }
 
+// Closing a target is asynchronous: its command response precedes destruction.
+// Keep ownership leases until Chrome confirms the target is actually gone.
+async function closeTargetAndWait(
+  browser,
+  targetId,
+  { page, timeoutMs = 10000 } = {},
+) {
+  const connection = getBrowserConnection(browser);
+  let resolveDestroyed;
+  const destroyed = new Promise((resolve) => {
+    resolveDestroyed = resolve;
+  });
+  const onDestroyed = (event) => {
+    if (event.targetId === targetId) resolveDestroyed();
+  };
+  connection.on("Target.targetDestroyed", onDestroyed);
+  try {
+    return await withTimeout(
+      async () => {
+        const { targetInfos } = await connection.send("Target.getTargets");
+        if (!targetInfos.some((target) => target.targetId === targetId))
+          return false;
+        if (page) {
+          await page.close();
+        } else {
+          const result = await connection.send("Target.closeTarget", {
+            targetId,
+          });
+          if (!result.success)
+            throw new Error(`Could not close Chrome target ${targetId}`);
+        }
+        await destroyed;
+        return true;
+      },
+      timeoutMs,
+      `Timed out waiting for Chrome target ${targetId} to close`,
+    );
+  } finally {
+    connection.off("Target.targetDestroyed", onDestroyed);
+  }
+}
+
 /**
  * An unpacked extension is writable browser state: Chromium compiles static
  * declarativeNetRequest rules under its _metadata/generated_indexed_rulesets.
@@ -2922,6 +2965,8 @@ async function captureBrowserDownloads({
     if (ms <= 0) throw new Error("Provider download deadline exceeded");
     return ms;
   };
+  const { targetInfo } = await sendBrowserCommand(browser, "Target.getTargetInfo", { targetId: getTargetIdFromPage(page) });
+  const downloadContext = targetInfo.browserContextId ? { browserContextId: targetInfo.browserContextId } : {};
   const session = await page.target().createCDPSession();
   const connection = getBrowserConnection(browser);
   const frames = new Set();
@@ -2974,13 +3019,15 @@ async function captureBrowserDownloads({
     addTree((await session.send("Page.getFrameTree")).frameTree);
     connection.on("Browser.downloadWillBegin", begin);
     connection.on("Browser.downloadProgress", progress);
-    // Download behavior is browser-wide. Share the existing filesystem lock
+    // Scope behavior to the real target context, including raw-CDP contexts
+    // Puppeteer has not registered. Share the existing filesystem lock
     // mechanism with WACZ export and static-file setup across hook processes.
     releaseDownloadLock = await acquireSessionLock(path.join(downloadPath, ".download.lock"), remaining());
     await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
       behavior: "allowAndName",
       downloadPath,
       eventsEnabled: true,
+      ...downloadContext,
     });
     timer = setTimeout(
       () =>
@@ -2989,10 +3036,11 @@ async function captureBrowserDownloads({
         ),
       remaining()
     );
+    // Keep hidden download tabs rendering without selecting them. Existing
+    // callers can use this helper without opening a managed export target.
+    await session.send("Emulation.setFocusEmulationEnabled", { enabled: true });
     // Coordinate provider HTML download dialogs with the CSS modal closer.
     await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
-    // Provider controls wait for visible layout even in headless Chromium.
-    await page.bringToFront();
     await Promise.race([trigger({ downloadStarted }), completed]);
     prepared = true;
     check();
@@ -3023,6 +3071,7 @@ async function captureBrowserDownloads({
       if (item.state === "inProgress")
         await sendBrowserCommand(browser, "Browser.cancelDownload", {
           guid: item.guid,
+          ...downloadContext,
         }).catch(() => {});
     }
     if (!succeeded) {
@@ -3038,7 +3087,7 @@ async function captureBrowserDownloads({
     }
     if (releaseDownloadLock) {
       await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-        behavior: "allow", downloadPath, eventsEnabled: true,
+        behavior: "allow", downloadPath, eventsEnabled: true, ...downloadContext,
       }).catch(() => {});
       releaseDownloadLock();
     }
@@ -3401,7 +3450,7 @@ async function getBrowserCdpUrl(chromeSessionDir = "../chrome", options = {}) {
  * @returns {Promise<{targetId: string}>}
  */
 async function openTabInChromeSession(options = {}) {
-  const { cdpUrl, puppeteer, timeoutMs = 10000 } = options;
+  const { cdpUrl, puppeteer, timeoutMs = 10000, initialUrl = "about:blank", browserContextId } = options;
   if (!cdpUrl) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
@@ -3437,7 +3486,7 @@ async function openTabInChromeSession(options = {}) {
               const created = await sendBrowserCommand(
                 browser,
                 "Target.createTarget",
-                { url: "about:blank", background: true }
+                { url: initialUrl, background: true, ...(browserContextId ? { browserContextId } : {}) }
               );
               return created.targetId;
             },
@@ -3451,8 +3500,8 @@ async function openTabInChromeSession(options = {}) {
         } catch (error) {
           if (targetId) {
             try {
-              await sendBrowserCommand(browser, "Target.closeTarget", {
-                targetId,
+              await closeTargetAndWait(browser, targetId, {
+                timeoutMs: remainingMs,
               });
             } catch (closeError) {}
           }
@@ -3461,6 +3510,477 @@ async function openTabInChromeSession(options = {}) {
       }
     );
   })();
+}
+
+const EXPORT_PAGE_MAX_LIFETIME_MS = 60 * 60 * 1000;
+const exportPageOperations = new Set();
+const exportPageOwners = new Map();
+let exportShutdownInstalled = false;
+let exportShutdownPromise = null;
+
+function installExportPageShutdown() {
+  if (exportShutdownInstalled) return;
+  exportShutdownInstalled = true;
+  const install = require("../base/daemon_lifecycle.js").captureShutdownSignals();
+  install((signal) => {
+    if (exportShutdownPromise) return exportShutdownPromise;
+    const exitCode = process.exitCode ?? (signal === "SIGINT" ? 130 : 143);
+    exportShutdownPromise = (async () => {
+      await Promise.allSettled([...exportPageOperations]);
+      for (const owner of exportPageOwners.values()) {
+        try {
+          await sweepExportPages({
+            ...owner,
+            puppeteer: resolvePuppeteerModule(),
+            closeAll: true,
+            ownerPid: process.pid,
+          });
+        } catch (error) {
+          console.error(
+            `[*] Could not close export targets on ${signal}: ${error.message}`
+          );
+        }
+      }
+      process.exit(exitCode);
+    })();
+    return exportShutdownPromise;
+  });
+}
+
+function exportPageLeasePaths(chromeSessionDir) {
+  const root = path.resolve(chromeSessionDir);
+  return { root: path.join(root, "export-tabs") };
+}
+
+function publishBrowserExportOwner(chromeSessionDir, lease) {
+  const config = loadConfig(path.join(__dirname, "config.json"));
+  const ownerDir =
+    String(config.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
+      ? path.resolve(chromeSessionDir)
+      : path.join(path.resolve(config.CRAWL_DIR || getCrawlDir()), "chrome");
+  const registry = path.join(ownerDir, "export-snapshots");
+  const owner = {
+    chromeSessionDir: path.resolve(chromeSessionDir),
+    cdpUrl: lease.cdpUrl,
+    ownerTargetId: lease.ownerTargetId,
+  };
+  const key = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(owner))
+    .digest("hex");
+  fs.mkdirSync(registry, { recursive: true });
+  writeFileAtomic(path.join(registry, `${key}.json`), JSON.stringify(owner));
+}
+
+/** Browser owner fallback for a killed snapshot tab daemon; no tree scans. */
+async function sweepBrowserExportPages({
+  chromeSessionDir,
+  cdpUrl,
+  puppeteer,
+  closeAll = false,
+  offset = 0,
+}) {
+  const registry = path.join(
+    path.resolve(chromeSessionDir),
+    "export-snapshots"
+  );
+  if (!fs.existsSync(registry) || !cdpUrl) return 0;
+  const names = fs
+    .readdirSync(registry)
+    .filter((name) => /^[a-f0-9]{64}\.json$/.test(name));
+  if (!names.length) return 0;
+  const start = offset % names.length;
+  const batch = closeAll
+    ? names
+    : [...names.slice(start), ...names.slice(0, start)].slice(0, 64);
+  for (const name of batch) {
+    const file = path.join(registry, name);
+    try {
+      const owner = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (
+        typeof owner.chromeSessionDir !== "string" ||
+        !path.isAbsolute(owner.chromeSessionDir) ||
+        typeof owner.cdpUrl !== "string" ||
+        typeof owner.ownerTargetId !== "string" ||
+        crypto
+          .createHash("sha256")
+          .update(JSON.stringify(owner))
+          .digest("hex") !== name.slice(0, -5)
+      ) {
+        throw new Error("Invalid Chrome export snapshot ownership");
+      }
+      if (cdpUrl.startsWith("ws") && owner.cdpUrl !== cdpUrl) continue;
+      await sweepExportPages({ ...owner, cdpUrl, puppeteer, closeAll });
+      const leases = readExportPageLeases(
+        exportPageLeasePaths(owner.chromeSessionDir).root
+      ).filter(
+        ({ lease }) =>
+          lease.cdpUrl === owner.cdpUrl &&
+          lease.ownerTargetId === owner.ownerTargetId
+      );
+      if (!leases.length) fs.rmSync(file, { force: true });
+    } catch (error) {
+      if (error.code !== "ENOENT")
+        console.error(
+          `[*] Could not sweep browser export owner ${file}: ${error.message}`
+        );
+    }
+  }
+  return (start + batch.length) % names.length;
+}
+
+function startBrowserExportSweep(options) {
+  let pending = null;
+  let offset = 0;
+  const timer = setInterval(() => {
+    if (pending) return;
+    pending = sweepBrowserExportPages({ ...options, offset })
+      .then((nextOffset) => {
+        offset = nextOffset;
+      })
+      .catch((error) =>
+        console.error(
+          `[*] Could not clean browser export pages: ${error.message}`
+        )
+      )
+      .finally(() => {
+        pending = null;
+      });
+  }, 1000);
+  return async () => {
+    clearInterval(timer);
+    if (pending) await pending;
+    await sweepBrowserExportPages({ ...options, closeAll: true });
+  };
+}
+
+function readExportPageLeases(root) {
+  if (!fs.existsSync(root)) return [];
+  return fs
+    .readdirSync(root)
+    .filter((name) => /^[a-f0-9]{32}\.json$/.test(name))
+    .flatMap((name) => {
+      const file = path.join(root, name);
+      try {
+        const lease = JSON.parse(fs.readFileSync(file, "utf8"));
+        if (
+          lease.nonce !== name.slice(0, -5) ||
+          lease.initialUrl !== `about:blank#abx-export-${lease.nonce}` ||
+          typeof lease.cdpUrl !== "string" ||
+          !lease.ownerTargetId ||
+          !Number.isInteger(lease.pid) ||
+          lease.pid <= 0 ||
+          !Number.isFinite(lease.createdAt) ||
+          !Number.isFinite(lease.expiresAt) ||
+          lease.expiresAt > lease.createdAt + EXPORT_PAGE_MAX_LIFETIME_MS ||
+          (lease.targetId &&
+            (typeof lease.targetId !== "string" ||
+              lease.targetId === lease.ownerTargetId))
+        ) {
+          throw new Error(`Invalid Chrome export tab ownership: ${file}`);
+        }
+        if (
+          lease.ephemeralContextId &&
+          (typeof lease.ephemeralContextId !== "string" ||
+            lease.ephemeralContextId === lease.ownerBrowserContextId)
+        )
+          throw new Error("Invalid isolated export browser context");
+        return [{ file, lease }];
+      } catch (error) {
+        console.error(
+          `[*] Skipping invalid Chrome export ownership ${file}: ${error.message}`
+        );
+        return [];
+      }
+    });
+}
+
+/** Open a leased export target; anonymous exports can opt into isolated storage. */
+async function openExportPage({
+  page,
+  chromeSessionDir,
+  timeoutMs = getEnvInt("TIMEOUT", 60) * 1000,
+  isolateStorage = false,
+}) {
+  if (exportShutdownPromise)
+    throw new Error("Export page process is shutting down");
+  installExportPageShutdown();
+  const owner = {
+    chromeSessionDir,
+    cdpUrl: page.browser().wsEndpoint(),
+    ownerTargetId: getTargetIdFromPage(page),
+  };
+  exportPageOwners.set(
+    `${path.resolve(chromeSessionDir)}:${owner.ownerTargetId}`,
+    owner
+  );
+  const operation = createExportPage({
+    page,
+    chromeSessionDir,
+    timeoutMs,
+    isolateStorage,
+  });
+  exportPageOperations.add(operation);
+  try {
+    return await operation;
+  } finally {
+    exportPageOperations.delete(operation);
+  }
+}
+
+async function createExportPage({
+  page,
+  chromeSessionDir,
+  timeoutMs,
+  isolateStorage,
+}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
+    throw new Error("Export page timeout must be positive");
+  const createdAt = Date.now();
+  const browser = page.browser();
+  const cdpUrl = browser.wsEndpoint();
+  const ownerTargetId = getTargetIdFromPage(page);
+  const paths = exportPageLeasePaths(chromeSessionDir);
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const file = path.join(paths.root, `${nonce}.json`);
+  const lease = {
+    nonce,
+    cdpUrl,
+    ownerTargetId,
+    pid: process.pid,
+    createdAt,
+    expiresAt:
+      createdAt + Math.min(EXPORT_PAGE_MAX_LIFETIME_MS, Math.max(1, timeoutMs)),
+    initialUrl: `about:blank#abx-export-${nonce}`,
+    targetId: null,
+  };
+  const checkOwner = () => {
+    const publishedOwner = fs
+      .readFileSync(
+        path.join(path.resolve(chromeSessionDir), "target_id.txt"),
+        "utf8"
+      )
+      .trim();
+    if (!ownerTargetId || publishedOwner !== ownerTargetId)
+      throw new Error("Export page does not own the snapshot Chrome target");
+    if (
+      exportShutdownPromise ||
+      fs.existsSync(path.join(paths.root, `.closing-${ownerTargetId}`))
+    ) {
+      throw new Error("Snapshot Chrome target is shutting down");
+    }
+  };
+  const remaining = () => {
+    const budget = lease.expiresAt - Date.now();
+    if (budget <= 0)
+      throw new Error("Export page creation exceeded the hook deadline");
+    return Math.min(10000, budget);
+  };
+  const checkLease = () => {
+    checkOwner();
+    remaining();
+    if (!fs.existsSync(file))
+      throw new Error("Chrome export target was already cleaned up");
+  };
+  try {
+    checkOwner();
+    fs.mkdirSync(paths.root, { recursive: true });
+    writeFileAtomic(file, JSON.stringify(lease));
+    publishBrowserExportOwner(chromeSessionDir, lease);
+    const { targetInfo } = await withTimeout(
+      () =>
+        sendBrowserCommand(browser, "Target.getTargetInfo", {
+          targetId: ownerTargetId,
+        }),
+      remaining(),
+      "Timed out resolving export page browser context"
+    );
+    lease.ownerBrowserContextId = targetInfo.browserContextId || null;
+    if (isolateStorage) {
+      // Owned by this hook's connection: a hard crash also disposes this
+      // anonymous context without touching the capture persona's storage.
+      const created = await withTimeout(
+        () =>
+          sendBrowserCommand(browser, "Target.createBrowserContext", {
+            disposeOnDetach: true,
+          }),
+        remaining(),
+        "Timed out creating isolated export browser context"
+      );
+      lease.ephemeralContextId = created.browserContextId;
+      if (
+        !lease.ephemeralContextId ||
+        lease.ephemeralContextId === lease.ownerBrowserContextId
+      ) {
+        throw new Error(
+          "Chrome did not create a separate export browser context"
+        );
+      }
+      writeFileAtomic(file, JSON.stringify(lease));
+    }
+    checkLease();
+    const opened = await openTabInChromeSession({
+      cdpUrl,
+      puppeteer: resolvePuppeteerModule(),
+      timeoutMs: remaining(),
+      initialUrl: lease.initialUrl,
+      browserContextId: lease.ephemeralContextId || targetInfo.browserContextId,
+    });
+    lease.targetId = opened.targetId;
+    checkLease();
+    writeFileAtomic(file, JSON.stringify(lease));
+    publishBrowserExportOwner(chromeSessionDir, lease);
+    const target = await browser.waitForTarget(
+      (target) => getTargetIdFromTarget(target) === lease.targetId,
+      { timeout: remaining() }
+    );
+    const exportPage = await withTimeout(
+      () => target.page(),
+      remaining(),
+      "Timed out attaching export page"
+    );
+    if (!exportPage) throw new Error("Chrome export target is not a page");
+    // Existing screenshot/mobile capture hooks use focus emulation to keep
+    // rendering active without selecting a tab in the user's browser.
+    const focusSession = await withTimeout(
+      () => exportPage.createCDPSession(),
+      remaining(),
+      "Timed out attaching export focus session"
+    );
+    await withTimeout(
+      () =>
+        focusSession.send("Emulation.setFocusEmulationEnabled", {
+          enabled: true,
+        }),
+      remaining(),
+      "Timed out enabling background export rendering"
+    );
+    checkLease();
+    return exportPage;
+  } catch (error) {
+    if (fs.existsSync(file)) {
+      lease.expiresAt = Math.min(lease.expiresAt, Date.now());
+      writeFileAtomic(file, JSON.stringify(lease));
+      // Preserve the intent if creation's response was lost; the daemon can
+      // find only this nonce URL, never an unrelated blank/capture tab.
+    }
+    if (lease.targetId || lease.ephemeralContextId) {
+      try {
+        if (lease.targetId) {
+          await closeTargetAndWait(browser, lease.targetId);
+        }
+        await disposeExportContext(browser, lease);
+        fs.rmSync(file, { force: true });
+      } catch (closeError) {}
+    }
+    throw error;
+  }
+}
+
+async function disposeExportContext(browser, lease) {
+  if (!lease.ephemeralContextId) return;
+  if (lease.ephemeralContextId === lease.ownerBrowserContextId)
+    throw new Error("Refusing to dispose the capture persona context");
+  const { targetInfos } = await sendBrowserCommand(
+    browser,
+    "Target.getTargets"
+  );
+  const owner = targetInfos.find(
+    (target) => target.targetId === lease.ownerTargetId
+  );
+  if (owner?.browserContextId === lease.ephemeralContextId)
+    throw new Error("Refusing to dispose the live capture persona context");
+  const { browserContextIds } = await sendBrowserCommand(
+    browser,
+    "Target.getBrowserContexts"
+  );
+  if (browserContextIds.includes(lease.ephemeralContextId)) {
+    await sendBrowserCommand(browser, "Target.disposeBrowserContext", {
+      browserContextId: lease.ephemeralContextId,
+    });
+  }
+}
+
+/** Close only an export target registered by this snapshot in this browser. */
+async function closeExportPage({ page, chromeSessionDir }) {
+  const browser = page.browser();
+  const targetId = getTargetIdFromPage(page);
+  const paths = exportPageLeasePaths(chromeSessionDir);
+  if (!fs.existsSync(paths.root)) return false;
+  let publishedOwner = null;
+  try {
+    publishedOwner = fs
+      .readFileSync(
+        path.join(path.resolve(chromeSessionDir), "target_id.txt"),
+        "utf8"
+      )
+      .trim();
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const owned = readExportPageLeases(paths.root).find(
+    ({ lease }) =>
+      lease.targetId === targetId &&
+      lease.cdpUrl === browser.wsEndpoint() &&
+      lease.ownerTargetId === publishedOwner &&
+      lease.pid === process.pid
+  );
+  if (!owned) return false;
+  await closeTargetAndWait(browser, targetId, { page });
+  await disposeExportContext(browser, owned.lease);
+  fs.rmSync(owned.file, { force: true });
+  return true;
+}
+
+/** Snapshot daemon cleanup survives an exporter crash and bounds every lease. */
+async function sweepExportPages({
+  chromeSessionDir,
+  cdpUrl,
+  ownerTargetId,
+  puppeteer,
+  closeAll = false,
+  ownerPid = null,
+}) {
+  if (!cdpUrl || !ownerTargetId) return;
+  const paths = exportPageLeasePaths(chromeSessionDir);
+  if (!closeAll && !fs.existsSync(paths.root)) return;
+  if (closeAll && ownerPid === null) {
+    fs.mkdirSync(paths.root, { recursive: true });
+    writeFileAtomic(path.join(paths.root, `.closing-${ownerTargetId}`), "");
+  }
+  const owned = readExportPageLeases(paths.root).filter(
+    ({ lease }) =>
+      lease.ownerTargetId === ownerTargetId &&
+      (ownerPid === null || lease.pid === ownerPid) &&
+      (closeAll || Date.now() >= lease.expiresAt || !isProcessAlive(lease.pid))
+  );
+  if (!owned.length) return;
+  await withConnectedBrowser(
+    { cdpUrl, puppeteer, connectOptions: { defaultViewport: null } },
+    async (browser) => {
+      const { targetInfos } = await sendBrowserCommand(
+        browser,
+        "Target.getTargets"
+      );
+      for (const { file, lease } of owned) {
+        if (lease.cdpUrl !== browser.wsEndpoint()) continue;
+        const target = lease.targetId
+          ? targetInfos.find((target) => target.targetId === lease.targetId)
+          : targetInfos.find(
+              (target) =>
+                target.type === "page" && target.url === lease.initialUrl
+            );
+        if (target && target.targetId !== ownerTargetId) {
+          await closeTargetAndWait(browser, target.targetId);
+        }
+        await disposeExportContext(browser, lease);
+        // A stopped/crashed creator can still have a createTarget command in
+        // flight. Preserve its nonce intent until that exact target appears.
+        if (target || lease.targetId || lease.ephemeralContextId)
+          fs.rmSync(file, { force: true });
+      }
+    }
+  );
 }
 
 /**
@@ -3489,17 +4009,9 @@ async function closeTabInChromeSession(options = {}) {
       connectOptions: { defaultViewport: null },
     },
     async (browser) => {
-      const { targetInfos } = await sendBrowserCommand(
-        browser,
-        "Target.getTargets"
-      );
-      if (!targetInfos.some((target) => target.targetId === targetId)) {
-        return false;
-      }
-      const result = await sendBrowserCommand(browser, "Target.closeTarget", {
-        targetId,
+      return await closeTargetAndWait(browser, targetId, {
+        timeoutMs: options.timeoutMs || 10000,
       });
-      return result.success;
     }
   );
 }
@@ -4594,6 +5106,10 @@ module.exports = {
   getChromeLaunchPrerequisites,
   getBrowserCdpUrl,
   openTabInChromeSession,
+  openExportPage,
+  closeExportPage,
+  sweepExportPages,
+  startBrowserExportSweep,
   closeTabInChromeSession,
   closeBrowserInChromeSession,
   getTargetIdFromTarget,

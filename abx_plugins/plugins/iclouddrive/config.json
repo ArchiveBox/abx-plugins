@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "iCloud Drive",
+  "description": "Save original files from public iCloud Drive shares.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/json",
+    "application/octet-stream"
+  ],
+  "properties": {
+    "ICLOUDDRIVE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Save public iCloud Drive files"
+    },
+    "ICLOUDDRIVE_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total export/download timeout in seconds"
+    }
+  },
+  "category": "media",
+  "display_order": 216,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}
