@@ -37,23 +37,25 @@ Files live under `canva/files/`;
 ArchiveBox offers format buttons and direct previews.
 
 ```bash
-AUTH_STORAGE_FILE=/path/to/authorized-persona.json CHROME_HEADLESS=false \
-  uv run abx-dl dl --plugins=canva 'https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview'
+uv run abx-dl dl --plugins=canva 'https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview'
 ```
 
-Use headed Chrome for this fixture: the tested managed headless browser was
+The command uses the configured persona. Authenticated exports require that
+persona to be logged in to Canva; an anonymous capture reports a normal skip.
+Use `CHROME_HEADLESS=false` for authenticated exports of this fixture: the tested managed headless browser was
 blocked inside Canva's template frame. The hook reports that provider block and
 does not bypass it. The gallery recipe needs an accepted authenticated session.
 
-Live tests require AUTH_STORAGE_FILE for an authorized persona and Poppler's
+Authenticated live tests require `AUTH_STORAGE_FILE` for an authorized persona and Poppler's
 `pdftotext` for the saved PDF content assertions. These are test prerequisites;
 the plugin has no additional runtime dependency. The anonymous test clears
-inherited authentication explicitly. Run both with:
+inherited authentication explicitly. With the authenticated prerequisites
+configured, run both:
 
 ```bash
-AUTH_STORAGE_FILE=/path/to/authorized-persona.json \
-  uv run pytest abx_plugins/plugins/canva/tests -q
+uv run pytest abx_plugins/plugins/canva/tests -q
 ```
+
 
 See `tests/RESULTS.md` for actual evidence and limitations.
 

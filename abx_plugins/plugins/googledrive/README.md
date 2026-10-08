@@ -3,7 +3,9 @@
 Saves a shared folder using Google Drive's own ZIP download. Requires the existing
 Chrome plugin session, with no additional binaries, API keys, or OAuth setup.
 
-The hook reuses the snapshot's settled tab. Signed-in Drive uses the folder menu's
+The hook checks the snapshot's settled URL, then opens it in a background tab
+using the same persona. It closes that export tab after use; the capture tab stays
+unchanged. Signed-in Drive uses the folder menu's
 Download action; public, signed-out Drive uses its Select all / Download action.
 Google prepares the archive, including subfolders and its default conversions of
 native Workspace files. The plugin does not enumerate children, follow folder

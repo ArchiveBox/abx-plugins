@@ -154,13 +154,14 @@ async function main() {
       });
     for (const { filePath } of downloads)
       await fs.promises.unlink(filePath).catch((error) => {
-        if (error.code !== "ENOENT") console.error(error.message);
+        if (error.code !== "ENOENT")
+          console.error(error.stack || error.message);
       });
     await browser.disconnect();
   }
 }
 main().catch((error) => {
-  console.error(error.message);
+  console.error(error.stack || error.message);
   emitArchiveResultRecord("failed", error.message);
   process.exitCode = 1;
 });

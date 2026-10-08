@@ -1813,6 +1813,48 @@ async function sendBrowserCommand(browser, method, params = {}) {
   return await getBrowserConnection(browser).send(method, params);
 }
 
+// Closing a target is asynchronous: its command response precedes destruction.
+// Keep ownership leases until Chrome confirms the target is actually gone.
+async function closeTargetAndWait(
+  browser,
+  targetId,
+  { page, timeoutMs = 10000 } = {},
+) {
+  const connection = getBrowserConnection(browser);
+  let resolveDestroyed;
+  const destroyed = new Promise((resolve) => {
+    resolveDestroyed = resolve;
+  });
+  const onDestroyed = (event) => {
+    if (event.targetId === targetId) resolveDestroyed();
+  };
+  connection.on("Target.targetDestroyed", onDestroyed);
+  try {
+    return await withTimeout(
+      async () => {
+        const { targetInfos } = await connection.send("Target.getTargets");
+        if (!targetInfos.some((target) => target.targetId === targetId))
+          return false;
+        if (page) {
+          await page.close();
+        } else {
+          const result = await connection.send("Target.closeTarget", {
+            targetId,
+          });
+          if (!result.success)
+            throw new Error(`Could not close Chrome target ${targetId}`);
+        }
+        await destroyed;
+        return true;
+      },
+      timeoutMs,
+      `Timed out waiting for Chrome target ${targetId} to close`,
+    );
+  } finally {
+    connection.off("Target.targetDestroyed", onDestroyed);
+  }
+}
+
 /**
  * An unpacked extension is writable browser state: Chromium compiles static
  * declarativeNetRequest rules under its _metadata/generated_indexed_rulesets.
@@ -2994,6 +3036,9 @@ async function captureBrowserDownloads({
         ),
       remaining()
     );
+    // Keep hidden download tabs rendering without selecting them. Existing
+    // callers can use this helper without opening a managed export target.
+    await session.send("Emulation.setFocusEmulationEnabled", { enabled: true });
     // Coordinate provider HTML download dialogs with the CSS modal closer.
     await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
     await Promise.race([trigger({ downloadStarted }), completed]);
@@ -3455,8 +3500,8 @@ async function openTabInChromeSession(options = {}) {
         } catch (error) {
           if (targetId) {
             try {
-              await sendBrowserCommand(browser, "Target.closeTarget", {
-                targetId,
+              await closeTargetAndWait(browser, targetId, {
+                timeoutMs: remainingMs,
               });
             } catch (closeError) {}
           }
@@ -3822,13 +3867,7 @@ async function createExportPage({
     if (lease.targetId || lease.ephemeralContextId) {
       try {
         if (lease.targetId) {
-          const result = await sendBrowserCommand(
-            browser,
-            "Target.closeTarget",
-            { targetId: lease.targetId }
-          );
-          if (!result.success)
-            throw new Error(`Could not close export target ${lease.targetId}`);
+          await closeTargetAndWait(browser, lease.targetId);
         }
         await disposeExportContext(browser, lease);
         fs.rmSync(file, { force: true });
@@ -3887,17 +3926,7 @@ async function closeExportPage({ page, chromeSessionDir }) {
       lease.pid === process.pid
   );
   if (!owned) return false;
-  const { targetInfos } = await sendBrowserCommand(
-    browser,
-    "Target.getTargets"
-  );
-  if (targetInfos.some((target) => target.targetId === targetId)) {
-    const result = await sendBrowserCommand(browser, "Target.closeTarget", {
-      targetId,
-    });
-    if (!result.success)
-      throw new Error(`Could not close export target ${targetId}`);
-  }
+  await closeTargetAndWait(browser, targetId, { page });
   await disposeExportContext(browser, owned.lease);
   fs.rmSync(owned.file, { force: true });
   return true;
@@ -3942,13 +3971,7 @@ async function sweepExportPages({
                 target.type === "page" && target.url === lease.initialUrl
             );
         if (target && target.targetId !== ownerTargetId) {
-          const result = await sendBrowserCommand(
-            browser,
-            "Target.closeTarget",
-            { targetId: target.targetId }
-          );
-          if (!result.success)
-            throw new Error(`Could not close export target ${target.targetId}`);
+          await closeTargetAndWait(browser, target.targetId);
         }
         await disposeExportContext(browser, lease);
         // A stopped/crashed creator can still have a createTarget command in
@@ -3986,17 +4009,9 @@ async function closeTabInChromeSession(options = {}) {
       connectOptions: { defaultViewport: null },
     },
     async (browser) => {
-      const { targetInfos } = await sendBrowserCommand(
-        browser,
-        "Target.getTargets"
-      );
-      if (!targetInfos.some((target) => target.targetId === targetId)) {
-        return false;
-      }
-      const result = await sendBrowserCommand(browser, "Target.closeTarget", {
-        targetId,
+      return await closeTargetAndWait(browser, targetId, {
+        timeoutMs: options.timeoutMs || 10000,
       });
-      return result.success;
     }
   );
 }

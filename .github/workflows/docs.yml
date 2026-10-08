@@ -28,9 +28,10 @@ jobs:
 
   documentation:
     needs: changes
-    if: needs.changes.outputs.changed == 'true'
+    if: needs.changes.outputs.changed == 'true' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main'
     name: Documentation code blocks
     runs-on: ubuntu-24.04
+    environment: provider-capture
 
     steps:
       - name: Checkout repository
@@ -50,13 +51,57 @@ jobs:
           version: "0.11.3"
           enable-cache: false
 
+      - name: Install browser display and PDF inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth poppler-utils
+
       - name: Install locked dependencies
         run: |
           uv sync --locked --dev --no-sources --no-cache
 
-      - name: Run documentation code blocks
+      - name: Install the matching Chrome sandbox helper
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib
+        run: |
+          chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          import abx_plugins
+
+          config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+          env = json.loads(subprocess.check_output([
+              "abxpkg", "env", "--install", "--json",
+              f"--deps-from={config}:required_binaries", "browsers",
+          ], text=True))
+          helper = Path(env["CHROME_BINARY"]).resolve(strict=True).with_name("chrome_sandbox")
+          assert helper.is_file(), helper
+          print(helper)
+          PY
+          )"
+          sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+          echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+          # GPU-less CI needs an explicit OpenGL ES renderer for Figma.
+          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader"]' >> "$GITHUB_ENV"
+      - name: Prepare authorized provider persona
+        env:
+          PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+        run: |
+          set -Eeuo pipefail
+          : "${PROVIDER_AUTH_STORAGE_JSON:?Missing provider-capture authentication secret}"
+          umask 077
+          auth_file="$(mktemp --suffix=.json "$RUNNER_TEMP/docs-auth.XXXXXX")"
+          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
+          chmod 600 "$auth_file"
+          {
+            echo "AUTH_STORAGE_FILE=$auth_file"
+            echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/docs-abx-lib"
+            echo "PERSONAS_DIR=$RUNNER_TEMP/docs-personas"
+          } >> "$GITHUB_ENV"
+      - name: Run documentation code blocks
+        env:
+          CHROME_HEADLESS: "false"
         run: |
           mapfile -t plugin_readmes < <(uv run --no-cache --no-project python - <<'PY'
           from pathlib import Path
@@ -65,13 +110,20 @@ jobs:
               print(readme)
           PY
           )
-          uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
+          test -f "$AUTH_STORAGE_FILE"
+          xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
+
+      - name: Remove authentication and browser profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/docs-auth.*
+          rm -rf "$RUNNER_TEMP/docs-personas" "$RUNNER_TEMP/docs-abx-lib"
 
   complete:
     name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
     needs: [changes, documentation]
-    if: needs.changes.outputs.changed == 'true'
+    if: needs.changes.outputs.changed == 'true' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - run: echo 'Scheduled work completed successfully.'

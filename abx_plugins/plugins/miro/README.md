@@ -32,18 +32,22 @@ Saved files live under `miro/files/`; `downloads.json`
 records paths, formats, sizes and SHA-256 hashes. ArchiveBox offers format buttons and direct previews.
 
 ```bash
-AUTH_STORAGE_FILE=/path/to/authorized-persona.json CHROME_HEADLESS=false \
-  uv run abx-dl dl --plugins=miro 'https://miro.com/app/board/uXjVK4c-_uU=/'
+uv run abx-dl dl --plugins=miro 'https://miro.com/app/board/uXjVK4c-_uU=/'
 ```
+
+The command uses the configured persona. Authenticated exports require that
+persona to be logged in to Miro; an anonymous capture reports a normal skip.
+Use `CHROME_HEADLESS=false` for the authenticated fixture.
 
 The authenticated acceptance test requires `AUTH_STORAGE_FILE` and uses headed
 Chrome. Install Poppler's `pdfimages` for its actual exported-frame content check.
-Anonymous tests explicitly clear inherited authentication. Run both with:
+Anonymous tests explicitly clear inherited authentication. With the authenticated
+prerequisites configured, run both:
 
 ```bash
-AUTH_STORAGE_FILE=/path/to/authorized-persona.json \
-  uv run pytest abx_plugins/plugins/miro/tests -q
+uv run pytest abx_plugins/plugins/miro/tests -q
 ```
+
 
 See `tests/RESULTS.md` for recorded evidence. The gallery recipe needs that same
 authorized session to produce its PDF.

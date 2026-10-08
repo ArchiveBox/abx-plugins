@@ -145,7 +145,7 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
             assert lease_path is not None
             owner_pid = lease["pid"]
             owner_command = subprocess.check_output(
-                ["ps", "-p", str(owner_pid), "-o", "command="],
+                ["ps", "-ww", "-p", str(owner_pid), "-o", "command="],
                 text=True,
             )
             assert str(HOOK) in owner_command
@@ -176,7 +176,7 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
                 # it as a child. Killing only the wrapper would leave it alive.
                 processes = {}
                 for line in subprocess.check_output(
-                    ["ps", "-axo", "pid=,ppid=,command="],
+                    ["ps", "-ww", "-axo", "pid=,ppid=,command="],
                     text=True,
                 ).splitlines():
                     pid, parent, command = line.strip().split(None, 2)
