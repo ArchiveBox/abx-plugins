@@ -308,6 +308,8 @@ async function closeModals(page) {
     genericSelectors.forEach((selector) => {
       try {
         document.querySelectorAll(selector).forEach((el) => {
+          // Page roots carry modal state classes too; hiding them erases the page.
+          if (el === document.body || el === document.documentElement) return;
           // Skip if already hidden
           const style = window.getComputedStyle(el);
           if (style.display === "none" || style.visibility === "hidden") return;
