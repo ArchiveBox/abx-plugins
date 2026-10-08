@@ -53,6 +53,7 @@ import fcntl
 import re
 import ssl
 import subprocess
+import sys
 import threading
 import urllib.parse
 import urllib.request
@@ -671,14 +672,66 @@ def _run_chrome_required_binary_env(
         "--deps-from=./config.json:required_binaries",
         "browsers",
     ]
-    return subprocess.run(
-        command,
-        cwd=str(CHROME_PLUGIN_DIR),
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=payload,
-    )
+    finished = threading.Event()
+
+    def report_slow_processes() -> None:
+        if finished.is_set():
+            return
+        try:
+            state = subprocess.run(
+                ["ps", "-eo", "pid=,ppid=,stat=,wchan:32=,comm="],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            rows = [line.split(maxsplit=4) for line in state.stdout.splitlines()]
+            descendants = {os.getpid()}
+            while True:
+                children = {
+                    int(row[0])
+                    for row in rows
+                    if len(row) == 5 and int(row[1]) in descendants
+                }
+                if children <= descendants:
+                    break
+                descendants.update(children)
+            if not finished.is_set():
+                print(
+                    "Chrome dependency bootstrap nearing deadline: PID PPID STATE WCHAN COMM\n"
+                    + "\n".join(
+                        " ".join(row)
+                        for row in rows
+                        if len(row) == 5 and int(row[0]) in descendants
+                    ),
+                    file=sys.stderr,
+                    flush=True,
+                )
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            if not finished.is_set():
+                print(
+                    f"Chrome bootstrap process-state diagnostic unavailable: {type(error).__name__}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+    watchdog = None
+    if sys.platform == "linux":
+        watchdog = threading.Timer(max(0, timeout - 5), report_slow_processes)
+        watchdog.daemon = True
+        watchdog.start()
+    try:
+        return subprocess.run(
+            command,
+            cwd=str(CHROME_PLUGIN_DIR),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=payload,
+        )
+    finally:
+        finished.set()
+        if watchdog is not None:
+            watchdog.cancel()
 
 
 def _chrome_provider_env_cache_key(env: dict) -> tuple[str, ...]:
