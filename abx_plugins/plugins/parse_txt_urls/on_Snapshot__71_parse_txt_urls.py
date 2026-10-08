@@ -6,7 +6,8 @@
 Parse plain text inputs and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
-It reads text content from SNAP_DIR/staticfile/*.txt or an HTTP URL and extracts all URLs found.
+It discovers saved text and Office documents across SNAP_DIR, or fetches an HTTP
+URL when no saved inputs exist, and extracts visible URLs and embedded links.
 
 Usage: ./on_Snapshot__71_parse_txt_urls.py --url=<url>
 Output: Appends discovered URLs to SNAP_DIR/parse_txt_urls/urls.jsonl
@@ -19,6 +20,9 @@ import sys
 import json
 import re
 import io
+import csv
+import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from abx_plugins.plugins.base.url_cleaning import (
@@ -29,10 +33,14 @@ from abx_plugins.plugins.base.url_cleaning import (
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
-    iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
     write_text_atomic,
+)
+from abx_plugins.plugins.parse_txt_urls.document_sources import (
+    OFFICE_EXTENSIONS,
+    iter_document_content,
+    iter_document_sources,
 )
 
 import rich_click as click
@@ -154,6 +162,25 @@ def add_urls_from_text_chunk(
     return "" if final else text[max(0, carry_start - 6) :]
 
 
+def extract_urls_from_reader(reader, *, source_url: str, urls_found: set[str]) -> None:
+    carry = ""
+    while chunk := reader.read(READ_CHUNK_SIZE):
+        carry = add_urls_from_text_chunk(
+            chunk,
+            carry=carry,
+            final=False,
+            source_url=source_url,
+            urls_found=urls_found,
+        )
+    add_urls_from_text_chunk(
+        "",
+        carry=carry,
+        final=True,
+        source_url=source_url,
+        urls_found=urls_found,
+    )
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
@@ -166,14 +193,48 @@ def main(
     """Parse plain text and extract URLs."""
     urls_file = get_output_file()
     urls_found = set()
-    source_paths = iter_staticfile_text_inputs()
+    source_paths = tuple(iter_document_sources(urls_file.parent.parent))
     print(f"parsing {len(source_paths) if source_paths else 1} files for urls...")
     try:
         if source_paths:
-            readers = [
-                source_path.open(encoding="utf-8", errors="replace")
-                for source_path in source_paths
-            ]
+            readers = []
+            for source_path in source_paths:
+                try:
+                    if source_path.suffix.lower() in OFFICE_EXTENSIONS | {
+                        ".csv",
+                        ".tsv",
+                    }:
+                        for kind, value in iter_document_content(source_path):
+                            if kind == "url":
+                                if (
+                                    value.lower().startswith(("http://", "https://"))
+                                    and value != url
+                                ):
+                                    urls_found.add(value)
+                            else:
+                                add_urls_from_text_chunk(
+                                    value,
+                                    carry="",
+                                    final=True,
+                                    source_url=url,
+                                    urls_found=urls_found,
+                                )
+                    else:
+                        with source_path.open(
+                            encoding="utf-8", errors="replace"
+                        ) as reader:
+                            extract_urls_from_reader(
+                                reader, source_url=url, urls_found=urls_found
+                            )
+                except (
+                    OSError,
+                    ValueError,
+                    csv.Error,
+                    zipfile.BadZipFile,
+                    ET.ParseError,
+                    RuntimeError,
+                ) as error:
+                    print(f"Cannot parse {source_path}: {error}", file=sys.stderr)
         elif (file_content := read_file_url_text(url)) is not None:
             readers = [io.StringIO(file_content)]
         elif url.startswith(("http://", "https://")):
@@ -190,30 +251,12 @@ def main(
             readers = []
 
         for reader in readers:
-            carry = ""
             with reader:
-                while True:
-                    chunk = reader.read(READ_CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    carry = add_urls_from_text_chunk(
-                        chunk,
-                        carry=carry,
-                        final=False,
-                        source_url=url,
-                        urls_found=urls_found,
-                    )
-            add_urls_from_text_chunk(
-                "",
-                carry=carry,
-                final=True,
-                source_url=url,
-                urls_found=urls_found,
-            )
+                extract_urls_from_reader(reader, source_url=url, urls_found=urls_found)
     except Exception as e:
         if url.startswith(("http://", "https://")):
-            # Snapshot URL fetching is only a fallback when no staticfile import
-            # artifact exists. Normal webpages, blocked requests, or transient
+            # Snapshot URL fetching is only a fallback when no saved text or
+            # document exists. Normal webpages, blocked requests, or transient
             # network errors should not make this parser hook look broken.
             status, output_str = persist_records([], urls_file)
             print(output_str)

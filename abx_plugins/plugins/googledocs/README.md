@@ -15,6 +15,13 @@ Run `abx-dl dl --plugins=googledocs 'https://docs.google.com/document/d/FILE_ID/
 The Chrome dependency is included automatically. Existing ArchiveBox captures
 discover this plugin through the normal plugin catalog.
 
+With `parse_txt_urls` enabled, `archivebox add --depth=1 '<document URL>'`
+discovers and archives links from the saved documents. The default DOCX/XLSX
+exports preserve labeled hyperlinks as well as visible URLs. Discovery covers
+all workbook sheets and deduplicates links across exports. See
+[Parse Text URLs](../parse_txt_urls/README.md) for supported formats and the
+generic output discovery contract used by other document/download plugins.
+
 | Document | Default exports | Additional formats |
 | --- | --- | --- |
 | Docs | DOCX, PDF | ODT, RTF, TXT, Markdown, HTML ZIP, EPUB |
