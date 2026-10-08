@@ -15,6 +15,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from urllib.request import urlopen
 import pytest
 
 from abx_plugins.plugins.base.testing import (
@@ -245,6 +246,80 @@ def test_real_public_paper_download():
         assert output_path.stat().st_size > 0, (
             f"Downloaded paper file is empty: {output_path}"
         )
+
+
+@pytest.mark.parametrize("saved_html", [False, True])
+def test_download_paper_linked_from_article(tmp_path, saved_html):
+    """Download the paper linked by a real page whose own URL has no identifier."""
+    article_url = "https://huggingface.co/papers/1706.03762"
+    if saved_html:
+        with urlopen(article_url, timeout=30) as response:
+            content = response.read()
+        assert b"https://arxiv.org/abs/1706.03762" in content
+        dom = tmp_path / "dom" / "output.html"
+        dom.parent.mkdir()
+        dom.write_bytes(content)
+
+    result = subprocess.run(
+        [str(PAPERSDL_HOOK), "--url", article_url],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+            "PAPERSDL_TIMEOUT": "120",
+            "SNAP_DIR": str(tmp_path),
+        },
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout + result.stderr
+    pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
+    assert len(pdfs) == 1, pdfs
+    assert pdfs[0].read_bytes().startswith(b"%PDF-"), pdfs[0]
+    assert record["output_str"] == f"papersdl/{pdfs[0].name}", record
+
+
+def test_download_linked_and_inline_citations(tmp_path):
+    """Real PDFs for linked DOI aliases and an unlinked inline arXiv citation."""
+    dom = tmp_path / "dom" / "output.html"
+    dom.parent.mkdir()
+    dom.write_text(
+        """<!doctype html><html><head>
+        <meta name="citation_doi" content="10.48550/arXiv.1706.03762">
+        </head><body><article>
+        <p>The Transformer paper is
+        <a href="https://doi.org/10.48550%2FarXiv.1706.03762?source=citation">Attention Is All You Need</a>
+        (DOI: 10.48550/arXiv.<em>1706.03762</em>).
+        Its <a href="https://arxiv.org/pdf/1706.03762.pdf">PDF</a> is also available.</p>
+        <p>BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding
+        (arXiv: 1810.04805).</p>
+        </article></body></html>""",
+    )
+    result = subprocess.run(
+        [str(PAPERSDL_HOOK), "--url", "https://example.com/research-notes"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+            "PAPERSDL_TIMEOUT": "120",
+            "SNAP_DIR": str(tmp_path),
+        },
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "succeeded",
+        "output_str": "2 PDFs downloaded",
+    }, result.stdout + result.stderr
+    pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
+    assert len(pdfs) == 2, pdfs
+    assert all(path.read_bytes().startswith(b"%PDF-") for path in pdfs)
 
 
 if __name__ == "__main__":
