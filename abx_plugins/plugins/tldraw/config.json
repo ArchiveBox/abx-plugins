@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tldraw",
+  "description": "Save editable tldraw files and SVG previews of the current page.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/json",
+    "image/svg+xml"
+  ],
+  "properties": {
+    "TLDRAW_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Export tldraw files and SVG previews"
+    },
+    "TLDRAW_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total export/download timeout in seconds"
+    }
+  },
+  "category": "media",
+  "display_order": 205,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}

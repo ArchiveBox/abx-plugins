@@ -77,7 +77,25 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
         text=True,
         check=True,
     )
-    matrix = json.loads(result.stdout.removeprefix("test-matrix="))
+    outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    ordinary = json.loads(outputs["test-matrix"])
+    authenticated = json.loads(outputs["provider-matrix"])
+    matrix = ordinary + authenticated
+    auth_paths = {
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in PLUGINS_ROOT.rglob("test_*.py")
+        if "# ci-environment: provider-capture" in path.read_text().splitlines()[:5]
+    }
+    assert len(auth_paths) == 3
+    assert {path for item in authenticated for path in item["paths"]} == auth_paths
+    assert not auth_paths & {path for item in ordinary for path in item["paths"]}
+    assert all(
+        item["os"] == "ubuntu-24.04"
+        and item["python"] == "3.13"
+        and item["ugnas"] is False
+        and item["workers"] == 0
+        for item in authenticated
+    )
     expected = sorted(
         path.relative_to(REPO_ROOT).as_posix()
         for path in {
@@ -102,6 +120,9 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     for index, path in enumerate(expected):
         os_name, python = cells[index % len(cells)]
         header = (REPO_ROOT / path).read_text().splitlines()[:5]
+        if "# ci-environment: provider-capture" in header:
+            expected_assignments.append((path, "ubuntu-24.04", "3.13"))
+            continue
         if "# ci-runner: hosted-linux" in header:
             os_name = "ubuntu-24.04"
         if platform == "macos":

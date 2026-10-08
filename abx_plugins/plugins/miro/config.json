@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Miro",
+  "description": "Save Miro boards as PDF, with editable backups when permitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/json",
+    "application/octet-stream",
+    "application/pdf"
+  ],
+  "properties": {
+    "MIRO_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Export Miro boards"
+    },
+    "MIRO_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total export/download timeout in seconds"
+    }
+  },
+  "category": "media",
+  "display_order": 208,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}

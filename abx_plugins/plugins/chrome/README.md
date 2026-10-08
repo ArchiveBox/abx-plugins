@@ -83,6 +83,11 @@ path selects an existing browser, and `CHROME_CDP_URL` adopts a running browser.
 | `CHROME_ARGS`           | see config                                   | Static Chromium flags, including `--enable-features=ThrottleMainFrameTo60Hz` for compositor frame pacing. |
 | `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |
 
+The default flags disable Blink's `FileSystemAccessLocal` so applications such
+as Excalidraw use their supported browser-download fallback. Native save pickers
+cannot complete unattended headless saving and do not emit browser download
+events for CDP capture. Origin-private filesystem storage remains available.
+
 Cached extensions belonging to bundled plugins follow `PLUGINS` selection
 (including required plugin dependencies) and their `<PLUGIN>_ENABLED` setting.
 With no explicit selection, the enabled settings apply. Other user-managed

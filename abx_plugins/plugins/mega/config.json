@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MEGA",
+  "description": "Request MEGA file/folder downloads through Chrome (live capture remains unverified).",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/json",
+    "application/octet-stream"
+  ],
+  "properties": {
+    "MEGA_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Request MEGA public-share downloads"
+    },
+    "MEGA_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total provider download/decryption timeout in seconds"
+    }
+  },
+  "category": "media",
+  "display_order": 213,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json"
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OneDrive",
+  "description": "Save original files from public OneDrive Personal shares.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/json",
+    "application/octet-stream"
+  ],
+  "properties": {
+    "ONEDRIVE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Save OneDrive shared files"
+    },
+    "ONEDRIVE_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total export/download timeout in seconds"
+    }
+  },
+  "category": "media",
+  "display_order": 201,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}

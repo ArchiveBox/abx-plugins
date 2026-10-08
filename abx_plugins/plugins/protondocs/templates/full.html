@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Proton Docs exports</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #202b36;
+        --muted: #64748b;
+        --line: #e2e6eb;
+        --accent: #2563eb;
+        --tint: #eff6ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background: white;
+        color: var(--ink);
+        font: 14px/1.5 system-ui, -apple-system, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--tint);
+        color: var(--accent);
+        font-size: 24px;
+      }
+      .heading {
+        min-width: 0;
+        flex: 1;
+      }
+      h1 {
+        font-size: 17px;
+        line-height: 1.3;
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .subtitle {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      nav,
+      .formats {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      nav a,
+      .format {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: white;
+        color: var(--ink);
+        padding: 7px 10px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      nav a:hover,
+      .format:hover {
+        background: #f1f5f9;
+      }
+      .format {
+        cursor: pointer;
+        font: 600 12px/1.75 system-ui, sans-serif;
+      }
+      .format[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--tint);
+        color: var(--accent);
+      }
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      main {
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      h2 {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 14px;
+        margin: 0;
+      }
+      #download {
+        flex-shrink: 0;
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .note {
+        margin: 0;
+        padding: 8px 16px;
+        background: #f8fafc;
+        color: var(--muted);
+        font-size: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      iframe {
+        display: block;
+        width: 100%;
+        min-height: 0;
+        flex: 1;
+        border: 0;
+        background: #eef0f3;
+      }
+      .empty {
+        padding: 64px 24px;
+        text-align: center;
+        color: var(--muted);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 700px) {
+        header {
+          padding: 12px;
+        }
+        nav {
+          width: 100%;
+        }
+        nav .label {
+          display: none;
+        }
+        nav a,
+        .format {
+          min-height: 40px;
+        }
+        .mark {
+          width: 32px;
+          height: 38px;
+        }
+        h1 {
+          font-size: 15px;
+        }
+        .panel-head {
+          padding: 10px 12px;
+        }
+      }
+    </style>
+  </head>
+  <body data-output="{{ output_path }}">
+    <header>
+      <span class="mark" aria-hidden="true">▤</span>
+      <div class="heading">
+        <h1 id="title">Proton Docs exports</h1>
+        <p class="subtitle" id="summary">Saved document formats</p>
+      </div>
+      <nav aria-label="Output actions">
+        <div
+          class="formats"
+          id="formats"
+          role="group"
+          aria-label="Available formats"
+        ></div>
+        <a id="files" title="View all files" aria-label="View all files"
+          >📁<span class="label">View all files</span></a
+        >
+        <a
+          id="raw"
+          title="View export manifest"
+          aria-label="View export manifest"
+          >&lt;/&gt;<span class="label">View raw</span></a
+        >
+      </nav>
+    </header>
+    <main aria-label="Document preview">
+      <div class="panel-head">
+        <h2 id="preview-title">Preview</h2>
+        <a id="download" download hidden>⤓ Download</a>
+      </div>
+      <p class="note" id="note" hidden></p>
+      <iframe id="preview" title="Saved document preview" hidden></iframe>
+      <p class="empty" id="empty" role="status">Loading exports…</p>
+    </main>
+    <script>
+      (() => {
+        const byId = (id) => document.getElementById(id);
+        const output = new URL(document.body.dataset.output, document.baseURI);
+        output.search = "";
+        output.hash = "";
+        const raw = (value) => {
+          const url = new URL(value);
+          url.searchParams.set("raw", "1");
+          return url.href;
+        };
+        const fileUrl = (item) =>
+          new URL(
+            item.path.split("/").map(encodeURIComponent).join("/"),
+            output
+          );
+        const filesUrl = new URL("files/?files=1", output);
+        byId("files").href = filesUrl.href;
+        byId("raw").href = raw(output);
+        const sizeLabel = (size) =>
+          size >= 1048576
+            ? (size / 1048576).toFixed(1) + " MB"
+            : size >= 1024
+            ? Math.ceil(size / 1024) + " KB"
+            : size + " B";
+        const imageFormats = [
+          "svg",
+          "png",
+          "jpg",
+          "jpeg",
+          "webp",
+          "gif",
+          "avif",
+        ];
+        const previewOrder = [
+          "pdf",
+          "html",
+          ...imageFormats,
+          "md",
+          "txt",
+          "csv",
+          "tsv",
+          "zip",
+        ];
+        let files = [],
+          best;
+        function select(item) {
+          for (const button of byId("formats").children)
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.path === item.path)
+            );
+          const url = fileUrl(item);
+          byId("download").href = raw(url);
+          byId("download").download = item.filename;
+          byId("download").textContent =
+            "⤓ Download " + item.format.toUpperCase();
+          byId("download").hidden = false;
+          byId("preview-title").textContent = item.filename;
+          const shown = previewOrder.includes(item.format) ? item : best;
+          byId("note").hidden = !shown || shown === item;
+          if (shown && shown !== item)
+            byId("note").textContent =
+              shown.format.toUpperCase() +
+              " preview · Download " +
+              item.format.toUpperCase() +
+              " for the original export.";
+          if (!shown) {
+            byId("preview").hidden = true;
+            byId("empty").hidden = false;
+            byId("empty").textContent =
+              "Download this export to open it in a compatible application, or view all saved files.";
+            return;
+          }
+          const preview = fileUrl(shown);
+          if (
+            imageFormats.includes(shown.format) ||
+            ["txt", "csv", "tsv", "zip"].includes(shown.format)
+          ) {
+            preview.searchParams.set("preview", "1");
+            preview.searchParams.set("raw", "1");
+          }
+          if (shown.format === "pdf") preview.hash = "view=FitH";
+          byId("preview").src = preview.href;
+          byId("preview").hidden = false;
+          byId("empty").hidden = true;
+        }
+        fetch(raw(output))
+          .then((response) => {
+            if (!response.ok) throw Error("Export manifest unavailable");
+            return response.json();
+          })
+          .then((manifest) => {
+            byId("title").textContent = manifest.title || "Proton Docs exports";
+            files = (manifest.files || []).filter((item) => {
+              if (
+                typeof item.path !== "string" ||
+                typeof item.format !== "string" ||
+                typeof item.filename !== "string"
+              )
+                return false;
+              const url = fileUrl(item);
+              return (
+                item.path.startsWith("files/") &&
+                url.origin === output.origin &&
+                url.pathname.startsWith(filesUrl.pathname) &&
+                !url.search &&
+                !url.hash
+              );
+            });
+            if (!files.length) throw Error("No exports saved");
+            const formats = [...new Set(files.map((item) => item.format))];
+            byId("summary").textContent =
+              formats.length +
+              (formats.length === 1 ? " format · " : " formats · ") +
+              sizeLabel(
+                files.reduce((sum, item) => sum + (Number(item.size) || 0), 0)
+              );
+            if (
+              files.some((item) => item.filename.includes("/")) ||
+              formats.length !== files.length
+            ) {
+              location.replace(filesUrl.href);
+              return;
+            }
+            for (const item of files) {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "format";
+              button.dataset.path = item.path;
+              button.textContent = item.format.toUpperCase();
+              button.title = item.filename + " · " + sizeLabel(item.size);
+              button.setAttribute("aria-pressed", "false");
+              button.addEventListener("click", () => select(item));
+              byId("formats").append(button);
+            }
+            best = previewOrder
+              .map((format) => files.find((item) => item.format === format))
+              .find(Boolean);
+            select(best || files[0]);
+          })
+          .catch((error) => {
+            byId("empty").hidden = false;
+            byId("empty").textContent = error.message;
+          });
+      })();
+    </script>
+  </body>
+</html>

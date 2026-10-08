@@ -230,7 +230,7 @@ from abx_plugins.plugins.base.testing import (
   - the exception to always overwriting files is: chrome.pid. target_id.txt, navigation.json, etc. chrome state which gets reused if it's not stale. we should detect if any of it is stale during chrome launch and tab creation, and clear all of it together if it is stale to prevent subtle drift errors / reuse of stale values.
   - status `succeeded` if they ran and produced output
   - status `noresults` if they ran successfully but produced no meaningful output (e.g. git on a non-github url, ytdlp on a site with no media, paperdl on a site with no pdfs, etc.)
-  - status `skipped` if only if *config* caused them not to run (e.g. `YTDLP_ENABLED=False`)
+  - status `skipped` if config disables them (e.g. `YTDLP_ENABLED=False`) or an explicit provider authentication/export-permission prerequisite is unavailable; navigation, missing-control and invalid-content errors remain `failed`
   - status `failed` if any hard dependencies are missing/invalid (e.g. chrome) or if the process exited non-0 / raised an exception
   - return a short, meaningful `output_str` e.g. the page title, mimetype, return status code, or the relative path of the primary output file produced like `output.pdf` or `0 modals closed` or `The Page Title Verbatim` or `favicon.io` or `Not a git URL`
   - define execution order solely using lexicographic sort order of hook filenames
@@ -251,3 +251,19 @@ Hooks emit plain JSONL records to stdout. The current hook families and records 
 `abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.
 
 <img width="391" height="149" alt="Screenshot 2026-09-20 at 6 17 27 AM" src="https://github.com/user-attachments/assets/bcd4f84e-09db-4f8a-9913-164823be0b79" /><img width="389" height="456" alt="Screenshot 2026-09-20 at 6 17 44 AM" src="https://github.com/user-attachments/assets/4bb945b7-2496-4d8d-b51a-9841fd700eee" />
+
+## Authenticated provider CI
+
+Test files declaring `# ci-environment: provider-capture` are discovered exactly
+once in a separate acceptance matrix. Ordinary PR jobs run without provider
+credentials. Authenticated tests run only from this repository's trusted `main`
+branch in the `provider-capture` GitHub environment, using the environment secret
+`PROVIDER_AUTH_STORAGE_JSON` as the normal Chrome `AUTH_STORAGE_FILE`.
+
+Use authorized storage-state JSON scoped to Figma, Miro and Canva. Missing or
+expired authentication fails acceptance rather than skipping tests. Linux hosted
+jobs use Xvfb for headed Chrome and Poppler for actual PDF content checks. Auth
+files have mode 600; auth files and browser/profile/test output are removed after
+every run. These jobs do not cache browser sessions or upload capture/log
+artifacts. Local acceptance requires an explicit `AUTH_STORAGE_FILE` and the
+provider's documented access/export permissions.

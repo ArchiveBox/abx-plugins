@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Microsoft 365",
+  "description": "Save SharePoint preview files and original Office web-viewer documents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/json",
+    "application/msword",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/pdf"
+  ],
+  "properties": {
+    "MICROSOFT365_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Save Microsoft 365 shared documents"
+    },
+    "MICROSOFT365_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Total export/download timeout in seconds"
+    }
+  },
+  "category": "text",
+  "display_order": 202,
+  "snapshot_output_group": "embedded_media",
+  "default_output_path": "downloads.json",
+  "screenshot": "screenshot.json"
+}
