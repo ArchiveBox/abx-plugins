@@ -95,7 +95,18 @@ async function main() {
     });
     const click = async (selector) => {
       phase = `Clicking ${selector}`;
-      await page.locator(selector).setTimeout(remaining()).click();
+      // These menus/dialog buttons have static bounds once visible. Locator's
+      // two-frame stability wait costs seconds on Linux background tabs, where
+      // requestAnimationFrame runs at 1Hz despite focus emulation.
+      const element = await page.waitForSelector(selector, {
+        visible: true,
+        timeout: remaining(),
+      });
+      try {
+        await element.click();
+      } finally {
+        await element.dispose();
+      }
     };
     downloads = await captureBrowserDownloads({
       browser,

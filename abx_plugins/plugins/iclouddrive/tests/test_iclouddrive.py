@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 from abx_plugins.plugins.base.testing import parse_jsonl_output
@@ -13,7 +14,26 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_iclouddrive.js"
 
 def test_public_pdf(tmp_path, ensure_chrome_test_prereqs):
     assert HOOK.is_file(), "iCloud Drive hook is missing"
-    with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome, env):
+    extra_args = os.environ.get("CHROME_ARGS_EXTRA", "").strip()
+    extra_args = (
+        json.loads(extra_args)
+        if extra_args.startswith("[")
+        else [arg.strip() for arg in extra_args.split(",") if arg.strip()]
+    )
+    with chrome_session(
+        tmp_path,
+        test_url=URL,
+        timeout=60,
+        env_overrides={
+            "CHROME_ARGS_EXTRA": json.dumps(
+                extra_args
+                + [
+                    f"--log-net-log={tmp_path / 'chrome-net.log'}",
+                    "--net-log-capture-mode=Default",
+                ],
+            ),
+        },
+    ) as (_, _, chrome, env):
         result = subprocess.run(
             [str(HOOK), f"--url={URL}"],
             cwd=chrome.parent,
