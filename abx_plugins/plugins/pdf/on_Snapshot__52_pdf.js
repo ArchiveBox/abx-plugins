@@ -95,6 +95,8 @@ async function printToPdf(url, timeoutMs) {
     // Print to PDF
     console.log("rendering page to PDF...");
     await page.pdf({
+      // Keep rendering on the configured deadline, not Puppeteer's implicit 30s.
+      timeout: timeoutMs,
       path: tempOutputPath,
       format: "A4",
       printBackground: true,

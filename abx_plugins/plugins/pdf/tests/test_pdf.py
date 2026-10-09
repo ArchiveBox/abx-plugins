@@ -11,11 +11,14 @@ Tests verify:
 7. Config options work
 """
 
+import json
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
 
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
@@ -24,6 +27,7 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_UTILS,
     chrome_session,
     get_test_env,
 )
@@ -106,6 +110,97 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
         preview_file = pdf_dir / "preview.png"
         assert preview_file.is_file(), "First PDF page should have a card preview"
         assert preview_file.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_pdf_render_honors_configured_timeout(tmp_path, httpserver, chrome_test_url):
+    """A real pending web font must use PDF_TIMEOUT, not Puppeteer's 30s default."""
+    font_started = threading.Event()
+    release_font = threading.Event()
+
+    def pending_font(_request):
+        font_started.set()
+        release_font.wait(timeout=60)
+        return Response(status=404)
+
+    httpserver.expect_request("/pending-font.woff2").respond_with_handler(pending_font)
+    with chrome_session(tmp_path, test_url=chrome_test_url, timeout=30) as (
+        _process,
+        _pid,
+        snapshot_chrome_dir,
+        env,
+    ):
+        env = env | {"PDF_TIMEOUT": "45"}
+        pdf_dir = snapshot_chrome_dir.parent / "pdf"
+        pdf_dir.mkdir(exist_ok=True)
+        command = [str(PDF_HOOK), f"--url={chrome_test_url}"]
+        first = subprocess.run(
+            command,
+            cwd=pdf_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert first.returncode == 0, first.stderr
+        pdf_file = pdf_dir / "output.pdf"
+        original = pdf_file.read_bytes()
+        assert original.startswith(b"%PDF")
+
+        script = (
+            f"const utils = require({json.dumps(str(CHROME_UTILS))});\n"
+            + """
+        (async () => {
+          const { browser, page } = await utils.connectToPage({chromeSessionDir: process.argv[1]});
+          try {
+            const status = await page.evaluate((url) => {
+              const font = new FontFace('PendingCaptureFont', `url(${url})`);
+              document.fonts.add(font);
+              font.load().catch(() => {});
+              return document.fonts.status;
+            }, process.argv[2]);
+            process.stdout.write(status);
+          } finally {
+            browser.disconnect();
+          }
+        })().catch(error => { console.error(error); process.exit(1); });
+        """
+        )
+        font_timer = threading.Timer(35, release_font.set)
+        try:
+            loading = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    script,
+                    str(snapshot_chrome_dir),
+                    httpserver.url_for("/pending-font.woff2"),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            assert loading.returncode == 0, loading.stderr
+            assert loading.stdout == "loading"
+            assert font_started.wait(timeout=5), "Chrome never requested the web font"
+            # Keep the font pending beyond Puppeteer's implicit 30s, but inside
+            # the configured PDF/CDP limit; a shorter limit tests CDP instead.
+            font_timer.start()
+            completed = subprocess.run(
+                command,
+                cwd=pdf_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=55,
+            )
+            assert completed.returncode == 0, completed.stderr
+            record = parse_jsonl_output(completed.stdout)
+            assert record and record["status"] == "succeeded", completed.stdout
+            assert pdf_file.read_bytes().startswith(b"%PDF")
+        finally:
+            font_timer.cancel()
+            release_font.set()
 
 
 def test_config_save_pdf_false_skips():
