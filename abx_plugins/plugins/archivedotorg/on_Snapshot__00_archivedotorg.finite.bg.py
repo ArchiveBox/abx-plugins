@@ -81,6 +81,25 @@ def should_skip_archivedotorg_url(url: str) -> str:
     return ""
 
 
+def log_http_error(error: HTTPError) -> None:
+    # Keep service rejection evidence without dumping cookies or unbounded HTML.
+    print(f"[archivedotorg] HTTP {error.code}", file=sys.stderr)
+    for name in ("Content-Type", "Retry-After"):
+        if value := error.headers.get(name):
+            print(f"[archivedotorg] {name}: {value[:256]}", file=sys.stderr)
+    try:
+        body = error.read(2048).decode("utf-8", errors="replace")
+        print(
+            f"[archivedotorg] Error response body (first 2048 bytes): {body!r}",
+            file=sys.stderr,
+        )
+    except OSError as exc:
+        print(
+            f"[archivedotorg] Error response body unavailable: {type(exc).__name__}",
+            file=sys.stderr,
+        )
+
+
 def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     """
     Submit URL to archive.org Wayback Machine.
@@ -141,6 +160,7 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         return False, None, "Archive.org returned no archive URL"
 
     except HTTPError as e:
+        log_http_error(e)
         return False, None, f"Archive.org returned HTTP {e.code}"
     except TimeoutError:
         return False, None, f"Request timed out after {timeout} seconds"

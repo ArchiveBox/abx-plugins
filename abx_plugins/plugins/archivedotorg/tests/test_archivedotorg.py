@@ -7,8 +7,11 @@ Tests verify standalone archive.org extractor execution.
 import os
 import socket
 import subprocess
+import sys
 import tempfile
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 import pytest
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
@@ -19,6 +22,60 @@ if _ARCHIVEDOTORG_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 ARCHIVEDOTORG_HOOK = _ARCHIVEDOTORG_HOOK
 TEST_URL = "https://example.com"
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["GET", "X" * 4096],
+    ids=["missing-file", "oversized-error"],
+)
+def test_http_error_diagnostics_from_real_static_server(tmp_path, method):
+    # The standard static server supplies real 404/501 errors, not a replacement
+    # Wayback handler. The unsupported method also gives us an oversized body.
+    with ThreadingHTTPServer(("127.0.0.1", 0), SimpleHTTPRequestHandler) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    """
+import runpy, sys
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+hook = runpy.run_path(sys.argv[1])
+try:
+    urlopen(Request(sys.argv[2], method=sys.argv[3]), timeout=5)
+except HTTPError as error:
+    hook['log_http_error'](error)
+else:
+    raise AssertionError('Static server request should fail')
+""",
+                    str(ARCHIVEDOTORG_HOOK),
+                    f"http://127.0.0.1:{server.server_port}/missing-archivebox-diagnostic-file",
+                    method,
+                ],
+                cwd=tmp_path,
+                env={**os.environ, "SNAP_DIR": str(tmp_path)},
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        finally:
+            server.shutdown()
+            thread.join()
+    assert result.returncode == 0, result.stderr
+    assert f"HTTP {404 if method == 'GET' else 501}" in result.stderr
+    assert "Content-Type: text/html;charset=utf-8" in result.stderr
+    assert "[archivedotorg] Server:" not in result.stderr
+    assert "[archivedotorg] Date:" not in result.stderr
+    assert "Error response" in result.stderr
+    assert (
+        "File not found" if method == "GET" else "Unsupported method"
+    ) in result.stderr
+    assert len(result.stderr) < 2600, result.stderr
+    assert not (tmp_path / "archivedotorg" / "archive.org.txt").exists()
 
 
 def test_connection_failure_preserves_previous_archive(tmp_path):
