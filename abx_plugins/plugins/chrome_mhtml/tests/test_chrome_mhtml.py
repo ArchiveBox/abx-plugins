@@ -3,9 +3,12 @@
 import os
 import subprocess
 import tempfile
+from email import policy
+from email.parser import BytesParser
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import sync_playwright
 from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.testing import (
@@ -88,6 +91,81 @@ def test_mhtml_preview_templates_live_with_mhtml_plugins(plugin_name):
         "renderMhtmlToHtml" in full_template.read_text()
         or "?preview=1" in full_template.read_text()
     )
+
+
+@pytest.mark.parametrize("directory", ["chrome_extension_mhtml", "chrome_mhtml"])
+@pytest.mark.parametrize("blank_frame", [False, True])
+def test_mhtml_preview_selects_main_document(
+    httpserver,
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    directory,
+    blank_frame,
+):
+    """Replay real Chrome captures through the card and full viewer templates."""
+    child = '<iframe srcdoc=""></iframe>' if blank_frame else ""
+    httpserver.expect_request("/source").respond_with_data(
+        f"<!doctype html><html><body><h1>{MHTML_PARENT_TOKEN}</h1>{child}</body></html>",
+        content_type="text/html",
+    )
+    output_path = f"/{directory}/snapshot.mhtml"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=ensure_chrome_test_prereqs,
+        )
+        page = browser.new_page()
+        page.goto(httpserver.url_for("/source"))
+        mhtml = (
+            page.context.new_cdp_session(page)
+            .send(
+                "Page.captureSnapshot",
+                {"format": "mhtml"},
+            )["data"]
+            .encode()
+        )
+        if blank_frame:
+            parts = BytesParser(policy=policy.default).parsebytes(mhtml).walk()
+            assert any(
+                part.get_content_type() == "text/html" and not part["Content-Location"]
+                for part in parts
+            )
+        saved = tmp_path / "snapshot.mhtml"
+        saved.write_bytes(mhtml)
+        httpserver.expect_request(output_path, query_string="").respond_with_data(
+            saved.read_bytes(),
+            content_type="multipart/related",
+        )
+        viewer = (PLUGIN_DIR / "templates/full.html").read_text()
+        viewer = viewer.replace("{{ output_path }}", output_path).replace(
+            '{{ output_path_raw|default:"snapshot.mhtml" }}',
+            "snapshot.mhtml",
+        )
+        httpserver.expect_request(
+            output_path,
+            query_string="preview=1",
+        ).respond_with_data(viewer, content_type="text/html")
+        card = (
+            (PLUGIN_DIR / "templates/card.html")
+            .read_text()
+            .replace(
+                "{{ output_path }}",
+                output_path,
+            )
+        )
+        httpserver.expect_request("/card.html").respond_with_data(
+            card,
+            content_type="text/html",
+        )
+        page.goto(httpserver.url_for("/card.html"))
+        rendered = page.locator("iframe").content_frame.locator("iframe").content_frame
+        assert rendered.locator("h1").inner_text() == MHTML_PARENT_TOKEN
+        page.goto(httpserver.url_for(output_path) + "?preview=1")
+        assert (
+            page.locator("iframe").content_frame.locator("h1").inner_text()
+            == MHTML_PARENT_TOKEN
+        )
+        assert saved.read_bytes() == mhtml
+        browser.close()
 
 
 def test_extracts_mhtml_from_cross_site_iframe(

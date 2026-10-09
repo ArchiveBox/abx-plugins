@@ -194,6 +194,24 @@ def test_handles_non_video_url(non_video_test_url, ytdlp_runtime_env):
         assert result_json["output_str"] == "No media found", result_json
 
 
+def test_twitter_post_without_video_reports_noresults(tmp_path, ytdlp_runtime_env):
+    """A real image-only post is a successful media check with no video to save."""
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url=https://x.com/dysmemic/status/2108398189862957386"],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "No video could be found in this tweet" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "noresults", result.stdout
+    assert record["output_str"] == "No media found", record
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
 def test_config_ytdlp_enabled_false_skips(ytdlp_runtime_env):
     """Test that YTDLP_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:
