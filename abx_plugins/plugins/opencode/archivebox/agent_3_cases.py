@@ -1,11 +1,13 @@
 import asyncio
+import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import quote
 
 import pytest
 
-from archivebox.tests.conftest import ADMIN_TEST_HOST
+from archivebox.tests.conftest import ADMIN_TEST_HOST, API_TEST_HOST
 
 
 from archivebox.tests.conftest import (
@@ -51,7 +53,133 @@ def test_opencode_cold_agent_wrapper_returns_before_server_starts(
     )
 
 
-def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):
+@pytest.mark.parametrize(
+    "task_route,task_host",
+    [
+        ("/admin/agent/tasks/", ADMIN_TEST_HOST),
+        ("/api/v1/agent/tasks/", API_TEST_HOST),
+    ],
+)
+def test_opencode_proxy_serves_real_project_and_session(
+    admin_client,
+    admin_user,
+    snapshot,
+    live_opencode,
+    task_route,
+    task_host,
+):
+    from django.test import Client
+    from archivebox.api.models import APIToken
+
+    snapshot.title = "Capture task fixture"
+    snapshot.save(update_fields=["title"])
+    token = APIToken.objects.create(created_by=admin_user)
+    client = Client(enforce_csrf_checks=True)
+    payload = {
+        "snapshot_id": str(snapshot.id),
+        "task": "Reply with CAPTURE_TASK_ACCEPTED. Do not modify any files.",
+    }
+    for route in ("/admin/agent/tasks/", "/api/v1/agent/tasks/"):
+        denied = client.post(
+            route,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert denied.status_code == 401
+
+    def submit(data, auth_token=token.token):
+        return client.post(
+            task_route,
+            data=json.dumps(data),
+            content_type="application/json",
+            HTTP_HOST=task_host,
+            HTTP_AUTHORIZATION=f"Bearer {auth_token}",
+        )
+
+    assert submit(payload, "invalid").status_code == 401
+    assert (
+        admin_client.post(
+            task_route,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_HOST=task_host,
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            task_route + "?api_key=" + token.token,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_HOST=task_host,
+        ).status_code
+        == 401
+    )
+    for invalid in (
+        [],
+        {},
+        {**payload, "task": " "},
+        {**payload, "task": 42},
+        {**payload, "task": "x" * 8001},
+        {**payload, "snapshot_id": "invalid"},
+    ):
+        assert submit(invalid).status_code == 400
+    assert (
+        submit(
+            {**payload, "snapshot_id": "00000000-0000-4000-8000-000000000000"},
+        ).status_code
+        == 404
+    )
+    admin_user.is_active = False
+    admin_user.save(update_fields=["is_active"])
+    assert submit(payload).status_code == 403
+    admin_user.is_active = True
+    admin_user.is_superuser = False
+    admin_user.save(update_fields=["is_active", "is_superuser"])
+    assert submit(payload).status_code == 403
+    admin_user.is_superuser = True
+    admin_user.save(update_fields=["is_superuser"])
+    response = client.post(
+        task_route,
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_HOST=task_host,
+        HTTP_AUTHORIZATION=f"Bearer {token.token}",
+        HTTP_ORIGIN="chrome-extension://test-extension",
+    )
+    assert response.status_code == 201, response.content
+    task = response.json()
+    assert task["session_id"].startswith("ses_")
+    assert task["snapshot_id"] == str(snapshot.id)
+    assert task["session_url"].endswith("/admin/agent/?session=" + task["session_id"])
+    deadline = time.monotonic() + 10
+    while True:
+        messages = admin_client.get(
+            f"/admin/agent/opencode/session/{task['session_id']}/message",
+            HTTP_HOST=ADMIN_TEST_HOST,
+        ).json()
+        if messages or time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    prompt = next(
+        part["text"]
+        for message in messages
+        if message["info"]["role"] == "user"
+        for part in message["parts"]
+        if part["type"] == "text"
+    )
+    assert str(snapshot.id) in prompt
+    assert snapshot.url in prompt
+    assert snapshot.title in prompt
+    assert payload["task"] in prompt
+    task_page = admin_client.get(
+        "/admin/agent/",
+        {"session": task["session_id"]},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert task_page.context["proxy_url"].endswith("/session/" + task["session_id"])
+
     workdir = str(live_opencode.config.data_dir.resolve())
     encoded_workdir = quote(workdir)
 

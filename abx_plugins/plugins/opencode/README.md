@@ -67,6 +67,28 @@ the abx-dl downloader image does not include OpenCode.
 The agent remains disabled by default; installing its executable does not enable
 the route or start the service.
 
+## Capture tasks
+
+The optional ArchiveBox adapter accepts a separate JSON submission at
+`POST /admin/agent/tasks/` (or `/api/v1/agent/tasks/` on the API origin):
+`{"snapshot_id": "<UUID>", "task": "save this entire site"}`.
+It requires an active superuser's API key in `Authorization: Bearer ...` or
+`X-ArchiveBox-API-Key`; cookies and query-string keys do not authorize this
+CSRF-exempt endpoint. The ordinary agent UI/proxy still requires its admin session.
+
+The adapter loads authoritative snapshot metadata, starts the existing collection
+runtime, creates a new session in its normal OpenCode database, and submits the
+context and user task through `prompt_async`. It returns HTTP 201 with `session_id`,
+`snapshot_id`, and an admin `session_url`. `/admin/agent/?session=ses_...` selects
+that session in the embedded UI. Acceptance means submitted, not task completion.
+Disabled agents return 409; invalid/missing snapshots or tasks return 400/404;
+service failures return 503. The extension preserves its form on failure.
+
+The API alias avoids redirecting a credentialed POST between API and admin hosts.
+No host dependency changes are needed; the normal plugin publication cascade
+carries these routes into ArchiveBox. Real host integration coverage lives in
+`archivebox/agent_3_cases.py`, imported by ArchiveBox's existing agent suite.
+
 ## Live browsers
 
 The right side of `/admin/agent/` lists Chrome processes and their real tabs.
@@ -111,3 +133,21 @@ published once per background refresh to local temporary storage. Missing/stale
 samples remain visibly unknown; the agent starts no additional OS sampler.
 Context is queried on demand, never on the preview polling path. `ONLY_NEW=True`
 is the documented default unless the administrator asks to recapture URLs.
+
+
+## Web browsing and visual checks
+
+The managed browser skill is loaded as a system instruction for every session,
+including existing collections. It directs the agent to Browser Harness or
+Stagehand after a Webfetch failure, or immediately for JavaScript, authenticated
+pages, interactions, or visual checks. Webfetch does not inherit browser cookies;
+ArchiveBox CLI/shell handles authenticated server operations.
+
+Both clients can save a screenshot of the explicitly selected live tab. The skill
+includes native screenshot examples and instructs image-capable models to open
+the PNG with OpenCode's `read` tool before claiming visual verification. Evidence
+lives under `opencode/screenshots/`, outside captured snapshot payloads.
+
+Dependency resolution preserves the host's Python environment. Browser clients
+use their own installed interpreters without projecting unrelated downloader
+packages into ArchiveBox CLI subprocesses.

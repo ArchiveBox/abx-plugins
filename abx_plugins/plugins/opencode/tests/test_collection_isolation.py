@@ -39,6 +39,33 @@ def rg_binary(opencode_env):
     return str(binary.abspath)
 
 
+def test_agent_child_python_uses_host_packages(tmp_path, opencode_env):
+    """Browser dependencies must not replace the host CLI's Python libraries."""
+    from abx_plugins.plugins.opencode import runtime
+
+    settings = runtime._settings(
+        {"ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"]}, tmp_path
+    )
+    _, binary_env = runtime._resolve_binary("opencode", settings["config"])
+    probe = [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-c",
+        "import sys, pydantic; print(sys.prefix); print(pydantic.__file__)",
+    ]
+    host = subprocess.run(probe, capture_output=True, text=True, check=True)
+    child = subprocess.run(
+        probe,
+        env=runtime.process_environment(settings, binary_env),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert child.stdout == host.stdout
+
+
 def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
     tmp_path,
     opencode_env,
@@ -217,6 +244,11 @@ def test_collection_is_not_a_git_project_or_file_index(
         effective = get("/config")
         assert effective["snapshot"] is False
         assert effective["username"] == "collection-test"
+        browser_skill = (
+            settings["config_home"] / "opencode/skills/archivebox-browser/SKILL.md"
+        )
+        assert str(browser_skill) in effective["instructions"]
+        assert browser_skill.is_file()
         # Verify the actual fallback indexer's traversal independently of its
         # asynchronous cache, which could otherwise be empty before indexing ends.
         indexed = subprocess.run(

@@ -254,6 +254,13 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
         providers=providers,
         base_env=binary_environ,
     )
+    # OpenCode runs the host CLI as well as browser clients. Python clients use
+    # their own venv shebangs; projecting their packages into every child mixes
+    # incompatible libraries (e.g. papers-dl cryptography with ArchiveBox).
+    for key in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
+        binary_env.pop(key, None)
+        if key in binary_environ:
+            binary_env[key] = binary_environ[key]
     binary_env["ARCHIVEBOX_STAGEHAND_MODULE"] = str(
         loaded_dependencies[-2].loaded_abspath,
     )
@@ -438,6 +445,13 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
                 "instructions": [
                     str(settings["opencode_dir"] / "SKILL.md"),
                     str(settings["opencode_dir"] / "server_context.md"),
+                    str(
+                        settings["config_home"]
+                        / "opencode"
+                        / "skills"
+                        / "archivebox-browser"
+                        / "SKILL.md",
+                    ),
                 ],
             },
         ),
