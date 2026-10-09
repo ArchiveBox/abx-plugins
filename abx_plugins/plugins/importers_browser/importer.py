@@ -19,6 +19,43 @@ from abx_plugins.plugins.base.importers import emit, read_records, read_request
 from abx_plugins.plugins.base.utils import load_config
 
 PLUGIN = Path(__file__).parent
+LEARNING_FAILURE = "OpenCode could not learn this importer; inspect the private run log and Agent provider configuration."
+
+
+class LearningError(RuntimeError):
+    """An actionable message safe to display without private provider details."""
+
+
+def learning_failure(log_file):
+    failure = None
+    with log_file.open() as log:
+        for line in log:
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(event, dict) or event.get("type") != "error":
+                continue
+            failure = LEARNING_FAILURE
+            error = event.get("error")
+            data = error.get("data") if isinstance(error, dict) else None
+            if not isinstance(data, dict):
+                continue
+            try:
+                body = json.loads(data.get("responseBody", ""))
+            except (TypeError, ValueError):
+                continue
+            detail = body.get("error") if isinstance(body, dict) else None
+            if (
+                isinstance(detail, dict)
+                and detail.get("code") == "credit_balance_exhausted"
+            ):
+                return (
+                    "OpenCode's model provider has no credits remaining. Add provider credits "
+                    "or select a funded provider in Agent settings, then run this importer again. "
+                    "The learned script and discovery progress are preserved."
+                )
+    return failure
 
 
 def validate_output(stdout, request):
@@ -148,7 +185,8 @@ def learn(
         "ARCHIVEBOX_STAGEHAND_MODULE",
         "not available",
     )
-    with (run_dir / f"learning-{attempt}.jsonl").open("w") as log:
+    log_file = run_dir / f"learning-{attempt}.jsonl"
+    with log_file.open("w") as log:
         try:
             result = subprocess.run(
                 [
@@ -174,10 +212,9 @@ def learn(
             if (candidate / "importer.py").is_file():
                 return
             raise
-    if result.returncode:
-        raise RuntimeError(
-            "OpenCode could not learn this importer; inspect the private run log and Agent provider configuration.",
-        )
+    failure = learning_failure(log_file)
+    if failure or result.returncode:
+        raise LearningError(failure or LEARNING_FAILURE)
 
 
 def main():
@@ -310,6 +347,8 @@ if __name__ == "__main__":
             {
                 "type": "ImporterResult",
                 "status": "failed",
-                "message": f"Browser importer could not complete ({type(error).__name__}). Check its run logs, persona browser, and Agent provider configuration. Progress was not advanced.",
+                "message": str(error)
+                if isinstance(error, LearningError)
+                else f"Browser importer could not complete ({type(error).__name__}). Check its run logs, persona browser, and Agent provider configuration. Progress was not advanced.",
             },
         )
