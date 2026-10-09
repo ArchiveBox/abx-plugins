@@ -210,11 +210,6 @@ async function startTargetMonitor() {
   });
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
-  if (hookConfig.BROWSER_COLOR_SCHEME) {
-    await monitorPage.emulateMediaFeatures([
-      { name: "prefers-color-scheme", value: hookConfig.BROWSER_COLOR_SCHEME },
-    ]);
-  }
   monitorPage.once("error", async (error) => {
     if (shuttingDown || targetId !== expectedTargetId) return;
     const crashedPage = monitorPage;
@@ -269,7 +264,6 @@ async function startTargetMonitorBestEffort() {
     const message = error?.message || String(error);
     console.error(`[*] Skipping target monitor setup: ${message}`);
     await stopTargetMonitor();
-    if (hookConfig.BROWSER_COLOR_SCHEME) throw error;
   }
 }
 

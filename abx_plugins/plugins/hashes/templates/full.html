@@ -11,7 +11,17 @@
   const folder = new URL('./', output);
   document.getElementById('files').href=folder.href+'?files=1'; document.getElementById('download').href=output.href; document.getElementById('raw').href=output.href+'?preview=1&raw=1';
   const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=String(text);if(cls)n.className=cls;return n};const content=document.getElementById('content');
-  const formatSize=value=>{let n=Number(value)||0;const units=['B','KB','MB','GB','TB'];let i=0;while(n>=1000&&i<units.length-1){n/=1000;i++}return `${n<10&&i? n.toFixed(1):Math.round(n)} ${units[i]}`};
+  const formatSize = (value) => {
+    let size = Number(value) || 0;
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let unit = 0;
+    while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+      size /= 1000;
+      unit++;
+    }
+    const precision = unit < 2 ? 1 : 10;
+    return `${Math.round(size * precision) / precision} ${units[unit]}`;
+  };
   const shortHash=value=>{const s=String(value||'');return s.length>20?`${s.slice(0,12)}…${s.slice(-6)}`:s};
   async function copyText(value,button){try{await navigator.clipboard.writeText(value)}catch{const area=el('textarea',value);area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();document.execCommand('copy');area.remove()}const old=button.textContent;button.textContent='✓';setTimeout(()=>button.textContent=old,900)}
   function hashControl(value,title=''){const wrap=el('span',null,'hash');if(title)wrap.title=title;const code=el('code',shortHash(value));code.title=String(value||'');const button=el('button','⧉','copy');button.type='button';button.title=title?`Copy full SHA-256 (${title})`:'Copy full SHA-256';button.addEventListener('click',()=>copyText(String(value||''),button));wrap.append(code,button);return wrap}

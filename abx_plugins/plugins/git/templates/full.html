@@ -6,6 +6,17 @@
 <header><div class="heading"><h1 id="name">Git repository</h1><span class="badge">Archived</span><div class="actions"><a id="source" class="button" target="_blank" rel="noopener noreferrer" hidden>Original ↗</a><a id="files" class="button">Browse files</a></div></div></header>
 <main><section><div class="toolbar"><span>▣</span><span id="breadcrumb">Repository files</span></div><div class="tree"><div class="tree-head">Captured code <span id="count" class="badge"></span></div><div id="entries"></div></div><section class="readme" id="readme" hidden><div class="readme-head"><a id="readme-link">README</a></div></section></section><aside><h2>About</h2><p id="description">Archived Git repository</p><div id="topics"></div><div id="stars" hidden></div><p class="note">Files and metadata from this snapshot. Counts reflect the captured page.</p></aside></main>
 <script>
+const formatSize = (value) => {
+  let size = Number(value) || 0;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let unit = 0;
+  while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+    size /= 1000;
+    unit++;
+  }
+  const precision = unit < 2 ? 1 : 10;
+  return `${Math.round(size * precision) / precision} ${units[unit]}`;
+};
 (()=>{
  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';
  const root=new URL(output);const boundary=root.pathname.search(/\/git(?:\/|$)/);root.pathname=boundary>=0?root.pathname.slice(0,boundary+1):new URL('../',output).pathname;
@@ -18,7 +29,7 @@
  byId('files').href=folder.href+'?files=1';byId('count').textContent=files.length+' files';
  const source='{{ snapshot.url|escapejs }}';try{const url=new URL(source);if(['http:','https:'].includes(url.protocol)){byId('source').href=url.href;byId('source').hidden=false;const parts=url.pathname.split('/').filter(Boolean);byId('name').textContent=parts.slice(0,2).join(' / ').replace(/\.git$/,'')||url.hostname}}catch{}
  document.title=byId('name').textContent+' · Archived repository';
- const browse=prefix=>{byId('breadcrumb').textContent=prefix||'Repository files';const entries=byId('entries');entries.replaceChildren();const items=new Map();for(const f of files){if(!f.path.startsWith(prefix))continue;const tail=f.path.slice(prefix.length),name=tail.split('/')[0],directory=tail.includes('/');if(!items.has(name)||directory)items.set(name,{name,directory,size:f.size})}const row=(name,directory,path,size)=>{const wrap=el('div',null,'row'),a=el('a',name);a.href=fileURL('git/'+path).href+(directory?'?files=1':'');if(directory)a.addEventListener('click',event=>{if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();browse(path)});wrap.append(el('span',directory?'▸':'▤'),a);if(!directory)wrap.append(el('span',Number(size).toLocaleString()+' B','size'));entries.append(wrap)};if(prefix)row('..',true,prefix.split('/').slice(0,-2).join('/')+(prefix.split('/').length>2?'/':''));for(const item of [...items.values()].sort((a,b)=>Number(b.directory)-Number(a.directory)||a.name.localeCompare(b.name)))row(item.name,item.directory,prefix+item.name+(item.directory?'/':''),item.size);if(!items.size)entries.append(el('p','No file inventory available. Use Browse files to explore this capture.','empty'))};
+ const browse=prefix=>{byId('breadcrumb').textContent=prefix||'Repository files';const entries=byId('entries');entries.replaceChildren();const items=new Map();for(const f of files){if(!f.path.startsWith(prefix))continue;const tail=f.path.slice(prefix.length),name=tail.split('/')[0],directory=tail.includes('/');if(!items.has(name)||directory)items.set(name,{name,directory,size:f.size})}const row=(name,directory,path,size)=>{const wrap=el('div',null,'row'),a=el('a',name);a.href=fileURL('git/'+path).href+(directory?'?files=1':'');if(directory)a.addEventListener('click',event=>{if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();browse(path)});wrap.append(el('span',directory?'▸':'▤'),a);if(!directory)wrap.append(el('span',formatSize(size),'size'));entries.append(wrap)};if(prefix)row('..',true,prefix.split('/').slice(0,-2).join('/')+(prefix.split('/').length>2?'/':''));for(const item of [...items.values()].sort((a,b)=>Number(b.directory)-Number(a.directory)||a.name.localeCompare(b.name)))row(item.name,item.directory,prefix+item.name+(item.directory?'/':''),item.size);if(!items.size)entries.append(el('p','No file inventory available. Use Browse files to explore this capture.','empty'))};
  browse('');const readme=files.filter(f=>/^(readme(?:\.(md|markdown|rst|txt))?)$/i.test(f.path)).sort((a,b)=>Number(!/\.md$/i.test(a.path))-Number(!/\.md$/i.test(b.path)))[0];if(readme){const url=fileURL('git/'+readme.path);byId('readme').hidden=false;byId('readme-link').textContent=readme.path;byId('readme-link').href=url.href;const frame=el('iframe');frame.title=readme.path;frame.loading='lazy';frame.setAttribute('sandbox','');frame.src=/\.(md|markdown)$/i.test(readme.path)?url.href:url.href+'?preview=1&raw=1';byId('readme').append(frame)}
  // Parse one already-captured page inertly; never run its scripts or load its assets.
  const page=['dom','wget','singlefile'].map(plugin=>captures.find(f=>f.plugin===plugin&&/\.html?$/i.test(f.path)&&valid(relative(f)))).find(Boolean);

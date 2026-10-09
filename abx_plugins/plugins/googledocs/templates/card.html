@@ -86,12 +86,17 @@
       output.search = "";
       output.hash = "";
       output.searchParams.set("raw", "1");
-      const bytes = (n) =>
-        n < 1024
-          ? n + " B"
-          : n < 1048576
-          ? Math.round(n / 1024) + " KB"
-          : n < 1073741824 ? Math.round(n / 1048576) + " MB" : (n / 1073741824).toFixed(1) + " GB";
+      const bytes = (value) => {
+        let size = Number(value) || 0;
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        let unit = 0;
+        while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+          size /= 1000;
+          unit++;
+        }
+        const precision = unit < 2 ? 1 : 10;
+        return `${Math.round(size * precision) / precision} ${units[unit]}`;
+      };
       const icon = (name) => {
         const ext = name.split(".").pop().toLowerCase();
         return /^(png|jpe?g|gif|webp|svg|avif)$/.test(ext)

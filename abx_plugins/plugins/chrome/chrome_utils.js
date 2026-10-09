@@ -64,6 +64,12 @@ function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
   );
 }
 
+function configuredChromeUserAgent(userAgent, version = "") {
+  // Generic HTTP identities are not browser fingerprints.
+  if (["Mozilla/5.0 (compatible; ArchiveBox/1.0)", "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)"].includes(userAgent)) return "";
+  return replaceChromeUserAgentVersion(userAgent, version);
+}
+
 function getOption(options, key, fallback) {
   return Object.prototype.hasOwnProperty.call(options, key) &&
     options[key] !== undefined
@@ -72,14 +78,14 @@ function getOption(options, key, fallback) {
 }
 
 function resolveChromeLaunchOptions(options = {}) {
-  const activePersona = getEnv("ACTIVE_PERSONA", "Default") || "Default";
-  const personaDir = path.join(getPersonasDir(), activePersona);
+  const activePersona = getOption(options, "ACTIVE_PERSONA", getEnv("ACTIVE_PERSONA", "Default")) || "Default";
+  const personaDir = path.join(getOption(options, "PERSONAS_DIR", getPersonasDir()), activePersona);
   const linuxWithoutDisplay =
     process.platform === "linux" && !String(process.env.DISPLAY || "").trim();
   return {
-    CHROME_USER_DATA_DIR: path.join(personaDir, "chrome_profile"),
-    CHROME_DOWNLOADS_DIR: path.join(personaDir, "chrome_downloads"),
-    CHROMEWEBSTORE_EXTENSIONS_DIR: getExtensionsDir(),
+    CHROME_USER_DATA_DIR: path.resolve(getOption(options, "CHROME_USER_DATA_DIR", path.join(personaDir, "chrome_profile"))),
+    CHROME_DOWNLOADS_DIR: path.resolve(getOption(options, "CHROME_DOWNLOADS_DIR", path.join(personaDir, "chrome_downloads"))),
+    CHROMEWEBSTORE_EXTENSIONS_DIR: getOption(options, "CHROMEWEBSTORE_EXTENSIONS_DIR", getExtensionsDir()),
     CHROME_RESOLUTION: getOption(
       options,
       "CHROME_RESOLUTION",
@@ -125,31 +131,14 @@ function resolveChromeLaunchOptions(options = {}) {
 
 function getChromeSessionOptionsFromConfig(hookConfig = {}) {
   const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
-  const chromeLaunchOptions = resolveChromeLaunchOptions(hookConfig);
   return {
+    ...resolveChromeLaunchOptions(hookConfig),
     CHROME_CDP_URL,
     CHROME_IS_LOCAL: CHROME_CDP_URL
       ? false
       : hookConfig.CHROME_IS_LOCAL !== false,
-    CHROME_USER_DATA_DIR: path.resolve(chromeLaunchOptions.CHROME_USER_DATA_DIR),
-    CHROME_RESOLUTION: String(
-      hookConfig.CHROME_RESOLUTION || hookConfig.RESOLUTION || "1440,2000"
-    ),
-    CHROME_USER_AGENT: String(
-      hookConfig.CHROME_USER_AGENT || hookConfig.USER_AGENT || ""
-    ),
-    CHROME_HEADLESS: hookConfig.CHROME_HEADLESS !== false,
-    CHROME_SANDBOX: chromeLaunchOptions.CHROME_SANDBOX,
-    CHROME_CHECK_SSL_VALIDITY:
-      hookConfig.CHROME_CHECK_SSL_VALIDITY !== false &&
-      hookConfig.CHECK_SSL_VALIDITY !== false,
-    CHROME_ARGS: Array.isArray(hookConfig.CHROME_ARGS)
-      ? hookConfig.CHROME_ARGS
-      : [],
-    CHROME_ARGS_EXTRA: Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
-      ? hookConfig.CHROME_ARGS_EXTRA
-      : [],
     cookiesFile: hookConfig.AUTH_STORAGE_FILE || hookConfig.COOKIES_FILE || "",
+    personaConfig: hookConfig,
     timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
   };
 }
@@ -844,17 +833,7 @@ async function launchChromium(options = {}) {
   }
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
-  let chromeUserAgent = CHROME_USER_AGENT;
-  // The generic HTTP defaults inherited from runners are not browser user
-  // agents. Drive's ZIP UI requires Chromium's own identity. Custom UAs stay
-  // untouched (apart from the existing Chrome version replacement below).
-  if (
-    [
-      "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
-      "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)",
-    ].includes(chromeUserAgent)
-  )
-    chromeUserAgent = "";
+  let chromeUserAgent = configuredChromeUserAgent(CHROME_USER_AGENT);
   if (chromeUserAgent) {
     try {
       // The default config intentionally stores a generic/static Chrome UA so it
@@ -4649,6 +4628,121 @@ async function closeBrowserInChromeSession(options = {}) {
   return closed;
 }
 
+function personaImportState(outputDir, cdpUrl, cookiesFile, config) {
+  const filename = path.join(outputDir, "persona_state.json");
+  const hash = crypto.createHash("sha256").update(cdpUrl);
+  for (const file of new Set([cookiesFile, config?.AUTH_STORAGE_FILE].filter(Boolean))) {
+    hash.update(file);
+    if (fs.existsSync(file)) hash.update(fs.readFileSync(file));
+  }
+  const digest = hash.digest("hex");
+  const imported = fs.existsSync(filename) && fs.readFileSync(filename, "utf8").trim() === digest;
+  return { imported, save: () => writeFileAtomic(filename, digest) };
+}
+
+async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir } = {}) {
+  // This connection belongs to the launch daemon. Keep emulation sessions alive:
+  // disconnecting them clears CDP overrides, including for other CDP clients.
+  const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
+  try {
+  const root = await browser.target().createCDPSession();
+  const version = await root.send("Browser.getVersion");
+  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product) || version.userAgent;
+  const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
+  const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
+  // Import persistent storage once, before publishing readiness. All clients
+  // subsequently observe the same live databases, not a replay on navigation.
+  await restoreOriginStorage(browser, origins);
+  const sessionStates = [...origins.filter(entry => entry.sessionStorage).map(entry => ({
+    origin: entry.origin, sessionStorage: entry.sessionStorage,
+  })), ...tabs];
+  const pending = new Set();
+  let startup = true;
+  let failure = null;
+  async function hydrate(session) {
+    const { width, height } = parseResolution(config.CHROME_RESOLUTION || config.RESOLUTION || "1440,2000");
+    await session.send("Emulation.setDeviceMetricsOverride", {
+      width, height, deviceScaleFactor: Number(config.BROWSER_DEVICE_SCALE_FACTOR || 1), mobile: false,
+    });
+    // Launch already resolves the actual Chrome version for its user agent.
+    await session.send("Emulation.setUserAgentOverride", {
+      userAgent,
+      ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
+      ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
+    });
+    if (config.BROWSER_LANGUAGE) await session.send("Emulation.setLocaleOverride", { locale: config.BROWSER_LANGUAGE });
+    if (config.BROWSER_TIMEZONE) await session.send("Emulation.setTimezoneOverride", { timezoneId: config.BROWSER_TIMEZONE });
+    if (config.BROWSER_GEOLOCATION && Object.keys(config.BROWSER_GEOLOCATION).length) {
+      await session.send("Emulation.setGeolocationOverride", { accuracy: 0, ...config.BROWSER_GEOLOCATION });
+    }
+    if (config.BROWSER_COLOR_SCHEME) await session.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-color-scheme", value: config.BROWSER_COLOR_SCHEME }],
+    });
+    if (sessionStates.length) {
+      await session.send("Page.enable");
+      await session.send("Runtime.enable");
+      await session.send("Runtime.addBinding", { name: "__archiveboxSessionRestored" });
+      const scripts = new Map();
+      session.on("Runtime.bindingCalled", async ({ name, payload }) => {
+        if (name !== "__archiveboxSessionRestored") return;
+        const identifier = scripts.get(payload);
+        if (!identifier) return;
+        scripts.delete(payload);
+        try { await session.send("Page.removeScriptToEvaluateOnNewDocument", { identifier }); }
+        catch (error) { if (!session.detached) console.error(error.message); }
+      });
+      for (const [index, state] of sessionStates.entries()) {
+        const source = `(() => {
+          const state = ${JSON.stringify(state)};
+          if (state.url ? location.href !== state.url : location.origin !== state.origin) return;
+          for (const item of state.sessionStorage) {
+            if (sessionStorage.getItem(item.name) === null) sessionStorage.setItem(item.name, item.value);
+          }
+          __archiveboxSessionRestored(${JSON.stringify(String(index))});
+        })()`;
+        const { identifier } = await session.send("Page.addScriptToEvaluateOnNewDocument", { source });
+        scripts.set(String(index), identifier);
+        await session.send("Runtime.evaluate", { expression: source });
+      }
+    }
+  }
+  root.on("Target.attachedToTarget", ({ sessionId, targetInfo }) => {
+    const session = root.connection().session(sessionId);
+    const work = (async () => {
+      try {
+        await hydrate(session);
+      } catch (error) {
+        failure = error;
+        // Never allow a newly opened target to run with only half its persona.
+        await root.send("Target.closeTarget", { targetId: targetInfo.targetId });
+        if (!startup) console.error(`Persona hydration failed: ${error.message}`);
+      } finally {
+        if (!session.detached) await session.send("Runtime.runIfWaitingForDebugger");
+      }
+    })();
+    pending.add(work);
+    work.finally(() => pending.delete(work)).catch(error => console.error(error.message));
+  });
+    if (config.BROWSER_PERMISSIONS?.length) await root.send("Browser.grantPermissions", { permissions: config.BROWSER_PERMISSIONS });
+    await root.send("Target.setAutoAttach", {
+      autoAttach: true, waitForDebuggerOnStart: true, flatten: true,
+      filter: [{ type: "page" }, { type: "iframe" }],
+    });
+    await Promise.all([...pending]);
+    if (failure) throw failure;
+    startup = false;
+    if (outputDir && (config.ABX_RUNTIME === "archivebox" || config.OPENCODE_ENABLED)) {
+      // Optional observation must never turn a working capture into a failure.
+      void Promise.resolve().then(() => require("./browser_observer.js").observeBrowser(browser, outputDir))
+        .catch(error => console.error(`Browser observer unavailable: ${error.message}`));
+    }
+    return () => browser.disconnect();
+  } catch (error) {
+    await browser.disconnect();
+    throw error;
+  }
+}
+
 async function ensureChromeSession(options = {}) {
   const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const {
@@ -4666,6 +4760,7 @@ async function ensureChromeSession(options = {}) {
     binary = null,
     onSpawn = null,
     onCdpReady = null,
+    personaConfig = null,
   } = options;
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
@@ -4691,49 +4786,12 @@ async function ensureChromeSession(options = {}) {
     !existingSession.stale &&
     existingSession.state?.cdpUrl === cdpUrl;
 
-  if (
-    reuseExisting &&
-    existingSession.hasArtifacts &&
-    !existingSession.stale &&
-    existingSession.state?.cdpUrl
-  ) {
-    if (eagerExtensions.length > 0 || cookiesFile) {
-      let browser = null;
-      try {
-        browser = await connectToBrowserEndpoint(
-          puppeteer,
-          existingSession.state.cdpUrl,
-          { defaultViewport: null }
-        );
-        if (eagerExtensions.length > 0) {
-          await loadUnpackedExtensionsIntoBrowser(browser, eagerExtensions, timeoutMs);
-        }
-        if (cookiesFile) {
-          await importCookiesFromFile(browser, cookiesFile, userDataDir);
-        }
-        writeBrowserMetadata(outputDir, installedExtensions);
-      } finally {
-        if (browser) {
-          try {
-            await browser.disconnect();
-          } catch (error) {}
-        }
-      }
-    }
-    writeBrowserMetadata(outputDir, installedExtensions);
-    return {
-      cdpUrl: existingSession.state.cdpUrl,
-      pid: existingSession.state.pid,
-      port: getChromeDebugPortFromCdpUrl(existingSession.state.cdpUrl),
-      installedExtensions,
-      processIsLocal,
-      reusedExisting: true,
-      binary,
-    };
-  }
+  const reusingSession = reusingExplicitCdpUrl || Boolean(
+    reuseExisting && existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.cdpUrl
+  );
 
   if (
-    !reusingExplicitCdpUrl &&
+    !reusingSession &&
     existingSession.hasArtifacts &&
     existingSession.state?.cdpUrl
   ) {
@@ -4748,7 +4806,7 @@ async function ensureChromeSession(options = {}) {
     } catch (error) {}
   }
 
-  if (!reusingExplicitCdpUrl) {
+  if (!reusingSession) {
     const staleSession = await cleanupStaleChromeSessionArtifacts(outputDir, {
       processIsLocal: existingSession.state?.pid ? true : processIsLocal,
     });
@@ -4764,10 +4822,10 @@ async function ensureChromeSession(options = {}) {
 
   let resolvedBinary = binary;
   let resolvedPid =
-    reusingExplicitCdpUrl && processIsLocal
+    reusingSession && processIsLocal
       ? existingSession.state?.pid || null
       : null;
-  let resolvedCdpUrl = reusingExplicitCdpUrl
+  let resolvedCdpUrl = reusingSession
     ? existingSession.state?.cdpUrl
     : cdpUrl;
   let resolvedUserDataDir = userDataDir;
@@ -4831,6 +4889,7 @@ async function ensureChromeSession(options = {}) {
   // cleanup. Each connectToBrowserEndpoint call costs ~150-200ms (it
   // enumerates all targets), so reusing one browser saves multiple seconds
   // across the full setup path.
+  const importState = personaImportState(outputDir, resolvedCdpUrl, cookiesFile, personaConfig);
   const needsPostLaunchBrowser =
     downloadsDir ||
     cookiesFile ||
@@ -4859,7 +4918,7 @@ async function ensureChromeSession(options = {}) {
         );
       }
 
-      await waitForBrowserPageReady({
+      if (!reusingSession) await waitForBrowserPageReady({
         browser,
         timeoutMs: getEnvInt("CHROME_PAGE_READY_TIMEOUT_MS", 10000),
         requireAboutBlank: true,
@@ -4878,7 +4937,7 @@ async function ensureChromeSession(options = {}) {
         );
       }
 
-      if (cookiesFile) {
+      if (cookiesFile && !importState.imported) {
         await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
       }
 
@@ -4892,7 +4951,7 @@ async function ensureChromeSession(options = {}) {
         } catch (error) {}
       }
     }
-  } else {
+  } else if (!reusingSession) {
     await waitForBrowserPageReady({
       puppeteer,
       cdpUrl: resolvedCdpUrl,
@@ -4902,15 +4961,20 @@ async function ensureChromeSession(options = {}) {
     });
   }
 
+  const stopPersonaHydration = personaConfig
+    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir })
+    : null;
+  importState.save();
   writeBrowserMetadata(outputDir, installedExtensions);
 
     return {
+      stopPersonaHydration,
       cdpUrl: resolvedCdpUrl,
       pid: resolvedPid,
       port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
       installedExtensions,
       processIsLocal,
-      reusedExisting: false,
+      reusedExisting: reusingSession,
       binary: resolvedBinary,
       userDataDir: resolvedUserDataDir,
     };

@@ -27,7 +27,7 @@ def test_public_export_restriction(tmp_path, ensure_chrome_test_prereqs):
         )
         assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
-        assert record and record["status"] == "skipped", result.stdout
+        assert record and record["status"] == "noresults", result.stdout
         assert record["output_str"] == "Persona must be logged in to miro.com"
         assert result.stderr.strip() == record["output_str"]
         assert not (chrome.parent / "miro" / "downloads.json").exists()

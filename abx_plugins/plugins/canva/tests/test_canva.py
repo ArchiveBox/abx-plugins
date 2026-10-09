@@ -17,7 +17,7 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_canva.js"
 @pytest.mark.parametrize(
     ("url", "status", "reason"),
     [
-        (URL, "skipped", "Persona must be logged in to canva.com"),
+        (URL, "noresults", "Persona must be logged in to canva.com"),
         (
             "https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view",
             "noresults",

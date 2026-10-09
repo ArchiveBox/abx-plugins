@@ -8,7 +8,9 @@ import logging
 import os
 import re
 import signal
+import shlex
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -227,6 +229,8 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
             for required_binary in (
                 str(config.get("NODE_BINARY") or "node"),
                 str(config.get("GIT_BINARY") or "git"),
+                "browser-harness",
+                "stagehand",
                 binary,
             )
         ]
@@ -248,6 +252,9 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
     binary_env = BinProvider.build_exec_env(
         providers=providers,
         base_env=binary_environ,
+    )
+    binary_env["ARCHIVEBOX_STAGEHAND_MODULE"] = str(
+        loaded_dependencies[-2].loaded_abspath,
     )
     return loaded_dependencies[-1], binary_env
 
@@ -294,6 +301,21 @@ def _ensure_project_files(settings: dict) -> None:
     if not opencode_config_path.exists():
         opencode_config_path.write_text(_DEFAULT_CONFIG)
 
+    browser_skill = (
+        settings["config_home"]
+        / "opencode"
+        / "skills"
+        / "archivebox-browser"
+        / "SKILL.md"
+    )
+    browser_skill.parent.mkdir(parents=True, exist_ok=True)
+    browser_skill.write_text(
+        Path(__file__)
+        .with_name("browser_skill.md")
+        .read_text()
+        .replace("{python}", shlex.quote(sys.executable)),
+    )
+
 
 def _ensure_default_session(settings: dict) -> str:
     workdir = settings["workdir"].resolve()
@@ -320,11 +342,16 @@ def _ensure_default_session(settings: dict) -> str:
         ):
             return session_id
 
+    return _create_session(settings)
+
+
+def _create_session(settings: dict, title: str = "") -> str:
+    workdir = settings["workdir"].resolve()
     session = requests.post(
         f"{settings['origin']}/session",
-        params=params,
-        json={},
-        timeout=timeout,
+        params={"directory": str(workdir)},
+        json={"title": title} if title else {},
+        timeout=settings["timeout"],
     )
     session.raise_for_status()
     session_data = session.json()
@@ -338,6 +365,22 @@ def _ensure_default_session(settings: dict) -> str:
         raise RuntimeError(
             "OpenCode did not create a session for the requested worktree.",
         )
+    return session_id
+
+
+def start_session(settings: dict, *, title: str, prompt: str) -> str:
+    """Start a separate prompted chat using the existing Agent service."""
+    ok, error = _ensure_opencode(settings)
+    if not ok:
+        raise RuntimeError(error)
+    session_id = _create_session(settings, title)
+    response = requests.post(
+        f"{settings['origin']}/session/{session_id}/prompt_async",
+        params={"directory": str(settings["workdir"].resolve())},
+        json={"parts": [{"type": "text", "text": prompt}]},
+        timeout=settings["timeout"],
+    )
+    response.raise_for_status()
     return session_id
 
 
@@ -360,6 +403,33 @@ def _health(settings: dict, timeout: float = 2) -> bool:
         return response.status_code == 200
     except requests.RequestException:
         return False
+
+
+def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str, str]:
+    """Shared environment for the Agent server and background OpenCode CLI tasks."""
+    workdir = settings["workdir"].resolve()
+    return {
+        **os.environ,
+        **binary_env,
+        "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
+        "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
+        "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
+        "BROWSER": "false",
+        "GIT_CEILING_DIRECTORIES": str(workdir),
+        # OpenCode searches for .git itself, then invokes git from that
+        # ancestor. A ceiling alone cannot stop discovery there or in snapshots.
+        "GIT_DIR": os.devnull,
+        "HOME": str(settings["home"]),
+        "OPENCODE_DISABLE_FFF": "true",
+        "OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER": "true",
+        "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+        # Override even an existing user config that enables checkpoints.
+        "OPENCODE_CONFIG_CONTENT": _DEFAULT_CONFIG,
+        "XDG_CONFIG_HOME": str(settings["config_home"]),
+        "XDG_DATA_HOME": str(settings["data_home"]),
+        "XDG_STATE_HOME": str(settings["state_home"]),
+        "XDG_CACHE_HOME": str(settings["cache_home"]),
+    }
 
 
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
@@ -385,28 +455,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         except RuntimeError as err:
             return False, str(err)
 
-        env = {
-            **os.environ,
-            **binary_env,
-            "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
-            "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
-            "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
-            "BROWSER": "false",
-            "GIT_CEILING_DIRECTORIES": str(workdir),
-            # OpenCode searches for .git itself, then invokes git from that
-            # ancestor. A ceiling alone cannot stop discovery there or in snapshots.
-            "GIT_DIR": os.devnull,
-            "HOME": str(settings["home"]),
-            "OPENCODE_DISABLE_FFF": "true",
-            "OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER": "true",
-            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
-            # Override even an existing user config that enables checkpoints.
-            "OPENCODE_CONFIG_CONTENT": _DEFAULT_CONFIG,
-            "XDG_CONFIG_HOME": str(settings["config_home"]),
-            "XDG_DATA_HOME": str(settings["data_home"]),
-            "XDG_STATE_HOME": str(settings["state_home"]),
-            "XDG_CACHE_HOME": str(settings["cache_home"]),
-        }
+        env = process_environment(settings, binary_env)
 
         settings["workdir"].mkdir(parents=True, exist_ok=True)
         settings["config_home"].mkdir(parents=True, exist_ok=True)
@@ -575,15 +624,18 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
 atexit.register(_stop_owned_process)
 
 
-def agent_context(settings: dict) -> dict:
+def agent_context(settings: dict, session_id: str = "") -> dict:
+    if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
+        raise ValueError("Invalid agent session ID")
     return {
         "title": "Agent",
         # The authenticated iframe request resolves the default session. Do not
         # hold the wrapper response open while OpenCode starts on a cold visit.
-        "proxy_url": _session_route(settings),
+        "proxy_url": _session_route(settings)
+        + (f"/{session_id}" if session_id else ""),
         "proxy_prefix": _PROXY_PREFIX,
         "workdir": str(settings["workdir"].resolve()),
-        "recent_session_id": "",
+        "recent_session_id": session_id,
     }
 
 

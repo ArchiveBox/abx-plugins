@@ -231,12 +231,17 @@
         const filesUrl = new URL("files/?files=1", output);
         byId("files").href = filesUrl.href;
         byId("raw").href = raw(output);
-        const sizeLabel = (size) =>
-          size >= 1048576
-            ? (size / 1048576).toFixed(1) + " MB"
-            : size >= 1024
-            ? Math.ceil(size / 1024) + " KB"
-            : size + " B";
+        const sizeLabel = (value) => {
+          let size = Number(value) || 0;
+          const units = ["B", "KB", "MB", "GB", "TB"];
+          let unit = 0;
+          while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+            size /= 1000;
+            unit++;
+          }
+          const precision = unit < 2 ? 1 : 10;
+          return `${Math.round(size * precision) / precision} ${units[unit]}`;
+        };
         const imageFormats = [
           "svg",
           "png",

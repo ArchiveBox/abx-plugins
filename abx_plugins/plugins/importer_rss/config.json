@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RSS & Atom",
+  "description": "Import new article links from an RSS or Atom feed.",
+  "type": "object",
+  "additionalProperties": false,
+  "category": "importers",
+  "x-auto-run": false,
+  "required_plugins": [
+    "base"
+  ],
+  "required_binaries": [
+    {
+      "name": "feedparser",
+      "binproviders": "uv,env",
+      "overrides": {
+        "uv": {
+          "install_args": [
+            "feedparser==6.0.12"
+          ]
+        }
+      }
+    }
+  ],
+  "commands": {
+    "import": [
+      "importer.py"
+    ]
+  },
+  "importers": {
+    "feed": {
+      "title": "Feed articles",
+      "auth": "optional",
+      "config_fields": [
+        "IMPORTER_RSS_URL"
+      ],
+      "provider": "RSS & Atom"
+    }
+  },
+  "properties": {
+    "IMPORTER_RSS_URL": {
+      "type": "string",
+      "title": "Feed URL",
+      "format": "uri",
+      "default": "",
+      "x-required": true,
+      "description": "The RSS or Atom URL. A selected persona can supply cookies for private feeds."
+    }
+  },
+  "importers_setup": [
+    {
+      "title": "Copy the feed link",
+      "description": "Open the RSS or Atom feed for the site you follow. Paste its URL here."
+    },
+    {
+      "title": "Preview the latest articles",
+      "description": "Save the importer, then choose Preview to check article titles and links."
+    },
+    {
+      "title": "Import and keep it updated",
+      "description": "Choose Import all. Open Advanced options to add a schedule later.",
+      "image": "setup/import-all.jpg",
+      "image_alt": "A demo reading list: seven articles imported and captured across four automatic batches."
+    }
+  ],
+  "icon": "icons/rss.svg"
+}

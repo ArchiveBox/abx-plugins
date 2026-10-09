@@ -1,5 +1,5 @@
 {% extends "admin/base.html" %}
-{% load i18n %}
+{% load i18n core_tags %}
 
 {% block title %}Agent{% endblock %}
 
@@ -211,6 +211,7 @@
             </script>
             <div class="opencode-agent-shell">
                 <iframe data-src="{{ proxy_url }}" title="OpenCode Agent" class="opencode-agent-frame"></iframe>
+                {% plugin_ui "opencode" "browser_panel" %}
                 <div class="opencode-agent-welcome" id="opencode-agent-welcome">
                     <div class="opencode-agent-welcome-panel" role="dialog" aria-modal="true" aria-labelledby="opencode-agent-welcome-title">
                         <div class="opencode-agent-welcome-header">

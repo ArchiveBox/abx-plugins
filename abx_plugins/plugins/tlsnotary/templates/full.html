@@ -33,6 +33,17 @@
   <script type="module">
     {% include "server/web/verify.mjs" %}
 
+    const formatSize = (value) => {
+      let size = Number(value) || 0;
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let unit = 0;
+      while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+        size /= 1000;
+        unit++;
+      }
+      const precision = unit < 2 ? 1 : 10;
+      return `${Math.round(size * precision) / precision} ${units[unit]}`;
+    };
     const output = new URL('{{ output_path|escapejs }}', location.href); output.search = ''; output.hash = '';
     const receiptURL = new URL('receipt.json', output), responseURL = new URL('response.http', output);
     receiptURL.searchParams.set('raw', '1'); responseURL.searchParams.set('raw', '1');
@@ -68,7 +79,7 @@
       visibility.append(fact('Full response available to', 'The source website, your ArchiveBox server, and readers you share response.http with.'), fact('Verifier receives', 'Response fingerprint, hostname, byte ranges, MPC messages and encrypted TLS traffic; connection IP and timing.'));
       const timeline = el('ol', null, 'timeline');
       const step = (title, text) => { const li = el('li', null, 'timeline-entry'); li.append(el('strong', title), el('p', text)); timeline.append(li); return li; };
-      const captured = step('1 · Response captured', `Saved one complete HTTP response: ${response.length.toLocaleString()} bytes of headers and body in response.http.`);
+      const captured = step('1 · Response captured', `Saved one complete HTTP response: ${formatSize(response.length)} of headers and body in response.http.`);
       const authenticated = step('2 · Response authenticated privately', '');
       const verifierBadge = el('span', verifierHost, 'verifier-badge'); verifierBadge.id = 'verifier-domain';
       authenticated.querySelector('p').append('The verifier ', verifierBadge, ' attested to the encrypted response (without seeing any of its contents in cleartext).');
@@ -77,7 +88,7 @@
       const verified = step('4 · Saved evidence verified ✓', 'This browser checked the signature and matched the saved response to the signed fingerprint.');
       const inputs = el('ul', null, 'proof-tree hash-inputs');
       inputs.append(branch('SHA-256(response.http ∥ blinder)', [
-        leaf('Complete HTTP response · response.http', `${response.length.toLocaleString()} bytes · headers + body`, responseURL),
+        leaf('Complete HTTP response · response.http', `${formatSize(response.length)} · headers + body`, responseURL),
         branch('Your ArchiveBox server generates 16 random hiding bytes (“blinder”)', [leaf('Saved in receipt.json', receipt.blinder, receiptURL), leaf('Purpose', 'Makes the fingerprint private by mixing random bytes with the response before hashing')]),
       ]));
       const digest = fact('Response fingerprint sent to the verifier (“commitment”)', result.hash, receiptURL);
