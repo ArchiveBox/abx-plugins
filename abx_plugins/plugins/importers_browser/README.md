@@ -35,6 +35,9 @@ The natural-language contract requires complete pagination, including new items
 at the head and unfinished older history. `limit` is only a batch size. The host
 drains batches until explicit terminal pagination is verified. Site-imposed
 history limits or unverified ends must be reported as failures, not empty success.
+Terminal browser results also include `end.kind` (`cursor`, `marker`, or `count`)
+and `end.evidence` describing the observed proof. A repeatedly stagnant viewport
+without a loader does not establish complete history.
 
 ## Standalone protocol
 
