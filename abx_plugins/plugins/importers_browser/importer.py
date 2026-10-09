@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
 # ///
+# Use the managed script runtime when the host executes this command directly.
 """Replay learned browser importers; ask OpenCode to repair failures with live tools."""
 
 import hashlib
