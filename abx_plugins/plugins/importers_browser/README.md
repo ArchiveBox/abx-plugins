@@ -53,14 +53,14 @@ same standalone importer. Plugins without that command continue to use `import`.
 Stdin:
 
 ```json
-{"version":1,"action":"import","feed":"x_bookmarks","settings":{"IMPORTERS_BROWSER_ACCOUNT":"expected-handle","IMPORTERS_BROWSER_URL":""},"checkpoint":{},"limit":100}
+{"version":1,"action":"import","feed":"x_bookmarks","settings":{},"checkpoint":{},"limit":100}
 ```
 
 Stdout (one JSON object per line):
 
 ```json
 {"type":"ImporterItem","id":"stable-id","url":"https://example.com/item","title":"Item","metadata":{"relationship":"bookmark"}}
-{"type":"ImporterResult","status":"succeeded","account":{"id":"stable-account-id","label":"Expected account"},"checkpoint":{"cursor":"opaque"},"has_more":true,"message":"Batch verified; more history remains"}
+{"type":"ImporterResult","status":"succeeded","account":{"id":"stable-account-id","label":"Detected account"},"checkpoint":{"cursor":"opaque"},"has_more":true,"message":"Batch verified; more history remains"}
 ```
 
 `ImporterProgress` optionally carries a `message`. Final statuses are `succeeded`,
