@@ -182,6 +182,7 @@ async function stopTargetMonitor() {
   if (monitorPage) {
     try {
       monitorPage.removeAllListeners("close");
+      monitorPage.removeAllListeners("error");
     } catch (error) {}
     monitorPage = null;
   }
@@ -214,6 +215,22 @@ async function startTargetMonitor() {
       { name: "prefers-color-scheme", value: hookConfig.BROWSER_COLOR_SCHEME },
     ]);
   }
+  monitorPage.once("error", async (error) => {
+    if (shuttingDown || targetId !== expectedTargetId) return;
+    const crashedPage = monitorPage;
+    console.error(`[*] Snapshot target ${expectedTargetId} crashed: ${error.message}`);
+    try {
+      // A renderer crash does not destroy its target. Invalidate the owned
+      // markers before CDP cleanup so later hooks cannot attach to the dead page.
+      await cleanupOwnedSnapshotPageMarkers(expectedTargetId, "renderer crashed");
+      // Use the monitor's existing connection: a fresh Puppeteer attachment can
+      // wait for initialization of this crashed renderer. Keep targetId until
+      // normal teardown in case closing the target itself fails.
+      await crashedPage.close();
+    } catch (cleanupError) {
+      console.error(`[*] Could not clean crashed target ${expectedTargetId}: ${cleanupError.message}`);
+    }
+  });
   monitorPage.once("close", async () => {
     if (shuttingDown) {
       return;
