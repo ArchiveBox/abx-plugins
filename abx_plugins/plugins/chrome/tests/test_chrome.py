@@ -424,6 +424,41 @@ def _hash_extension_tree(root: Path) -> str:
     return digest.hexdigest()
 
 
+def test_empty_extension_directory_uses_managed_cache(tmp_path):
+    env = _isolated_test_env(tmp_path)
+    extensions_dir = Path(get_extensions_dir(env=env))
+    cached = _install_test_extension(extensions_dir, env)
+    # The saved default is an empty string, meaning the managed lib directory.
+    # Keep the installed provider files and exercise the real launch hook.
+    env.update(
+        ABXPKG_LIB_DIR=str(tmp_path),
+        CHROMEWEBSTORE_EXTENSIONS_DIR="",
+        PLUGINS="chrome,ublock",
+        UBLOCK_ENABLED="true",
+        CHROME_HEADLESS="true",
+    )
+    chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    chrome_dir.mkdir()
+    process, _cdp_url = launch_chromium_session(
+        env,
+        chrome_dir,
+        "default-extension-cache",
+        timeout=45,
+    )
+    try:
+        metadata = json.loads((chrome_dir / "browser.json").read_text())
+        extension = next(
+            (item for item in metadata["extensions"] if item["name"] == "ublock"),
+            None,
+        )
+        assert extension is not None, metadata
+        assert extension["webstore_id"] == cached["webstore_id"]
+        assert extension["id"]
+        assert not extension.get("load_error"), extension
+    finally:
+        kill_chromium_session(process, chrome_dir)
+
+
 def test_prepared_awp_extension_respects_selection_and_preserves_provider_cache(
     tmp_path,
 ):
