@@ -30,6 +30,23 @@ def run_parser(root, source, depth=0):
     return result, [row for row in records if row["type"] == "Snapshot"]
 
 
+def test_explicit_input_file_is_parsed_alongside_saved_text(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    (snapshot / "title").mkdir(parents=True)
+    (snapshot / "title/title.txt").write_text("Saved page title")
+    (snapshot / "readability").mkdir()
+    (snapshot / "readability/content.txt").write_text("https://example.com/saved")
+    source = tmp_path / "bookmarks.txt"
+    source.write_text("https://example.com/input\nhttps://example.com/saved")
+    _, records = run_parser(snapshot, source.as_uri(), depth=4)
+    assert {row["url"] for row in records} == {
+        "https://example.com/input",
+        "https://example.com/saved",
+    }
+    assert len(records) == 2
+    assert all(row["depth"] == 5 for row in records)
+
+
 @pytest.mark.parametrize(
     "provider",
     ["googledocs", "googledrive", "dropbox", "future_provider"],

@@ -238,9 +238,11 @@ def main(
                     RuntimeError,
                 ) as error:
                     print(f"Cannot parse {source_path}: {error}", file=sys.stderr)
-        elif (file_content := read_file_url_text(url)) is not None:
+        # An explicit local input is authoritative even when other plugins have
+        # already saved text. Saved titles/documents must not hide its URLs.
+        if (file_content := read_file_url_text(url)) is not None:
             readers = [io.StringIO(file_content)]
-        elif url.startswith(("http://", "https://")):
+        elif not source_paths and url.startswith(("http://", "https://")):
             config = load_config()
             timeout = config.TIMEOUT
             user_agent = config.USER_AGENT
