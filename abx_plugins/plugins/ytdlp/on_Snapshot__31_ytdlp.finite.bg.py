@@ -321,6 +321,13 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
                 return False, None, "403 Forbidden"
             if "Unable to extract" in stderr:
                 return False, None, "Unable to extract media info"
+            # Reddit's extractor reports text-only posts with this expected
+            # no-format error. Keep HTTP and extraction failures above authoritative.
+            if re.search(
+                r"(?m)^ERROR: \[Reddit\] [0-9a-z]+: No media found$",
+                stderr,
+            ):
+                return True, "No media found", ""
 
             return False, None, f"yt-dlp error: {stderr}"
 

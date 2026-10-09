@@ -214,6 +214,45 @@ def test_twitter_post_without_video_reports_noresults(tmp_path, ytdlp_runtime_en
     assert not list((tmp_path / "ytdlp").iterdir())
 
 
+def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
+    """The real Reddit parser recognizes a saved text post with no media."""
+    page = gzip.decompress(
+        (Path(__file__).parent / "fixtures" / "reddit-text-post.json.gz").read_bytes(),
+    )
+    assert hashlib.sha256(page).hexdigest() == (
+        "7a1ce8abd0549a72be7c469a1e6333e366eff6ba1b71ff04c082ea3eef118db2"
+    )
+    output_dir = tmp_path / "ytdlp"
+    output_dir.mkdir()
+    saved_page = (
+        output_dir / "1k11yw5_https_-_www.reddit.com_comments_1k11yw5_.json.dump"
+    )
+    saved_page.write_bytes(page)
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url=https://www.reddit.com/comments/1k11yw5/"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "Loading request from" in result.stderr, result.stderr
+    assert "Unable to load request" not in result.stderr, result.stderr
+    assert "ERROR: [Reddit] 1k11yw5: No media found" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "noresults", result.stdout
+    assert record["output_str"] == "No media found", record
+    assert saved_page.read_bytes() == page
+    saved_page.unlink()  # Remove only the unchanged test input before checking outputs.
+    assert not list(output_dir.iterdir())
+
+
 def test_substack_newsletter_reports_noresults(tmp_path, ytdlp_runtime_env):
     """Replay real public HTML through yt-dlp's native saved-page input."""
     page = gzip.decompress(
