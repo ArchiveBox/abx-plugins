@@ -5,6 +5,7 @@
 """Optional ArchiveBox browser handoff; standalone importers use supplied CDP env."""
 
 import os
+import runpy
 import select
 import signal
 import subprocess
@@ -107,13 +108,12 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, terminate)
     run_dir = Path.cwd()
     with chdir(os.environ["DATA_DIR"]), connection(run_dir) as (binary, env):
-        # The host owns persona startup; the standalone command receives only
-        # the prepared browser and agent environment, never imports this adapter.
+        # Run in this process so cancellation lets the importer clean up its
+        # learner before the host closes the persona browser.
         env["OPENCODE_BINARY"] = binary
-        result = subprocess.run(
-            [sys.executable, str(Path(__file__).parents[1] / "importer.py")],
-            cwd=run_dir,
-            env=env,
-            check=False,
-        )
-    raise SystemExit(result.returncode)
+        os.environ.update(env)
+        with chdir(run_dir):
+            runpy.run_path(
+                str(Path(__file__).parents[1] / "importer.py"),
+                run_name="__main__",
+            )
