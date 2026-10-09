@@ -28,7 +28,7 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     if call.excinfo is None or not isinstance(
         call.excinfo.value,
-        subprocess.TimeoutExpired,
+        (subprocess.TimeoutExpired, subprocess.CalledProcessError),
     ):
         return
     report = outcome.get_result()
@@ -37,7 +37,7 @@ def pytest_runtest_makereport(item, call):
         if isinstance(output, bytes):
             output = output.decode(errors="replace")
         if output:
-            report.sections.append((f"Timed-out subprocess {name}", output))
+            report.sections.append((f"Failed subprocess {name}", output))
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -55,6 +55,41 @@ def test_shared_pytest_fixtures_import_from_tests_package():
     assert REPO_ROOT.is_dir()
     assert PLUGINS_ROOT.is_dir()
     assert CLAUDECODE_CONFIG.is_file()
+
+
+def test_failed_documentation_shell_reports_captured_output(tmp_path):
+    readme = tmp_path / "README.md"
+    missing_file = tmp_path / "missing-documentation-input.txt"
+    readme.write_text(
+        "```bash\n"
+        "printf 'documentation command started\\n'\n"
+        f"cat '{missing_file}'\n"
+        "```\n",
+    )
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-sync",
+            "--no-sources",
+            "python",
+            "-m",
+            "pytest",
+            "-x",
+            "-q",
+            "-c",
+            str(REPO_ROOT / "pyproject.toml"),
+            str(readme),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "documentation command started" in result.stdout
+    assert f"{missing_file}: No such file or directory" in result.stdout
+    assert "1 failed" in result.stdout
 
 
 @pytest.mark.parametrize("platform", ["linux", "macos"])
