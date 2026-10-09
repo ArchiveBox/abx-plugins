@@ -17,8 +17,8 @@ prompts; the agent learns against the selected account's real browser.
 
 ArchiveBox attaches through the same published browser and environment as
 OpenCode. A cold Persona opens through `archivebox persona open NAME --headless`.
-Each importer owns one tab and one harness daemon, cleaning those up afterwards.
-The owned tab is activated so headless Chrome renders it and accepts browser input.
+Each importer uses a named Browser Harness daemon, which owns and cleans up its
+dedicated tab. The tab is activated so headless Chrome accepts browser input.
 An already-running browser is reused. A browser started by the importer is closed
 by its existing owner on completion/cancellation.
 
@@ -26,27 +26,20 @@ by its existing owner on completion/cancellation.
 
 - Every source has its own private `state/current/importer.py` and harness workspace.
 - A saved script replays without an agent. Failures trigger up to two live repairs.
-- Repairs resume this source's own OpenCode session, including interrupted
-  investigations that have not written a script yet. Other Agent sessions stay separate.
-- Task/contract changes force revalidation instead of trusting an older script.
-- The host independently replays candidates and validates output before promotion.
-- Previous revisions remain in `state/history`. A failed repair preserves the last
-  working script and committed checkpoint; logs explain the failure.
-- Login, CAPTCHA, MFA, and account mismatches return `needs_login` for human action.
-  Include `login.kind` (`login`, `mfa`, `captcha`, or `account_mismatch`) and
-  `login.evidence` describing the observed blocker. Missing evidence triggers
-  script repair; a broken account probe must not disable the source.
+- Every repair starts a fresh OpenCode session with the current task and replay
+  error. Only scripts and Browser Harness domain knowledge persist.
+- The agent edits the script in place; the host independently replays it and uses
+  the shared JSONL validator before returning output. Failed runs never commit progress.
+- The agent reports verified login, CAPTCHA, MFA, and account mismatches as
+  `needs_login`; ordinary script failures remain repairable errors.
 - Discovery is read-only. Check/preview never commit discovery progress.
 
 The natural-language contract requires complete pagination, including new items
 at the head and unfinished older history. `limit` is only a batch size. The host
 drains batches until explicit terminal pagination is verified. Site-imposed
 history limits or unverified ends must be reported as failures, not empty success.
-Terminal browser results also include `end.kind` (`cursor`, `marker`, or `count`)
-and `end.evidence` describing the observed proof. A repeatedly stagnant viewport
-without a loader does not establish complete history.
-An initial import cannot advance past history while emitting no items. Newly
-fetched items must be emitted or retained before their IDs become consumed.
+The agent verifies the end against the real site. The host does not maintain
+site-specific recovery rules, completion heuristics, or prompt-version state.
 
 ## Standalone protocol
 

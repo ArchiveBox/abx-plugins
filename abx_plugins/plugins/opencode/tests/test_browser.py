@@ -151,7 +151,12 @@ try {
             # Importers must expose a rendered tab to the learner. In headless
             # Chrome, background tabs stall real mouse input and DOM evaluation.
             importer_env = {**env, "BU_NAME": env["BU_NAME"] + "-importer"}
+            original_tabs = json.loads(run_harness("print(json.dumps(list_tabs()))"))
             with task_tab(importer_env, tmp_path):
+                assert (
+                    len(json.loads(run_harness("print(json.dumps(list_tabs()))")))
+                    == len(original_tabs) + 1
+                )
                 visibility = subprocess.run(
                     [str(harness.loaded_abspath)],
                     input="print(js('document.visibilityState'))",
@@ -162,6 +167,9 @@ try {
                     check=True,
                 )
                 assert visibility.stdout.strip() == "visible"
+            assert importer_env["IMPORTERS_TAB_ID"] not in run_harness(
+                "print(json.dumps(list_tabs()))",
+            )
             assert "still-live" in run_harness("print(js('window.agentHeap'))")
             # The official daemon shutdown command must also preserve this external browser.
             result = subprocess.run(
