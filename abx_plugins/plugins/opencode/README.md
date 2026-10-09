@@ -66,3 +66,25 @@ ArchiveBox's Dockerfile installs this plugin's dependencies in its app layers;
 the abx-dl downloader image does not include OpenCode.
 The agent remains disabled by default; installing its executable does not enable
 the route or start the service.
+
+## Capture tasks
+
+The optional ArchiveBox adapter accepts a separate JSON submission at
+`POST /admin/agent/tasks/` (or `/api/v1/agent/tasks/` on the API origin):
+`{"snapshot_id": "<UUID>", "task": "save this entire site"}`.
+It requires an active superuser's API key in `Authorization: Bearer ...` or
+`X-ArchiveBox-API-Key`; cookies and query-string keys do not authorize this
+CSRF-exempt endpoint. The ordinary agent UI/proxy still requires its admin session.
+
+The adapter loads authoritative snapshot metadata, starts the existing collection
+runtime, creates a new session in its normal OpenCode database, and submits the
+context and user task through `prompt_async`. It returns HTTP 201 with `session_id`,
+`snapshot_id`, and an admin `session_url`. `/admin/agent/?session=ses_...` selects
+that session in the embedded UI. Acceptance means submitted, not task completion.
+Disabled agents return 409; invalid/missing snapshots or tasks return 400/404;
+service failures return 503. The extension preserves its form on failure.
+
+The API alias avoids redirecting a credentialed POST between API and admin hosts.
+No host dependency changes are needed; the normal plugin publication cascade
+carries these routes into ArchiveBox. Real host integration coverage lives in
+`archivebox/agent_3_cases.py`, imported by ArchiveBox's existing agent suite.

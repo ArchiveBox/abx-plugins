@@ -341,6 +341,36 @@ def _ensure_default_session(settings: dict) -> str:
     return session_id
 
 
+def create_task_session(settings: dict, title: str, prompt: str) -> str:
+    """Use the same collection process, skills and persistent sessions as the UI."""
+    ok, error = _ensure_opencode(settings)
+    if not ok:
+        raise RuntimeError(error)
+    params = {"directory": str(settings["workdir"].resolve())}
+    response = requests.post(
+        f"{settings['origin']}/session",
+        params=params,
+        json={"title": title},
+        timeout=settings["timeout"],
+    )
+    response.raise_for_status()
+    session = response.json()
+    session_id = session["id"]
+    if (
+        not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id)
+        or session.get("directory") != params["directory"]
+    ):
+        raise RuntimeError("OpenCode returned an invalid collection session.")
+    response = requests.post(
+        f"{settings['origin']}/session/{session_id}/prompt_async",
+        params=params,
+        json={"parts": [{"type": "text", "text": prompt}]},
+        timeout=settings["timeout"],
+    )
+    response.raise_for_status()
+    return session_id
+
+
 def _owned_process_running() -> bool:
     process = _PROCESS
     return process is not None and process.poll() is None
