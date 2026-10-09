@@ -85,7 +85,7 @@ function resolveChromeLaunchOptions(options = {}) {
   return {
     CHROME_USER_DATA_DIR: path.resolve(getOption(options, "CHROME_USER_DATA_DIR", path.join(personaDir, "chrome_profile"))),
     CHROME_DOWNLOADS_DIR: path.resolve(getOption(options, "CHROME_DOWNLOADS_DIR", path.join(personaDir, "chrome_downloads"))),
-    CHROMEWEBSTORE_EXTENSIONS_DIR: getOption(options, "CHROMEWEBSTORE_EXTENSIONS_DIR", getExtensionsDir()),
+    CHROMEWEBSTORE_EXTENSIONS_DIR: getOption(options, "CHROMEWEBSTORE_EXTENSIONS_DIR", "") || getExtensionsDir(),
     CHROME_RESOLUTION: getOption(
       options,
       "CHROME_RESOLUTION",
