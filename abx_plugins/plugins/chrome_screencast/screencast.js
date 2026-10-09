@@ -16,12 +16,12 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
     } catch (error) { console.error(`Screencast frame failed: ${error.message}`); }
     finally { pending = null; }
   };
-  const navigated = frame => {
-    if (stopped || frame !== page.mainFrame()) return;
+  const navigated = () => {
+    if (stopped) return;
     clearTimeout(timer); timer = null; pending = null;
-    // A new document can replace the renderer surface while leaving the CDP
-    // target alive. Bind the native capture to that document before publishing
-    // more frames, and serialize transitions with final subscription cleanup.
+    // Frame commit can precede an active renderer page, so restarting there
+    // fails with "Not attached to an active page". DOMContentLoaded belongs to
+    // the ready main document. Rebind its surface and serialize final cleanup.
     navigation = navigation.then(async () => {
       if (stopped) return;
       await session.send("Page.stopScreencast");
@@ -32,7 +32,7 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
   };
   const stop = async () => {
     stopped = true; clearTimeout(timer); pending = null;
-    page.off("framenavigated", navigated);
+    page.off("domcontentloaded", navigated);
     await navigation;
     session.removeAllListeners("Page.screencastFrame");
     try { await session.send("Page.stopScreencast"); } catch {}
@@ -59,7 +59,7 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
       maxHeight: Math.max(1, Math.floor((viewport.clientHeight || 900) * scale)), everyNthFrame: 1,
     };
     await session.send("Page.startScreencast", captureOptions);
-    page.on("framenavigated", navigated);
+    page.on("domcontentloaded", navigated);
     return stop;
   } catch (error) { await stop(); throw error; }
 }

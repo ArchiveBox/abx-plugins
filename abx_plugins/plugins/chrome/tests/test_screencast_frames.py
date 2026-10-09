@@ -124,7 +124,7 @@ const {startPageScreencast} = require(path.join(path.dirname(process.argv[1]), '
   await diagnostic.send('Page.enable');
   diagnostic.on('Page.frameNavigated', ({frame}) => events.push({navigation:frame.url}));
   page.on('error', error => events.push({error:error.message}));
-  const navigationListeners = page.listenerCount('framenavigated');
+  const navigationListeners = page.listenerCount('domcontentloaded');
   let latest, stop;
   try {
     let firstFrame;
@@ -157,7 +157,7 @@ const {startPageScreencast} = require(path.join(path.dirname(process.argv[1]), '
     }
     await stop(); stop = null;
     console.log(JSON.stringify({code,output,changed:!initial.equals(latest),pixel,events,url:page.url(),
-      listenersCleaned:page.listenerCount('framenavigated')===navigationListeners}));
+      listenersCleaned:page.listenerCount('domcontentloaded')===navigationListeners}));
   } finally {if(stop) await stop(); await diagnostic.detach(); browser.disconnect();}
 })().catch(error => {console.error(error);process.exit(1);});
 """,
