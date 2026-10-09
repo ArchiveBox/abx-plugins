@@ -80,7 +80,8 @@ def iter_document_content(path: Path):
     if extension in {".csv", ".tsv"}:
         with path.open(encoding="utf-8-sig", errors="replace", newline="") as stream:
             for row in csv.reader(
-                stream, delimiter="\t" if extension == ".tsv" else ","
+                stream,
+                delimiter="\t" if extension == ".tsv" else ",",
             ):
                 for cell in row:
                     yield "text", cell

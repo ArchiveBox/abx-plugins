@@ -31,7 +31,8 @@ def run_parser(root, source, depth=0):
 
 
 @pytest.mark.parametrize(
-    "provider", ["googledocs", "googledrive", "dropbox", "future_provider"]
+    "provider",
+    ["googledocs", "googledrive", "dropbox", "future_provider"],
 )
 @pytest.mark.parametrize("extension", ["docx", "xlsx"])
 def test_saved_office_hyperlinks_and_text(tmp_path, provider, extension):
@@ -60,7 +61,8 @@ def test_saved_office_hyperlinks_and_text(tmp_path, provider, extension):
             f'<Relationships xmlns="{R}"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://example.com/What\'s?a=1&amp;b=2" TargetMode="External"/><Relationship Id="r2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="https://example.com/image.png" TargetMode="External"/></Relationships>',
         )
         archive.writestr(
-            "docProps/core.xml", "<metadata>https://example.com/not-content</metadata>"
+            "docProps/core.xml",
+            "<metadata>https://example.com/not-content</metadata>",
         )
     key = "exports" if provider == "googledocs" else "files"
     name = "exports.json" if provider == "googledocs" else "downloads.json"
@@ -86,11 +88,11 @@ def test_generic_text_outputs_and_csv_cells(tmp_path):
     output.mkdir(parents=True)
     (output / "notes.md").write_text("[Link](https://example.com/markdown)\n")
     (output / "book.csv").write_text(
-        'URL,Label\nhttps://example.com/cell,description\n"https://example.com/quoted?a=1&b=2",label\n'
+        'URL,Label\nhttps://example.com/cell,description\n"https://example.com/quoted?a=1&b=2",label\n',
     )
     (output / "book.tsv").write_text("https://example.com/tab\tlabel\n")
     (output / "ocr.txt").write_text(
-        "https://example.com/ocr\nhttps://example.com/markdown\n"
+        "https://example.com/ocr\nhttps://example.com/markdown\n",
     )
     source = tmp_path / "source.txt"
     source.write_text("")
@@ -125,9 +127,9 @@ def test_all_saved_outputs_are_scanned_despite_manifests(tmp_path):
                     {"path": str(outside)},
                     None,
                     {"path": 42},
-                ]
-            }
-        )
+                ],
+            },
+        ),
     )
     other = tmp_path / "broken_provider"
     other.mkdir()
@@ -199,7 +201,7 @@ def test_empty_manifest_does_not_hide_saved_files(tmp_path):
     parsed = tmp_path / "parse_txt_urls"
     parsed.mkdir()
     (parsed / "urls.jsonl").write_text(
-        '{"type":"Snapshot","url":"https://example.com/old"}\n'
+        '{"type":"Snapshot","url":"https://example.com/old"}\n',
     )
     source = tmp_path / "source.txt"
     source.write_text("")

@@ -29,7 +29,11 @@ GOOGLEDOCS = (
     ],
 )
 def test_live_google_document_link_discovery(
-    tmp_path, ensure_chrome_test_prereqs, url, format, expected
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    url,
+    format,
+    expected,
 ):
     with chrome_session(tmp_path, test_url=url, timeout=60) as (_, _, chrome_dir, env):
         captured = subprocess.run(

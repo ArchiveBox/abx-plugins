@@ -221,10 +221,13 @@ def main(
                                 )
                     else:
                         with source_path.open(
-                            encoding="utf-8", errors="replace"
+                            encoding="utf-8",
+                            errors="replace",
                         ) as reader:
                             extract_urls_from_reader(
-                                reader, source_url=url, urls_found=urls_found
+                                reader,
+                                source_url=url,
+                                urls_found=urls_found,
                             )
                 except (
                     OSError,
