@@ -17,6 +17,7 @@
 - `importer.py` runs as stdin to `browser-harness`, with helpers pre-imported. Use native Stagehand APIs for supporting scripts when useful.
 - Test with `browser-harness < importer.py`. The host independently replays before promoting the candidate.
 - Stdout: JSONL only, items followed by one terminal result. Diagnostics go to stderr.
+- Every result path must use objects for `account` and `checkpoint`, never `null`. Unknown account: `{}`; failure checkpoint: preserve the incoming checkpoint.
 
 ```json
 {"type":"ImporterItem","id":"stable-id","url":"https://...","title":"...","metadata":{"relationship":"..."}}
