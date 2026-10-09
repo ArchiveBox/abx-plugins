@@ -65,6 +65,19 @@ def validate_output(stdout, request):
     ):
         raise ValueError("Script did not verify the signed-in account.")
     result = records[-1]
+    if result["status"] == "needs_login":
+        login = result.get("login", {})
+        if (
+            not isinstance(login, dict)
+            or login.get("kind") not in {"login", "mfa", "captcha", "account_mismatch"}
+            or not isinstance(login.get("evidence"), str)
+            or not login["evidence"].strip()
+        ):
+            raise ValueError(
+                "Needs-login results require observed authentication evidence in login.kind "
+                "(login, mfa, captcha, account_mismatch) and login.evidence. "
+                "An empty or malformed account probe is a script failure; repair and retest it.",
+            )
     if (
         result["status"] == "succeeded"
         and request["action"] == "preview"

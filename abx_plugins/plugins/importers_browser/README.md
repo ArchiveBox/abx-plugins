@@ -30,6 +30,9 @@ by its existing owner on completion/cancellation.
 - Previous revisions remain in `state/history`. A failed repair preserves the last
   working script and committed checkpoint; logs explain the failure.
 - Login, CAPTCHA, MFA, and account mismatches return `needs_login` for human action.
+  Include `login.kind` (`login`, `mfa`, `captcha`, or `account_mismatch`) and
+  `login.evidence` describing the observed blocker. Missing evidence triggers
+  script repair; a broken account probe must not disable the source.
 - Discovery is read-only. Check/preview never commit discovery progress.
 
 The natural-language contract requires complete pagination, including new items

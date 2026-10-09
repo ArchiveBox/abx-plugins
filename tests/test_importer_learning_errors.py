@@ -25,3 +25,14 @@ def test_preview_cannot_claim_more_items_without_emitting_a_sample():
         match="Preview must emit sampled ImporterItem records",
     ):
         importer.validate_output(output.read_text(), request)
+
+
+def test_broken_account_probe_cannot_request_a_new_login():
+    # Real cabbage reply importer: an uncalled JS function yielded no account,
+    # which was mistaken for expired authentication and disabled the source.
+    output = Path(__file__).parent / "fixtures" / "importer-unverified-login.jsonl"
+    with pytest.raises(
+        ValueError,
+        match="Needs-login results require observed authentication evidence",
+    ):
+        importer.validate_output(output.read_text(), {"action": "check", "limit": 100})
