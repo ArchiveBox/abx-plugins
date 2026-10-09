@@ -5,6 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "category": "importers",
+  "display_order": 10,
+  "output_mimetypes": [],
   "x-auto-run": false,
   "required_plugins": [
     "base"
@@ -13,8 +15,11 @@
     {
       "name": "feedparser",
       "binproviders": "uv,env",
+      "min_version": "6.0.12",
       "overrides": {
         "uv": {
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/importer-rss",
+          "postinstall_scripts": true,
           "install_args": [
             "feedparser==6.0.12"
           ]

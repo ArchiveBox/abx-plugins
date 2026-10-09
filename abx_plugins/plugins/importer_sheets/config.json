@@ -5,6 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "category": "importers",
+  "display_order": 20,
+  "output_mimetypes": [],
   "x-auto-run": false,
   "required_plugins": [
     "base"

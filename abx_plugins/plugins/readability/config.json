@@ -20,6 +20,7 @@
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/readability",
+          "min_release_age": 0,
           "install_args": [
             "readability-extractor"
           ]

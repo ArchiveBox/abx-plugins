@@ -64,6 +64,8 @@
       "min_version": "0.1.13",
       "overrides": {
         "uv": {
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/opencode-browser",
+          "postinstall_scripts": true,
           "install_args": [
             "browser-harness==0.1.13"
           ]
