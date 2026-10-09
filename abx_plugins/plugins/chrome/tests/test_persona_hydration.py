@@ -12,7 +12,12 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-def test_persona_settings_and_storage_on_external_cdp_tabs(tmp_path, httpserver):
+@pytest.mark.parametrize("storage_source", ["origin", "tab"])
+def test_persona_settings_and_storage_on_external_cdp_tabs(
+    tmp_path,
+    httpserver,
+    storage_source,
+):
     httpserver.expect_request("/").respond_with_data(
         "<script>window.atLoad = {language:navigator.language, "
         "timezone:Intl.DateTimeFormat().resolvedOptions().timeZone, "
@@ -43,9 +48,25 @@ def test_persona_settings_and_storage_on_external_cdp_tabs(tmp_path, httpserver)
                     {
                         "origin": origin,
                         "localStorage": [{"name": "login", "value": "local-value"}],
-                        "sessionStorage": [{"name": "tab", "value": "session-value"}],
+                        **(
+                            {
+                                "sessionStorage": [
+                                    {"name": "tab", "value": "session-value"},
+                                ],
+                            }
+                            if storage_source == "origin"
+                            else {}
+                        ),
                     },
                 ],
+                "tabs": [
+                    {
+                        "url": origin + "/previous/page?before=restart",
+                        "sessionStorage": [{"name": "tab", "value": "session-value"}],
+                    },
+                ]
+                if storage_source == "tab"
+                else [],
             },
         ),
     )

@@ -51,6 +51,7 @@
       let pending = '';
       while (true) {
         const { value, done } = await reader.read(); if (done) break;
+        if (ownController.signal.aborted) return;
         pending += value;
         let newline;
         while ((newline = pending.indexOf('\n')) >= 0) {
@@ -86,7 +87,11 @@
         renderKey = nextRenderKey; windows.replaceChildren();
         for (const browser of data.browsers) {
           const shell = el('section', null, 'chrome-window'); shell.dataset.browserId = browser.id;
-          const labels = browser.sources.map(source => source.persona ? 'Persona: ' + source.persona : [source.crawl && 'Crawl ' + source.crawl.slice(0, 8), source.snapshot && 'Snapshot ' + source.snapshot.slice(0, 8)].filter(Boolean).join(' · '));
+          const labels = browser.sources.flatMap(source => [
+            (source.persona || source.persona_name) && 'Persona: ' + (source.persona || source.persona_name),
+            source.crawl && 'Crawl ' + source.crawl.slice(-8),
+            !source.crawl && source.snapshot && 'Snapshot ' + source.snapshot.slice(-8),
+          ].filter(Boolean));
           shell.append(el('div', [...new Set(labels)].join(' · ') + (browser.pid ? ' · PID ' + browser.pid : ''), 'browser-label'));
           const top = el('div', null, 'chrome-top'), tabs = el('div', null, 'tabs'); tabs.setAttribute('role', 'tablist');
           for (const tab of browser.tabs) {

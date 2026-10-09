@@ -324,6 +324,13 @@ def _ensure_project_files(settings: dict) -> None:
         .replace("{python}", shlex.quote(sys.executable)),
     )
 
+    (settings["opencode_dir"] / "server_context.md").write_text(
+        Path(__file__)
+        .with_name("server_context.md")
+        .read_text()
+        .replace("{python}", shlex.quote(sys.executable)),
+    )
+
 
 def _ensure_default_session(settings: dict) -> str:
     workdir = settings["workdir"].resolve()
@@ -437,15 +444,16 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
                 **json.loads(_DEFAULT_CONFIG),
                 "instructions": [
                     str(settings["opencode_dir"] / "SKILL.md"),
+                    str(settings["opencode_dir"] / "server_context.md"),
                     str(
                         settings["config_home"]
                         / "opencode"
                         / "skills"
                         / "archivebox-browser"
-                        / "SKILL.md"
+                        / "SKILL.md",
                     ),
                 ],
-            }
+            },
         ),
         "XDG_CONFIG_HOME": str(settings["config_home"]),
         "XDG_DATA_HOME": str(settings["data_home"]),
