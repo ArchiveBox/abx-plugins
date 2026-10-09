@@ -90,8 +90,10 @@ print(json.dumps(js("window.agentHeap = 'still-live'; sessionStorage.setItem('ag
 """)
             assert "fr-FR" in output and "Europe/Paris" in output
             harness_screenshot = tmp_path / "harness.png"
+            # Native attachment preserves foreground selection. Pixel capture
+            # must activate the headless compositor, as the browser skill does.
             assert str(harness_screenshot) in run_harness(
-                f"print(capture_screenshot(path={str(harness_screenshot)!r}))",
+                f"activate_tab(current_tab()); print(capture_screenshot(path={str(harness_screenshot)!r}))",
             )
             task = tmp_path / "stagehand.mts"
             task.write_text("""const {StagehandClient} = await import(process.env.ARCHIVEBOX_STAGEHAND_MODULE);
@@ -103,6 +105,7 @@ try {
   if (pages.length !== 1) throw new Error('Expected the existing capture tab');
   const state = await pages[0].evaluate({expression: "({heap:window.agentHeap, session:sessionStorage.getItem('agent'), local:localStorage.getItem('agent'), cookie:document.cookie, language:navigator.language, timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})"});
   console.log('STATE=' + JSON.stringify(state));
+  await pages[0].bringToFront();
   const shot = await pages[0].screenshot({options:{type:'png', fullPage:false}});
   if (!shot.screenshot) throw new Error('Screenshot missing');
   await writeFile(process.env.STAGEHAND_SCREENSHOT, Buffer.from(shot.screenshot.replace(/^data:image\\/png;base64,/, ''), 'base64'));

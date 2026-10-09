@@ -95,6 +95,9 @@ When layout, images, loading, an error, or the result of an action matters, take
 a real screenshot of the selected tab and **view the image**, not just its path.
 Save task evidence under `opencode/screenshots/` in the collection, not in a
 snapshot's saved outputs. Use unique filenames for before/after states.
+Activate the selected tab before requesting pixels: Linux headless Chrome can
+stall its compositor for an inactive tab. This selects that tab in Chrome;
+ordinary attachment and DOM inspection do not require activation.
 
 Browser Harness (use the same connection prefix and exact tab selection above):
 
@@ -102,6 +105,7 @@ Browser Harness (use the same connection prefix and exact tab selection above):
 from pathlib import Path
 directory = Path('opencode/screenshots').resolve()
 directory.mkdir(parents=True, exist_ok=True)
+activate_tab(current_tab())
 print(capture_screenshot(path=str(directory / 'browser-check.png')))
 ```
 
@@ -110,6 +114,7 @@ Stagehand v4, inside the connected `try` block above after selecting `page`:
 ```ts
 const { mkdir, writeFile } = await import('node:fs/promises');
 const { resolve } = await import('node:path');
+await page.bringToFront();
 const result = await page.screenshot({options: {type: 'png', fullPage: false}});
 if (!result.screenshot) throw new Error('The selected tab returned no screenshot');
 const directory = resolve('opencode/screenshots');
