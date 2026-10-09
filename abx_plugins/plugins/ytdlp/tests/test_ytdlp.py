@@ -14,6 +14,7 @@ import gzip
 import hashlib
 import io
 import os
+import socket
 import subprocess
 import tempfile
 import time
@@ -228,19 +229,25 @@ def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
         output_dir / "1k11yw5_https_-_www.reddit.com_comments_1k11yw5_.json.dump"
     )
     saved_page.write_bytes(page)
-    result = subprocess.run(
-        [str(YTDLP_HOOK), "--url=https://www.reddit.com/comments/1k11yw5/"],
-        cwd=tmp_path,
-        env={
-            **os.environ,
-            **ytdlp_runtime_env,
-            "SNAP_DIR": str(tmp_path),
-            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
-        },
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    # A real refused proxy connection makes session setup warn, while native
+    # saved-page loading still reaches the real Reddit metadata parser.
+    with socket.socket() as unavailable_proxy:
+        unavailable_proxy.bind(("127.0.0.1", 0))
+        proxy = f"http://127.0.0.1:{unavailable_proxy.getsockname()[1]}"
+        result = subprocess.run(
+            [str(YTDLP_HOOK), "--url=https://www.reddit.com/comments/1k11yw5/"],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                **ytdlp_runtime_env,
+                "SNAP_DIR": str(tmp_path),
+                "YTDLP_ARGS_EXTRA": f'["--load-pages", "--proxy", "{proxy}"]',
+            },
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    assert "Session request failed" in result.stderr, result.stderr
     assert "Loading request from" in result.stderr, result.stderr
     assert "Unable to load request" not in result.stderr, result.stderr
     assert "ERROR: [Reddit] 1k11yw5: No media found" in result.stderr, result.stderr
