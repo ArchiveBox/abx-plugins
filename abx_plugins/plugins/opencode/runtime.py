@@ -4,6 +4,7 @@ import asyncio
 import atexit
 import base64
 import hashlib
+import json
 import logging
 import os
 import re
@@ -316,6 +317,13 @@ def _ensure_project_files(settings: dict) -> None:
         .replace("{python}", shlex.quote(sys.executable)),
     )
 
+    (settings["opencode_dir"] / "server_context.md").write_text(
+        Path(__file__)
+        .with_name("server_context.md")
+        .read_text()
+        .replace("{python}", shlex.quote(sys.executable)),
+    )
+
 
 def _ensure_default_session(settings: dict) -> str:
     workdir = settings["workdir"].resolve()
@@ -424,7 +432,15 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
         "OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER": "true",
         "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
         # Override even an existing user config that enables checkpoints.
-        "OPENCODE_CONFIG_CONTENT": _DEFAULT_CONFIG,
+        "OPENCODE_CONFIG_CONTENT": json.dumps(
+            {
+                **json.loads(_DEFAULT_CONFIG),
+                "instructions": [
+                    str(settings["opencode_dir"] / "SKILL.md"),
+                    str(settings["opencode_dir"] / "server_context.md"),
+                ],
+            },
+        ),
         "XDG_CONFIG_HOME": str(settings["config_home"]),
         "XDG_DATA_HOME": str(settings["data_home"]),
         "XDG_STATE_HOME": str(settings["state_home"]),

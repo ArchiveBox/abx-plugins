@@ -51,7 +51,8 @@ const client = new StagehandClient({
 });
 await client.connect();
 try {
-  const pages = await client.browser.pages();
+  const pages = await client.browser.pages(process.env.ARCHIVEBOX_BROWSER_TARGET_ID
+    ? {targetId: process.env.ARCHIVEBOX_BROWSER_TARGET_ID} : {});
   console.log(pages.map(page => ({ targetId: page.targetId, url: page.url })));
   // Select the intended page and run your task here.
 } finally { await client.close(); } // disconnect; preserve the shared browser

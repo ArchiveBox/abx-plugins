@@ -19,6 +19,43 @@ from abx_plugins.plugins.opencode.archivebox.conftest import _login_cookie
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_agent_context_uses_real_queue_paths_and_shared_metrics(
+    crawl,
+    snapshot,
+    admin_user,
+):
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.progressmonitor.metrics import progress_metrics
+    from .context import server_context
+
+    Crawl.objects.filter(pk=crawl.pk).update(status="paused")
+    Snapshot.objects.filter(pk=snapshot.pk).update(status="paused")
+    deadline = time.monotonic() + 5
+    while (
+        metrics := progress_metrics(admin_user)
+    ) is None and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert metrics is not None
+    context = server_context(crawl_id=str(crawl.pk), limit=1)
+    assert context["performance"] == metrics["system"]
+    assert context["crawls"] == [
+        {
+            "id": str(crawl.pk),
+            "status": "paused",
+            "label": crawl.label,
+            "persona": crawl.persona.name if crawl.persona else None,
+            "output_dir": str(crawl.output_dir),
+            "snapshots": {"paused": 1},
+        },
+    ]
+    assert Path(context["paths"]["collection"]).is_dir()
+    assert Path(context["paths"]["system_metrics"]).is_file()
+    assert not context["browsers"]
+    assert "urls" not in context["crawls"][0]
+    assert len(context["running_processes"]) <= 1
+
+
 def test_agent_browser_panel_cost_and_isolation(
     agent_server,
     browser_runtime,
@@ -52,7 +89,9 @@ for name in ('Preview A', 'Preview B'):
     persona.ensure_dirs()
     config=get_config(persona=persona).model_dump(mode='json')
     config['CHROME_HEADLESS']=True
-    config['OPENCODE_ENABLED']=True
+    # Persona launch belongs to ArchiveBox even when extraction-only config
+    # does not include the optional OpenCode plugin.
+    config['OPENCODE_ENABLED']=False
     config['ACTIVE_PERSONA']=persona.name
     config['CHROME_USER_DATA_DIR']=str(persona.CHROME_USER_DATA_DIR)
     result.append(config)

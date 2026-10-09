@@ -95,3 +95,19 @@ bound preview work, but browser encoding and streaming still consume resources.
 RSS with previews closed, inventory open, streaming, and disconnected. It also
 exercises real UI selection, navigation, and a renderer crash against two live
 Chrome instances. Run it through the host's `test_opencode_browser_panel.py`.
+
+## Server context
+
+OpenCode automatically loads the collection's editable `opencode/SKILL.md` and
+plugin-managed `opencode/server_context.md`. The latter points to one read-only
+command, `python -m abx_plugins.plugins.opencode.archivebox.context`, for current
+crawl/queue summaries, running processes, exact data/log/config paths, personas,
+and browser/tab connections. `--crawl UUID` scopes the view; default category
+limits keep large queues out of the prompt. Changes and execution use existing
+ArchiveBox commands and model APIs, described in the instructions.
+
+Performance data is the progress monitor's own timestamped system sample,
+published once per background refresh to local temporary storage. Missing/stale
+samples remain visibly unknown; the agent starts no additional OS sampler.
+Context is queried on demand, never on the preview polling path. `ONLY_NEW=True`
+is the documented default unless the administrator asks to recapture URLs.

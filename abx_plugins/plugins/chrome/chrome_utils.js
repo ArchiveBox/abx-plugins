@@ -4656,6 +4656,12 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   const sessionStates = [...origins.filter(entry => entry.sessionStorage).map(entry => ({
     origin: entry.origin, sessionStorage: entry.sessionStorage,
   })), ...tabs];
+  const sessionOrigins = new Map();
+  for (const state of sessionStates) {
+    const origin = state.origin || new URL(state.url).origin;
+    if (!sessionOrigins.has(origin)) sessionOrigins.set(origin, []);
+    sessionOrigins.get(origin).push(state);
+  }
   const pending = new Set();
   let startup = true;
   let failure = null;
@@ -4691,17 +4697,26 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
         try { await session.send("Page.removeScriptToEvaluateOnNewDocument", { identifier }); }
         catch (error) { if (!session.detached) console.error(error.message); }
       });
-      for (const [index, state] of sessionStates.entries()) {
+      for (const [origin, states] of sessionOrigins) {
+        // sessionStorage follows a tab across same-origin paths. A unique saved
+        // state can seed any initial URL on that origin; distinct saved tabs
+        // require an exact URL match so their state is never mixed together.
+        const unambiguous = new Set(states.map(state => JSON.stringify(
+          [...state.sessionStorage].sort((a, b) => a.name.localeCompare(b.name)),
+        ))).size === 1;
         const source = `(() => {
-          const state = ${JSON.stringify(state)};
-          if (state.url ? location.href !== state.url : location.origin !== state.origin) return;
+          if (location.origin !== ${JSON.stringify(origin)}) return;
+          const states = ${JSON.stringify(states)};
+          const state = states.find(s => s.url === location.href) || states.find(s => !s.url)
+            || (${unambiguous} ? states[0] : null);
+          if (!state) return;
           for (const item of state.sessionStorage) {
             if (sessionStorage.getItem(item.name) === null) sessionStorage.setItem(item.name, item.value);
           }
-          __archiveboxSessionRestored(${JSON.stringify(String(index))});
+          __archiveboxSessionRestored(${JSON.stringify(origin)});
         })()`;
         const { identifier } = await session.send("Page.addScriptToEvaluateOnNewDocument", { source });
-        scripts.set(String(index), identifier);
+        scripts.set(origin, identifier);
         await session.send("Runtime.evaluate", { expression: source });
       }
     }

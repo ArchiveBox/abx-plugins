@@ -120,6 +120,18 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     assert not project.json().get("vcs")
     assert not config.json().get("model")
     assert config.json()["snapshot"] is False
+    effective_config = requests.get(
+        f"{live_opencode.settings['origin']}/config",
+        params={"directory": workdir},
+        timeout=live_opencode.settings["timeout"],
+    )
+    effective_config.raise_for_status()
+    assert "instructions" in effective_config.json(), effective_config.json()
+    instructions = effective_config.json()["instructions"]
+    assert str(state_dir / "SKILL.md") in instructions
+    context_file = state_dir / "server_context.md"
+    assert str(context_file) in instructions
+    assert "opencode.archivebox.context" in context_file.read_text()
     assert live_opencode.process.poll() is None
     path = requests.get(
         f"{live_opencode.settings['origin']}/path",
