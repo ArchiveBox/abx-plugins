@@ -4005,6 +4005,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             tmpdir,
             CRAWL_DIR=str(shared_dir),
             SNAP_DIR=str(shared_dir),
+            TMP_DIR=str(Path(tmpdir) / "runtime"),
             CHROME_HEADLESS="true",
         )
 
@@ -4034,7 +4035,14 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             assert crawl_screencast_result.returncode == 0, (
                 crawl_screencast_result.stderr
             )
-            latest_frame = shared_dir / "chrome_screencast" / "latest.jpg"
+            # WHY: mutable live frames stay off archive storage; only retained
+            # frames become durable outputs when the hook stops.
+            latest_frame = (
+                Path(env["TMP_DIR"])
+                / "chrome_screencast"
+                / hashlib.sha256(env["CRAWL_DIR"].encode()).hexdigest()
+                / "latest.jpg"
+            )
             assert not latest_frame.exists()
 
             tab_process = launch_snapshot_tab(
@@ -4079,6 +4087,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             assert latest_frame.is_file(), (
                 "snapshot screencast did not capture its target"
             )
+            assert not (shared_dir / "chrome_screencast" / "latest.jpg").exists()
             initial_frame = latest_frame.read_bytes()
             assert initial_frame.startswith(b"\xff\xd8\xff")
             initial_frame_mtime = latest_frame.stat().st_mtime_ns
