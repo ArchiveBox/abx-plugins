@@ -12,7 +12,7 @@ import shutil
 import signal
 import subprocess
 import time
-from contextlib import chdir, contextmanager
+from contextlib import contextmanager
 from pathlib import Path
 
 from abx_plugins.plugins.base.importers import emit, read_records, read_request
@@ -47,19 +47,10 @@ def validate_output(stdout, request):
 
 
 @contextmanager
-def connection(config, run_dir):
-    if os.environ.get("BU_CDP_WS") or os.environ.get("BU_CDP_URL"):
-        yield str(config.get("OPENCODE_BINARY") or "opencode"), os.environ.copy()
-    else:
-        from abx_plugins.plugins.importers_browser.archivebox.host import (
-            connection as archivebox_connection,
-        )
-
-        with (
-            chdir(os.environ["DATA_DIR"]),
-            archivebox_connection(config, run_dir) as connected,
-        ):
-            yield connected
+def connection(config):
+    if not (os.environ.get("BU_CDP_WS") or os.environ.get("BU_CDP_URL")):
+        raise ValueError("Provide BU_CDP_WS or BU_CDP_URL for browser discovery.")
+    yield str(config.get("OPENCODE_BINARY") or "opencode"), os.environ.copy()
 
 
 def remaining(deadline, maximum):
@@ -209,7 +200,7 @@ def main():
     request_file.chmod(0o600)
     current = state / "current"
     current.mkdir(exist_ok=True)
-    with connection(config, run_dir) as (binary, env):
+    with connection(config) as (binary, env):
         token = hashlib.sha256(str(run_dir).encode()).hexdigest()[:16]
         env.update(
             IMPORTERS_REQUEST_FILE=str(request_file),

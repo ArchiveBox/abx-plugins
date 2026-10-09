@@ -16,6 +16,9 @@
   "commands": {
     "import": [
       "importer.py"
+    ],
+    "import_archivebox": [
+      "archivebox/host.py"
     ]
   },
   "importers": {

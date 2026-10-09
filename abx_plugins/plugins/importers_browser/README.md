@@ -42,11 +42,13 @@ without a loader does not establish complete history.
 
 ## Standalone protocol
 
-The command also accepts an existing `BU_CDP_WS` / `BU_CDP_URL` environment outside
+The `import` command requires an existing `BU_CDP_WS` / `BU_CDP_URL` environment outside
 ArchiveBox. Provide installed Browser Harness/OpenCode dependencies and set
 `IMPORTERS_STATE_DIR` to a private source-specific directory. Its optional host
 adapter is the only module that imports ArchiveBox; no ArchiveBox dependency is
-needed with a supplied browser endpoint.
+needed with a supplied browser endpoint. ArchiveBox selects the optional declared
+`import_archivebox` command, which prepares the persona connection and invokes the
+same standalone importer. Plugins without that command continue to use `import`.
 
 Stdin:
 

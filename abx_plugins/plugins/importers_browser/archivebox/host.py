@@ -1,16 +1,21 @@
+#!/usr/bin/env -S abxpkg run --script python3
+# /// script
+# requires-python = ">=3.12"
+# ///
 """Optional ArchiveBox browser handoff; standalone importers use supplied CDP env."""
 
 import os
 import select
+import signal
 import subprocess
 import sys
 import time
-from contextlib import contextmanager
+from contextlib import chdir, contextmanager
 from pathlib import Path
 
 
 @contextmanager
-def connection(config, run_dir):
+def connection(run_dir):
     from archivebox.config.django import setup_django
 
     setup_django(check_db=True)
@@ -92,3 +97,23 @@ def connection(config, run_dir):
                 owner.wait(timeout=5)
         if log:
             log.close()
+
+
+if __name__ == "__main__":
+
+    def terminate(signum, frame):
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, terminate)
+    run_dir = Path.cwd()
+    with chdir(os.environ["DATA_DIR"]), connection(run_dir) as (binary, env):
+        # The host owns persona startup; the standalone command receives only
+        # the prepared browser and agent environment, never imports this adapter.
+        env["OPENCODE_BINARY"] = binary
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).parents[1] / "importer.py")],
+            cwd=run_dir,
+            env=env,
+            check=False,
+        )
+    raise SystemExit(result.returncode)
