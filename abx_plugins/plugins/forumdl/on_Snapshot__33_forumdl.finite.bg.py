@@ -165,6 +165,26 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 
             reader.join(timeout=1)
 
+            # A failed download is not evidence that this URL has no forum.
+            # forum-dl also catches extractor exceptions, logs their traceback,
+            # and exits zero; retain any partial output and expose that failure.
+            diagnostics = "".join(output_lines)
+            last_line = (
+                diagnostics.rstrip().splitlines()[-1] if diagnostics.strip() else ""
+            )
+            if last_line.startswith("forum_dl.exceptions.ExtractorNotFoundError:"):
+                output_file.unlink(missing_ok=True)
+                return True, "No forum found", ""
+            if (
+                process.returncode != 0
+                or "Traceback (most recent call last):" in diagnostics
+            ):
+                return (
+                    False,
+                    None,
+                    f"forum-dl extraction failed (exit {process.returncode}): {diagnostics[-4000:].strip()}",
+                )
+
             # A detected board/thread is metadata, not a captured discussion.
             # forum-dl can emit a phpBB board record for ordinary web pages.
             if output_format == "jsonl" and output_file.is_file():

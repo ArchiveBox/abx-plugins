@@ -152,6 +152,49 @@ def test_config_save_forumdl_false_skips():
         assert result_json["output_str"] == "FORUMDL_ENABLED=False", result_json
 
 
+def test_downloader_error_is_not_noresults(tmp_path):
+    """A real downloader invocation error must not masquerade as an empty forum."""
+    result = subprocess.run(
+        [str(FORUMDL_HOOK), "--url=https://news.ycombinator.com/item?id=1"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "FORUMDL_BINARY": require_forumdl_binary(),
+            "FORUMDL_ARGS_EXTRA": '["--archivebox-invalid-option"]',
+            "SNAP_DIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "unrecognized arguments" in result.stderr, result.stderr
+    assert result.returncode != 0, (result.stdout, result.stderr)
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", record
+    assert "unrecognized arguments" in record["output_str"], record
+
+
+def test_dead_hackernews_story_error_is_not_noresults(tmp_path):
+    """The real HN tombstone triggers forum-dl's missing-title validation error."""
+    result = subprocess.run(
+        [str(FORUMDL_HOOK), "--url=https://news.ycombinator.com/item?id=50018417"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "FORUMDL_BINARY": require_forumdl_binary(),
+            "SNAP_DIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "validation error for Thread" in result.stderr, result.stderr
+    assert result.returncode != 0, (result.stdout, result.stderr)
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", record
+    assert "validation error for Thread" in record["output_str"], record
+
+
 def test_config_timeout():
     """Test that FORUMDL_TIMEOUT config is respected."""
 
