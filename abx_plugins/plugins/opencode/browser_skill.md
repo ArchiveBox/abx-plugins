@@ -131,7 +131,8 @@ After changing persistent logins or settings in a **base persona**, save its liv
 session cookies and open-tab storage for the next fork. Use ArchiveBox's host
 Python for this export and its file/JSON checks, not Browser Harness's isolated
 Python environment. Use `json` and `pathlib` from that Python's standard library;
-do not assume optional shell utilities such as `jq` or `file` are installed.
+Docker also preinstalls `jq` and `file` for shell inspection; outside Docker,
+check availability before using them.
 The following exports and verifies both files without printing credentials:
 
 ```sh

@@ -22,7 +22,16 @@ def opencode_env(tmp_path_factory):
         **os.environ,
         "ABXPKG_LIB_DIR": str(tmp_path_factory.mktemp("opencode-lib")),
     }
-    for name in ("node", "npm", "git", "browser-harness", "stagehand", "opencode"):
+    for name in (
+        "node",
+        "npm",
+        "git",
+        "jq",
+        "file",
+        "browser-harness",
+        "stagehand",
+        "opencode",
+    ):
         binary = install_required_binary_from_config(plugin_dir, name, env=env)
         assert binary.abspath and binary.version, f"Failed to install {name}"
     return env

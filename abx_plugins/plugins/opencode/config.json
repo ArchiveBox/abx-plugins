@@ -42,6 +42,16 @@
       "min_version": null
     },
     {
+      "name": "jq",
+      "binproviders": "env,apt,brew",
+      "min_version": null
+    },
+    {
+      "name": "file",
+      "binproviders": "env,apt,brew",
+      "min_version": null
+    },
+    {
       "name": "{OPENCODE_BINARY}",
       "binproviders": "env,pnpm",
       "min_version": "1.18.31",

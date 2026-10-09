@@ -42,8 +42,10 @@ def prune_incompatible_image_files() -> None:
 
 
 def verify_installed() -> None:
-    """Check the shipped executable before an installer can repair it."""
+    """Check shipped agent tools before an installer can repair them."""
     subprocess.run([str(installed_binary()), "--version"], check=True)
+    subprocess.run(["jq", "-en", '{"installed": true} | .installed'], check=True)
+    subprocess.run(["file", "--version"], check=True)
 
 
 def verify_archivebox_install() -> None:
