@@ -4647,7 +4647,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   try {
   const root = await browser.target().createCDPSession();
   const version = await root.send("Browser.getVersion");
-  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product) || version.userAgent;
+  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product);
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
   const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
   // Import persistent storage once, before publishing readiness. All clients
@@ -4670,12 +4670,15 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     await session.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: Number(config.BROWSER_DEVICE_SCALE_FACTOR || 1), mobile: false,
     });
-    // Launch already resolves the actual Chrome version for its user agent.
-    await session.send("Emulation.setUserAgentOverride", {
-      userAgent,
-      ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
-      ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
-    });
+    // Even overriding the UA with its existing value clears native client hints.
+    // Leave the browser identity untouched unless this persona requests a change.
+    if (userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM) {
+      await session.send("Emulation.setUserAgentOverride", {
+        userAgent: userAgent || version.userAgent,
+        ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
+        ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
+      });
+    }
     if (config.BROWSER_LANGUAGE) await session.send("Emulation.setLocaleOverride", { locale: config.BROWSER_LANGUAGE });
     if (config.BROWSER_TIMEZONE) await session.send("Emulation.setTimezoneOverride", { timezoneId: config.BROWSER_TIMEZONE });
     if (config.BROWSER_GEOLOCATION && Object.keys(config.BROWSER_GEOLOCATION).length) {
