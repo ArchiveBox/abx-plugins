@@ -1,6 +1,11 @@
 from django.urls import include, path, re_path
 
-from .views import agent_view, agent_browser_view, opencode_proxy_view, capture_task_view
+from .views import (
+    agent_view,
+    agent_browser_view,
+    opencode_proxy_view,
+    capture_task_view,
+)
 
 
 agent_patterns = [
