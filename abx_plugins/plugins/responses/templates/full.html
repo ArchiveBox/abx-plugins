@@ -30,7 +30,17 @@ header{flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:2}h1{white-space:now
  const normalize=path=>path.replace(/^\.\//,'').replace(/^responses\//,'');
  const readable=(file,source)=>{if(source){try{const u=new URL(source);return decodeURIComponent(u.pathname.split('/').filter(Boolean).pop()||u.hostname)}catch{}}
   return file.path.split('/').pop().replace(/^\d{8}T\d{6}__[A-Z]+__/,'').replace(/_([0-9a-f]{2})/gi,(_,hex)=>String.fromCharCode(parseInt(hex,16)));};
- const sizeLabel=size=>size>=1048576?(size/1048576).toFixed(1)+' MB':size>=1024?Math.ceil(size/1024)+' KB':size+' B';
+ const sizeLabel = (value) => {
+   let size = Number(value) || 0;
+   const units = ["B", "KB", "MB", "GB", "TB"];
+   let unit = 0;
+   while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+     size /= 1000;
+     unit++;
+   }
+   const precision = unit < 2 ? 1 : 10;
+   return `${Math.round(size * precision) / precision} ${units[unit]}`;
+ };
  function filter(){
   const query=search.value.trim().toLowerCase();let visible=0;const totals=Object.fromEntries(groups.map(g=>[g,0])),domainTotals=new Map();
   for(const entry of entries){const matches=entry.search.includes(query),typeMatches=selected==='All'||(selected==='XHR / Fetch'?entry.xhr:entry.group===selected),domainMatches=!selectedDomain||entry.domains.has(selectedDomain);

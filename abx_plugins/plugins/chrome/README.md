@@ -458,3 +458,24 @@ What they should not care about:
 - how the browser was launched
 - who owns process lifecycle
 - whether `chrome.pid` exists
+
+## Persona hydration and live observation
+
+`ensureChromeSession` is the single launch/adoption path for capture hooks and
+ArchiveBox's persona browser. It applies language, timezone, viewport/scale,
+user agent/platform, color scheme, and optional geolocation/permissions before
+scripts execute in new CDP tabs. A retained owner connection keeps those CDP
+settings active for Browser Harness, Stagehand, and other attached clients.
+
+Portable `auth.json` origins carry localStorage and Dexie IndexedDB exports with
+native store/index schemas; tab entries carry sessionStorage. Hydration imports
+persistent storage once per browser/artifact revision, and sessionStorage once
+per matching tab, so a repeated attachment or page reload cannot overwrite newer
+live state. Cookie expiry and session flags are preserved. Native profile clones
+also preserve Chrome's session files. An exported storage snapshot cannot retain
+arbitrary JavaScript heap state; attaching to the running browser does.
+
+In ArchiveBox, that same owner publishes `tabs.json` and serves optional viewer
+demand through the shared `chrome_screencast/screencast.js` subscription. These
+artifacts are optional: missing/malformed metadata disables the viewer, not
+capture or other components. Standalone abx-dl does not load the observer.

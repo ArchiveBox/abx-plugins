@@ -98,7 +98,7 @@ async function main() {
     if (await page.$('[data-testid="signup-bar-button"]')) {
       console.error("Persona must be logged in to miro.com");
       return emitArchiveResultRecord(
-        "skipped",
+        "noresults",
         "Persona must be logged in to miro.com",
       );
     }
@@ -192,7 +192,7 @@ async function main() {
     );
     if (pdfDisabled && !downloads.length) {
       console.error("Owner disabled PDF export");
-      return emitArchiveResultRecord("skipped", "Owner disabled PDF export");
+      return emitArchiveResultRecord("noresults", "Owner disabled PDF export");
     }
     const pdfDownloads = pdfDisabled
       ? []

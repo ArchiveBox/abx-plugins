@@ -46,7 +46,9 @@
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
           "install_args": [
             "@puppeteer/browsers@3.2.3",
-            "puppeteer@25.12.0"
+            "puppeteer@25.12.0",
+            "dexie@4.4.6",
+            "dexie-export-import@4.4.1"
           ],
           "version": "3.2.3"
         }
@@ -290,6 +292,56 @@
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates (disable for self-signed certs)"
+    },
+    "BROWSER_LANGUAGE": {
+      "type": "string",
+      "default": "",
+      "description": "Persona language / Accept-Language, e.g. fr-FR"
+    },
+    "BROWSER_TIMEZONE": {
+      "type": "string",
+      "default": "",
+      "description": "Persona IANA timezone, e.g. Europe/Paris"
+    },
+    "BROWSER_DEVICE_SCALE_FACTOR": {
+      "type": "number",
+      "default": 1,
+      "exclusiveMinimum": 0,
+      "description": "Persona device pixel ratio"
+    },
+    "BROWSER_GEOLOCATION": {
+      "type": "object",
+      "default": {},
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "accuracy": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "description": "Persona geolocation override (latitude, longitude, accuracy)"
+    },
+    "BROWSER_PLATFORM": {
+      "type": "string",
+      "default": "",
+      "description": "Optional navigator.platform override"
+    },
+    "BROWSER_PERMISSIONS": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "CDP Browser.PermissionType grants for the persona browser context"
     }
   },
   "category": "page_setup",

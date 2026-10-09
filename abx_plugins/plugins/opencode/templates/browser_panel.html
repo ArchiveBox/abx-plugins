@@ -1,0 +1,123 @@
+{% load core_tags %}
+{% plugin_ui "chrome" "browser_style" %}
+<style>
+  .opencode-agent-shell { display: flex; }
+  .opencode-agent-frame { min-width: 0; flex: 1; }
+  .agent-browsers { width: 40%; min-width: 300px; max-width: 700px; overflow: auto; background: #f5f6f8; border-left: 1px solid #d1d5db; color: #202b36; font: 13px/1.5 system-ui,sans-serif; }
+  .agent-browsers[hidden] { display: none; }
+  .agent-browsers header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
+  .agent-browsers button { cursor: pointer; font: inherit; color: inherit; }
+  .agent-browsers .chrome-window { margin: 0 10px 14px; border: 1px solid #b7c1cc; border-radius: 10px; }
+  .agent-browsers .browser-label { padding: 6px 10px; font-size: 11px; overflow-wrap: anywhere; background: #edf0f3; }
+  .agent-browsers .tabs { overflow-x: auto; gap: 3px; padding: 0 6px; }
+  .agent-browsers .tab { min-width: 110px; max-width: 220px; border: 0; background: #dfe3e8; flex-shrink: 0; }
+  .agent-browsers .tab[aria-selected=true] { background: white; box-shadow: inset 0 3px #446b97; }
+  .agent-browsers .tab-title { pointer-events: none; }
+  .agent-browsers .viewport { min-height: 90px; padding: 0; background: #fff; }
+  .agent-browsers .viewport p { padding: 12px; margin: 0; color: #64748b; }
+  .agent-browsers img { width: 100%; height: auto; display: block; }
+  .agent-browsers img[hidden] { display: none; }
+  .agent-browsers .browser-error { padding: 10px 12px; }
+  @media(max-width: 900px) { .opencode-agent-shell { flex-direction: column; } .agent-browsers { width: 100%; max-width: none; max-height: 45%; min-width: 0; border-left: 0; } }
+</style>
+<aside class="agent-browsers" aria-label="Server browsers">
+  <header><strong>Server browsers</strong><button type="button" data-browser-refresh aria-label="Refresh server browsers">↻</button></header>
+  <div class="browser-error" role="status">No browser selected. Ask the agent to open a persona or inspect an active crawl.</div>
+  <div data-browser-windows></div>
+</aside>
+<script>
+(() => {
+  const panel = document.querySelector('.agent-browsers'), windows = panel.querySelector('[data-browser-windows]'), status = panel.querySelector('[role=status]');
+  const api = '{% url "opencode-browser" action="list" %}'.replace(/list$/, '');
+  const image = document.createElement('img'); image.alt = 'Live view of the selected server tab'; image.hidden = true;
+  const message = document.createElement('p'); message.textContent = 'Select a tab to view it.';
+  let controller, streamKey = '', renderKey = '', selected = null, stopped = false, refreshing = false;
+  const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = text; if (cls) node.className = cls; return node; };
+  const stop = () => { controller?.abort(); controller = null; image.hidden = true; image.removeAttribute('src'); };
+  async function select(id, target_id) {
+    stop(); streamKey = '';
+    const response = await fetch(api + 'select', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token|escapejs }}' }, body: JSON.stringify({ id, target_id }) });
+    if (!response.ok) throw new Error('That browser or tab is no longer available.');
+    await refresh();
+  }
+  async function stream(browser, tab) {
+    stop(); controller = new AbortController();
+    const ownController = controller;
+    message.textContent = 'Connecting…';
+    try {
+      const response = await fetch(api + 'stream?' + new URLSearchParams({ id: browser.id, target: tab.target_id }), { signal: ownController.signal, credentials: 'same-origin' });
+      if (!response.ok || !response.body) throw new Error('Browser preview unavailable');
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let pending = '';
+      while (true) {
+        const { value, done } = await reader.read(); if (done) break;
+        pending += value;
+        let newline;
+        while ((newline = pending.indexOf('\n')) >= 0) {
+          const event = JSON.parse(pending.slice(0, newline)); pending = pending.slice(newline + 1);
+          if (event.type === 'frame') { image.src = 'data:image/jpeg;base64,' + event.data; image.hidden = false; message.textContent = ''; }
+          if (event.type === 'navigation') { panel.querySelector('[data-current-url]')?.replaceChildren(document.createTextNode(event.url)); image.hidden = true; }
+          if (event.type === 'unavailable') throw new Error(event.message);
+        }
+      }
+      throw new Error('Browser disconnected');
+    } catch (error) {
+      if (ownController.signal.aborted) return;
+      image.hidden = true; image.removeAttribute('src'); message.textContent = error.message + '. Refresh to reconnect.';
+    }
+  }
+  async function refresh() {
+    if (stopped || document.hidden || refreshing) return;
+    refreshing = true;
+    try {
+      const response = await fetch(api + 'list', { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) throw new Error('Browser inventory unavailable');
+      const data = await response.json(); selected = data.selected;
+      const current = data.browsers.find(browser => browser.id === selected?.id);
+      // Follow a foreground tab only when it is unambiguous. Multiple windows
+      // remain separate in the list and require an explicit tab selection.
+      if (current?.available && !selected.target_id) {
+        const foreground = current.tabs.filter(tab => tab.available && tab.foreground);
+        const choice = foreground.length === 1 ? foreground[0] : current.tabs.length === 1 ? current.tabs[0] : null;
+        if (choice) { refreshing = false; await select(current.id, choice.target_id); return; }
+      }
+      const nextRenderKey = JSON.stringify(data);
+      if (nextRenderKey !== renderKey) {
+        renderKey = nextRenderKey; windows.replaceChildren();
+        for (const browser of data.browsers) {
+          const shell = el('section', null, 'chrome-window'); shell.dataset.browserId = browser.id;
+          const labels = browser.sources.map(source => source.persona ? 'Persona: ' + source.persona : [source.crawl && 'Crawl ' + source.crawl.slice(0, 8), source.snapshot && 'Snapshot ' + source.snapshot.slice(0, 8)].filter(Boolean).join(' · '));
+          shell.append(el('div', [...new Set(labels)].join(' · ') + (browser.pid ? ' · PID ' + browser.pid : ''), 'browser-label'));
+          const top = el('div', null, 'chrome-top'), tabs = el('div', null, 'tabs'); tabs.setAttribute('role', 'tablist');
+          for (const tab of browser.tabs) {
+            const active = selected?.id === browser.id && selected?.target_id === tab.target_id;
+            const button = el('button', null, 'tab'); button.type = 'button'; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(active)); button.dataset.targetId = tab.target_id;
+            button.title = tab.url + '\nTarget ' + tab.target_id + (tab.window_id ? '\nWindow ' + tab.window_id : '') + (tab.foreground ? '\nForeground' : '');
+            button.append(el('span', (tab.foreground ? '● ' : '') + (tab.title || tab.url || 'New tab'), 'tab-title'));
+            button.disabled = !browser.available || !tab.available;
+            button.addEventListener('click', () => { void select(browser.id, tab.target_id).catch(error => { status.textContent = error.message; }); });
+            tabs.append(button);
+          }
+          top.append(tabs); const toolbar = el('div', null, 'toolbar'), omnibox = el('div', browser.tabs.find(tab => tab.target_id === selected?.target_id)?.url || 'Select a tab', 'omnibox');
+          if (selected?.id === browser.id) omnibox.dataset.currentUrl = '';
+          toolbar.append(omnibox); top.append(toolbar); shell.append(top);
+          const viewport = el('div', null, 'viewport');
+          if (selected?.id === browser.id) viewport.append(image, message);
+          else viewport.append(el('p', browser.available ? 'Select a tab to preview this browser.' : 'Browser unavailable'));
+          shell.append(viewport); windows.append(shell);
+        }
+      }
+      status.textContent = data.browsers.length ? 'The selected tab is shared with the agent.' : 'No active server browsers.';
+      const tab = current?.tabs.find(tab => tab.target_id === selected?.target_id && tab.available);
+      const key = current?.available && tab ? current.id + ':' + tab.target_id : '';
+      if (key !== streamKey) { streamKey = key; stop(); if (key) void stream(current, tab); else message.textContent = 'Selected tab is unavailable.'; }
+    } catch (error) { stop(); streamKey = ''; status.textContent = error.message + '. Other agent tools remain available.'; }
+    finally { refreshing = false; }
+  }
+  panel.querySelector('[data-browser-refresh]').addEventListener('click', () => { streamKey = ''; void refresh(); });
+  const tick = async () => { await refresh(); if (!stopped) setTimeout(tick, 1000); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); streamKey = ''; } else void refresh(); });
+  window.addEventListener('pagehide', () => { stopped = true; stop(); });
+  void tick();
+})();
+</script>

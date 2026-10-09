@@ -60,6 +60,12 @@ jobs:
         run: |
           uv sync --locked --dev --no-sources --no-cache
 
+      - name: Install the documentation downloader CLI
+        run: |
+          uv tool install --python 3.13 abx-dl==1.13.152
+          uv tool dir --bin >> "$GITHUB_PATH"
+          echo "ABX_PLUGINS_DIR=$GITHUB_WORKSPACE/abx_plugins/plugins" >> "$GITHUB_ENV"
+
       - name: Install the matching Chrome sandbox helper
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib

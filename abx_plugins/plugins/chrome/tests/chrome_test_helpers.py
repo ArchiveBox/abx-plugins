@@ -54,6 +54,7 @@ import re
 import ssl
 import subprocess
 import sys
+import tempfile
 import threading
 import urllib.parse
 import urllib.request
@@ -62,6 +63,7 @@ from typing import Any, TextIO
 from collections.abc import Callable
 from contextlib import contextmanager
 
+import psutil
 import pytest
 from _pytest.fixtures import FixtureLookupError
 from pytest_httpserver import HTTPServer
@@ -809,14 +811,81 @@ print(json.dumps(result))
         watchdog.daemon = True
         watchdog.start()
     try:
-        return subprocess.run(
-            command,
-            cwd=str(CHROME_PLUGIN_DIR),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=payload,
-        )
+        with (
+            tempfile.TemporaryFile(mode="w+") as stdout,
+            tempfile.TemporaryFile(mode="w+") as stderr,
+        ):
+            process = subprocess.Popen(
+                command,
+                cwd=str(CHROME_PLUGIN_DIR),
+                stdout=stdout,
+                stderr=stderr,
+                text=True,
+                env=payload,
+                start_new_session=True,
+            )
+            try:
+                process.wait(timeout=timeout)
+            except BaseException as error:
+                # The deadline belongs to this bootstrap, not just abxpkg.
+                # Its package-manager descendants can otherwise retain browser
+                # cache locks and outlive every subsequent fixture invocation.
+                try:
+                    children = psutil.Process(process.pid).children(recursive=True)
+                except psutil.NoSuchProcess:
+                    children = []
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                privileged = []
+                for child in reversed(children):
+                    try:
+                        child.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+                    except psutil.AccessDenied:
+                        privileged.append(str(child.pid))
+                if privileged:
+                    # Playwright's --with-deps may run descendants as root or
+                    # in sudo's separate session. Target only the observed tree.
+                    try:
+                        cleanup = subprocess.run(
+                            ["sudo", "-n", "--", "kill", "-KILL", "--", *privileged],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if cleanup.returncode:
+                            stderr.write(cleanup.stderr)
+                    except (OSError, subprocess.SubprocessError) as cleanup_error:
+                        stderr.write(
+                            f"Browser installer cleanup failed: {cleanup_error}\n",
+                        )
+                process.wait()
+                _gone, alive = psutil.wait_procs(children, timeout=5)
+                if alive:
+                    stderr.write(
+                        f"Browser installer processes survived cleanup: {[child.pid for child in alive]}\n",
+                    )
+                stdout.seek(0)
+                stderr.seek(0)
+                if isinstance(error, subprocess.TimeoutExpired):
+                    raise subprocess.TimeoutExpired(
+                        command,
+                        timeout,
+                        output=stdout.read(),
+                        stderr=stderr.read(),
+                    ) from None
+                raise
+            stdout.seek(0)
+            stderr.seek(0)
+            return subprocess.CompletedProcess(
+                command,
+                process.returncode,
+                stdout.read(),
+                stderr.read(),
+            )
     finally:
         finished.set()
         if watchdog is not None:

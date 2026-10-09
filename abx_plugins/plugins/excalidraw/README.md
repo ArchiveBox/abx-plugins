@@ -33,7 +33,7 @@ SHA-256 hashes. ArchiveBox offers format buttons and direct previews.
 Run through the normal capture lifecycle:
 
 ```bash
-uv run abx-dl dl --plugins=excalidraw 'https://excalidraw.com/#json=pJK6JcJMr7LGOuy1NbCKP,YneEARvxllEU6vlDQfz81A'
+uv run abx-dl dl --dir="$(mktemp -d)" --plugins=excalidraw 'https://excalidraw.com/#json=pJK6JcJMr7LGOuy1NbCKP,YneEARvxllEU6vlDQfz81A'
 ```
 
 Tests call the real Chrome crawl, tab, navigation and snapshot hooks against

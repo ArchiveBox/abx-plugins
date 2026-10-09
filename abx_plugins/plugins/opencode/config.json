@@ -57,6 +57,37 @@
           ]
         }
       }
+    },
+    {
+      "name": "browser-harness",
+      "binproviders": "uv",
+      "min_version": "0.1.13",
+      "overrides": {
+        "uv": {
+          "install_args": [
+            "browser-harness==0.1.13"
+          ]
+        }
+      }
+    },
+    {
+      "name": "stagehand",
+      "binproviders": "pnpm",
+      "min_version": "4.0.0-rc.56",
+      "min_release_age": 0,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser",
+          "min_release_age": 0,
+          "install_args": [
+            "shalpha@4.0.0-rc.56",
+            "abxbus@2.5.18",
+            "tsx@4.21.0"
+          ],
+          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/shalpha/index.ts",
+          "version": "4.0.0-rc.56"
+        }
+      }
     }
   ],
   "output_mimetypes": [],

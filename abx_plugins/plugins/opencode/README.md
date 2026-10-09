@@ -88,3 +88,32 @@ The API alias avoids redirecting a credentialed POST between API and admin hosts
 No host dependency changes are needed; the normal plugin publication cascade
 carries these routes into ArchiveBox. Real host integration coverage lives in
 `archivebox/agent_3_cases.py`, imported by ArchiveBox's existing agent suite.
+
+## Live browsers
+
+The right side of `/admin/agent/` lists Chrome processes and their real tabs.
+Selecting a tab activates that server tab and shows its native screencast. The
+managed `archivebox-browser` skill documents `--list`, `--current`, explicit
+browser/target selection, Browser Harness, and Stagehand v4. Clients attach to
+the same CDP session; they never launch a second automation browser.
+
+For persistent login or profile changes, pause the affected crawl, wait for its
+browser cleanup, edit the base persona with `archivebox persona open NAME`, save
+its portable state, and resume the existing crawl. Resume rereads crawl config
+and forks the updated persona. Pending URLs remain in that queue. Direct edits
+to a running capture affect its fork, so export wanted changes to the base
+persona before cleanup if they should survive a restart.
+
+Inventory requests read small files published by the existing Chrome owner and
+active Process rows; they never probe CDP, scan the snapshot queue, or spawn a
+subprocess. One native screencast per viewed tab writes a latest-frame mailbox;
+HTTP backpressure discards intermediate frames. Hidden/disconnected viewers
+release demand, crashes invalidate only that target, and stale browser selection
+never silently attaches to a different process. Expiring abandoned viewer demand
+does not expire cookies, session storage, or browser profiles. These controls
+bound preview work, but browser encoding and streaming still consume resources.
+
+`archivebox/browser_panel_cases.py` measures real HTTP latency, frame age, CPU and
+RSS with previews closed, inventory open, streaming, and disconnected. It also
+exercises real UI selection, navigation, and a renderer crash against two live
+Chrome instances. Run it through the host's `test_opencode_browser_panel.py`.

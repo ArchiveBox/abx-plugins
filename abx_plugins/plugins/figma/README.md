@@ -14,9 +14,10 @@ Native `.fig` and eight-page PDF exports are verified with the linked starter de
 
 The hook attaches to the snapshot's Chrome target, then checks both the requested
 and current URLs before waiting for document navigation. Unrelated pages return
-`noresults` even when their navigation failed. It uses existing browser authentication without a new browser or API keys. A visible sign-in requirement or explicitly disabled copy control
-returns `skipped` with exit code 0. A recognized document's HTTP block, missing
-expected controls, timeout or invalid export still returns `failed`.
+`noresults` even when their navigation failed. It uses existing browser authentication without a new browser or API keys. A visible sign-in requirement, explicitly disabled copy control,
+HTTP 403 browser block or human-verification page returns `noresults` with exit code 0.
+Other navigation errors, missing expected controls, timeouts and invalid exports
+still return `failed`.
 
 `FIGMA_ENABLED` defaults to true; set it false to disable extraction.
 `FIGMA_TIMEOUT` bounds the whole operation (120 seconds, with `TIMEOUT` fallback).
@@ -27,7 +28,7 @@ SHA-256 hashes. ArchiveBox offers format buttons and direct previews.
 Run through the normal capture lifecycle:
 
 ```bash
-uv run abx-dl dl --plugins=figma 'https://www.figma.com/design/0YpAEiii3cM0l3xidTbWPk/Style-Guide-Starter--Copy---Copy-?node-id=0-1&p=f'
+uv run abx-dl dl --dir="$(mktemp -d)" --plugins=figma 'https://www.figma.com/design/0YpAEiii3cM0l3xidTbWPk/Style-Guide-Starter--Copy---Copy-?node-id=0-1&p=f'
 ```
 
 Tests call the real Chrome crawl, tab, navigation and snapshot hooks against

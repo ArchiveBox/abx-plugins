@@ -15,9 +15,9 @@ Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 The public [workshop board](https://miro.com/app/board/uXjVK4c-_uU=/) was exported
 with an authorized signed-in session. Its PDF contains the actual yellow
 “Hello” sticky note. Native `.rtb` export remains unverified because this public
-board does not grant that permission. Anonymous captures report a `skipped`
+board does not grant that permission. Anonymous captures report a `noresults`
 sign-in prerequisite with exit code 0. An explicitly disabled PDF export is also
-`skipped` when no native backup was captured; an available backup is preserved.
+`noresults` when no native backup was captured; an available backup is preserved.
 Missing controls, loading/network failures and invalid exports remain failures.
 
 The hook attaches to the snapshot's Chrome target and checks the requested and
@@ -32,11 +32,11 @@ Saved files live under `miro/files/`; `downloads.json`
 records paths, formats, sizes and SHA-256 hashes. ArchiveBox offers format buttons and direct previews.
 
 ```bash
-uv run abx-dl dl --plugins=miro 'https://miro.com/app/board/uXjVK4c-_uU=/'
+uv run abx-dl dl --dir="$(mktemp -d)" --plugins=miro 'https://miro.com/app/board/uXjVK4c-_uU=/'
 ```
 
 The command uses the configured persona. Authenticated exports require that
-persona to be logged in to Miro; an anonymous capture reports a normal skip.
+persona to be logged in to Miro; an anonymous capture reports `noresults`.
 Use `CHROME_HEADLESS=false` for the authenticated fixture.
 
 The authenticated acceptance test requires `AUTH_STORAGE_FILE` and uses headed

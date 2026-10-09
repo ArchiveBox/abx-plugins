@@ -27,6 +27,17 @@
 <aside class="queue" aria-label="Archived playlist"><div class="queue-head"><div id="queue-kicker" class="queue-kicker">Archived media</div><h2 id="playlist-name">In this archive</h2><div id="playlist-owner" class="queue-meta"></div><span id="count" class="queue-summary"></span><div id="queue-controls" class="queue-controls" hidden><button id="previous" aria-label="Previous track" title="Previous track">‹</button><button id="next" aria-label="Next track" title="Next track">›</button><label><input id="autoplay" type="checkbox"> Play next</label></div><div id="position" class="queue-position"></div></div><div id="queue"></div></aside>
 </main>
 <script>
+const formatSize = (value) => {
+  let size = Number(value) || 0;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let unit = 0;
+  while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+    size /= 1000;
+    unit++;
+  }
+  const precision = unit < 2 ? 1 : 10;
+  return `${Math.round(size * precision) / precision} ${units[unit]}`;
+};
 (async () => {
     const $ = id => document.getElementById(id);
     const el = (tag, text, cls) => {const node = document.createElement(tag); if (text != null) node.textContent = text; if (cls) node.className = cls; return node;};
@@ -114,7 +125,7 @@
         const fields=(id,rows)=>{const list=$(id);list.replaceChildren();for(const [label,value,type] of rows){if(value==null || value==='' || value==='none')continue;const group=el('div'),dt=el('dt');dt.append(icon(type),document.createTextNode(label));group.append(dt,el('dd',value));list.append(group);}$(id+'-panel').hidden=!list.children.length;};
         fields('credits',[['Artist',data.artist || (Array.isArray(data.artists)?data.artists.join(', '):null),'person'],['Track',data.track,'music'],['Album',data.album,'disc'],['Genre',data.genre,'music'],['Released',date(data.release_date),'calendar'],['License',data.license,'file'],['Copyright',data.copyright,'file']]);
         const size=Number(entry.file?.size || data.filesize);
-        fields('details',[['Quality',data.resolution || (data.width&&data.height?`${data.width} × ${data.height}`:null),'play'],['File',entry.file ? entry.file.path.split('.').pop().toUpperCase()+(size?' · '+(size/1048576).toFixed(1)+' MB':'') : 'Metadata only','file'],['Video codec',data.vcodec,'play'],['Audio codec',data.acodec,'music'],['Audio bitrate',data.abr?Math.round(data.abr)+' kbps':null,'music'],['Sample rate',data.asr?number(data.asr)+' Hz':null,'music'],['Frame rate',data.fps?data.fps+' fps':null,'play'],['Language',data.language,'captions']]);
+        fields('details',[['Quality',data.resolution || (data.width&&data.height?`${data.width} × ${data.height}`:null),'play'],['File',entry.file ? entry.file.path.split('.').pop().toUpperCase()+(size?' · '+formatSize(size):'') : 'Metadata only','file'],['Video codec',data.vcodec,'play'],['Audio codec',data.acodec,'music'],['Audio bitrate',data.abr?Math.round(data.abr)+' kbps':null,'music'],['Sample rate',data.asr?number(data.asr)+' Hz':null,'music'],['Frame rate',data.fps?data.fps+' fps':null,'play'],['Language',data.language,'captions']]);
     }
     function parseSubtitles(text) {
         const stamp = value => value.replace(',', '.').split(':').reduce((total, part) => total * 60 + Number(part), 0);

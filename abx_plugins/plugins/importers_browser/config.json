@@ -1,0 +1,328 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Browser importers",
+  "description": "Reusable browser discovery scripts learned and repaired by OpenCode with Browser Harness and Stagehand.",
+  "type": "object",
+  "additionalProperties": false,
+  "category": "importers",
+  "x-auto-run": false,
+  "required_plugins": [
+    "opencode",
+    "chrome"
+  ],
+  "required_binaries": [],
+  "commands": {
+    "import": [
+      "importer.py"
+    ]
+  },
+  "importers": {
+    "x_posts": {
+      "provider": "X",
+      "title": "Posts",
+      "description": "Import your X posts. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's X posts.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/x.svg"
+    },
+    "x_replies": {
+      "provider": "X",
+      "title": "Replies",
+      "description": "Import your X replies. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's X replies.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/x.svg"
+    },
+    "x_bookmarks": {
+      "provider": "X",
+      "title": "Bookmarks",
+      "description": "Import your X bookmarks. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's X bookmarks.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/x.svg"
+    },
+    "x_likes": {
+      "provider": "X",
+      "title": "Likes",
+      "description": "Import your X likes. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's X likes.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/x.svg"
+    },
+    "x_follows": {
+      "provider": "X",
+      "title": "Following",
+      "description": "Import your X following. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's X following.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/x.svg"
+    },
+    "reddit_submissions": {
+      "provider": "Reddit",
+      "title": "Submissions",
+      "description": "Import your Reddit submissions. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Reddit submissions.\n- Start at the configured URL, or https://www.reddit.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/reddit.svg"
+    },
+    "reddit_replies": {
+      "provider": "Reddit",
+      "title": "Replies",
+      "description": "Import your Reddit replies. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Reddit replies.\n- Start at the configured URL, or https://www.reddit.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/reddit.svg"
+    },
+    "reddit_saves": {
+      "provider": "Reddit",
+      "title": "Saved posts and comments",
+      "description": "Import your Reddit saved posts and comments. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Reddit saved posts and comments.\n- Start at the configured URL, or https://www.reddit.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/reddit.svg"
+    },
+    "facebook_reactions": {
+      "provider": "Facebook",
+      "title": "Likes and reactions",
+      "description": "Import your Facebook likes and reactions. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Facebook likes and reactions.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/facebook.svg"
+    },
+    "facebook_posts": {
+      "provider": "Facebook",
+      "title": "Posts",
+      "description": "Import your Facebook posts. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Facebook posts.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/facebook.svg"
+    },
+    "facebook_comments": {
+      "provider": "Facebook",
+      "title": "Comments",
+      "description": "Import your Facebook comments. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Facebook comments.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/facebook.svg"
+    },
+    "facebook_photos": {
+      "provider": "Facebook",
+      "title": "Photos",
+      "description": "Import your Facebook photos. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Facebook photos.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/facebook.svg"
+    },
+    "facebook_follows": {
+      "provider": "Facebook",
+      "title": "Following",
+      "description": "Import your Facebook following. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Facebook following.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/facebook.svg"
+    },
+    "instagram_likes": {
+      "provider": "Instagram",
+      "title": "Likes",
+      "description": "Import your Instagram likes. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Instagram likes.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/instagram.svg"
+    },
+    "instagram_posts": {
+      "provider": "Instagram",
+      "title": "Posts",
+      "description": "Import your Instagram posts. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Instagram posts.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/instagram.svg"
+    },
+    "instagram_comments": {
+      "provider": "Instagram",
+      "title": "Comments",
+      "description": "Import your Instagram comments. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Instagram comments.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/instagram.svg"
+    },
+    "instagram_photos": {
+      "provider": "Instagram",
+      "title": "Photos",
+      "description": "Import your Instagram photos. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Instagram photos.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/instagram.svg"
+    },
+    "instagram_follows": {
+      "provider": "Instagram",
+      "title": "Following",
+      "description": "Import your Instagram following. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Instagram following.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/instagram.svg"
+    },
+    "google_sheet_rows": {
+      "provider": "Google",
+      "title": "Private spreadsheet rows",
+      "description": "Import your Google spreadsheet urls. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Google spreadsheet urls.\n- Start at the configured URL, or https://drive.google.com.\n- Verify the expected account; exclude unrelated recommendations.\n- Return HTTP(S) URLs in new spreadsheet rows, with stable row/URL identities.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/google.svg"
+    },
+    "google_documents": {
+      "provider": "Google",
+      "title": "Documents",
+      "description": "Import your Google documents. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Google documents.\n- Start at the configured URL, or https://drive.google.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/google.svg"
+    },
+    "google_commented_documents": {
+      "provider": "Google",
+      "title": "Documents commented on",
+      "description": "Import your Google documents commented on. Learns the browser workflow on first use and repairs it when needed.",
+      "auth": "persona",
+      "timeout": 900,
+      "task": "- Discover canonical URLs for this account's Google documents commented on.\n- Start at the configured URL, or https://drive.google.com.\n- Verify the expected account; exclude unrelated recommendations.\n- Require verified comments by this account; do not substitute all shared documents.",
+      "config_fields": [
+        "IMPORTERS_BROWSER_ACCOUNT",
+        "IMPORTERS_BROWSER_URL"
+      ],
+      "icon": "icons/google.svg"
+    }
+  },
+  "properties": {
+    "IMPORTERS_BROWSER_ACCOUNT": {
+      "type": "string",
+      "title": "Expected account",
+      "description": "Your account handle or email. The importer must verify it before reading private activity.",
+      "default": "",
+      "maxLength": 200,
+      "x-required": true
+    },
+    "IMPORTERS_BROWSER_URL": {
+      "type": "string",
+      "title": "Source URL (optional)",
+      "description": "A particular profile, activity page, spreadsheet, or folder. Leave blank to discover it from your signed-in account.",
+      "format": "uri",
+      "default": "",
+      "x-advanced": true
+    }
+  },
+  "importers_setup": [
+    {
+      "title": "Use a dedicated browser profile",
+      "description": "Install the ArchiveBox extension in a separate Chrome or Brave profile. Sign in to the account you want to import.",
+      "image": "setup/extension-setup.png"
+    },
+    {
+      "title": "Sync to a server persona",
+      "description": "In the extension, select your ArchiveBox server and sync this profile to a persona. Choose that same persona here.",
+      "image": "setup/persona-sync.png"
+    },
+    {
+      "title": "Preview, then import",
+      "description": "Save this importer and choose Preview. Confirm the account and discovered links, then choose Import all."
+    }
+  ]
+}

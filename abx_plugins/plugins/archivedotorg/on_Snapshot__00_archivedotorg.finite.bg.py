@@ -35,7 +35,7 @@ from http.client import RemoteDisconnected
 from ipaddress import ip_address
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
@@ -102,15 +102,6 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
     log(f"GET {submit_url}")
 
-    def save_submit_url_for_manual_retry(reason: str) -> tuple[bool, str, str]:
-        # Wayback save availability is outside ArchiveBox's control and commonly
-        # rate-limits shared CI/datacenter egress. Preserve a user-visible output
-        # that can be retried manually instead of turning an optional remote
-        # submission outage into a failed snapshot extraction.
-        Path(OUTPUT_FILE).write_text(submit_url, encoding="utf-8")
-        log(f"{reason}, saved submit URL for manual retry")
-        return True, OUTPUT_FILE, ""
-
     try:
         print("submitting to archive.org...", file=sys.stderr)
         req = Request(submit_url, headers={"User-Agent": user_agent})
@@ -133,46 +124,30 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         if x_archive_orig_url:
             log(f"X-Archive-Orig-Url: {x_archive_orig_url}")
 
-        # Build archive URL
-        if content_location:
-            archive_url = f"https://web.archive.org{content_location}"
+        # A save-request URL is not proof that a capture exists. Only replace
+        # a previous result once Wayback returns an actual replay location.
+        archive_url = (
+            urljoin("https://web.archive.org", content_location)
+            if content_location
+            else final_url
+        )
+        archived = urlparse(archive_url)
+        if archived.hostname == "web.archive.org" and archived.path.startswith("/web/"):
             Path(OUTPUT_FILE).write_text(archive_url, encoding="utf-8")
             log(f"Saved archive URL -> {archive_url}")
             return True, OUTPUT_FILE, ""
-        elif "web.archive.org" in final_url:
-            # We were redirected to an archive page
-            Path(OUTPUT_FILE).write_text(final_url, encoding="utf-8")
-            log(f"Redirected to archive page -> {final_url}")
-            return True, OUTPUT_FILE, ""
-        else:
-            # Check for errors in response
-            if "RobotAccessControlException" in body:
-                return save_submit_url_for_manual_retry("Blocked by robots.txt")
-            else:
-                return save_submit_url_for_manual_retry("No archive URL returned")
+        if "RobotAccessControlException" in body:
+            return False, None, "Archive.org blocked submission by robots.txt"
+        return False, None, "Archive.org returned no archive URL"
 
     except HTTPError as e:
-        if e.code >= 400:
-            return save_submit_url_for_manual_retry(
-                f"Archive.org returned HTTP {e.code}",
-            )
-        return False, None, f"HTTPError: {e}"
+        return False, None, f"Archive.org returned HTTP {e.code}"
     except TimeoutError:
-        return save_submit_url_for_manual_retry(
-            f"Request timed out after {timeout} seconds",
-        )
+        return False, None, f"Request timed out after {timeout} seconds"
     except RemoteDisconnected as e:
-        return save_submit_url_for_manual_retry(f"RemoteDisconnected: {e}")
+        return False, None, f"RemoteDisconnected: {e}"
     except URLError as e:
-        reason = e.reason
-        reason_text = str(reason)
-        retryable = (
-            isinstance(reason, ConnectionResetError)
-            or "timed out" in reason_text.lower()
-        )
-        if retryable:
-            return save_submit_url_for_manual_retry(f"URLError: {reason}")
-        return False, None, f"URLError: {reason}"
+        return False, None, f"URLError: {e.reason}"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
 
@@ -198,7 +173,7 @@ def main(url: str):
     try:
         skip_reason = should_skip_archivedotorg_url(url)
         if skip_reason:
-            emit_archive_result_record("skipped", skip_reason)
+            emit_archive_result_record("noresults", skip_reason)
             sys.exit(0)
 
         # Run extraction
@@ -212,9 +187,9 @@ def main(url: str):
             )
             sys.exit(0)
         else:
-            print(f"NORESULTS: {error}", file=sys.stderr)
-            emit_archive_result_record("noresults", error or "")
-            sys.exit(0)
+            print(f"ERROR: {error}", file=sys.stderr)
+            emit_archive_result_record("failed", error)
+            sys.exit(1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"

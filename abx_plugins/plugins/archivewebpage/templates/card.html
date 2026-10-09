@@ -12,6 +12,22 @@
     </svg>
     <div style="min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center;">
         <div style="font-family: monospace; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ output_path_raw }}">./{{ output_path_raw }}</div>
-        <div style="font-size: 10px; color: #9aa3b8; margin-top: 2px;">{{ result.output_size|filesizeformat }} &middot; WACZ archive</div>
+        <div style="font-size: 10px; color: #9aa3b8; margin-top: 2px;"><span class="archive-size"></span> &middot; WACZ archive</div>
     </div>
 </div>
+<script>
+(() => {
+    const formatSize = (value) => {
+      let size = Number(value) || 0;
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let unit = 0;
+      while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+        size /= 1000;
+        unit++;
+      }
+      const precision = unit < 2 ? 1 : 10;
+      return `${Math.round(size * precision) / precision} ${units[unit]}`;
+    };
+    document.currentScript.previousElementSibling.querySelector('.archive-size').textContent = formatSize({{ result.output_size|default:0 }});
+})();
+</script>

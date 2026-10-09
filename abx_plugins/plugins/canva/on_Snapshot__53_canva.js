@@ -205,7 +205,7 @@ async function main() {
       if (templateState === "sign-in") {
         console.error("Persona must be logged in to canva.com");
         return emitArchiveResultRecord(
-          "skipped",
+          "noresults",
           "Persona must be logged in to canva.com",
         );
       }
@@ -322,7 +322,7 @@ async function main() {
 main().catch((error) => {
   if (error instanceof ExportPrerequisiteError) {
     console.error(error.message);
-    emitArchiveResultRecord("skipped", error.message);
+    emitArchiveResultRecord("noresults", error.message);
     return;
   }
   console.error(error.message);

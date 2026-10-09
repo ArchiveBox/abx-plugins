@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Spreadsheet",
+  "description": "Read URL rows from a Google Sheet CSV export or another CSV URL. The sheet must allow CSV export with the selected access.",
+  "type": "object",
+  "additionalProperties": false,
+  "category": "importers",
+  "x-auto-run": false,
+  "required_plugins": [
+    "base"
+  ],
+  "required_binaries": [],
+  "commands": {
+    "import": [
+      "importer.py"
+    ]
+  },
+  "importers": {
+    "rows": {
+      "title": "Spreadsheet rows",
+      "auth": "optional",
+      "config_fields": [
+        "IMPORTER_SHEETS_URL",
+        "IMPORTER_SHEETS_COLUMN"
+      ],
+      "provider": "Google"
+    }
+  },
+  "properties": {
+    "IMPORTER_SHEETS_URL": {
+      "type": "string",
+      "title": "Spreadsheet or CSV URL",
+      "format": "uri",
+      "default": "",
+      "x-required": true,
+      "description": "A Google Sheets link (including the tab's gid), published CSV link, or direct CSV URL."
+    },
+    "IMPORTER_SHEETS_COLUMN": {
+      "type": "string",
+      "title": "URL column",
+      "default": "URL",
+      "x-required": true,
+      "description": "Exact header of the column containing URLs. Reordering rows does not reimport them.",
+      "x-advanced": true
+    }
+  },
+  "importers_setup": [
+    {
+      "title": "Add links to a URL column",
+      "description": "Use a sheet or CSV with a column named URL. A Title column is optional. Change the column name under Advanced if needed."
+    },
+    {
+      "title": "Paste the sheet or CSV link",
+      "description": "The URL must allow CSV export. For a private source, select a synced persona under Advanced."
+    },
+    {
+      "title": "Preview new rows",
+      "description": "Save, then Preview to check the links. Import all archives new rows; later imports skip rows already imported.",
+      "image": "setup/preview.jpg",
+      "image_alt": "Seven reading-list links from a real CSV preview, with optional source details collapsed."
+    }
+  ],
+  "icon": "icons/google.png"
+}

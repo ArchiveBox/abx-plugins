@@ -301,7 +301,7 @@ async function main() {
 main().catch((error) => {
   if (error instanceof ExportPrerequisiteError) {
     console.error(error.message);
-    return emitArchiveResultRecord("skipped", error.message);
+    return emitArchiveResultRecord("noresults", error.message);
   }
   console.error(error.stack || error.message);
   emitArchiveResultRecord("failed", error.message);

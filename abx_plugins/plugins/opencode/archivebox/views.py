@@ -59,7 +59,7 @@ def _runtime_settings(request, config):
     return runtime, settings
 
 
-def _dispatch(request, path=None):
+def _dispatch(request, path=None, browser_action=None):
     try:
         # Middleware already merged server defaults and live Machine overrides.
         # Re-resolving every extractor's config here stalls the UI request burst.
@@ -72,19 +72,29 @@ def _dispatch(request, path=None):
             return HttpResponseForbidden("Agent access requires a superuser account.")
 
         runtime, settings = _runtime_settings(request, config)
+        if browser_action is not None:
+            if not runtime._origin_allowed(
+                request.method,
+                request.get_host(),
+                request.headers,
+            ):
+                return HttpResponseForbidden("Cross-origin agent requests are blocked.")
+            from .screencast import browser_view
+
+            return browser_view(request, settings, browser_action)
         if path is None:
             from archivebox.core.admin_site import archivebox_admin
 
+            session_id = request.GET.get("session", "")
+            if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
+                return HttpResponse("Invalid session ID.", status=400)
             context = {
                 **archivebox_admin.each_context(request),
-                **runtime.agent_context(settings),
+                **runtime.agent_context(
+                    settings,
+                    session_id=request.GET.get("session", ""),
+                ),
             }
-            session_id = request.GET.get("session", "")
-            if session_id:
-                if not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
-                    return HttpResponse("Invalid session ID.", status=400)
-                context["proxy_url"] += "/" + session_id
-                context["recent_session_id"] = session_id
             source = get_plugin_template("opencode", "agent", fallback=False)
             if source is None:
                 raise RuntimeError("Agent template unavailable")
@@ -130,6 +140,10 @@ def _dispatch(request, path=None):
 
 def agent_view(request):
     return _dispatch(request)
+
+
+def agent_browser_view(request, action):
+    return _dispatch(request, browser_action=action)
 
 
 @csrf_exempt
@@ -208,10 +222,10 @@ def capture_task_view(request):
     )
     try:
         runtime, settings = _runtime_settings(request, config)
-        session_id = runtime.create_task_session(
+        session_id = runtime.start_session(
             settings,
-            f"Capture: {snapshot.title or snapshot.url}"[:160],
-            prompt,
+            title=f"Capture: {snapshot.title or snapshot.url}"[:160],
+            prompt=prompt,
         )
     except Exception:
         _LOGGER.exception("Could not submit capture task to OpenCode")

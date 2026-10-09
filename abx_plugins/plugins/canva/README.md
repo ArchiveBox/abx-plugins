@@ -10,7 +10,7 @@ Open in Editor action in the background export tab. **This creates a copy in the
 Canva account on each capture.** It does not edit the original design or change
 sharing. Ordinary public views without this author-provided action return
 `noresults` with exit code 0. Sign-in and premium-content prerequisites return
-`skipped` with exit code 0. Purchases, trials and premium-content licences are
+`noresults` with exit code 0. Purchases, trials and premium-content licences are
 never accepted. Provider blocks, loading/network failures, missing export
 controls and invalid exported documents remain failures.
 
@@ -37,11 +37,11 @@ Files live under `canva/files/`;
 ArchiveBox offers format buttons and direct previews.
 
 ```bash
-uv run abx-dl dl --plugins=canva 'https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview'
+uv run abx-dl dl --dir="$(mktemp -d)" --plugins=canva 'https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview'
 ```
 
 The command uses the configured persona. Authenticated exports require that
-persona to be logged in to Canva; an anonymous capture reports a normal skip.
+persona to be logged in to Canva; an anonymous capture reports `noresults`.
 Use `CHROME_HEADLESS=false` for authenticated exports of this fixture: the tested managed headless browser was
 blocked inside Canva's template frame. The hook reports that provider block and
 does not bypass it. The gallery recipe needs an accepted authenticated session.

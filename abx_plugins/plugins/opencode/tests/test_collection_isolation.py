@@ -22,7 +22,7 @@ def opencode_env(tmp_path_factory):
         **os.environ,
         "ABXPKG_LIB_DIR": str(tmp_path_factory.mktemp("opencode-lib")),
     }
-    for name in ("node", "npm", "git", "opencode"):
+    for name in ("node", "npm", "git", "browser-harness", "stagehand", "opencode"):
         binary = install_required_binary_from_config(plugin_dir, name, env=env)
         assert binary.abspath and binary.version, f"Failed to install {name}"
     return env
@@ -111,6 +111,32 @@ def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
         assert status == 200
         assert isinstance(html, bytes)
         assert b"<html" in html.lower()
+        prompt = "- Help me create a custom importer.\n- First ask which site and items to collect; do not edit files yet."
+        custom_session = runtime.start_session(
+            settings,
+            title="Create a custom importer",
+            prompt=prompt,
+        )
+        assert custom_session != session_id
+        custom_context = runtime.agent_context(settings, session_id=custom_session)
+        assert custom_context["proxy_url"] == frame_url + "/" + custom_session
+        assert custom_context["recent_session_id"] == custom_session
+        deadline = time.monotonic() + 10
+        while True:
+            messages = requests.get(
+                settings["origin"] + f"/session/{custom_session}/message",
+                params={"directory": str(collection)},
+                timeout=10,
+            )
+            messages.raise_for_status()
+            if any(
+                part.get("text") == prompt
+                for message in messages.json()
+                for part in message["parts"]
+            ):
+                break
+            assert time.monotonic() < deadline, messages.text
+            time.sleep(0.1)
     finally:
         runtime._stop_owned_process()
 

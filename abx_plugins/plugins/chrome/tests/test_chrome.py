@@ -60,6 +60,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 from abx_plugins.plugins.base.testing import (
     assert_isolated_snapshot_env,
     install_required_binary_from_config,
+    parse_jsonl_output,
 )
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -3743,6 +3744,77 @@ def test_tab_teardown_preserves_completed_navigation_result(chrome_test_url):
                     continue
                 proc.send_signal(signal.SIGTERM)
                 proc.wait(timeout=10)
+
+
+def test_renderer_crash_invalidates_owned_target_before_later_hooks(tmp_path):
+    """A crashed renderer must not leave later hooks attaching to a dead page."""
+    with chrome_session(tmp_path, test_url="https://example.com") as (
+        _,
+        chrome_pid,
+        chrome_dir,
+        env,
+    ):
+        script = r"""
+const fs = require('fs');
+const path = require('path');
+const assert = require('node:assert/strict');
+const utils = require(process.argv[1]);
+(async () => {
+  const dir = process.argv[2];
+  const {browser, page, targetId} = await utils.connectToPage({chromeSessionDir: dir});
+  const other = await browser.newPage();
+  const otherTargetId = utils.getTargetIdFromPage(other);
+  try {
+    const destroyed = new Promise(resolve => browser.on('targetdestroyed', target => {
+      if (utils.getTargetIdFromTarget(target) === targetId) resolve();
+    }));
+    const crashed = new Promise(resolve => page.once('error', resolve));
+    const session = await page.createCDPSession();
+    session.send('Page.crash').catch(() => {});
+    const error = await crashed;
+    assert.match(error.message, /crash/i);
+    const deadline = Date.now() + 5000;
+    while (fs.existsSync(path.join(dir, 'target_id.txt')) && Date.now() < deadline)
+      await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(fs.existsSync(path.join(dir, 'target_id.txt')), false, 'crashed target marker remains');
+    assert.equal(fs.existsSync(path.join(dir, 'url.txt')), false);
+    const started = Date.now();
+    await assert.rejects(utils.connectToPage({chromeSessionDir: dir, timeoutMs: 60000}), /No target_id.txt/);
+    assert.ok(Date.now() - started < 1000, 'missing target must fail before connecting');
+    await destroyed;
+    const {targetInfos} = await utils.sendBrowserCommand(browser, 'Target.getTargets');
+    assert.ok(targetInfos.some(target => target.targetId === otherTargetId), 'unrelated tab was closed');
+    console.log('renderer crash invalidated only its owned target');
+  } finally {
+    await utils.sendBrowserCommand(browser, 'Target.closeTarget', {targetId}).catch(() => {});
+    await other.close();
+    await browser.disconnect();
+  }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(chrome_dir)],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "renderer crash invalidated only its owned target" in result.stdout
+        assert is_pid_alive(chrome_pid), "renderer failure killed the shared browser"
+        box_hook = CHROME_UTILS.parent.parent / "box" / "on_Snapshot__53_box.js"
+        followup = subprocess.run(
+            [str(box_hook), "--url=https://example.com"],
+            cwd=chrome_dir.parent,
+            env={**env, "BOX_ENABLED": "true"},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert followup.returncode == 1, followup.stderr
+        record = parse_jsonl_output(followup.stdout)
+        assert record and record["status"] == "failed", followup.stdout
+        assert "No target_id.txt" in record["output_str"]
 
 
 def test_target_crash_mid_navigation_recovers_with_fresh_tab(
