@@ -25,7 +25,7 @@
       "description": "Import your X posts. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's X posts.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's X posts.\n- Start at the configured URL, or https://x.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -38,7 +38,7 @@
       "description": "Import your X replies. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's X replies.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's X replies.\n- Start at the configured URL, or https://x.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -51,7 +51,7 @@
       "description": "Import your X bookmarks. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's X bookmarks.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's X bookmarks.\n- Start at the configured URL, or https://x.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -64,7 +64,7 @@
       "description": "Import your X likes. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's X likes.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's X likes.\n- Start at the configured URL, or https://x.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -77,7 +77,7 @@
       "description": "Import your X following. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's X following.\n- Start at the configured URL, or https://x.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's X following.\n- Start at the configured URL, or https://x.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -90,7 +90,7 @@
       "description": "Import your Reddit submissions. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Reddit submissions.\n- Start at the configured URL, or https://www.reddit.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Reddit submissions.\n- Start at the configured URL, or https://www.reddit.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -103,7 +103,7 @@
       "description": "Import your Reddit replies. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Reddit replies.\n- Start at the configured URL, or https://www.reddit.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Reddit replies.\n- Start at the configured URL, or https://www.reddit.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -116,7 +116,7 @@
       "description": "Import your Reddit saved posts and comments. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Reddit saved posts and comments.\n- Start at the configured URL, or https://www.reddit.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Reddit saved posts and comments.\n- Start at the configured URL, or https://www.reddit.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -129,7 +129,7 @@
       "description": "Import your Facebook likes and reactions. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Facebook likes and reactions.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Facebook likes and reactions.\n- Start at the configured URL, or https://www.facebook.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -142,7 +142,7 @@
       "description": "Import your Facebook posts. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Facebook posts.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Facebook posts.\n- Start at the configured URL, or https://www.facebook.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -155,7 +155,7 @@
       "description": "Import your Facebook comments. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Facebook comments.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Facebook comments.\n- Start at the configured URL, or https://www.facebook.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -168,7 +168,7 @@
       "description": "Import your Facebook photos. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Facebook photos.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Facebook photos.\n- Start at the configured URL, or https://www.facebook.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -181,7 +181,7 @@
       "description": "Import your Facebook following. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Facebook following.\n- Start at the configured URL, or https://www.facebook.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Facebook following.\n- Start at the configured URL, or https://www.facebook.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -194,7 +194,7 @@
       "description": "Import your Instagram likes. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Instagram likes.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Instagram likes.\n- Start at the configured URL, or https://www.instagram.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -207,7 +207,7 @@
       "description": "Import your Instagram posts. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Instagram posts.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Instagram posts.\n- Start at the configured URL, or https://www.instagram.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -220,7 +220,7 @@
       "description": "Import your Instagram comments. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Instagram comments.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Instagram comments.\n- Start at the configured URL, or https://www.instagram.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -233,7 +233,7 @@
       "description": "Import your Instagram photos. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Instagram photos.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Instagram photos.\n- Start at the configured URL, or https://www.instagram.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -246,7 +246,7 @@
       "description": "Import your Instagram following. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Instagram following.\n- Start at the configured URL, or https://www.instagram.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Instagram following.\n- Start at the configured URL, or https://www.instagram.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -259,7 +259,7 @@
       "description": "Import your Google spreadsheet urls. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Google spreadsheet urls.\n- Start at the configured URL, or https://drive.google.com.\n- Verify the expected account; exclude unrelated recommendations.\n- Return HTTP(S) URLs in new spreadsheet rows, with stable row/URL identities.",
+      "task": "- Discover canonical URLs for this account's Google spreadsheet urls.\n- Start at the configured URL, or https://drive.google.com.\n- Identify the signed-in account; exclude unrelated recommendations.\n- Return HTTP(S) URLs in new spreadsheet rows, with stable row/URL identities.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -272,7 +272,7 @@
       "description": "Import your Google documents. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Google documents.\n- Start at the configured URL, or https://drive.google.com.\n- Verify the expected account; exclude unrelated recommendations.",
+      "task": "- Discover canonical URLs for this account's Google documents.\n- Start at the configured URL, or https://drive.google.com.\n- Identify the signed-in account; exclude unrelated recommendations.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -285,7 +285,7 @@
       "description": "Import your Google documents commented on. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
-      "task": "- Discover canonical URLs for this account's Google documents commented on.\n- Start at the configured URL, or https://drive.google.com.\n- Verify the expected account; exclude unrelated recommendations.\n- Require verified comments by this account; do not substitute all shared documents.",
+      "task": "- Discover canonical URLs for this account's Google documents commented on.\n- Start at the configured URL, or https://drive.google.com.\n- Identify the signed-in account; exclude unrelated recommendations.\n- Require verified comments by this account; do not substitute all shared documents.",
       "config_fields": [
         "IMPORTERS_BROWSER_ACCOUNT",
         "IMPORTERS_BROWSER_URL"
@@ -296,11 +296,11 @@
   "properties": {
     "IMPORTERS_BROWSER_ACCOUNT": {
       "type": "string",
-      "title": "Expected account",
-      "description": "Your account handle or email. The importer must verify it before reading private activity.",
+      "title": "Require account (optional)",
+      "description": "The signed-in account is detected automatically. Optionally restrict discovery to a particular handle or email.",
       "default": "",
       "maxLength": 200,
-      "x-required": true
+      "x-advanced": true
     },
     "IMPORTERS_BROWSER_URL": {
       "type": "string",
