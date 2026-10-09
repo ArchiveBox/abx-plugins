@@ -14,9 +14,14 @@ authenticated records or mutations, prefer `archivebox` CLI/shell instead of
 unauthenticated Webfetch. Do not disable TLS checks or bypass access controls.
 
 Run from the ArchiveBox collection directory. For logins/settings that future
-crawls should inherit, work on the **base persona**, opened with
-`archivebox persona open NAME`. It publishes its live CDP session; the handoff
-command below attaches without restarting, navigating, or importing old state.
+crawls should inherit, work on the **base persona**. If it has no live browser,
+start it with `archivebox persona open NAME --headless --background`. This creates
+the persona if needed, handles logging and the detached browser owner, and returns
+only once Chrome is ready. Its JSON result contains the browser PID and log path;
+a failed startup exits nonzero with diagnostics. Do not add `nohup`, shell `&`,
+redirection, or a separate `persona create` step. The owner stays alive after the
+shell tool returns. It publishes its live CDP session; the handoff command below
+attaches without restarting, navigating, or importing old state.
 `--snapshot UUID` / `--crawl UUID` attach to a capture's isolated fork instead;
 changes there do not automatically update the base persona.
 
@@ -56,21 +61,14 @@ Repeat the prefix for each invocation, including `browser-harness skill` for its
 API. It sets BU_CDP_WS, BU_CDP_URL, and a browser-specific BU_NAME. Reuse existing
 tabs/contexts. Do not use local browser discovery or cloud launch commands.
 For a new browsing task with no suitable live browser, open the intended persona
-using `archivebox persona open NAME`, then attach to that persona. Do not navigate
+using the background command above, then attach to that persona. Do not navigate
 a capture's tab away from its capture URL; create a task tab in the chosen persona
 when needed. If an explicitly requested capture has closed, report that fact.
 
-`persona open` owns Chrome and stays running until that browser closes. In an
-agent's noninteractive shell, start it in the background so the shell tool's
-timeout does not kill the browser:
-
-```sh
-mkdir -p opencode/logs
-nohup archivebox persona open NAME --headless </dev/null >opencode/logs/persona-NAME.log 2>&1 &
-```
-
-Confirm readiness with `--list` and the log before attaching. Keep the owner
-alive while browsing; do not repeatedly launch it or replace an unrelated browser.
+Use `--list` to discover its exact tab before attaching. Do not repeatedly launch
+it or replace an unrelated browser. Foreground `persona open` (without
+`--background`) stays running until Chrome closes and is for interactive terminals
+or an existing process supervisor, not an agent's bounded shell tool.
 
 For Stagehand v4, write an `.mts` script and run with the same prefix followed by
 `-- tsx /absolute/path/task.mts`. The installed version is `shalpha` rc.56:
