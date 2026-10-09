@@ -11,7 +11,8 @@ prompts; the agent learns against the selected account's real browser.
   Harness and Stagehand: `abx-dl install chrome opencode`.
 - Configure a working model provider in ArchiveBox's existing Agent UI.
 - Sync a dedicated browser profile to a server Persona using the extension.
-- Select that Persona and the expected account under **Importers**.
+- Select that Persona under **Importers**. The signed-in account is discovered
+  automatically; an optional account restriction lives under Advanced options.
 - Check access, preview, then **Import all**. Scheduling and overrides are advanced.
 
 ArchiveBox attaches through the same published browser and environment as
