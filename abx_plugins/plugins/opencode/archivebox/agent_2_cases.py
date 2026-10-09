@@ -71,10 +71,10 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert b'id="opencode-agent-welcome"' in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
-    assert b'<a href="/admin/agent" class="navbar-item navbar-ai">' in response.content
+    assert b'<a href="/admin/agent/" class="navbar-item navbar-ai">' in response.content
     add_page = admin_client.get("/add/", HTTP_HOST=ADMIN_TEST_HOST)
     assert add_page.status_code == 200
-    assert '<a href="/admin/agent">💬 Crawl with AI</a>'.encode() in add_page.content
+    assert '<a href="/admin/agent/">💬 Crawl with AI</a>'.encode() in add_page.content
     assert response.context["proxy_prefix"] == runtime._PROXY_PREFIX
     assert b"/_archivebox/health" not in response.content
     assert b"window.setInterval(check, 3000)" not in response.content

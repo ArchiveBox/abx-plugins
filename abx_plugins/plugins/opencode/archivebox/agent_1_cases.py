@@ -26,7 +26,7 @@ def test_opencode_disabled_via_cli_stays_disabled(admin_client, initialized_arch
     for path in ("/add/", "/admin/core/snapshot/"):
         response = admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        assert b'href="/admin/agent"' not in response.content
+        assert b'href="/admin/agent' not in response.content
 
 
 def test_opencode_proxy_blocks_cross_site_fetch_metadata(
