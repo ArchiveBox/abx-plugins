@@ -14,6 +14,7 @@
 - Read JSON from `IMPORTERS_REQUEST_FILE`: `version`, `action`, `feed`, `settings`, `checkpoint`, `limit`.
 - `check`: verify account and feed; no items. `preview`: emit sampled `ImporterItem` records without advancing the checkpoint. `import`: stable IDs, deduplication, resumable pagination.
 - Emit at most `limit` items. Keep checkpoints bounded/account-specific; retain pending items at batch boundaries. Every import must find new additions as well as resume older history. Report incomplete history accurately.
+- Deduplicate only against previously emitted/checkpointed IDs. Buffer or emit newly fetched items before adding their IDs to the consumed set; never skip the first page. Test a fresh import checkpoint as well as continuation and repeat runs.
 - Import ALL accessible history across batches. The host continues while `has_more=true`; the limit is a batch size, never a total cap.
 - Verify terminal pagination before `has_more=false`. Loading, rate limits, missing cursors, or a stagnant viewport are not proof of completeness; fail honestly if the end cannot be verified.
 - Terminal imports must return `end: {"kind":"cursor|marker|count", "evidence":"observed proof"}`: an exhausted server pagination cursor, explicit UI end marker, or verified total matching collected unique IDs. Repeated physical bottom/no loader is insufficient. Use browser network response data if the UI has no explicit end; do not expose request credentials.

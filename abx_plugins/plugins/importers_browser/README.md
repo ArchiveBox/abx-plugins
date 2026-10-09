@@ -18,6 +18,7 @@ prompts; the agent learns against the selected account's real browser.
 ArchiveBox attaches through the same published browser and environment as
 OpenCode. A cold Persona opens through `archivebox persona open NAME --headless`.
 Each importer owns one tab and one harness daemon, cleaning those up afterwards.
+The owned tab is activated so headless Chrome renders it and accepts browser input.
 An already-running browser is reused. A browser started by the importer is closed
 by its existing owner on completion/cancellation.
 
@@ -42,6 +43,8 @@ history limits or unverified ends must be reported as failures, not empty succes
 Terminal browser results also include `end.kind` (`cursor`, `marker`, or `count`)
 and `end.evidence` describing the observed proof. A repeatedly stagnant viewport
 without a loader does not establish complete history.
+An initial import cannot advance past history while emitting no items. Newly
+fetched items must be emitted or retained before their IDs become consumed.
 
 ## Standalone protocol
 

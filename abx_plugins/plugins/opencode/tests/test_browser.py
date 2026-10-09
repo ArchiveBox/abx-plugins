@@ -12,6 +12,7 @@ from abxpkg import BinProvider
 
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+from abx_plugins.plugins.importers_browser.importer import task_tab
 
 PLUGIN = Path(__file__).parents[1]
 
@@ -65,7 +66,8 @@ def test_harness_and_stagehand_share_live_capture(tmp_path, httpserver):
                 "BU_NAME": "abx-test-"
                 + hashlib.sha256(session["cdp_url"].encode()).hexdigest()[:16],
                 "BH_TAB_MARKER": "0",
-                "BH_RUNTIME_DIR": tempfile.mkdtemp(prefix="abx-bh-"),
+                "BH_RUNTIME_DIR": tempfile.mkdtemp(prefix="abx-bh-", dir="/tmp"),
+                "BH_RUNTIME_DIR_SHARED": "1",
                 "ARCHIVEBOX_BROWSER_TARGET_ID": session["target_id"],
                 "ARCHIVEBOX_STAGEHAND_MODULE": str(stagehand.loaded_abspath),
             },
@@ -145,6 +147,21 @@ try {
                 dimensions.append(struct.unpack(">II", data[16:24]))
             assert dimensions[0] == dimensions[1]
             assert min(dimensions[0]) > 100
+            assert "still-live" in run_harness("print(js('window.agentHeap'))")
+            # Importers must expose a rendered tab to the learner. In headless
+            # Chrome, background tabs stall real mouse input and DOM evaluation.
+            importer_env = {**env, "BU_NAME": env["BU_NAME"] + "-importer"}
+            with task_tab(importer_env, tmp_path):
+                visibility = subprocess.run(
+                    [str(harness.loaded_abspath)],
+                    input="print(js('document.visibilityState'))",
+                    env=importer_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    check=True,
+                )
+                assert visibility.stdout.strip() == "visible"
             assert "still-live" in run_harness("print(js('window.agentHeap'))")
             # The official daemon shutdown command must also preserve this external browser.
             result = subprocess.run(

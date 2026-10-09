@@ -90,6 +90,18 @@ def validate_output(stdout, request):
     if (
         result["status"] == "succeeded"
         and request["action"] == "import"
+        and not request.get("checkpoint")
+        and result.get("has_more")
+        and len(records) == 1
+    ):
+        raise ValueError(
+            "First import batch cannot advance past unimported history without emitting items. "
+            "Only previously emitted or checkpointed items are duplicates; do not mark a fetched page "
+            "as consumed before emitting its items or retaining them for the next batch.",
+        )
+    if (
+        result["status"] == "succeeded"
+        and request["action"] == "import"
         and not result["has_more"]
     ):
         end = result.get("end", {})
@@ -127,7 +139,9 @@ def task_tab(env, run_dir):
         try:
             process = subprocess.run(
                 ["browser-harness"],
-                input="import json\nprint(json.dumps(new_tab()))\n",
+                # Headless Chrome throttles rendering/input in background tabs.
+                # Activate only the tab this run owns, before any agent probes.
+                input="import json\ntarget = new_tab()\nactivate_tab(target)\nprint(json.dumps(target))\n",
                 env=env,
                 text=True,
                 stdout=subprocess.PIPE,

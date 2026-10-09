@@ -36,3 +36,14 @@ def test_broken_account_probe_cannot_request_a_new_login():
         match="Needs-login results require observed authentication evidence",
     ):
         importer.validate_output(output.read_text(), {"action": "check", "limit": 100})
+
+
+def test_first_import_cannot_skip_a_page_without_emitting_items():
+    # Cabbage's learned script added the first page to its dedupe set before
+    # buffering it, silently advancing past 100 unimported saved items.
+    output = Path(__file__).parent / "fixtures" / "importer-empty-first-batch.jsonl"
+    with pytest.raises(ValueError, match="First import batch cannot advance"):
+        importer.validate_output(
+            output.read_text(),
+            {"action": "import", "checkpoint": {}, "limit": 100},
+        )

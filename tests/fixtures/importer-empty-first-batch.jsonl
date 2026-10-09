@@ -1,0 +1,1 @@
+{"type":"ImporterResult","status":"succeeded","account":{"id":"redacted"},"checkpoint":{"cursor":"redacted","complete":false,"known_total":0,"pages_total":1,"items_emitted_last_batch":0},"has_more":true,"message":"Emitted 0 item(s); history is NOT yet exhausted. 0 saved item(s) known so far across 1 page(s) walked in total."}
