@@ -176,6 +176,8 @@ def learn(
     attempt,
     deadline,
 ):
+    from abx_plugins.plugins.opencode.runtime import _stop_owned_process
+
     prompt = (PLUGIN / "prompt.md").read_text()
     prompt += "\n" + definition["task"]
     prompt += "\n- Request file: " + env["IMPORTERS_REQUEST_FILE"]
@@ -188,7 +190,8 @@ def learn(
     log_file = run_dir / f"learning-{attempt}.jsonl"
     with log_file.open("w") as log:
         try:
-            result = subprocess.run(
+            timeout = remaining(deadline - 120, 300)
+            process = subprocess.Popen(
                 [
                     binary,
                     "run",
@@ -203,9 +206,14 @@ def learn(
                 env=env,
                 stdout=log,
                 stderr=subprocess.STDOUT,
-                timeout=remaining(deadline - 120, 300),
-                check=False,
+                start_new_session=True,
             )
+            try:
+                returncode = process.wait(timeout=timeout)
+            finally:
+                # The package launcher spawns a native OpenCode child. Stop the
+                # whole owned group before replaying or repairing its files.
+                _stop_owned_process(process)
         except subprocess.TimeoutExpired:
             # An agent can spend its last seconds testing a completed script.
             # Only the independent replay below may declare that script usable.
@@ -213,7 +221,7 @@ def learn(
                 return
             raise
     failure = learning_failure(log_file)
-    if failure or result.returncode:
+    if failure or returncode:
         raise LearningError(failure or LEARNING_FAILURE)
 
 
@@ -249,6 +257,9 @@ def main():
         # Grant only the source workspace and request log directory; no global
         # auto-approval or changes to the Agent UI's persisted permissions.
         agent_config = json.loads(env.get("OPENCODE_CONFIG_CONTENT") or "{}")
+        # General Agent instructions run from the collection and allow host
+        # administration. This task uses only its standalone importer contract.
+        agent_config["instructions"] = []
         agent_config["permission"] = {
             "external_directory": {
                 "*": "deny",
