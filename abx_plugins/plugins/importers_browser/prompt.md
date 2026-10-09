@@ -11,7 +11,7 @@
 - Edit only this candidate directory and `BH_AGENT_WORKSPACE`. No package installs or changes to ArchiveBox/provider settings.
 - Saved scripts replay without an agent. Return failures honestly so the next repair can improve them; never fabricate an empty success.
 - Read JSON from `IMPORTERS_REQUEST_FILE`: `version`, `action`, `feed`, `settings`, `checkpoint`, `limit`.
-- `check`: verify account and feed; no items. `preview`: sample, no state writes. `import`: stable IDs, deduplication, resumable pagination.
+- `check`: verify account and feed; no items. `preview`: emit sampled `ImporterItem` records without advancing the checkpoint. `import`: stable IDs, deduplication, resumable pagination.
 - Emit at most `limit` items. Keep checkpoints bounded/account-specific; retain pending items at batch boundaries. Every import must find new additions as well as resume older history. Report incomplete history accurately.
 - Import ALL accessible history across batches. The host continues while `has_more=true`; the limit is a batch size, never a total cap.
 - Verify terminal pagination before `has_more=false`. Loading, rate limits, missing cursors, or a stagnant viewport are not proof of completeness; fail honestly if the end cannot be verified.

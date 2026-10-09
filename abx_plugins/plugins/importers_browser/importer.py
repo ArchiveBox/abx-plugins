@@ -67,6 +67,15 @@ def validate_output(stdout, request):
     result = records[-1]
     if (
         result["status"] == "succeeded"
+        and request["action"] == "preview"
+        and result.get("has_more")
+        and len(records) == 1
+    ):
+        raise ValueError(
+            "Preview must emit sampled ImporterItem records when more history exists; do not advance the checkpoint.",
+        )
+    if (
+        result["status"] == "succeeded"
         and request["action"] == "import"
         and not result["has_more"]
     ):

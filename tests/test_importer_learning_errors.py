@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from abx_plugins.plugins.importers_browser import importer
 
 
@@ -11,3 +13,15 @@ def test_exhausted_provider_credits_explain_how_to_resume():
         "or select a funded provider in Agent settings, then run this importer again. "
         "The learned script and discovery progress are preserved."
     )
+
+
+def test_preview_cannot_claim_more_items_without_emitting_a_sample():
+    # Real cabbage output: the learner sampled ten items but emitted only a
+    # success result. Account identity is redacted from the saved JSONL.
+    output = Path(__file__).parent / "fixtures" / "importer-empty-preview.jsonl"
+    request = {"action": "preview", "limit": 100}
+    with pytest.raises(
+        ValueError,
+        match="Preview must emit sampled ImporterItem records",
+    ):
+        importer.validate_output(output.read_text(), request)
