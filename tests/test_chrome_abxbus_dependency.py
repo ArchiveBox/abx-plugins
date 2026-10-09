@@ -163,6 +163,10 @@ def test_chrome_config_pins_puppeteer_dependencies() -> None:
     assert record["overrides"]["pnpm"]["install_args"] == [
         "@puppeteer/browsers@3.2.3",
         "puppeteer@25.12.0",
+        # Persona IndexedDB hydration loads these browser scripts from this
+        # same managed module root; their exact versions are part of the contract.
+        "dexie@4.4.6",
+        "dexie-export-import@4.4.1",
     ]
 
 
@@ -260,7 +264,9 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
         [
             node_binary,
             "-e",
-            "const puppeteer = require('puppeteer'); process.stdout.write(typeof puppeteer.launch)",
+            "const puppeteer = require('puppeteer'); "
+            "require.resolve('dexie'); require.resolve('dexie-export-import'); "
+            "process.stdout.write(typeof puppeteer.launch)",
         ],
         capture_output=True,
         text=True,
