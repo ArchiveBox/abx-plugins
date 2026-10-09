@@ -8,6 +8,7 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -24,6 +25,23 @@ LEARNING_FAILURE = "OpenCode could not learn this importer; inspect the private 
 
 class LearningError(RuntimeError):
     """An actionable message safe to display without private provider details."""
+
+
+def save_learning_session(log_file, session_file):
+    """Keep this source's investigation even when its learner is interrupted."""
+    with log_file.open() as log:
+        for line in log:
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            session_id = event.get("sessionID") if isinstance(event, dict) else None
+            if isinstance(session_id, str) and re.fullmatch(
+                r"ses_[A-Za-z0-9]+",
+                session_id,
+            ):
+                session_file.write_text(session_id)
+                return
 
 
 def learning_failure(log_file):
@@ -224,6 +242,12 @@ def learn(
         "not available",
     )
     log_file = run_dir / f"learning-{attempt}.jsonl"
+    session_file = candidate.parent / "learning-session"
+    resume = (
+        ["--session", session_file.read_text().strip()]
+        if session_file.is_file()
+        else []
+    )
     with log_file.open("w") as log:
         try:
             timeout = remaining(deadline - 120, 300)
@@ -235,6 +259,7 @@ def learn(
                     "json",
                     "--dir",
                     str(candidate),
+                    *resume,
                     "--",
                     prompt,
                 ],
@@ -251,11 +276,11 @@ def learn(
                 # whole owned group before replaying or repairing its files.
                 _stop_owned_process(process)
         except subprocess.TimeoutExpired:
-            # An agent can spend its last seconds testing a completed script.
-            # Only the independent replay below may declare that script usable.
-            if (candidate / "importer.py").is_file():
-                return
-            raise
+            # Replay any saved candidate; otherwise the next repair continues
+            # this same investigation instead of discarding its browser findings.
+            return
+        finally:
+            save_learning_session(log_file, session_file)
     failure = learning_failure(log_file)
     if failure or returncode:
         raise LearningError(failure or LEARNING_FAILURE)

@@ -26,6 +26,8 @@ by its existing owner on completion/cancellation.
 
 - Every source has its own private `state/current/importer.py` and harness workspace.
 - A saved script replays without an agent. Failures trigger up to two live repairs.
+- Repairs resume this source's own OpenCode session, including interrupted
+  investigations that have not written a script yet. Other Agent sessions stay separate.
 - Task/contract changes force revalidation instead of trusting an older script.
 - The host independently replays candidates and validates output before promotion.
 - Previous revisions remain in `state/history`. A failed repair preserves the last

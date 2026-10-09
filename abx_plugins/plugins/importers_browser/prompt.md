@@ -1,6 +1,7 @@
 - Learn/repair `importer.py` against the real browser; verify before finishing.
 - Work from the candidate directory. Keep helper scripts, test output, and diagnostics there; do not use `/tmp`, change to the collection directory, or inspect installed package source.
 - Save a concise script early, then test and improve it. Implement the requested action first; reuse existing candidate code and domain knowledge.
+- Continue this source's investigation. The current request file and environment replace prior run values; read `IMPORTERS_TAB_ID` afresh and discard stale browser/tab references.
 - Run `browser-harness skill` in the shell for its API (not the skill lookup tool). Read matching domain skills in `BH_AGENT_WORKSPACE`; save reusable knowledge there.
 - Attach only to the supplied persona endpoint using Browser Harness or Stagehand v4. Reuse the existing connection; never discover/launch another browser.
 - Use the prepared tab `IMPORTERS_TAB_ID`; do not create/close tabs. The host cleans it up. Disconnect Stagehand with `keep_alive=true`; never close the shared browser.

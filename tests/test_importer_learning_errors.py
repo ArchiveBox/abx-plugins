@@ -47,3 +47,11 @@ def test_first_import_cannot_skip_a_page_without_emitting_items():
             output.read_text(),
             {"action": "import", "checkpoint": {}, "limit": 100},
         )
+
+
+def test_learning_keeps_its_own_session_after_an_interrupted_attempt(tmp_path):
+    # The first event from cabbage's interrupted Instagram likes learner.
+    log = Path(__file__).parent / "fixtures" / "opencode-importer-step.jsonl"
+    session_file = tmp_path / "learning-session"
+    importer.save_learning_session(log, session_file)
+    assert session_file.read_text() == "ses_edd44997dffeHKwZ3K2UZAlXhC"
