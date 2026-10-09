@@ -6,6 +6,7 @@ network response capture.
 """
 
 import json
+import base64
 import os
 import posixpath
 import shutil
@@ -46,6 +47,37 @@ class TestResponsesPlugin:
             "Responses hook not found in plugin directory"
         )
         assert RESPONSES_HOOK.exists(), f"Hook not found: {RESPONSES_HOOK}"
+
+    def test_same_second_responses_do_not_overwrite_each_other(self, tmp_path):
+        result = subprocess.run(
+            [
+                os.environ["NODE_BINARY"],
+                "-e",
+                r"""
+const {buildUniqueFilename} = require(process.argv[1]);
+const fs = require('node:fs');
+const path = require('node:path');
+const names = ['first body', 'second body'].map(body => {
+  const name = buildUniqueFilename({timestamp: '20261009T070000', method: 'GET',
+    url: 'https://example.com/feed.json', extension: 'json'});
+  fs.writeFileSync(path.join(process.argv[2], name), body);
+  return name;
+});
+console.log(JSON.stringify(names));
+""",
+                str(FILENAME_UTILS),
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        names = json.loads(result.stdout)
+        assert len(set(names)) == 2
+        assert [(tmp_path / name).read_text() for name in names] == [
+            "first body",
+            "second body",
+        ]
 
     def test_unique_filename_does_not_duplicate_existing_suffix(self):
         """Short encoded URLs should not get .ext appended twice."""
@@ -102,6 +134,60 @@ class TestResponsesWithChrome:
     def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_data_url_body_is_saved_without_url_shaped_directories(self, httpserver):
+        """Inline image bytes must survive without creating oversized B2 keys."""
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2">'
+            "<metadata>" + "inline-image " * 200 + "</metadata>"
+            '<rect width="2" height="2" fill="red"/></svg>'
+        ).encode()
+        data_url = "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+        httpserver.expect_request("/inline-image").respond_with_data(
+            f'<html><body><img src="{data_url}"></body></html>',
+            content_type="text/html",
+        )
+        url = httpserver.url_for("/inline-image")
+        with chrome_session(
+            self.temp_dir,
+            test_url=url,
+            navigate=False,
+            timeout=30,
+        ) as (_, _, chrome_dir, env):
+            output = chrome_dir.parent / "responses"
+            output.mkdir()
+            index = output / "index.jsonl"
+            process = start_process_and_wait_for_file(
+                [str(RESPONSES_HOOK), f"--url={url}"],
+                index,
+                cwd=output,
+                env=env,
+            )
+            try:
+                navigation = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                    cwd=chrome_dir,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=60,
+                )
+                assert navigation.returncode == 0, navigation.stderr
+                wait_for_file(
+                    index,
+                    process=process,
+                    ready=lambda p: data_url in p.read_text(),
+                )
+            finally:
+                process.terminate()
+                stdout, stderr = process.communicate(timeout=30)
+            assert process.returncode == 0, (stdout, stderr)
+            records = [json.loads(line) for line in index.read_text().splitlines()]
+            image = next(r for r in records if r["url"] == data_url)
+            assert (output / image["path"]).read_bytes() == svg
+            assert not (output / "image").exists(), (
+                "data: URLs have no hostname/path to mirror"
+            )
 
     def test_responses_captures_network_responses(self, chrome_test_url):
         """Responses hook should capture network responses from page load."""

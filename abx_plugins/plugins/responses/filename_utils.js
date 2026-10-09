@@ -1,3 +1,5 @@
+const { randomUUID } = require("node:crypto");
+
 function getExtensionFromMimeType(mimeType) {
   const mimeMap = {
     "text/html": "html",
@@ -61,7 +63,7 @@ function appendExtensionIfMissing(filename, extension) {
 
 function buildUniqueFilename({ timestamp, method, url, extension }) {
   const urlHash = sanitizeFilename(encodeURIComponent(url).slice(0, 64));
-  return `${timestamp}__${method}__${appendExtensionIfMissing(
+  return `${timestamp}__${method}__${randomUUID()}__${appendExtensionIfMissing(
     urlHash,
     extension
   )}`;

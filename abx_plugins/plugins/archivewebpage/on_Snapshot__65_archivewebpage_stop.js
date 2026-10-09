@@ -34,10 +34,10 @@ const hookConfig = loadConfig();
 const PLUGIN_DIR = path.basename(__dirname);
 const OUTPUT_FILENAME = "archivewebpage.wacz";
 const RECORDING_STATE_FILENAME = "recording.json";
-const {
-  outputDir,
-  candidates: chromeDirCandidates,
-} = resolveChromeDirs(process.cwd(), hookConfig.CRAWL_DIR);
+const { outputDir, candidates: chromeDirCandidates } = resolveChromeDirs(
+  process.cwd(),
+  hookConfig.CRAWL_DIR
+);
 process.chdir(outputDir);
 const SNAP_DIR = path.resolve(outputDir, "..");
 
@@ -52,7 +52,9 @@ function beginPhase(name) {
 
 function endPhase(name) {
   console.error(
-    `[archivewebpage] phase=${name} elapsed_ms=${Date.now() - activePhaseStartedAt}`
+    `[archivewebpage] phase=${name} elapsed_ms=${
+      Date.now() - activePhaseStartedAt
+    }`
   );
   activePhase = null;
   activePhaseStartedAt = null;
@@ -96,8 +98,9 @@ function readRecordingState() {
 async function stopExactRecording(helperPage, state, timeoutMs) {
   return await helperPage.evaluate(
     async ({ tabId, expectedCollId, timeoutMs }) => {
-      const port = document.querySelector("wr-popup-viewer")?.port;
-      if (!port) throw new Error("AWP popup port is not ready");
+      // The UI's own port follows the foreground tab asynchronously. A separate
+      // port keeps status and stopRecording bound to this exact snapshot.
+      const port = chrome.runtime.connect({ name: "popup-port" });
       const queuedMessages = [];
       const queueMessage = (message) => queuedMessages.push(message);
       port.onMessage.addListener(queueMessage);
@@ -130,8 +133,7 @@ async function stopExactRecording(helperPage, state, timeoutMs) {
           "collections"
         );
         const initialStatus = await waitFor(
-          (message) =>
-            message?.type === "status" && Boolean(message.collId),
+          (message) => message?.type === "status" && Boolean(message.collId),
           "active recorder status"
         );
         if (initialStatus.collId !== expectedCollId) {
@@ -171,7 +173,9 @@ async function downloadExactWacz(
   destPath,
   timeoutMs
 ) {
-  const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
+  const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(
+    hookConfig
+  );
   const downloadDir = chromeLaunchOptions.CHROME_DOWNLOADS_DIR
     ? path.resolve(chromeLaunchOptions.CHROME_DOWNLOADS_DIR)
     : path.dirname(destPath);
@@ -193,13 +197,18 @@ async function downloadExactWacz(
 
   try {
     releaseDownloadLock = await chromeUtils.acquireSessionLock(
-      path.join(downloadDir, ".download.lock"), timeoutMs
+      path.join(downloadDir, ".download.lock"),
+      timeoutMs
     );
-    await chromeUtils.sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-      behavior: "allow",
-      downloadPath: downloadDir,
-      eventsEnabled: true,
-    });
+    await chromeUtils.sendBrowserCommand(
+      browser,
+      "Browser.setDownloadBehavior",
+      {
+        behavior: "allow",
+        downloadPath: downloadDir,
+        eventsEnabled: true,
+      }
+    );
     // The extension helper already owns a live popup port. Navigate it to
     // the attachment response: Chrome downloads the WACZ without replacing
     // the popup document. A new about:blank tab can inherit another active
@@ -216,7 +225,9 @@ async function downloadExactWacz(
     // A navigation failure must cancel these observers without leaving an
     // unhandled rejection or a timer keeping the hook alive until timeout.
     completed.catch(() => {});
-    const navigation = await downloadSession.send("Page.navigate", { url: dlUrl });
+    const navigation = await downloadSession.send("Page.navigate", {
+      url: dlUrl,
+    });
     if (navigation.errorText && !navigation.isDownload) {
       throw new Error(`WACZ export navigation failed: ${navigation.errorText}`);
     }
@@ -336,7 +347,9 @@ async function main() {
       );
     }
     console.error(
-      `[archivewebpage] collection urls=${numUrls} pages=${numPages ?? "unknown"} size_total=${sizeTotal ?? "unknown"}`
+      `[archivewebpage] collection urls=${numUrls} pages=${
+        numPages ?? "unknown"
+      } size_total=${sizeTotal ?? "unknown"}`
     );
     const elapsed = Date.now() - startedAt;
     if (elapsed > budgetMs) {
@@ -390,7 +403,9 @@ async function main() {
   } catch (error) {
     if (activePhase && activePhaseStartedAt !== null) {
       console.error(
-        `[archivewebpage] phase=${activePhase} failed elapsed_ms=${Date.now() - activePhaseStartedAt}`
+        `[archivewebpage] phase=${activePhase} failed elapsed_ms=${
+          Date.now() - activePhaseStartedAt
+        }`
       );
       activePhase = null;
       activePhaseStartedAt = null;

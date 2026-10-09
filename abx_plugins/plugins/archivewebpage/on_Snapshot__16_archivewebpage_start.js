@@ -95,8 +95,10 @@ async function runStartHandshake(
 
         return await withTimeout(
           (async () => {
-            const port = document.querySelector("wr-popup-viewer")?.port;
-            if (!port) throw new Error("AWP popup port is not ready");
+            // The popup UI asynchronously subscribes to the foreground tab.
+            // Sharing its port lets that subscription retarget this handshake
+            // after startUpdates. Own a port bound only to our snapshot tab.
+            const port = chrome.runtime.connect({ name: "popup-port" });
             const recvQueue = [];
             const waiters = [];
             port.onMessage.addListener((message) => {
@@ -129,7 +131,10 @@ async function runStartHandshake(
               });
             }
 
-            async function startRecording(collId, requireExactCollection = false) {
+            async function startRecording(
+              collId,
+              requireExactCollection = false
+            ) {
               port.postMessage({
                 type: "startRecording",
                 collId,
@@ -199,8 +204,7 @@ async function runStartHandshake(
               port.postMessage({ type: "stopRecording" });
               await waitFor(
                 (message) =>
-                  message?.type === "status" &&
-                  message.recording === false,
+                  message?.type === "status" && message.recording === false,
                 "inherited recorder stop",
                 timeoutMs
               );
@@ -210,7 +214,9 @@ async function runStartHandshake(
 
             if (status.recording === true && status.collId !== collId) {
               throw new Error(
-                `AWP recorder collection mismatch: expected ${collId}, got ${status.collId || "none"}`
+                `AWP recorder collection mismatch: expected ${collId}, got ${
+                  status.collId || "none"
+                }`
               );
             }
 
@@ -331,7 +337,9 @@ async function main() {
     }
     if (handshake.status?.collId !== handshake.collId) {
       throw new Error(
-        `AWP recorder collection mismatch: expected ${handshake.collId}, got ${handshake.status?.collId || "none"}`
+        `AWP recorder collection mismatch: expected ${handshake.collId}, got ${
+          handshake.status?.collId || "none"
+        }`
       );
     }
 

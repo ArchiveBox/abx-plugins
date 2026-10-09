@@ -12,7 +12,6 @@
  * Output: Creates responses/ directory with index.jsonl
  */
 
-
 const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
 const fs = require("fs");
@@ -250,34 +249,46 @@ async function setupListener() {
       // Create URL-organized symlink
       try {
         const urlObj = new URL(url);
-        const hostname = urlObj.hostname;
-        const pathname = urlObj.pathname || "/";
-        const filename =
-          path.basename(pathname) ||
-          "index" + (extension ? "." + extension : "");
-        const dirPathRaw = path.dirname(pathname);
-        const dirPath =
-          dirPathRaw === "." ? "" : dirPathRaw.replace(/^\/+/, "");
+        // Opaque data/blob URLs have no site path. Long HTTP paths also exceed
+        // local component limits or B2's 1024-byte object-key limit. Their
+        // complete bodies and original URLs remain in all/ and index.jsonl.
+        const aliasPath = urlObj.hostname + urlObj.pathname;
+        const canMirrorUrl =
+          ["http:", "https:"].includes(urlObj.protocol) &&
+          Buffer.byteLength(aliasPath, "utf8") <= 600 &&
+          aliasPath
+            .split("/")
+            .every((part) => Buffer.byteLength(part, "utf8") <= 200);
+        if (canMirrorUrl) {
+          const hostname = urlObj.hostname;
+          const pathname = urlObj.pathname || "/";
+          const filename =
+            path.basename(pathname) ||
+            "index" + (extension ? "." + extension : "");
+          const dirPathRaw = path.dirname(pathname);
+          const dirPath =
+            dirPathRaw === "." ? "" : dirPathRaw.replace(/^\/+/, "");
 
-        const symlinkDir = path.join(
-          OUTPUT_DIR,
-          resourceType,
-          hostname,
-          dirPath
-        );
-        const symlinkPath = path.join(symlinkDir, filename);
-        await createSymlink(uniquePath, symlinkPath);
+          const symlinkDir = path.join(
+            OUTPUT_DIR,
+            resourceType,
+            hostname,
+            dirPath
+          );
+          const symlinkPath = path.join(symlinkDir, filename);
+          await createSymlink(uniquePath, symlinkPath);
 
-        // Also create a site-style symlink without resource type for easy browsing
-        const siteDir = path.join(OUTPUT_DIR, hostname, dirPath);
-        const sitePath = path.join(siteDir, filename);
-        await createSymlink(uniquePath, sitePath);
-        candidateMainOutputPath = path.posix.join(
-          PLUGIN_DIR,
-          hostname,
-          dirPath.split(path.sep).join("/"),
-          filename
-        );
+          // Also create a site-style symlink without resource type for easy browsing
+          const siteDir = path.join(OUTPUT_DIR, hostname, dirPath);
+          const sitePath = path.join(siteDir, filename);
+          await createSymlink(uniquePath, sitePath);
+          candidateMainOutputPath = path.posix.join(
+            PLUGIN_DIR,
+            hostname,
+            dirPath.split(path.sep).join("/"),
+            filename
+          );
+        }
       } catch (e) {
         // URL parsing or symlink creation failed, skip
       }
@@ -298,10 +309,12 @@ async function setupListener() {
       const indexEntry = {
         ts: timestamp,
         method,
-        ...(originalRequest ? {
-          requestUrl: originalRequest.url(),
-          requestMethod: originalRequest.method(),
-        } : {}),
+        ...(originalRequest
+          ? {
+              requestUrl: originalRequest.url(),
+              requestMethod: originalRequest.method(),
+            }
+          : {}),
         url: method === "DATA" ? url.slice(0, 128) : url,
         urlSha256,
         status,
@@ -326,7 +339,9 @@ async function setupListener() {
   responseListener = (request) => {
     const response = request.response();
     if (!response) return;
-    pendingResponseWork = pendingResponseWork.then(() => captureResponse(response));
+    pendingResponseWork = pendingResponseWork.then(() =>
+      captureResponse(response)
+    );
   };
   page.on("requestfinished", responseListener);
 

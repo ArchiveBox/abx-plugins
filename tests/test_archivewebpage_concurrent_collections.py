@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
+
 from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
     parse_jsonl_output,
@@ -1617,3 +1618,56 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
             _stop_tab_process(first_tab_process)
         if launch_process is not None:
             kill_chromium_session(launch_process, crawl_chrome_dir)
+
+
+def test_background_stop_keeps_its_collection_while_another_tab_starts(
+    archivewebpage_crawl,
+    chrome_test_url,
+    tmp_path,
+):
+    """Reproduce Cabbage's overlapping personal-intake recorder lifecycles."""
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    root = tmp_path / "start-stop-overlap"
+    first = _start_snapshot_recording(
+        root,
+        env,
+        tab_processes,
+        snapshot_id="first",
+        url=f"{chrome_test_url}#first",
+    )
+    sibling = _start_snapshot_recording(
+        root,
+        env,
+        tab_processes,
+        snapshot_id="sibling",
+        url=f"{chrome_test_url}#sibling",
+    )
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        stopping = executor.submit(
+            _run_stop_hook,
+            first[0],
+            first[1],
+            f"{chrome_test_url}#first",
+        )
+        starting = executor.submit(
+            _start_snapshot_recording,
+            root,
+            env,
+            tab_processes,
+            snapshot_id="newcomer",
+            url=f"{chrome_test_url}#newcomer",
+        )
+        stopped = stopping.result()
+        newcomer = starting.result()
+    assert stopped.returncode == 0, (stopped.stdout, stopped.stderr)
+    for run, suffix in [(sibling, "sibling"), (newcomer, "newcomer")]:
+        stopped = _run_stop_hook(run[0], run[1], f"{chrome_test_url}#{suffix}")
+        assert stopped.returncode == 0, (stopped.stdout, stopped.stderr)
+    collection_ids = set()
+    for run in [first, sibling, newcomer]:
+        state = json.loads((run[0] / "archivewebpage/recording.json").read_text())
+        collection_ids.add(state["collId"])
+        with zipfile.ZipFile(run[0] / "archivewebpage/archivewebpage.wacz") as archive:
+            assert archive.testzip() is None
+            assert any(name.endswith(".warc.gz") for name in archive.namelist())
+    assert len(collection_ids) == 3
