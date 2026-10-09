@@ -58,6 +58,18 @@ using `archivebox persona open NAME`, then attach to that persona. Do not naviga
 a capture's tab away from its capture URL; create a task tab in the chosen persona
 when needed. If an explicitly requested capture has closed, report that fact.
 
+`persona open` owns Chrome and stays running until that browser closes. In an
+agent's noninteractive shell, start it in the background so the shell tool's
+timeout does not kill the browser:
+
+```sh
+mkdir -p opencode/logs
+nohup archivebox persona open NAME --headless </dev/null >opencode/logs/persona-NAME.log 2>&1 &
+```
+
+Confirm readiness with `--list` and the log before attaching. Keep the owner
+alive while browsing; do not repeatedly launch it or replace an unrelated browser.
+
 For Stagehand v4, write an `.mts` script and run with the same prefix followed by
 `-- tsx /absolute/path/task.mts`. The installed version is `shalpha` rc.56:
 
