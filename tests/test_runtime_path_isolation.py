@@ -136,6 +136,75 @@ def test_plugin_config_fallbacks_only_propagate_explicit_values() -> None:
     assert plugin_override["claudecodecleanup"]["CLAUDECODECLEANUP_TIMEOUT"] == 150
 
 
+@pytest.mark.parametrize(
+    ("plugin", "overrides", "expected"),
+    [
+        ("figma", {}, {"TIMEOUT": 60, "FIGMA_TIMEOUT": 120}),
+        ("title", {}, {"TIMEOUT": 60, "TITLE_TIMEOUT": 30}),
+        ("figma", {"TIMEOUT": "90"}, {"TIMEOUT": 90, "FIGMA_TIMEOUT": 90}),
+        ("figma", {"FIGMA_TIMEOUT": "45"}, {"TIMEOUT": 60, "FIGMA_TIMEOUT": 45}),
+        (
+            "figma",
+            {"TIMEOUT": "90", "FIGMA_TIMEOUT": "45"},
+            {"TIMEOUT": 90, "FIGMA_TIMEOUT": 45},
+        ),
+        (
+            "chrome",
+            {"TIMEOUT": "90"},
+            {"TIMEOUT": 90, "CHROME_TIMEOUT": 90, "CHROME_PAGELOAD_TIMEOUT": 90},
+        ),
+        (
+            "chrome",
+            {"TIMEOUT": "90", "CHROME_TIMEOUT": "45"},
+            {"TIMEOUT": 90, "CHROME_TIMEOUT": 45, "CHROME_PAGELOAD_TIMEOUT": 45},
+        ),
+    ],
+)
+def test_js_config_fallbacks_match_python_explicit_override_contract(
+    tmp_path: Path,
+    plugin: str,
+    overrides: dict[str, str],
+    expected: dict[str, int],
+) -> None:
+    config_path = CHROME_CONFIG.parent.parent / plugin / "config.json"
+    node = install_required_binary_from_config(
+        CHROME_CONFIG.parent,
+        "node",
+        env={**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "dependencies")},
+    )
+    assert node and node.loaded_abspath
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key
+        not in {"TIMEOUT", "CHROME_TIMEOUT", "CHROME_PAGELOAD_TIMEOUT", *expected}
+    }
+    env.update(overrides)
+    result = subprocess.run(
+        [
+            str(node.loaded_abspath),
+            "-e",
+            "const {loadConfig} = require(process.argv[1]);"
+            "console.log(JSON.stringify(loadConfig(process.argv[2])));",
+            str(CHROME_CONFIG.parent.parent / "base" / "utils.js"),
+            str(config_path),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    js_config = json.loads(result.stdout)
+    python_config = load_config(
+        config_path,
+        environ=overrides,
+        user_config={},
+        hydrate_binaries=False,
+    )
+    assert {key: getattr(python_config, key) for key in expected} == expected
+    assert {key: js_config[key] for key in expected} == expected
+
+
 def test_chromewebstore_provider_derives_extensions_dir_from_lib_dir(
     tmp_path: Path,
 ) -> None:

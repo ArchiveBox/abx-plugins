@@ -227,6 +227,7 @@ function loadConfig(configPath = null) {
         };
 
   const config = {};
+  const explicitConfigKeys = new Set();
   for (
     let idx = 0;
     idx < Math.max(Object.keys(properties).length, 1) + 1;
@@ -248,12 +249,16 @@ function loadConfig(configPath = null) {
       }
 
       let value = parseConfigValue(rawValue, prop);
+      if (rawValue !== undefined) explicitConfigKeys.add(name);
+      // Match Python: only explicit overrides propagate through fallback chains.
+      // A base default must not replace the plugin's own schema default.
       if (
         rawValue === undefined &&
         prop["x-fallback"] &&
-        config[prop["x-fallback"]] !== undefined
+        explicitConfigKeys.has(prop["x-fallback"])
       ) {
         value = config[prop["x-fallback"]];
+        explicitConfigKeys.add(name);
       }
       value = hydrateConfigValue(value, config);
       if (config[name] !== value) {
