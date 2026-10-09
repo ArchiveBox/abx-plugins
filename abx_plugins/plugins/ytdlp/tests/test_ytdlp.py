@@ -212,6 +212,51 @@ def test_twitter_post_without_video_reports_noresults(tmp_path, ytdlp_runtime_en
     assert not list((tmp_path / "ytdlp").iterdir())
 
 
+def test_substack_newsletter_reports_noresults(tmp_path, ytdlp_runtime_env):
+    """A real text newsletter is unsupported media, not a broken download."""
+    result = subprocess.run(
+        [
+            str(YTDLP_HOOK),
+            "--url=https://read.engineerscodex.com/p/how-apple-built-icloud-to-store-billions",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "[Substack]" in result.stderr, result.stderr
+    assert 'Page type "newsletter" is not supported' in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "noresults", result.stdout
+    assert record["output_str"] == "No media found", record
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
+@pytest.mark.parametrize("status", [403, 404])
+def test_http_failure_remains_failed(tmp_path, httpserver, ytdlp_runtime_env, status):
+    """Actual HTTP failures must not become successful media-absence checks."""
+    httpserver.expect_request("/unavailable").respond_with_data(
+        "Unavailable",
+        status=status,
+        content_type="text/plain",
+    )
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", httpserver.url_for("/unavailable")],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 1, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", result.stdout
+    assert record["output_str"] == {403: "403 Forbidden", 404: "404 Not Found"}[status]
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
 def test_config_ytdlp_enabled_false_skips(ytdlp_runtime_env):
     """Test that YTDLP_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:

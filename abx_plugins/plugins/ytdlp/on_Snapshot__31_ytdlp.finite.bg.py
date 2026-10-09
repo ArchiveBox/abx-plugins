@@ -304,6 +304,13 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
                 stderr,
             ):
                 return True, "No media found", ""
+            # Substack's extractor recognizes text newsletters but cannot
+            # download them as media. Preserve genuine HTTP/extraction errors.
+            if re.search(
+                r'(?m)^ERROR: \[Substack\] [^:\n]+: Page type "newsletter" is not supported;',
+                stderr,
+            ):
+                return True, "No media found", ""
             if process.returncode == 0:
                 return True, "No media found", ""
 
