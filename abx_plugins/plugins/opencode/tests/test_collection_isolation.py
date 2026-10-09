@@ -44,7 +44,8 @@ def test_agent_child_python_uses_host_packages(tmp_path, opencode_env):
     from abx_plugins.plugins.opencode import runtime
 
     settings = runtime._settings(
-        {"ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"]}, tmp_path
+        {"ABXPKG_LIB_DIR": opencode_env["ABXPKG_LIB_DIR"]},
+        tmp_path,
     )
     _, binary_env = runtime._resolve_binary("opencode", settings["config"])
     probe = [
