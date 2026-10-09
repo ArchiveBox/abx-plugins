@@ -71,12 +71,11 @@ def normalize_git_url(url: str) -> str | None:
         or lower_url.startswith("git@")
     ):
         return url
-    if ".git" in lower_url:
-        return url
-
     parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return None
+    if parsed.path.lower().endswith(".git"):
+        return url
 
     host = parsed.netloc.lower()
     if host.startswith("www."):
@@ -242,7 +241,7 @@ def main(url: str):
     # Output clean JSONL (no RESULT_JSON= prefix)
     emit_archive_result_record(status, rel_output(output) or error or "")
 
-    sys.exit(0 if status == "succeeded" else 1)
+    sys.exit(1 if status == "failed" else 0)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ Tests verify:
 """
 
 import os
+import socket
 import subprocess
 import tempfile
 import time
@@ -62,6 +63,61 @@ def test_handles_non_git_url():
         assert (
             "Skipping git clone for non-git URL: https://example.com" in result.stderr
         )
+
+
+@pytest.mark.parametrize(
+    ("url", "message"),
+    [
+        ("https://wicg.github.io/file-system-access/", "Not a git URL"),
+        (
+            "https://wicg.github.io/__archivebox_missing_repository__.git",
+            "No git repository found",
+        ),
+    ],
+)
+def test_expected_repository_absence_exits_cleanly(tmp_path, url, message):
+    output = tmp_path / "git"
+    output.mkdir()
+    previous = output / "previous.txt"
+    previous.write_text("Preserve the previous capture until replacement.\n")
+    result = subprocess.run(
+        [str(GIT_HOOK), "--url", url],
+        cwd=tmp_path,
+        env={**os.environ, "SNAP_DIR": str(tmp_path), "GIT_TERMINAL_PROMPT": "0"},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": message,
+    }
+    assert previous.read_text() == "Preserve the previous capture until replacement.\n"
+    if message == "Not a git URL":
+        assert not (output / ".git").exists()
+
+
+def test_refused_git_connection_remains_failed(tmp_path):
+    with socket.socket() as closed_service:
+        closed_service.bind(("127.0.0.1", 0))
+        port = closed_service.getsockname()[1]
+        # A bound socket with no listener produces a real refused connection.
+        result = subprocess.run(
+            [str(GIT_HOOK), "--url", f"http://127.0.0.1:{port}/repository.git"],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path), "NO_PROXY": "127.0.0.1"},
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    assert result.returncode == 1
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "failed"
+    assert "git fetch failed" in record["output_str"]
+    assert "Failed to connect" in record["output_str"]
 
 
 def test_real_git_repo():
