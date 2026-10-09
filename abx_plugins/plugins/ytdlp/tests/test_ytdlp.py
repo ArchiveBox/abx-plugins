@@ -10,6 +10,8 @@ Tests verify:
 6. Handles non-video URLs gracefully
 """
 
+import gzip
+import hashlib
 import io
 import os
 import subprocess
@@ -213,24 +215,51 @@ def test_twitter_post_without_video_reports_noresults(tmp_path, ytdlp_runtime_en
 
 
 def test_substack_newsletter_reports_noresults(tmp_path, ytdlp_runtime_env):
-    """A real text newsletter is unsupported media, not a broken download."""
+    """Replay real public HTML through yt-dlp's native saved-page input."""
+    page = gzip.decompress(
+        (
+            Path(__file__).parent / "fixtures" / "substack-newsletter.html.gz"
+        ).read_bytes(),
+    )
+    assert hashlib.sha256(page).hexdigest() == (
+        "e2fe1f2435ddfca8713cf651a7b64f05d5e66039a5f35ba81df34c24aa3c326c"
+    )
+    # Hosted Substack may return403 before extraction. Native replay exercises
+    # the real newsletter parser without converting those HTTP errors to absence.
+    output_dir = tmp_path / "ytdlp"
+    output_dir.mkdir()
+    saved_page = output_dir / (
+        "how-apple-built-icloud-to-store-billions_https_-_"
+        "engineercodex.substack.com_p_how-apple-built-icloud-to-store-billions.dump"
+    )
+    saved_page.write_bytes(page)
     result = subprocess.run(
         [
             str(YTDLP_HOOK),
-            "--url=https://read.engineerscodex.com/p/how-apple-built-icloud-to-store-billions",
+            "--url=https://engineercodex.substack.com/p/how-apple-built-icloud-to-store-billions",
         ],
         cwd=tmp_path,
-        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
+        },
         capture_output=True,
         text=True,
         timeout=60,
     )
+    assert "Loading request from" in result.stderr, result.stderr
+    assert "Unable to load request" not in result.stderr, result.stderr
+    assert "Downloading webpage" not in result.stderr, result.stderr
     assert "[Substack]" in result.stderr, result.stderr
     assert 'Page type "newsletter" is not supported' in result.stderr, result.stderr
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "noresults", result.stdout
     assert record["output_str"] == "No media found", record
+    assert saved_page.read_bytes() == page
+    saved_page.unlink()  # Remove only the unchanged test input before checking outputs.
     assert not list((tmp_path / "ytdlp").iterdir())
 
 
