@@ -117,3 +117,21 @@ bound preview work, but browser encoding and streaming still consume resources.
 RSS with previews closed, inventory open, streaming, and disconnected. It also
 exercises real UI selection, navigation, and a renderer crash against two live
 Chrome instances. Run it through the host's `test_opencode_browser_panel.py`.
+
+
+## Web browsing and visual checks
+
+The managed browser skill is loaded as a system instruction for every session,
+including existing collections. It directs the agent to Browser Harness or
+Stagehand after a Webfetch failure, or immediately for JavaScript, authenticated
+pages, interactions, or visual checks. Webfetch does not inherit browser cookies;
+ArchiveBox CLI/shell handles authenticated server operations.
+
+Both clients can save a screenshot of the explicitly selected live tab. The skill
+includes native screenshot examples and instructs image-capable models to open
+the PNG with OpenCode's `read` tool before claiming visual verification. Evidence
+lives under `opencode/screenshots/`, outside captured snapshot payloads.
+
+Dependency resolution preserves the host's Python environment. Browser clients
+use their own installed interpreters without projecting unrelated downloader
+packages into ArchiveBox CLI subprocesses.

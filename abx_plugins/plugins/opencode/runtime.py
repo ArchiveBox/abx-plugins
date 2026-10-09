@@ -4,6 +4,7 @@ import asyncio
 import atexit
 import base64
 import hashlib
+import json
 import logging
 import os
 import re
@@ -253,6 +254,13 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
         providers=providers,
         base_env=binary_environ,
     )
+    # OpenCode runs the host CLI as well as browser clients. Python clients use
+    # their own venv shebangs; projecting their packages into every child mixes
+    # incompatible libraries (e.g. papers-dl cryptography with ArchiveBox).
+    for key in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
+        binary_env.pop(key, None)
+        if key in binary_environ:
+            binary_env[key] = binary_environ[key]
     binary_env["ARCHIVEBOX_STAGEHAND_MODULE"] = str(
         loaded_dependencies[-2].loaded_abspath,
     )
@@ -424,7 +432,21 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
         "OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER": "true",
         "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
         # Override even an existing user config that enables checkpoints.
-        "OPENCODE_CONFIG_CONTENT": _DEFAULT_CONFIG,
+        "OPENCODE_CONFIG_CONTENT": json.dumps(
+            {
+                **json.loads(_DEFAULT_CONFIG),
+                "instructions": [
+                    str(settings["opencode_dir"] / "SKILL.md"),
+                    str(
+                        settings["config_home"]
+                        / "opencode"
+                        / "skills"
+                        / "archivebox-browser"
+                        / "SKILL.md"
+                    ),
+                ],
+            }
+        ),
         "XDG_CONFIG_HOME": str(settings["config_home"]),
         "XDG_DATA_HOME": str(settings["data_home"]),
         "XDG_STATE_HOME": str(settings["state_home"]),
