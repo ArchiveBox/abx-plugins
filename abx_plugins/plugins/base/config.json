@@ -41,6 +41,12 @@
       "description": "Base collection directory for shared crawl/index state",
       "x-scope": "crawl_execution"
     },
+    "TMP_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Local runtime storage for disposable files; defaults to the host runtime temporary directory",
+      "x-scope": "crawl_execution"
+    },
     "ABXPKG_LIB_DIR": {
       "type": "string",
       "default": "",

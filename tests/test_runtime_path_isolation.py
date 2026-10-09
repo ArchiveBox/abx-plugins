@@ -65,6 +65,7 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
     data_dir = tmp_path / "data"
     crawl_dir = tmp_path / "crawl"
     snap_dir = tmp_path / "snap"
+    runtime_dir = tmp_path / "runtime"
 
     config = load_config(
         CHROME_CONFIG,
@@ -72,6 +73,7 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
             "DATA_DIR": str(data_dir),
             "CRAWL_DIR": str(crawl_dir),
             "SNAP_DIR": str(snap_dir),
+            "TMP_DIR": str(runtime_dir),
         },
         environ={},
         user_config={},
@@ -80,6 +82,7 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
     assert config.DATA_DIR == str(data_dir)
     assert config.CRAWL_DIR == str(crawl_dir)
     assert config.SNAP_DIR == str(snap_dir)
+    assert config.TMP_DIR == str(runtime_dir)
 
 
 def test_plugin_config_fallbacks_only_propagate_explicit_values() -> None:

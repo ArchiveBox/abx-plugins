@@ -4,7 +4,8 @@
 /**
  * Write Chrome screencast JPEGs for the admin live progress UI.
  *
- * Frames are crawl-scoped plugin output, shared by crawl setup and snapshot hooks.
+ * Live frames are crawl-scoped temporary files. Only explicitly kept frames
+ * become durable plugin output when the screencast stops.
  */
 
 
@@ -13,6 +14,8 @@ const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShu
 const { startPageScreencast } = require("./screencast.js");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const { createHash } = require("crypto");
 
 const {
   ensureNodeModuleResolution,
@@ -48,14 +51,17 @@ const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
     ? "snapshot"
     : "crawl";
-const LIVE_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+const LIVE_DIR = path.join(
+  path.resolve(getEnv("TMP_DIR") || os.tmpdir()),
+  PLUGIN_DIR,
+  createHash("sha256").update(CRAWL_DIR).digest("hex")
+);
 const LATEST_FRAME = path.join(LIVE_DIR, "latest.jpg");
 const LIVE_FRAME_BUFFER = 10;
-if (CRAWL_DIR_VALUE && !fs.existsSync(LIVE_DIR)) {
-  fs.mkdirSync(LIVE_DIR, { recursive: true });
-}
 if (CRAWL_DIR_VALUE) {
-  process.chdir(LIVE_DIR);
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  process.chdir(OUTPUT_DIR);
 }
 
 let browser = null;
@@ -106,8 +112,11 @@ function cleanupFinalFrames(keepFrames) {
   } catch (error) {
     return 0;
   }
-  const removeFrames = frames.slice(0, Math.max(0, frames.length - keepFrames));
-  for (const name of removeFrames) {
+  const retainedFrames = frames.slice(Math.max(0, frames.length - keepFrames));
+  for (const name of retainedFrames) {
+    writeFrameAtomic(path.join(OUTPUT_DIR, name), fs.readFileSync(path.join(LIVE_DIR, name)));
+  }
+  for (const name of frames) {
     try {
       fs.unlinkSync(path.join(LIVE_DIR, name));
     } catch (error) {}
@@ -115,7 +124,7 @@ function cleanupFinalFrames(keepFrames) {
   try {
     fs.unlinkSync(LATEST_FRAME);
   } catch (error) {}
-  return Math.max(0, frames.length - removeFrames.length);
+  return retainedFrames.length;
 }
 
 async function startScreencast() {

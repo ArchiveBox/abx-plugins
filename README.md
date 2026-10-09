@@ -82,6 +82,7 @@ environment variables or shell commands. Sonic reads snapshot metadata from
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
+- `TMP_DIR` - local runtime storage for disposable files (defaults to the host runtime's temporary directory); live screencast frames stay here, with only explicitly retained frames saved under `CRAWL_DIR` on shutdown
 - `ABXPKG_LIB_DIR` - binaries/tools root (default: `~/.config/abx/lib`)
 - `PERSONAS_DIR` - persona profiles root (default: `~/.config/abx/personas`)
 - `ACTIVE_PERSONA` - persona name (default: `Default`)
