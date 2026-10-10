@@ -152,7 +152,8 @@
       },
       "default": [],
       "x-aliases": [
-        "YTDLP_EXTRA_ARGS"
+        "YTDLP_EXTRA_ARGS",
+        "YOUTUBEDL_ARGS"
       ],
       "description": "Extra arguments to append to yt-dlp command"
     }
