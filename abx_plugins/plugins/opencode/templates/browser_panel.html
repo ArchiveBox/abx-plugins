@@ -83,6 +83,7 @@
       const response = await fetch(api + 'list', { credentials: 'same-origin', cache: 'no-store' });
       if (!response.ok) throw new Error('Browser inventory unavailable');
       const data = await response.json(); selected = data.selected;
+      for (const browser of data.browsers) browser.tabs = browser.tabs.filter(tab => !/^about:blank(?:[?#]|$)/i.test(tab.url));
       const current = data.browsers.find(browser => browser.id === selected?.id);
       // Follow a foreground tab only within the explicitly selected browser.
       if (current?.available && !selected.target_id) {
@@ -121,7 +122,7 @@
       status.textContent = data.browsers.length ? 'The selected tab is shared with the agent.' : 'No active server browsers.';
       const tab = current?.tabs.find(tab => tab.target_id === selected?.target_id && tab.available);
       const key = current?.available && tab ? current.id + ':' + tab.target_id : '';
-      if (key !== streamKey) { streamKey = key; stop(); if (key) void stream(current, tab); else message.textContent = 'Selected tab is unavailable.'; }
+      if (key !== streamKey) { streamKey = key; stop(); if (key) void stream(current, tab); else message.textContent = 'Select an available tab to view it.'; }
     } catch (error) { stop(); streamKey = ''; status.textContent = error.message + '. Other agent tools remain available.'; }
     finally { refreshing = false; }
   }

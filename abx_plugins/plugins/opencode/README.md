@@ -94,6 +94,7 @@ carries these routes into ArchiveBox. Real host integration coverage lives in
 The right side of `/admin/agent/` combines all server tabs in one tab bar and
 one preview. When multiple Chrome processes are running, each tab shows its PID;
 the selected tab's persona/crawl context appears above the bar.
+Blank tabs are omitted from both the tab bar and the preview.
 Selecting a tab activates that server tab and shows its native screencast. The
 managed `archivebox-browser` skill documents `--list`, `--current`, explicit
 browser/target selection, Browser Harness, and Stagehand v4. Clients attach to

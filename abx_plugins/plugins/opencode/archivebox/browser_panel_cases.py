@@ -256,7 +256,8 @@ for(const endpoint of JSON.parse(process.argv[2])) {
  const browser=await utils.connectToBrowserEndpoint(utils.resolvePuppeteerModule(),endpoint,{defaultViewport:null});
  const pages=await browser.pages(); const page=pages[0]; await page.goto(process.argv[3]);
  const second=await browser.newPage(); await second.goto(process.argv[3]+'next');
- result.push({id:utils.getTargetIdFromPage(page),second:utils.getTargetIdFromPage(second)});
+ const blank=await browser.newPage();
+ result.push({id:utils.getTargetIdFromPage(page),second:utils.getTargetIdFromPage(second),blank:utils.getTargetIdFromPage(blank)});
  await browser.disconnect();
 }console.log(JSON.stringify(result)); })().catch(e=>{console.error(e);process.exit(1)});
 """,
@@ -340,6 +341,12 @@ for(const endpoint of JSON.parse(process.argv[2])) {
             ).glob("*.json"),
         )
         # Real UI plus real tab navigation and crash, with another browser alive.
+        response = session.post(
+            api + "select",
+            json={"id": browser["id"], "target_id": targets[0]["blank"]},
+            timeout=5,
+        )
+        assert response.status_code == 200, response.text
         screenshot = tmp_path / "agent-browser-panel.png"
         node(
             r"""
@@ -364,6 +371,8 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
   assert.equal(await page.$$eval('.agent-browsers .chrome-window',nodes=>nodes.length),1);
   assert.equal(await page.$$eval('.agent-browsers .viewport',nodes=>nodes.length),1);
   assert.equal(await page.$$eval('.agent-browsers [role=tablist]',nodes=>nodes.length),1);
+  assert.equal(await page.$$eval('[role=tab]',nodes=>nodes.filter(n=>n.textContent.includes('about:blank')).length),0);
+  assert.equal(await page.$eval('.agent-browsers img',img=>img.hidden),true);
   // Remove the welcome through its real UI without needing a model provider.
   const buttons=await page.$$('button');
   for(const button of buttons) if((await button.evaluate(n=>n.textContent)).includes('Start using Agent')) await button.click();
