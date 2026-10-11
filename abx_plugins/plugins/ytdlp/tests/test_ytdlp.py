@@ -13,6 +13,7 @@ Tests verify:
 import gzip
 import hashlib
 import io
+import json
 import os
 import socket
 import subprocess
@@ -402,6 +403,50 @@ def test_config_timeout(non_video_test_url, ytdlp_runtime_env):
             "status": "noresults",
             "output_str": "No media found",
         }, result_json
+
+
+@pytest.mark.parametrize(
+    "config_key",
+    ["YOUTUBEDL_ARGS", "YTDLP_EXTRA_ARGS", "YTDLP_ARGS_EXTRA"],
+)
+def test_extra_args_aliases_reach_real_download(
+    tmp_path: Path,
+    media_test_url: str,
+    ytdlp_runtime_env: dict[str, str],
+    config_key: str,
+):
+    # A schema/CLI read alone does not prove the hook uses the extra arguments.
+    # A custom output template gives a visible side effect in real yt-dlp output.
+    env = os.environ.copy()
+    env.update(ytdlp_runtime_env)
+    env["SNAP_DIR"] = str(tmp_path)
+    env["YTDLP_TIMEOUT"] = "60"
+    for key in ("YOUTUBEDL_ARGS", "YTDLP_EXTRA_ARGS", "YTDLP_ARGS_EXTRA"):
+        env.pop(key, None)
+    env[config_key] = json.dumps(["--output", "alias-output.%(ext)s"])
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", media_test_url],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=90,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    saved = list((tmp_path / "ytdlp").rglob("alias-output.wav"))
+    assert len(saved) == 1
+    # The default --add-metadata step can rewrite WAV headers. Verify the
+    # decoded audio and format, while allowing the intended embedded metadata.
+    with (
+        wave.open(str(saved[0])) as captured,
+        wave.open(io.BytesIO(_build_test_wav_bytes())) as original,
+    ):
+        assert captured.getparams() == original.getparams()
+        assert captured.readframes(captured.getnframes()) == original.readframes(
+            original.getnframes(),
+        )
 
 
 def test_extracts_local_media_url(media_test_url, ytdlp_runtime_env):

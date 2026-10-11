@@ -117,6 +117,49 @@ def test_hook_script_exists():
     assert TITLE_HOOK.exists(), f"Hook script not found: {TITLE_HOOK}"
 
 
+@pytest.mark.parametrize("browser_agent", ["", "Explicit browser UA"])
+def test_title_uses_configured_user_agent_and_rendered_dom(
+    tmp_path,
+    httpserver,
+    browser_agent,
+):
+    # #1670 described static Instagram titles and a curl-only setting. The
+    # current title hook reads the settled browser DOM: verify both the actual
+    # request UA and a JavaScript title, not just the config dictionary.
+    expected_agent = browser_agent or "ArchiveBox title regression UA"
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    httpserver.expect_request(
+        "/title",
+        headers={"User-Agent": expected_agent},
+    ).respond_with_data(
+        "<title>Initial title</title><script>document.title = 'Rendered title with configured UA';</script>",
+        content_type="text/html",
+    )
+    url = httpserver.url_for("/title")
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=False,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={
+            "USER_AGENT": "ArchiveBox title regression UA",
+            "CHROME_USER_AGENT": browser_agent,
+        },
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        title_dir = snapshot_chrome_dir.parent / "title"
+        title_dir.mkdir(exist_ok=True)
+        nav_result, result = run_title_capture(
+            title_dir,
+            snapshot_chrome_dir,
+            env,
+            url,
+            "test-snapshot",
+        )
+        assert nav_result.returncode == 0, nav_result.stderr
+        assert_title_succeeded(result, title_dir, "Rendered title with configured UA")
+    httpserver.check_assertions()
+
+
 def test_extracts_title_from_example_com(title_test_urls):
     """Test full workflow: extract title from deterministic local fixture."""
 

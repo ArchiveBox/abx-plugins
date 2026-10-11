@@ -360,13 +360,22 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
   await page.goto(data.url+'/admin/agent/',{waitUntil:'domcontentloaded'});
   await page.bringToFront();
   console.log('UI_STATE',await page.evaluate(()=>({hidden:document.hidden,status:document.querySelector('.agent-browsers')?.innerText})));
-  await page.waitForSelector('[data-browser-id="'+data.browser+'"] [data-target-id="'+data.target+'"]');
+  await page.waitForSelector('[data-target-id="'+data.target+'"]');
+  assert.equal(await page.$$eval('.agent-browsers .chrome-window',nodes=>nodes.length),1);
+  assert.equal(await page.$$eval('.agent-browsers .viewport',nodes=>nodes.length),1);
+  assert.equal(await page.$$eval('.agent-browsers [role=tablist]',nodes=>nodes.length),1);
   // Remove the welcome through its real UI without needing a model provider.
   const buttons=await page.$$('button');
   for(const button of buttons) if((await button.evaluate(n=>n.textContent)).includes('Start using Agent')) await button.click();
-  await page.locator('[data-browser-id="'+data.browser+'"] [data-target-id="'+data.target+'"]').click();
+  await page.locator('[data-browser-id="'+data.otherBrowser+'"][data-target-id="'+data.otherTarget+'"]').click();
+  await page.waitForFunction((id)=>document.querySelector('[role=tab][aria-selected=true]')?.dataset.browserId===id,{},data.otherBrowser);
   await page.waitForFunction(()=>{const img=document.querySelector('.agent-browsers img');return img&&!img.hidden&&img.naturalWidth>0});
-  assert.equal(await page.$$eval('[data-browser-id]',nodes=>nodes.length),2);
+  await page.locator('[data-browser-id="'+data.browser+'"][data-target-id="'+data.target+'"]').click();
+  await page.waitForFunction((id)=>document.querySelector('[role=tab][aria-selected=true]')?.dataset.browserId===id,{},data.browser);
+  await page.waitForFunction(()=>{const img=document.querySelector('.agent-browsers img');return img&&!img.hidden&&img.naturalWidth>0});
+  assert.equal(await page.$$eval('[role=tab][data-browser-id]',nodes=>new Set(nodes.map(n=>n.dataset.browserId)).size),2);
+  assert.ok(await page.$$eval('[role=tab][data-browser-id]',nodes=>nodes.every(n=>n.querySelector('.tab-pid')?.textContent.match(/pid: \d+/))));
+  assert.equal(await page.$$eval('.agent-browsers img',nodes=>nodes.length),1);
   await page.screenshot({path:data.screenshot});
   const exact=await browser.targets().find(target=>utils.getTargetIdFromTarget(target)===data.target).page();
   await exact.goto(data.next);
@@ -385,6 +394,8 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
                     "url": url,
                     "browser": browser["id"],
                     "target": target,
+                    "otherBrowser": live[1]["id"],
+                    "otherTarget": targets[1]["id"],
                     "next": httpserver.url_for("/next"),
                     "screenshot": str(screenshot),
                     "viewer": str(tmp_path / "viewer"),

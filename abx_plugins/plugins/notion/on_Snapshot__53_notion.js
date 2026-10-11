@@ -85,6 +85,10 @@ async function main() {
       () => document.querySelector(".notion-page-content")?.innerText.trim(),
       { timeout: remaining(), polling: "mutation" },
     );
+    // Notion renders table skeletons before getPublicPageData finishes. The
+    // first text is not a complete page: wait for its data and modules to load
+    // before cloning, otherwise the final rows can be saved as empty cells.
+    await page.waitForNetworkIdle({ timeout: remaining() });
     const saved = await page.evaluate(() => {
       const root = document.querySelector(".notion-page-content");
       const title =
