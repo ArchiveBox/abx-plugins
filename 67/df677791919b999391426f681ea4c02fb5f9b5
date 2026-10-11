@@ -1,0 +1,23 @@
+abx_plugins/plugins/opencode/README.md
+  s_20f72622e178fb::t_cdd7e120486a94 97
+abx_plugins/plugins/opencode/archivebox/browser_panel_cases.py
+  s_20f72622e178fb::t_82b5e964fcfe48 259-260,344-349,374-375
+abx_plugins/plugins/opencode/templates/browser_panel.html
+  s_20f72622e178fb::t_cdd7e120486a94 86,125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "67df677791919b999391426f681ea4c02fb5f9b5",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
