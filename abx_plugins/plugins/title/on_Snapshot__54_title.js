@@ -57,20 +57,15 @@ async function extractTitle(url) {
     const page = connection.page;
     console.log("Title extraction started");
 
-    // Get title from page
-    let title = await page.title();
-
-    if (!title) {
-      // Try getting from DOM directly
-      title = await page.evaluate(() => {
-        return (
-          document.title ||
-          document.querySelector('meta[property="og:title"]')?.content ||
-          document.querySelector('meta[name="twitter:title"]')?.content ||
-          document.querySelector("h1")?.textContent?.trim()
-        );
-      });
-    }
+    // Social posts can keep a brand-only document.title after rendering (e.g.
+    // Instagram). Prefer their descriptive sharing metadata without relying on
+    // site-specific user agents, then fall back to the rendered page title.
+    const title = await page.evaluate(() => (
+      document.querySelector('meta[property="og:title"]')?.content?.trim() ||
+      document.querySelector('meta[name="twitter:title"]')?.content?.trim() ||
+      document.title.trim() ||
+      document.querySelector("h1")?.textContent?.trim()
+    ));
 
     if (title) {
       writeFileAtomic(outputPath, title);

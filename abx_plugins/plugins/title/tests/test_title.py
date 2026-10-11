@@ -117,6 +117,36 @@ def test_hook_script_exists():
     assert TITLE_HOOK.exists(), f"Hook script not found: {TITLE_HOOK}"
 
 
+def test_post_metadata_title_wins_over_generic_document_title(tmp_path, httpserver):
+    # The actual Instagram reel in #1670 keeps a brand-only document title,
+    # even after rendering, but exposes its caption in Open Graph metadata.
+    expected_title = "Instagram: Nailed it 😆🛹👏"
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    httpserver.expect_request("/post").respond_with_data(
+        f'<title>Instagram</title><meta property="og:title" content="{expected_title}">',
+        content_type="text/html; charset=utf-8",
+    )
+    url = httpserver.url_for("/post")
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=False,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        title_dir = snapshot_chrome_dir.parent / "title"
+        title_dir.mkdir(exist_ok=True)
+        nav_result, result = run_title_capture(
+            title_dir,
+            snapshot_chrome_dir,
+            env,
+            url,
+            "test-post",
+        )
+        assert nav_result.returncode == 0, nav_result.stderr
+        assert_title_succeeded(result, title_dir, expected_title)
+    httpserver.check_assertions()
+
+
 @pytest.mark.parametrize("browser_agent", ["", "Explicit browser UA"])
 def test_title_uses_configured_user_agent_and_rendered_dom(
     tmp_path,

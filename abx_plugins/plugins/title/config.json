@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Title",
-  "description": "Capture the final document title from the rendered page.",
+  "description": "Capture the title from sharing metadata or the rendered page.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
