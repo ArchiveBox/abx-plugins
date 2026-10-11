@@ -34,7 +34,17 @@ def test_version_names_disabling_config_in_path_column(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     rows = [re.split(r"\s{2,}", line.strip()) for line in result.stdout.splitlines()]
     opencode_rows = [row for row in rows if len(row) == 6 and row[1] == "opencode"]
-    assert len(opencode_rows) == 4, result.stdout
+    assert len(opencode_rows) == 8, result.stdout
+    assert {row[0] for row in opencode_rows} == {
+        "node",
+        "npm",
+        "git",
+        "jq",
+        "file",
+        "opencode",
+        "browser-harness",
+        "stagehand",
+    }, result.stdout
     assert all(
         row[2] == "disabled" and row[5] == "disabled by OPENCODE_ENABLED=False"
         for row in opencode_rows
