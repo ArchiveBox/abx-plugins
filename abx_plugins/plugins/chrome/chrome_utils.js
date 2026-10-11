@@ -4645,7 +4645,12 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   // disconnecting them clears CDP overrides, including for other CDP clients.
   const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
   try {
-  const root = await browser.target().createCDPSession();
+  // Discovered browser targets can belong to short-lived CDP clients. Keep
+  // hydration in a manual session attached to this connection's own target.
+  const { targetInfo } = await sendBrowserCommand(browser, "Target.getTargetInfo");
+  const browserTarget = browser.targets().find(target => getTargetIdFromTarget(target) === targetInfo.targetId);
+  if (!browserTarget) throw new Error("Chrome connection's browser target is unavailable");
+  const root = await browserTarget.createCDPSession();
   const version = await root.send("Browser.getVersion");
   const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product);
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");

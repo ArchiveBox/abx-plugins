@@ -2107,6 +2107,63 @@ def test_snapshot_isolation_local_keepalive_true_keeps_browser_running_after_hoo
         )
 
 
+def test_external_cdp_persona_hydration_uses_own_browser_connection(tmp_path):
+    """Persona startup must not attach to another CDP client's browser target."""
+    _, provider_chrome_dir, _, cdp_url, pid = _launch_keepalive_local_provider_browser(
+        tmp_path,
+        crawl_dir_name="provider",
+    )
+    try:
+        adopted_dir = tmp_path / "adopted"
+        chrome_dir = adopted_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+        env = _isolated_test_env(
+            tmp_path,
+            CRAWL_DIR=str(adopted_dir),
+            CHROME_CDP_URL=cdp_url,
+            CHROME_KEEPALIVE="true",
+            NODE_DEBUG="puppeteer:protocol:*",
+        )
+        result = _run_keepalive_launch(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=adopted"],
+            cwd=str(chrome_dir),
+            env=env,
+            timeout=60,
+            capture_output=True,
+            text=True,
+        )
+        messages = [
+            json.loads(line[line.index("{") :])
+            for line in result.stderr.splitlines()
+            if "PUPPETEER:PROTOCOL:" in line and "{" in line
+        ]
+        browser_targets = {
+            message["params"]["targetInfo"]["targetId"]
+            for message in messages
+            if message.get("method") == "Target.targetCreated"
+            and message["params"]["targetInfo"]["type"] == "browser"
+        }
+        assert browser_targets, result.stderr
+        # No-argument getTargetInfo identifies the target owned by the calling
+        # connection. Discovered targets may instead belong to other clients.
+        own_targets = {
+            message["result"]["targetInfo"]["targetId"]
+            for message in messages
+            if message.get("result", {}).get("targetInfo", {}).get("type") == "browser"
+        }
+        attached_targets = {
+            message["params"]["targetId"]
+            for message in messages
+            if message.get("method") == "Target.attachToTarget"
+            and message["params"]["targetId"] in browser_targets
+        }
+        assert own_targets, result.stderr
+        assert attached_targets and attached_targets <= own_targets, result.stderr
+        assert is_pid_alive(pid)
+    finally:
+        kill_chrome(pid, str(provider_chrome_dir))
+
+
 def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_cleanup(
     chrome_test_url,
 ):
