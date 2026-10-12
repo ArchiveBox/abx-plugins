@@ -142,6 +142,9 @@ let isStaticFile = false;
 let savedOutputPath = null;
 let downloadError = null;
 let pendingMainResponse = null;
+// Last top-level 4xx/5xx document response. Keep listening after it because
+// bot challenges often answer 403 and then navigate to the real resource.
+let errorMainResponse = null;
 let page = null;
 let browser = null;
 let finalized = false;
@@ -301,10 +304,24 @@ async function waitForResponsesOutput(outputInfo, timeoutMs) {
 function buildArchiveResult() {
   const outputMimeType = detectedContentType || "unknown";
 
+  // Without a 2xx main document there is nothing static to save. The snapshot
+  // ending (SIGTERM) is the normal way this daemon learns that; the page
+  // failure itself belongs to chrome_navigate, not to staticfile.
+  if (!detectedContentType && errorMainResponse) {
+    return {
+      type: "ArchiveResult",
+      status: "noresults",
+      output_str: `Main response was HTTP ${errorMainResponse.status} ${
+        errorMainResponse.contentType || "unknown"
+      } (not staticfile)`,
+      plugin: PLUGIN_NAME,
+      content_type: errorMainResponse.contentType || undefined,
+    };
+  }
   if (!detectedContentType) {
     return {
       type: "ArchiveResult",
-      status: "failed",
+      status: "noresults",
       output_str: "No main response captured",
       plugin: PLUGIN_NAME,
     };
@@ -462,6 +479,12 @@ async function setupStaticFileListener() {
   });
 
   const failTimer = setTimeout(() => {
+    // No 2xx main document yet means there is no static file to save, which
+    // is a noresults outcome rather than a staticfile failure.
+    if (!firstResponseHandled) {
+      finish();
+      return;
+    }
     rejectMainResponse(
       new Error(
         `Timed out waiting for main response after ${
@@ -491,8 +514,15 @@ async function setupStaticFileListener() {
       const status = response.status();
 
       // Only process the main document response
-      if (status < 200 || status >= 300) return;
       if (!isTopLevelNavigationRequest(request)) return;
+      if (status >= 400) {
+        errorMainResponse = {
+          status,
+          contentType: contentType.split(";")[0].trim(),
+        };
+        return;
+      }
+      if (status < 200 || status >= 300) return;
 
       firstResponseHandled = true;
       detectedContentType = contentType.split(";")[0].trim();

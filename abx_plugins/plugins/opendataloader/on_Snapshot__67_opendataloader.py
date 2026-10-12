@@ -33,6 +33,7 @@ import os
 import signal
 import subprocess
 import tempfile
+import time
 import asyncio
 from pathlib import Path
 
@@ -46,6 +47,11 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 
+
+# The runner kills this hook OPENDATALOADER_TIMEOUT seconds after spawning it,
+# so the extraction budget is measured from process start, not from when the
+# first PDF begins.
+HOOK_STARTED_AT = time.monotonic()
 
 # Extractor metadata
 PLUGIN_NAME = "opendataloader"
@@ -130,14 +136,26 @@ def find_pdf_sources() -> list[Path]:
 def _run_opendataloader(
     binary: str,
     source_file: Path,
-    fmt: str,
     out_dir: Path,
-    timeout: int,
+    timeout: float,
     extra_args: list[str],
     env: dict[str, str] | None,
-) -> Path | None:
-    """Run opendataloader-pdf on a single file with a given format, return output path or None."""
-    cmd = [binary, "-f", fmt, "-o", str(out_dir), "-q", *extra_args, str(source_file)]
+) -> tuple[str, str]:
+    """Extract one PDF to markdown and text, return (md_content, text_content).
+
+    Both formats come from one CLI run: each run parses the whole PDF in a new
+    JVM, so separate markdown and text runs doubled the time spent per PDF.
+    """
+    cmd = [
+        binary,
+        "-f",
+        "markdown,text",
+        "-o",
+        str(out_dir),
+        "-q",
+        *extra_args,
+        str(source_file),
+    ]
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -158,81 +176,52 @@ def _run_opendataloader(
             pass
         process.communicate()
         raise
-    result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr, end="")
-    if result.returncode != 0:
+    if stderr:
+        print(stderr, file=sys.stderr, end="")
+    if process.returncode != 0:
         output_parts = []
-        if result.stdout.strip():
-            output_parts.append(f"stdout:\n{result.stdout.strip()}")
-        if result.stderr.strip():
-            output_parts.append(f"stderr:\n{result.stderr.strip()}")
-        error = "\n".join(output_parts) or f"exit code {result.returncode}"
+        if stdout.strip():
+            output_parts.append(f"stdout:\n{stdout.strip()}")
+        if stderr.strip():
+            output_parts.append(f"stderr:\n{stderr.strip()}")
+        error = "\n".join(output_parts) or f"exit code {process.returncode}"
         raise OpendataloaderRunError(
-            f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}",
+            f"opendataloader-pdf failed for {source_file.name}: {error}",
         )
 
     # opendataloader-pdf writes {input_stem}.{ext} in the output dir
-    stem = source_file.stem
-    ext_map = {"markdown": ".md", "text": ".txt", "json": ".json"}
-    expected = out_dir / f"{stem}{ext_map[fmt]}"
-    if expected.is_file() and expected.stat().st_size > 0:
-        return expected
-    # Fallback: find any new file in out_dir
-    for f in sorted(out_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-        if f.is_file() and f.stat().st_size > 0:
-            return f
-    return None
+    contents = []
+    for ext in (".md", ".txt"):
+        expected = out_dir / f"{source_file.stem}{ext}"
+        if not expected.is_file():
+            # Fallback for a renamed output: any file with this extension.
+            expected = next(
+                (f for f in sorted(out_dir.glob(f"*{ext}")) if f.is_file()),
+                expected,
+            )
+        contents.append(
+            expected.read_text(errors="ignore") if expected.is_file() else "",
+        )
+    return contents[0], contents[1]
 
 
 def _extract_single_pdf(
     binary: str,
     source_file: Path,
-    timeout: int,
+    timeout: float,
     extra_args: list[str],
     env: dict[str, str] | None,
 ) -> tuple[str, str]:
     """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
-    errors: list[OpendataloaderRunError] = []
-
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        try:
-            md_out = _run_opendataloader(
-                binary,
-                source_file,
-                "markdown",
-                tmp,
-                timeout,
-                extra_args,
-                env,
-            )
-        except OpendataloaderRunError as err:
-            errors.append(err)
-            md_out = None
-        md_content = md_out.read_text(errors="ignore") if md_out else ""
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        try:
-            txt_out = _run_opendataloader(
-                binary,
-                source_file,
-                "text",
-                tmp,
-                timeout,
-                extra_args,
-                env,
-            )
-        except OpendataloaderRunError as err:
-            errors.append(err)
-            txt_out = None
-        text_content = txt_out.read_text(errors="ignore") if txt_out else ""
-
-    if errors and not md_content and not text_content:
-        raise errors[0]
-
-    return md_content, text_content
+        return _run_opendataloader(
+            binary,
+            source_file,
+            Path(tmpdir),
+            timeout,
+            extra_args,
+            env,
+        )
 
 
 def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
@@ -280,15 +269,28 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     metadata_records: list[dict] = []
 
     execution_error: str | None = None
+    pdf_errors: list[str] = []
+    timed_out_on: str | None = None
     runtime_env = _opendataloader_env(java_binary)
+    # Keep a margin before the runner's kill so partial results from the PDFs
+    # already extracted are still written and reported.
+    deadline = HOOK_STARTED_AT + timeout - max(3.0, timeout * 0.1)
 
-    for source_file in sources:
+    for index, source_file in enumerate(sources):
+        remaining = deadline - time.monotonic()
+        if remaining <= 1:
+            print(
+                f"[opendataloader] WARN: timeout budget spent, skipping "
+                f"{len(sources) - index} of {len(sources)} PDFs",
+                file=sys.stderr,
+            )
+            break
         print(f"processing {source_file.name}...")
         try:
             md_content, text_content = _extract_single_pdf(
                 binary,
                 source_file,
-                timeout,
+                remaining,
                 extra_args,
                 runtime_env,
             )
@@ -316,11 +318,13 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
             )
 
         except subprocess.TimeoutExpired:
+            timed_out_on = source_file.name
             print(
-                f"[opendataloader] Timed out on {source_file.name} after {timeout}s",
+                f"[opendataloader] WARN: timeout budget spent on {source_file.name}, "
+                f"skipping {len(sources) - index - 1} remaining PDFs",
                 file=sys.stderr,
             )
-            continue
+            break
         except (FileNotFoundError, PermissionError, OSError) as e:
             print(
                 f"[opendataloader] Binary execution failed: {type(e).__name__}: {e}",
@@ -329,12 +333,14 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
             execution_error = f"Binary '{binary}' could not be executed"
             break
         except OpendataloaderRunError as e:
+            # One malformed or converter-crashing PDF must not discard the
+            # other PDFs in this snapshot.
             print(
-                f"[opendataloader] CLI execution failed: {e}",
+                f"[opendataloader] WARN: CLI execution failed: {e}",
                 file=sys.stderr,
             )
-            execution_error = str(e)
-            break
+            pdf_errors.append(str(e))
+            continue
         except Exception as e:
             print(
                 f"[opendataloader] Error on {source_file.name}: {type(e).__name__}: {e}",
@@ -346,6 +352,10 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
         return "failed", execution_error
 
     if not all_md_parts and not all_text_parts:
+        if pdf_errors:
+            return "failed", pdf_errors[0]
+        if timed_out_on:
+            return "failed", f"Timed out after {timeout}s extracting {timed_out_on}"
         return "noresults", "No content extracted from sources"
 
     # Write combined output files

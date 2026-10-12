@@ -122,6 +122,66 @@ class TestAccessibilityWithChrome:
         except RuntimeError:
             raise
 
+    def test_accessibility_survives_form_named_controls(self, httpserver_ipv4):
+        """Named form controls must not break outline extraction.
+
+        WHY: a WordPress page on the demo host had a subscribe form with
+        ``<input name="action">``. HTML exposes named controls as properties
+        of their form, so ``form.action`` was an <input>, not a string, and
+        the outline crashed with "elem.action?.split is not a function".
+        """
+        httpserver_ipv4.expect_request("/form").respond_with_data(
+            """<!doctype html><html><head><title>Forms</title></head><body>
+            <h1>Subscribe</h1>
+            <form id="subscribe" action="/signup/submit" method="post">
+              <input type="hidden" name="action" value="subscribe">
+              <input type="hidden" name="id" value="shadowed-id">
+              <input type="hidden" name="name" value="shadowed-name">
+              <input type="hidden" name="role" value="shadowed-role">
+              <input type="hidden" name="className" value="shadowed-class">
+              <input type="hidden" name="innerText" value="shadowed-text">
+              <button>Sign up</button>
+            </form>
+            </body></html>""",
+            content_type="text/html",
+        )
+        test_url = httpserver_ipv4.url_for("/form")
+        snapshot_id = "test-accessibility-form-controls"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-accessibility-crawl",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=True,
+            timeout=30,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            result = subprocess.run(
+                [
+                    str(ACCESSIBILITY_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
+
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            result_json = parse_jsonl_output(result.stdout)
+            assert result_json is not None, result.stdout
+            assert result_json["status"] == "succeeded", result_json
+            accessibility_output = (
+                Path(env["SNAP_DIR"]) / "accessibility" / "accessibility.json"
+            )
+            headings = json.loads(accessibility_output.read_text())["headings"]
+            assert "# Subscribe" in headings, headings
+            # Breadcrumbs blank out body/html ancestors, hence the ">>" prefix.
+            forms = [heading for heading in headings if "form " in heading]
+            assert forms == [">>form #subscribe /submit: Sign up"], headings
+
     def test_accessibility_disabled_skips(self, chrome_test_url):
         """Test that ACCESSIBILITY_ENABLED=False skips without error."""
         test_url = chrome_test_url

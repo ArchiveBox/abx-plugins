@@ -376,6 +376,86 @@ const chrome = require(process.argv[1]);
             "Should not save files under staticfile/ for HTML pages"
         )
 
+    @pytest.mark.parametrize("main_response", ["http-403", "none"])
+    def test_staticfile_sigterm_without_2xx_main_response_is_noresults(
+        self,
+        httpserver,
+        main_response,
+    ):
+        """Snapshot-end SIGTERM without a 2xx main document is not a failure.
+
+        WHY: on the demo host a bot wall answered the main document with
+        HTTP 403 HTML (and another page never responded before its navigation
+        timed out). Staticfile ignored the non-2xx response, waited for the
+        snapshot to end, and reported "failed: No main response captured"
+        although there was never a static file to save.
+        """
+        httpserver.expect_request("/blocked").respond_with_data(
+            "<!doctype html><html><body><h1>Access denied</h1></body></html>",
+            status=403,
+            content_type="text/html; charset=utf-8",
+        )
+        test_url = httpserver.url_for("/blocked")
+        snapshot_id = f"test-staticfile-{main_response}"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-staticfile-crawl-sigterm",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir(exist_ok=True)
+            hook_proc = start_process_and_wait_for_file(
+                [
+                    str(STATICFILE_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                staticfile_dir / "prenav.json",
+                cwd=staticfile_dir,
+                env=env,
+                ready=prenav_is_ready,
+            )
+            if main_response == "http-403":
+                nav_result = subprocess.run(
+                    [
+                        str(CHROME_NAVIGATE_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env=env,
+                )
+                assert "HTTP 403" in nav_result.stdout, nav_result
+                # A 403 can be a bot challenge that later navigates to the
+                # real resource, so the daemon must still be listening.
+                assert hook_proc.poll() is None, hook_proc.communicate()
+            stdout, stderr = terminate_process(hook_proc)
+
+        assert hook_proc.returncode == 0, (stdout, stderr)
+        assert "Received SIGTERM" in stderr, stderr
+        archive_result = parse_jsonl_output(stdout)
+        assert archive_result is not None, stdout
+        assert archive_result["status"] == "noresults", archive_result
+        if main_response == "http-403":
+            assert archive_result["output_str"] == (
+                "Main response was HTTP 403 text/html (not staticfile)"
+            ), archive_result
+            assert archive_result["content_type"] == "text/html", archive_result
+        else:
+            assert archive_result["output_str"] == "No main response captured", (
+                archive_result
+            )
+        assert not any(path.is_file() for path in staticfile_dir.iterdir()), list(
+            staticfile_dir.iterdir(),
+        )
+
     def test_staticfile_downloads_static_file_pages(self, staticfile_test_urls):
         """Staticfile hook should download deterministic static-file fixtures."""
         test_url = staticfile_test_urls["json_url"]

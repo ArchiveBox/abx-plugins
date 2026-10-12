@@ -142,9 +142,13 @@ async function stopExactRecording(helperPage, state, timeoutMs) {
           );
         }
         if (initialStatus.recording !== true) {
-          throw new Error(
-            `recording is not active for tab ${tabId} and collection ${expectedCollId}`
-          );
+          // AWP stops its recorder by itself when Chrome detaches its
+          // chrome.debugger session, e.g. once a PDF URL renders in Chrome's
+          // built-in PDF viewer (a frame owned by another extension, which
+          // chrome.debugger may not inspect). Everything captured before the
+          // detach, including the PDF response, is already committed to this
+          // exact collection, so export it instead of failing the snapshot.
+          return { ...initialStatus, alreadyStopped: true };
         }
 
         port.postMessage({ type: "stopRecording" });
@@ -321,6 +325,13 @@ async function main() {
       beginPhase("stop");
       finalStatus = await stopExactRecording(helperPage, state, timeoutMs);
       endPhase("stop");
+      if (finalStatus?.alreadyStopped) {
+        console.error(
+          `[archivewebpage] WARN: recorder for tab ${state.chromeTabId} had already stopped${
+            finalStatus.failureMsg ? ` (${finalStatus.failureMsg})` : ""
+          }; exporting what it captured`
+        );
+      }
       // Keep AWP's popup port connected while its service worker serves the
       // virtual WACZ download URL. Closing it first can leave Page.navigate
       // with net::ERR_FILE_NOT_FOUND before a download begins.

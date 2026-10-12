@@ -72,30 +72,39 @@ async function extractAccessibility(url, timeoutMs) {
     // Extract page outline (headings, sections, etc.)
     const outline = await page.evaluate(() => {
       const headings = [];
+      const innerTextGetter = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "innerText"
+      ).get;
       const elements = document.querySelectorAll(
         "h1, h2, h3, h4, h5, h6, a[name], header, footer, article, main, aside, nav, section, figure, summary, table, form, iframe"
       );
 
       elements.forEach((elem) => {
         // Skip unnamed anchors
-        if (elem.tagName.toLowerCase() === "a" && !elem.name) return;
+        if (elem.tagName.toLowerCase() === "a" && !elem.getAttribute("name")) return;
 
         const tagName = elem.tagName.toLowerCase();
+        // Read attributes, not DOM properties: a <form> exposes its named
+        // controls as properties, so <input name="action"> (common in
+        // WordPress subscribe forms) makes form.action an element, and the
+        // same shadowing applies to id/name/role/className/innerText.
+        const attr = (name) => elem.getAttribute(name) || "";
         const elemId =
-          elem.id ||
-          elem.name ||
-          elem.getAttribute("aria-label") ||
-          elem.role ||
-          "";
-        const elemClasses = (elem.className || "")
-          .toString()
+          attr("id") || attr("name") || attr("aria-label") || attr("role");
+        const elemClasses = attr("class")
           .trim()
           .split(/\s+/)
           .slice(0, 3)
           .join(" .");
-        const action = elem.action?.split("/").pop() || "";
+        const action =
+          tagName === "form" ? attr("action").split("/").pop() : "";
+        const innerText =
+          (elem instanceof HTMLElement
+            ? innerTextGetter.call(elem)
+            : elem.textContent) || "";
 
-        let summary = (elem.innerText || "").slice(0, 128);
+        let summary = innerText.slice(0, 128);
         if (summary.length >= 128) summary += "...";
 
         let prefix = "";
@@ -105,7 +114,7 @@ async function extractAccessibility(url, timeoutMs) {
         const level = parseInt(tagName.replace("h", ""));
         if (!isNaN(level)) {
           prefix = "#".repeat(level);
-          title = elem.innerText || elemId || elemClasses;
+          title = innerText || elemId || elemClasses;
         } else {
           // For other elements, create breadcrumb path
           const parents = [tagName];

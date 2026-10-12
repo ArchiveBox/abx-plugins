@@ -1141,6 +1141,64 @@ def test_empty_recordings_are_classified_from_awp_collection_counts(
         assert result["output_size"] == output.stat().st_size
 
 
+MINIMAL_PDF = (
+    b"%PDF-1.4\n"
+    b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n"
+    b"trailer<</Root 1 0 R>>\n"
+    b"%%EOF\n"
+)
+
+
+def test_pdf_viewer_detach_still_exports_the_recorded_pdf(
+    archivewebpage_crawl,
+    httpserver_ipv4,
+    tmp_path,
+):
+    """Export the PDF that AWP captured before Chrome's PDF viewer detached it.
+
+    WHY: on the demo host, a PDF snapshot rendered in Chrome's built-in PDF
+    viewer, Chrome detached AWP's chrome.debugger session, and AWP stopped
+    the recorder by itself. The stop hook then failed with "recording is not
+    active" and discarded a collection that already held the PDF response.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    httpserver_ipv4.expect_request("/paper.pdf").respond_with_data(
+        MINIMAL_PDF,
+        content_type="application/pdf",
+    )
+    url = httpserver_ipv4.url_for("/paper.pdf")
+    snapshot_dir, snapshot_env = _start_snapshot_recording(
+        tmp_path,
+        env,
+        tab_processes,
+        snapshot_id="pdf-viewer",
+        url=url,
+    )
+
+    stop = _run_stop_hook(snapshot_dir, snapshot_env, url)
+    result = parse_jsonl_output(stop.stdout)
+    assert result is not None, (stop.stdout, stop.stderr)
+    assert stop.returncode == 0, (stop.stdout, stop.stderr)
+    assert result["status"] == "succeeded", (result, stop.stderr)
+    # The precondition this test guards: AWP really had stopped on its own.
+    assert "had already stopped" in stop.stderr, stop.stderr
+    assert result["num_urls"] >= 1, result
+
+    output = snapshot_dir / "archivewebpage" / "archivewebpage.wacz"
+    assert result["output_size"] == output.stat().st_size
+    with zipfile.ZipFile(output) as wacz:
+        cdx_lines = wacz.read("indexes/index.cdx").decode().splitlines()
+        records = [json.loads(line.split(" ", 2)[2]) for line in cdx_lines]
+        pdf_records = [record for record in records if record["url"] == url]
+        assert pdf_records, records
+        assert pdf_records[0]["mime"] == "application/pdf", pdf_records
+        assert pdf_records[0]["status"] == 200, pdf_records
+        with gzip.open(wacz.open("archive/data.warc.gz")) as warc:
+            assert MINIMAL_PDF in warc.read()
+
+
 def test_ublock_never_replaces_the_recorded_page_with_strictblock(
     archivewebpage_crawl,
     tmp_path,

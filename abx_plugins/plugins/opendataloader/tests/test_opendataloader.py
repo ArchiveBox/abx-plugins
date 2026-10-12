@@ -471,6 +471,152 @@ def test_extract_multiple_pdfs():
         )
 
 
+LINE_ART_PDF_URL = (
+    "https://www.cs.umd.edu/~nakul/assets/papers/litefoot_sensys2024_nakul.pdf"
+)
+# The demo container's JVM ergonomics: 25% of its 10 GiB memory limit.
+PRODUCTION_HEAP_ENV = {"JAVA_TOOL_OPTIONS": "-Xmx2560m"}
+
+
+def _download_line_art_pdf() -> bytes:
+    response = requests.get(LINE_ART_PDF_URL, timeout=60)
+    response.raise_for_status()
+    assert response.content.startswith(b"%PDF-"), response.content[:8]
+    return response.content
+
+
+def _run_hook(
+    snap_dir: Path,
+    cwd: Path,
+    url: str,
+    extra_env: dict[str, str],
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["SNAP_DIR"] = str(snap_dir)
+    env["OPENDATALOADER_BINARY"] = require_opendataloader_binary()
+    env["JAVA_BINARY"] = require_java_binary()
+    env["OPENDATALOADER_ENABLED"] = "True"
+    env.update(extra_env)
+    return subprocess.run(
+        [str(OPENDATALOADER_HOOK), "--url", url],
+        check=False,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+    )
+
+
+def test_line_art_pdf_extracts_within_production_heap():
+    """The pinned converter must handle line-art-heavy papers in a 2.5 GiB heap.
+
+    WHY: opendataloader-pdf 2.5.9 through 2.5.12 grow veraPDF's line-art chunk
+    list without bound on this real paper (OutOfMemoryError in
+    ChunkParser.processLineArts even with an 8 GiB heap). 2.5.8 extracts it in
+    seconds, so the plugin pins that release.
+    """
+    pdf_content = _download_line_art_pdf()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        source_dir = snap_dir / "responses" / "www.cs.umd.edu" / "papers"
+        source_dir.mkdir(parents=True)
+        (source_dir / "litefoot_sensys2024_nakul.pdf").write_bytes(pdf_content)
+
+        result = _run_hook(
+            snap_dir,
+            tmpdir,
+            LINE_ART_PDF_URL,
+            PRODUCTION_HEAP_ENV,
+            timeout=150,
+        )
+
+        assert "OutOfMemoryError" not in result.stderr, result.stderr[-2000:]
+        assert result.returncode == 0, result.stderr[-2000:]
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "succeeded", record
+        md_content = (snap_dir / "opendataloader" / "content.md").read_text()
+        assert "LiTEfoot: Ultra-low-power Localization" in md_content
+        text_content = (snap_dir / "opendataloader" / "content.txt").read_text()
+        assert "ABSTRACT" in text_content
+
+
+def test_failing_pdf_does_not_discard_other_pdfs():
+    """A PDF the converter rejects must not abort extraction of the others."""
+    pdf_content = _download_test_pdf()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        # responses/ is searched first, so the broken PDF is processed first.
+        responses_dir = snap_dir / "responses" / "example.com"
+        responses_dir.mkdir(parents=True)
+        (responses_dir / "truncated.pdf").write_bytes(b"%PDF-1.4\ntruncated\n")
+        wget_dir = snap_dir / "wget" / "example.com"
+        wget_dir.mkdir(parents=True)
+        (wget_dir / "valid.pdf").write_bytes(pdf_content)
+
+        result = _run_hook(snap_dir, tmpdir, "https://example.com", {}, timeout=120)
+
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "succeeded", (record, result.stderr)
+        assert "opendataloader-pdf failed for truncated.pdf" in result.stderr
+        metadata = json.loads(
+            (snap_dir / "opendataloader" / "metadata.json").read_text(),
+        )
+        assert metadata["total_sources_found"] == 2, metadata
+        assert [file["source_file"] for file in metadata["files"]] == ["valid.pdf"]
+
+
+def test_timeout_budget_writes_partial_results_before_runner_kill():
+    """Spend at most the hook timeout and keep the PDFs already extracted.
+
+    WHY: a demo snapshot found 11 PDFs, gave every converter run the full
+    120 s hook timeout, and was killed by the runner after three PDFs with
+    nothing written.
+    """
+    pdf_content = _download_test_pdf()
+    line_art_pdf = _download_line_art_pdf()
+    hook_timeout = 10
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        responses_dir = snap_dir / "responses" / "example.com"
+        responses_dir.mkdir(parents=True)
+        (responses_dir / "quick.pdf").write_bytes(pdf_content)
+        wget_dir = snap_dir / "wget" / "example.com"
+        wget_dir.mkdir(parents=True)
+        # Each copy takes seconds to convert, more than the budget in total.
+        for index in range(8):
+            (wget_dir / f"paper-{index}.pdf").write_bytes(line_art_pdf)
+
+        result = _run_hook(
+            snap_dir,
+            tmpdir,
+            "https://example.com",
+            PRODUCTION_HEAP_ENV | {"OPENDATALOADER_TIMEOUT": str(hook_timeout)},
+            # The runner's kill: the hook must finish on its own before this.
+            timeout=hook_timeout,
+        )
+
+        assert result.returncode == 0, result.stderr[-2000:]
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "succeeded", record
+        assert "timeout budget spent" in result.stderr, result.stderr[-2000:]
+        metadata = json.loads(
+            (snap_dir / "opendataloader" / "metadata.json").read_text(),
+        )
+        assert metadata["total_sources_found"] == 9, metadata
+        processed = [file["source_file"] for file in metadata["files"]]
+        assert processed[0] == "quick.pdf", processed
+        assert len(processed) < 9, processed
+
+
 def test_force_ocr_adds_hybrid_flag():
     """Test FORCE_OCR through the real hybrid extraction lifecycle."""
     binary_path = require_opendataloader_binary()
