@@ -96,10 +96,12 @@ async function main() {
       ),
     );
     if (terms) {
+      console.error("Accepting WeTransfer terms");
       await page
         .locator('::-p-aria([name="I agree"][role="button"])')
         .setTimeout(remaining())
         .click();
+      console.error("WeTransfer agreement clicked; waiting for transfer status");
       await page.waitForFunction(
         () =>
           [...document.querySelectorAll("button")].some((button) =>

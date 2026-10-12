@@ -119,7 +119,12 @@ process.on('SIGTERM', () => {
           const buttons = [...document.querySelectorAll('button')]
             .filter(button => /agree|download|recover|refresh|reload|retry/i.test(button.innerText))
             .map(button => ({text: button.innerText.slice(0, 100),
-              visible: !!(button.offsetWidth || button.offsetHeight), disabled: button.disabled}));
+              visible: !!(button.offsetWidth || button.offsetHeight), disabled: button.disabled,
+              aria: button.getAttribute('aria-label'),
+              html: button.outerHTML.slice(0, 800),
+              covering: (() => { const box = button.getBoundingClientRect();
+                const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+                return button.contains(top) ? null : top?.outerHTML.slice(0, 800); })()}));
           const expired = /transfer (?:has )?expired|transfer (?:was )?deleted|Oops, the transfer you requested/i
             .test(document.body.innerText);
           return {url: location.origin + location.pathname, title: document.title.slice(0, 200),
@@ -167,6 +172,11 @@ process.on('SIGTERM', () => {
                     text=True,
                     timeout=90,
                 )
+            except subprocess.TimeoutExpired as error:
+                raise AssertionError(
+                    f"WeTransfer hook timed out: {error.stdout!r}\n{error.stderr!r}\n"
+                    + "\n".join(observations.read_text().splitlines()[-20:]),
+                ) from error
             finally:
                 observer.terminate()
                 try:

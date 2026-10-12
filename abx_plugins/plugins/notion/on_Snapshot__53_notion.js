@@ -79,16 +79,45 @@ async function main() {
       console.error("Not a Notion document page");
       return emitArchiveResultRecord("noresults", "Not a Notion document page");
     }
-    // Snapshot tabs may be hidden, so requestAnimationFrame polling can stop
-    // even after Notion has rendered. Observe DOM changes instead.
-    await page.waitForFunction(
-      () => document.querySelector(".notion-page-content")?.innerText.trim(),
-      { timeout: remaining(), polling: "mutation" },
-    );
-    // Notion renders table skeletons before getPublicPageData finishes. The
-    // first text is not a complete page: wait for its data and modules to load
-    // before cloning, otherwise the final rows can be saved as empty cells.
-    await page.waitForNetworkIdle({ timeout: remaining() });
+    // Notion renders table skeletons before its page-data requests finish.
+    // Wait for same-origin fetch/XHR bodies, not page-wide network idle: the
+    // SQLite shared-worker request transfers to another target without a page
+    // completion event, and third-party telemetry may continue indefinitely.
+    const origin = new URL(page.url()).origin;
+    const pending = new Set();
+    let lastActivity = Date.now();
+    const started = (request) => {
+      if (
+        ["fetch", "xhr"].includes(request.resourceType()) &&
+        new URL(request.url()).origin === origin
+      ) {
+        pending.add(request);
+        lastActivity = Date.now();
+      }
+    };
+    const finished = (request) => {
+      if (pending.delete(request)) lastActivity = Date.now();
+    };
+    page.on("request", started);
+    page.on("requestfinished", finished);
+    page.on("requestfailed", finished);
+    try {
+      await page.waitForFunction(
+        () => document.querySelector(".notion-page-content")?.innerText.trim(),
+        // Text-node updates do not trigger Puppeteer's mutation poller, and
+        // hidden capture tabs can suspend its default animation-frame poller.
+        { timeout: remaining(), polling: 100 },
+      );
+      lastActivity = Date.now();
+      while (pending.size || Date.now() - lastActivity < 500) {
+        remaining();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    } finally {
+      page.off("request", started);
+      page.off("requestfinished", finished);
+      page.off("requestfailed", finished);
+    }
     const saved = await page.evaluate(() => {
       const root = document.querySelector(".notion-page-content");
       const title =
