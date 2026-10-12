@@ -201,6 +201,12 @@ const {captureOriginStorage} = require(require('path').join(require('path').dirn
             timeout=45,
         )
         assert result.returncode == 0, result.stderr
+    # A synced site database that IndexedDB rejects must only skip that
+    # database; it must never abort Chrome launch or the other databases.
+    saved = json.loads(auth.read_text())
+    rejected = dict(saved["origins"][0]["indexedDB"][0], name="rejected-db")
+    saved["origins"][0]["indexedDB"].insert(0, rejected)
+    auth.write_text(json.dumps(saved))
     with chrome_session(
         tmp_path / "destination",
         test_url=url,
@@ -221,7 +227,8 @@ const utils = require(process.argv[1]);
       const row = await new Promise((resolve,reject) => {const r=store.get(7);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
       const result = {version:db.version,keyPath:store.keyPath,autoIncrement:store.autoIncrement,
         unique:store.index('byAccount').unique,account:row.account,token:row.token,date:row.created.toISOString(),
-        bytes:Array.from(row.bytes),blob:await row.blob.text(),local:localStorage.getItem('token'),session:sessionStorage.getItem('token')};
+        bytes:Array.from(row.bytes),blob:await row.blob.text(),local:localStorage.getItem('token'),session:sessionStorage.getItem('token'),
+        databases:(await indexedDB.databases()).map(d=>d.name).sort()};
       db.close();return result;
     })));
   } finally {await browser.disconnect();}
@@ -248,4 +255,5 @@ const utils = require(process.argv[1]);
             "blob": "saved-session",
             "local": "local-token",
             "session": "tab-token",
+            "databases": ["login-state"],
         }

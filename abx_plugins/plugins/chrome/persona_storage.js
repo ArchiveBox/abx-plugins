@@ -40,6 +40,10 @@ function indexedDBScripts() {
 }
 
 async function restoreOriginStorage(browser, origins) {
+  // Saved site storage is optional login state synced from a user's browser.
+  // One site's export that IndexedDB rejects (e.g. Dexie BulkError on a record)
+  // must only skip that database: failing here aborted Chrome launch and
+  // stopped every crawl that uses the persona.
   for (const entry of origins) {
     if (!entry.localStorage && !entry.indexedDB?.length) continue;
     const page = await browser.newPage();
@@ -51,42 +55,54 @@ async function restoreOriginStorage(browser, origins) {
       page.on("request", request => request.respond({ status: 200, contentType: "text/html", body: "<!doctype html><title>Persona storage setup</title>" }));
       await page.goto(entry.origin);
       if (entry.indexedDB?.length) await page.evaluate(indexedDBScripts());
-      await page.evaluate(async (state) => {
+      const skipped = await page.evaluate(async (state) => {
+        const skipped = [];
         for (const item of state.localStorage || []) localStorage.setItem(item.name, item.value);
         for (const exported of state.indexedDB || []) {
-          const metadata = JSON.parse(exported.data);
-          if (metadata.formatName !== "dexie" || metadata.formatVersion !== 1) throw new Error("Invalid IndexedDB export");
-          const blob = new Blob([exported.data], { type: "application/json" });
-          const name = metadata.data.databaseName;
-          if (name !== exported.name) throw new Error("IndexedDB name does not match its schema");
-          // Dexie's schema notation uses key paths as index names. Recreate the
-          // real native names first so sites using store.index(name) keep working.
-          await new Promise((resolve, reject) => {
-            const request = indexedDB.open(name, exported.version);
-            request.onerror = () => reject(request.error);
-            request.onblocked = () => reject(new Error(`IndexedDB ${name} is in use`));
-            request.onupgradeneeded = () => {
-              const db = request.result;
-              for (const definition of exported.stores) {
-                const store = db.objectStoreNames.contains(definition.name)
-                  ? request.transaction.objectStore(definition.name)
-                  : db.createObjectStore(definition.name, { keyPath: definition.keyPath, autoIncrement: definition.autoIncrement });
-                for (const index of definition.indexes) {
-                  if (!store.indexNames.contains(index.name)) store.createIndex(index.name, index.keyPath, { unique: index.unique, multiEntry: index.multiEntry });
-                }
-              }
-            };
-            request.onsuccess = () => { request.result.close(); resolve(); };
-          });
-          let db;
           try {
-            db = new Dexie(name);
-            await db.open();
-            await db.import(blob, { overwriteValues: true });
-          } finally { db?.close(); }
+            const metadata = JSON.parse(exported.data);
+            if (metadata.formatName !== "dexie" || metadata.formatVersion !== 1) throw new Error("Invalid IndexedDB export");
+            const blob = new Blob([exported.data], { type: "application/json" });
+            const name = metadata.data.databaseName;
+            if (name !== exported.name) throw new Error("IndexedDB name does not match its schema");
+            // Dexie's schema notation uses key paths as index names. Recreate the
+            // real native names first so sites using store.index(name) keep working.
+            await new Promise((resolve, reject) => {
+              const request = indexedDB.open(name, exported.version);
+              request.onerror = () => reject(request.error);
+              request.onblocked = () => reject(new Error(`IndexedDB ${name} is in use`));
+              request.onupgradeneeded = () => {
+                const db = request.result;
+                for (const definition of exported.stores) {
+                  const store = db.objectStoreNames.contains(definition.name)
+                    ? request.transaction.objectStore(definition.name)
+                    : db.createObjectStore(definition.name, { keyPath: definition.keyPath, autoIncrement: definition.autoIncrement });
+                  for (const index of definition.indexes) {
+                    if (!store.indexNames.contains(index.name)) store.createIndex(index.name, index.keyPath, { unique: index.unique, multiEntry: index.multiEntry });
+                  }
+                }
+              };
+              request.onsuccess = () => { request.result.close(); resolve(); };
+            });
+            let db;
+            try {
+              db = new Dexie(name);
+              await db.open();
+              // The export is the site's complete saved state. Merging it into the
+              // profile's previous copy broke unique indexes (ConstraintError).
+              await db.import(blob, { overwriteValues: true, clearTablesBeforeImport: true });
+            } finally { db?.close(); }
+          } catch (error) {
+            const first = Object.values(error?.failuresByPos || {})[0] || error?.failures?.[0];
+            skipped.push(`${exported.name}: ${error?.name || "Error"} ${error?.message || error}${first ? ` (${first.name}: ${first.message})` : ""}`);
+          }
         }
+        return skipped;
       }, entry);
-    } finally { await page.close(); }
+      for (const reason of skipped) console.error(`[!] Skipped saved IndexedDB for ${entry.origin}: ${reason}`);
+    } catch (error) {
+      console.error(`[!] Skipped saved storage for ${entry.origin}: ${error?.message || error}`);
+    } finally { await page.close().catch(() => {}); }
   }
 }
 
