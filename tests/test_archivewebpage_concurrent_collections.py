@@ -1171,6 +1171,162 @@ def test_ublock_never_replaces_the_recorded_page_with_strictblock(
     assert (snapshot_dir / "archivewebpage" / "archivewebpage.wacz").stat().st_size > 0
 
 
+@pytest.mark.parametrize(
+    "delivery",
+    ["network", "worker", "redirect-network", "redirect-worker"],
+)
+def test_top_level_document_body_survives_navigation_commit(
+    archivewebpage_crawl,
+    httpserver_ipv4,
+    tmp_path,
+    delivery,
+):
+    """A rendered document must retain its real HTTP body in the exported WARC."""
+    env, _chrome_dir, tabs = archivewebpage_crawl
+    document = "<!doctype html><title>Recorded document</title><main>Complete response body</main>"
+    httpserver_ipv4.expect_request("/document").respond_with_data(
+        document,
+        content_type="text/html",
+    )
+    httpserver_ipv4.expect_request("/register").respond_with_data(
+        "<!doctype html><title>Install worker</title>",
+        content_type="text/html",
+    )
+    httpserver_ipv4.expect_request("/favicon.ico").respond_with_data("", status=404)
+    httpserver_ipv4.expect_request("/redirect").respond_with_data(
+        "",
+        status=302,
+        headers={"Location": f"/document?{delivery.removeprefix('redirect-')}"},
+    )
+    httpserver_ipv4.expect_request("/worker.js").respond_with_data(
+        """
+self.addEventListener('install', event => event.waitUntil(
+  caches.open('documents').then(cache => cache.add('/document?worker'))
+    .then(() => self.skipWaiting())
+));
+self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', event => {
+  if (new URL(event.request.url).search === '?worker') {
+    event.respondWith(caches.open('documents').then(cache => cache.match(event.request)));
+  }
+});
+""",
+        content_type="application/javascript",
+    )
+    url = httpserver_ipv4.url_for(f"/document?{delivery.removeprefix('redirect-')}")
+    navigation_url = (
+        httpserver_ipv4.url_for("/redirect")
+        if delivery.startswith("redirect-")
+        else url
+    )
+    snapshot = tmp_path / f"document-{delivery}"
+    (snapshot / "chrome").mkdir(parents=True)
+    snapshot_env = env | {"SNAP_DIR": str(snapshot)}
+    tabs.append(
+        launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot / "chrome",
+            tab_env=snapshot_env,
+            test_url=url,
+            snapshot_id=f"document-{delivery}",
+            crawl_id="test-archivewebpage-lifecycle",
+        ),
+    )
+    script = r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await chrome.connectToPage({
+    chromeSessionDir: process.argv[2], requireTargetId: true,
+    puppeteer: chrome.resolvePuppeteerModule(), timeoutMs: 10000,
+  });
+  try {
+    await page.goto(process.argv[3]);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.register('/worker.js');
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise(resolve => navigator.serviceWorker.addEventListener(
+          'controllerchange', resolve, {once: true}
+        ));
+      }
+    });
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    setup = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(snapshot / "chrome"),
+            httpserver_ipv4.url_for("/register"),
+        ],
+        env=snapshot_env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert setup.returncode == 0, setup.stderr
+    start = _run_start_hook(snapshot, snapshot_env, url)
+    assert start.returncode == 0, (start.stdout, start.stderr)
+    navigate = _run_navigate_hook(snapshot, snapshot_env, navigation_url)
+    assert navigate.returncode == 0, (navigate.stdout, navigate.stderr)
+    observe = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await chrome.connectToPage({
+    chromeSessionDir: process.argv[2], requireTargetId: true,
+    puppeteer: chrome.resolvePuppeteerModule(), timeoutMs: 10000,
+  });
+  try {
+    console.log(JSON.stringify(await page.evaluate(() => ({
+      text: document.querySelector('main')?.textContent,
+      workerStart: performance.getEntriesByType('navigation')[0].workerStart,
+    }))));
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""",
+            str(CHROME_UTILS),
+            str(snapshot / "chrome"),
+        ],
+        env=snapshot_env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert observe.returncode == 0, observe.stderr
+    observed = json.loads(observe.stdout)
+    assert observed["text"] == "Complete response body", observed
+    assert observed["workerStart"] > 0, observed
+    stop = _run_stop_hook(snapshot, snapshot_env, url)
+    assert stop.returncode == 0, (stop.stdout, stop.stderr)
+    with zipfile.ZipFile(snapshot / "archivewebpage/archivewebpage.wacz") as archive:
+        rows = [
+            json.loads(line.split(" ", 2)[2])
+            for line in archive.read("indexes/index.cdx").decode().splitlines()
+        ]
+        if delivery.startswith("redirect-"):
+            assert any(
+                row["url"] == navigation_url and row["status"] == 302 for row in rows
+            ), rows
+        records = []
+        for row in rows:
+            if row["url"] != url:
+                continue
+            compressed = archive.read("archive/" + row["filename"])
+            offset, length = int(row["offset"]), int(row["length"])
+            records.append(gzip.decompress(compressed[offset : offset + length]))
+    assert records, "Rendered document is missing from WACZ"
+    assert any(document.encode() in record for record in records), (
+        "Rendered document was archived without its response body",
+        records,
+    )
+
+
 def test_webrecorder_embedded_replay_keeps_worker_response_in_wacz(
     archivewebpage_crawl,
     tmp_path,

@@ -55,6 +55,43 @@ script = script.replace(
     old_payload,
     '(e.encodedDataLength||t.fromServiceWorker)&&(r=yield this.fetchPayloads(e,t,i,"Network.getResponseBody"))',
 )
+# A top-level worker response can commit its frame before loadingFinished,
+# without passing through Fetch interception. Removing that pending response
+# here archives a null body and prevents Network.getResponseBody from ever
+# running. Only commit an already acquired payload; leave the ordinary loading
+# completion path responsible for responses whose bodies are still pending.
+old_document = (
+    "const i=this.removeReqResp(this.loaderId);return i&&this.fullCommit(i,e),!0"
+)
+if script.count(old_document) != 1:
+    raise RuntimeError(
+        "ArchiveWeb.page document-response patch does not match pinned release",
+    )
+script = script.replace(
+    old_document,
+    "const i=this.pendingReqResp(this.loaderId,!0);"
+    "return i&&i.payload&&(this.removeReqResp(this.loaderId),this.fullCommit(i,e)),!0",
+)
+# CDP reuses the network request ID across redirects. The old response's empty
+# payload and Fetch flag must not masquerade as the next response's acquired
+# body. Keep the redirect record, then start a fresh request/response lifecycle.
+redirect_patches = (
+    (
+        "const t=this.pendingReqResp(e.requestId);let i=null;",
+        "let t=this.pendingReqResp(e.requestId);let i=null;",
+    ),
+    (
+        "i=t.toDBRecord(null,this.pageInfo,this.archiveCookies)}t.fillRequest(e)",
+        "i=t.toDBRecord(null,this.pageInfo,this.archiveCookies);"
+        "this.removeReqResp(e.requestId);t=this.pendingReqResp(e.requestId)}t.fillRequest(e)",
+    ),
+)
+for before, after in redirect_patches:
+    if script.count(before) != 1:
+        raise RuntimeError(
+            "ArchiveWeb.page redirect-response patch does not match pinned release",
+        )
+    script = script.replace(before, after)
 # AWP has one status port per recorder. Concurrent helpers overwrite it, and
 # closing either helper can strand the other handshake. Subscribe every live
 # popup independently; moving or disconnecting a popup removes only that port.
@@ -93,7 +130,7 @@ for before, after in popup_patches:
         )
     script = script.replace(before, after)
 destination = (
-    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers4"
+    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers5"
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not destination.exists():
