@@ -485,7 +485,3 @@ In ArchiveBox, that same owner publishes `tabs.json` and serves optional viewer
 demand through the shared `chrome_screencast/screencast.js` subscription. These
 artifacts are optional: missing/malformed metadata disables the viewer, not
 capture or other components. Standalone abx-dl does not load the observer.
-This live state (`tabs.json`, `viewers/`, `frames/`) is rewritten on every tab
-event and up to 10x/second per viewed tab, so it lives on local disk under
-`TMP_DIR/chrome_browser/<sha256(cdp_url)>/`, never in crawl/persona dirs that
-may be remote storage.

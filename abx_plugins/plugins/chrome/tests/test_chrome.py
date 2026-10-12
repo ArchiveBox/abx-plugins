@@ -1313,8 +1313,20 @@ def test_browser_observer_keeps_live_state_in_tmp_dir_not_crawl_dir(httpserver):
                 time.sleep(0.05)
             assert not frame_path.exists()
 
+            # Old session-dir paths stay readable via one-time symlinks into
+            # the live dir, so the hot writes never land on archive storage.
             for name in ("tabs.json", "viewers", "frames"):
-                assert not (crawl_chrome_dir / name).exists(), name
+                legacy = crawl_chrome_dir / name
+                assert legacy.is_symlink(), name
+                assert os.readlink(legacy) == str(live_dir / name), name
+            legacy_state = json.loads((crawl_chrome_dir / "tabs.json").read_text())
+            assert legacy_state["cdp_url"] == cdp_url
+            assert any(item["target_id"] == target_id for item in legacy_state["tabs"])
+            assert not [
+                path.name
+                for path in crawl_chrome_dir.iterdir()
+                if path.name.startswith(".tabs.json")
+            ]
 
 
 def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):

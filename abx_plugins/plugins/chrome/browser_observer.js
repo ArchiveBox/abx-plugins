@@ -19,13 +19,30 @@ function browserLiveDir(tmpDir, cdpUrl) {
     crypto.createHash("sha256").update(cdpUrl).digest("hex"));
 }
 
-async function observeBrowser(browser, tmpDir) {
+// Readers of the old session-dir paths keep working through symlinks. They are
+// created once per observer start; every hot write goes straight to TMP_DIR.
+function linkLegacyPath(legacyPath, target) {
+  try {
+    if (fs.readlinkSync(legacyPath) === target) return;
+  } catch {}
+  fs.rmSync(legacyPath, { recursive: true, force: true });
+  fs.symlinkSync(target, legacyPath);
+}
+
+async function observeBrowser(browser, sessionDir, tmpDir) {
   const directory = browserLiveDir(tmpDir, browser.wsEndpoint());
   const filename = path.join(directory, "tabs.json");
   const viewersDir = path.join(directory, "viewers");
   const framesDir = path.join(directory, "frames");
   fs.mkdirSync(viewersDir, { recursive: true });
   fs.mkdirSync(framesDir, { recursive: true });
+  for (const target of [filename, viewersDir, framesDir]) {
+    try {
+      linkLegacyPath(path.join(sessionDir, path.basename(target)), target);
+    } catch (error) {
+      console.error(`Browser observer legacy link unavailable: ${error.message}`);
+    }
+  }
   try {
     const previous = JSON.parse(fs.readFileSync(filename, "utf8"));
     if (previous.connected && previous.cdp_url === browser.wsEndpoint()) {
