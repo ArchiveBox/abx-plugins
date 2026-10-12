@@ -1,0 +1,23 @@
+abx_plugins/plugins/chrome/browser_observer.js
+  s_2b44ee96cc775e::t_9ca4eeec859359 32-51,73-79,86
+abx_plugins/plugins/opencode/archivebox/browser.py
+  s_2b44ee96cc775e::t_4953525c3dc165 46-55,59-75,86-102,104,106-107,109-119,121-150,153,161,352-359
+abx_plugins/plugins/opencode/archivebox/browser_panel_cases.py
+  s_2b44ee96cc775e::t_04248645d3b7c1 86,88-89,254-290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "11024a754dd884b9b2ac2e696680887f72397f34",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
