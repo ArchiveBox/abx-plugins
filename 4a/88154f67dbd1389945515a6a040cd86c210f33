@@ -1,0 +1,19 @@
+abx_plugins/plugins/archivedotorg/tests/test_archivedotorg.py
+  s_20f72622e178fb::t_2796e298fdd76c 168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4a88154f67dbd1389945515a6a040cd86c210f33",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
