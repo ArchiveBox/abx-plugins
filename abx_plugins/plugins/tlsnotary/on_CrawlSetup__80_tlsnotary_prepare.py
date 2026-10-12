@@ -16,6 +16,37 @@ from abx_plugins.plugins.base.utils import load_config
 
 config = load_config()
 if config.TLSNOTARY_ENABLED:
+    if config.TLSNOTARY_EXTENSION_DIR:
+        # A rebuilt MPC protocol requires its matching verifier. Accept only an
+        # explicitly configured local build, never extension code from a remote
+        # verifier, and verify its exported bundles before bypassing release patches.
+        source = Path(config.TLSNOTARY_EXTENSION_DIR).resolve(strict=True)
+        build = json.loads((source / "archivebox-build.json").read_text())
+        for name, digest in build["bundles"].items():
+            target = (source / name).resolve(strict=True)
+            if not target.is_relative_to(source):
+                raise ValueError("TLSNotary build manifest path escapes extension")
+            if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+                raise ValueError(
+                    f"TLSNotary source-built extension checksum mismatch: {name}",
+                )
+        for required in (
+            "offscreen.bundle.js",
+            "background.bundle.js",
+            "tlsn_wasm_bg.wasm",
+        ):
+            if required not in build["bundles"]:
+                raise ValueError(
+                    f"TLSNotary source-built extension manifest omits {required}",
+                )
+        metadata_path = Path(config.CRAWL_DIR) / "tlsnotary" / "extension.json"
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        metadata_path.write_text(
+            json.dumps(
+                {"name": "tlsnotary", "unpacked_path": str(source), "build": build},
+            ),
+        )
+        raise SystemExit(0)
     metadata = json.loads(
         (
             Path(os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"])

@@ -46,6 +46,11 @@
       "default": "",
       "description": "Independently trusted Ed25519 public key (base64 SPKI); empty uses the bundled service key."
     },
+    "TLSNOTARY_EXTENSION_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Local extension directory produced by vendor/build.py; requires its matching source-built verifier. Empty uses the pinned upstream release."
+    },
     "TLSNOTARY_TIMEOUT": {
       "type": "integer",
       "default": 180,
@@ -58,7 +63,7 @@
       "default": 131072,
       "minimum": 1024,
       "maximum": 262144,
-      "description": "Maximum complete HTTP response bytes. Oversized pages fail explicitly; assets and video streams are excluded."
+      "description": "Maximum complete HTTP response bytes. Oversized pages produce noresults with an explicit warning; assets and video streams are excluded."
     },
     "TLSNOTARY_MAX_SENT_BYTES": {
       "type": "integer",

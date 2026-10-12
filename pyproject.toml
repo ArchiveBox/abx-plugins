@@ -131,5 +131,6 @@ include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/im
 rules = { unresolved-import = "ignore" }
 
 [tool.codespell]
-ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo"
+# OT is oblivious transfer in the vendored TLSNotary cryptographic code.
+ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo,ot"
 skip = "*.json"

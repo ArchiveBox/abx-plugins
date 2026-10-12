@@ -10,7 +10,7 @@ Only a fixed HTTP protocol marker and whitespace are disclosed; URL paths, query
 strings, cookies, response headers and page content stay on the client. MPC adds
 substantial bandwidth and computation. Only one complete main GET response is
 selected; assets and video streams are excluded. Responses over the configured
-byte budget fail explicitly. There is no prefix or video-duration claim.
+byte budget produce `noresults` with a warning. There is no prefix or video-duration claim.
 
 ## Install and capture
 
@@ -34,8 +34,8 @@ capture command is `TLSNOTARY_ENABLED=true abx-dl dl --plugins=title,screenshot,
 The setup hook copies the extension into the persona's plugin cache and applies
 version-checked changes: return existing commitment openings and the received
 transcript to the local caller before cleanup, remove the opening debug log, and
-let Chrome position approval/managed windows inside the headless screen. No Rust compiler,
-alternative prover, or custom MPC implementation is installed. See
+let Chrome position approval/managed windows inside the headless screen. The default installation needs no Rust compiler. A matching source build is
+available for the upstream performance fixes described below. See
 [the upstream API audit](research/EXTENSION_API_AUDIT.md).
 
 The hook uses Chrome's persisted snapshot target and sends the extension's own
@@ -49,8 +49,20 @@ result; other archiving outputs remain available.
 Before loading the prover, the hook requires 2 GiB of available memory within
 the host and container limits, including usable disk-backed swap on Linux. It
 cancels its own proof if that headroom falls below 512 MiB, leaving the original
-snapshot tab and shared browser open. Insufficient memory produces an explicit
-failed TLSNotary result rather than a successful result without a proof.
+snapshot tab and shared browser open. Insufficient memory or an unavailable verifier produces `noresults` with an
+explicit warning. Unexpected protocol errors, invalid signatures and proof
+deadlines remain failures. `succeeded` always requires a verified proof.
+
+## Source build with upstream performance fixes
+
+The optional [vendored build](vendor/README.md) applies [MPZ #455](https://github.com/tlsnotary/mpz2/pull/455)
+(bounded gate-OT allocation and consistency-buffer reuse) and
+[TLSN #1197](https://github.com/tlsnotary/tlsn/pull/1197) (readiness-driven wakeups).
+Build and use **both** the extension and verifier: they share an MPC protocol
+revision. Point `TLSNOTARY_EXTENSION_DIR` at the generated `extension/` directory
+and `TLSNOTARY_VERIFIER_URL`/`TLSNOTARY_TRUSTED_KEY` at the matching verifier.
+The normal pinned release remains the default. No service is deployed or
+restarted by the build command.
 
 ## Output and verification
 

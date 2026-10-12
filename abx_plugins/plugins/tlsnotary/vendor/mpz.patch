@@ -1,0 +1,546 @@
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1877,0 +1878 @@
++ "mpz-hash",
+@@ -1882,0 +1884 @@
++ "sha2 0.11.0",
+--- a/crates/zk/Cargo.toml
++++ b/crates/zk/Cargo.toml
+@@ -33,0 +34 @@
++    "time",
+@@ -43,0 +45,2 @@
++mpz-hash = { path = "../hash", default-features = false, features = ["sha256"] }
++sha2 = { workspace = true }
+--- a/crates/zk/src/config.rs
++++ b/crates/zk/src/config.rs
+@@ -16,0 +17,11 @@
++    /// Generate gate OTs for each execution batch instead of all queued calls.
++    ///
++    /// This bounds gate-OT storage by the ready batch (individual circuits are
++    /// not split), at the cost of interleaving OT communication with execution.
++    /// Both parties must use the same setting. During execution this VM must be
++    /// the only active consumer of its OT source: any shared handles must be
++    /// dropped or parked, since OT flush may require all consumers to participate.
++    /// Eager preprocessing remains the default so independent shared consumers
++    /// may finish at different times without an additional collective flush.
++    #[builder(default)]
++    batch_gate_ots: bool,
+@@ -22,0 +34 @@
++            batch_gate_ots: false,
+@@ -36,0 +49,5 @@
++
++    /// Returns whether gate OTs are generated per execution batch.
++    pub fn batch_gate_ots(&self) -> bool {
++        self.batch_gate_ots
++    }
+@@ -49,0 +67,11 @@
++    /// Generate gate OTs for each execution batch instead of all queued calls.
++    ///
++    /// This bounds gate-OT storage by the ready batch (individual circuits are
++    /// not split), at the cost of interleaving OT communication with execution.
++    /// Both parties must use the same setting. During execution this VM must be
++    /// the only active consumer of its OT source: any shared handles must be
++    /// dropped or parked, since OT flush may require all consumers to participate.
++    /// Eager preprocessing remains the default so independent shared consumers
++    /// may finish at different times without an additional collective flush.
++    #[builder(default)]
++    batch_gate_ots: bool,
+@@ -55,0 +84 @@
++            batch_gate_ots: false,
+@@ -69,0 +99,5 @@
++
++    /// Returns whether gate OTs are generated per execution batch.
++    pub fn batch_gate_ots(&self) -> bool {
++        self.batch_gate_ots
++    }
+--- a/crates/zk/src/prover.rs
++++ b/crates/zk/src/prover.rs
+@@ -143,0 +144,16 @@
++            if self.config.batch_gate_ots() {
++                // Retain one check's OTs in addition to the ready gates. This keeps
++                // the existing consistency-check boundaries intact while bounding
++                // OT memory by the execution batch rather than total proof size.
++                let required = ready_calls
++                    .iter()
++                    .map(|(circ, _, _)| circ.and_count())
++                    .sum::<usize>()
++                    + 128;
++                let missing = required.saturating_sub(self.ot.available());
++                if missing > 0 {
++                    self.ot.alloc(missing).map_err(VmError::execute)?;
++                    self.ot.flush(ctx).await.map_err(VmError::execute)?;
++                }
++            }
++
+@@ -222,3 +238,2 @@
+-        // Pre-allocate OTs for the next execute() call's final check
+-        // if circuits remain in the callstack.
+-        if !self.callstack.is_empty() {
++        // Eager mode reserves the next final check before the shared OT flush.
++        if !self.config.batch_gate_ots() && !self.callstack.is_empty() {
+@@ -239,25 +254,32 @@
+-        let count = call.circ().and_count();
+-
+-        if count == 0 {
+-            self.callstack.push((call, output));
+-            return Ok(output);
+-        }
+-
+-        // The number of additional consistency checks to allocate for.
+-        let mut check_count = 0;
+-
+-        let partial_len = self.callstack.and_count() % self.config.batch_size();
+-
+-        if partial_len == 0 {
+-            // Allocate for the first batch or when the previous batch
+-            // landed exactly on the batch boundary.
+-            check_count += 1;
+-        }
+-
+-        // Using -1 because we allocate whenever a batch boundary is
+-        // **crossed**, not when we land exactly on the boundary.
+-        check_count += (partial_len + count - 1) / self.config.batch_size();
+-
+-        self.ot
+-            .alloc(count + check_count * 128)
+-            .map_err(VmError::execute)?;
++        // Gate OTs are generated for the next executable batch, not the whole
++        // callstack. A response hash can enqueue millions of gates while only
++        // one dependent compression circuit is ready at a time.
++        // Eager preprocessing lets independent users of shared OT finish
++        // at different times without needing another collective flush.
++        if !self.config.batch_gate_ots() {
++            let count = call.circ().and_count();
++
++            if count == 0 {
++                self.callstack.push((call, output));
++                return Ok(output);
++            }
++
++            // The number of additional consistency checks to allocate for.
++            let mut check_count = 0;
++
++            let partial_len = self.callstack.and_count() % self.config.batch_size();
++
++            if partial_len == 0 {
++                // Allocate for the first batch or when the previous batch
++                // landed exactly on the batch boundary.
++                check_count += 1;
++            }
++
++            // Using -1 because we allocate whenever a batch boundary is
++            // **crossed**, not when we land exactly on the boundary.
++            check_count += (partial_len + count - 1) / self.config.batch_size();
++
++            self.ot
++                .alloc(count + check_count * 128)
++                .map_err(VmError::execute)?;
++        }
+--- a/crates/zk/src/verifier.rs
++++ b/crates/zk/src/verifier.rs
+@@ -143,0 +144,16 @@
++            if self.config.batch_gate_ots() {
++                // Retain one check's OTs in addition to the ready gates. This keeps
++                // the existing consistency-check boundaries intact while bounding
++                // OT memory by the execution batch rather than total proof size.
++                let required = ready_calls
++                    .iter()
++                    .map(|(circ, _, _)| circ.and_count())
++                    .sum::<usize>()
++                    + 128;
++                let missing = required.saturating_sub(self.ot.available());
++                if missing > 0 {
++                    self.ot.alloc(missing).map_err(VmError::execute)?;
++                    self.ot.flush(ctx).await.map_err(VmError::execute)?;
++                }
++            }
++
+@@ -211,3 +227,2 @@
+-        // Pre-allocate OTs for the next execute() call's final check
+-        // if circuits remain in the callstack.
+-        if !self.callstack.is_empty() {
++        // Eager mode reserves the next final check before the shared OT flush.
++        if !self.config.batch_gate_ots() && !self.callstack.is_empty() {
+@@ -228,25 +243,32 @@
+-        let count = call.circ().and_count();
+-
+-        if count == 0 {
+-            self.callstack.push((call, output));
+-            return Ok(output);
+-        }
+-
+-        // The number of additional consistency checks to allocate for.
+-        let mut check_count = 0;
+-
+-        let partial_len = self.callstack.and_count() % self.config.batch_size();
+-
+-        if partial_len == 0 {
+-            // Allocate for the first batch or when the previous batch
+-            // landed exactly on the batch boundary.
+-            check_count += 1;
+-        }
+-
+-        // Using -1 because we allocate whenever a batch boundary is
+-        // **crossed**, not when we land exactly on the boundary.
+-        check_count += (partial_len + count - 1) / self.config.batch_size();
+-
+-        self.ot
+-            .alloc(count + check_count * 128)
+-            .map_err(VmError::execute)?;
++        // Gate OTs are generated for the next executable batch, not the whole
++        // callstack. A response hash can enqueue millions of gates while only
++        // one dependent compression circuit is ready at a time.
++        // Eager preprocessing lets independent users of shared OT finish
++        // at different times without needing another collective flush.
++        if !self.config.batch_gate_ots() {
++            let count = call.circ().and_count();
++
++            if count == 0 {
++                self.callstack.push((call, output));
++                return Ok(output);
++            }
++
++            // The number of additional consistency checks to allocate for.
++            let mut check_count = 0;
++
++            let partial_len = self.callstack.and_count() % self.config.batch_size();
++
++            if partial_len == 0 {
++                // Allocate for the first batch or when the previous batch
++                // landed exactly on the batch boundary.
++                check_count += 1;
++            }
++
++            // Using -1 because we allocate whenever a batch boundary is
++            // **crossed**, not when we land exactly on the boundary.
++            check_count += (partial_len + count - 1) / self.config.batch_size();
++
++            self.ot
++                .alloc(count + check_count * 128)
++                .map_err(VmError::execute)?;
++        }
+--- a/crates/zk-core/src/check.rs
++++ b/crates/zk-core/src/check.rs
+@@ -2,2 +1,0 @@
+-
+-use std::mem;
+@@ -89 +87 @@
+-        let macs = mem::take(&mut self.triples);
++        let macs = &self.triples;
+@@ -144,0 +143,6 @@
++        // WHY: consecutive batches reuse this large buffer. Taking and dropping
++        // it forces every check to reallocate the same triples, leaving freed
++        // arenas resident even though only one batch is live. Clear before the
++        // fallible VOLE validation to preserve consumption on error.
++        self.triples.clear();
++
+@@ -180 +184 @@
+-        let keys = mem::take(&mut self.triples);
++        let keys = &self.triples;
+@@ -231,0 +236,4 @@
++        // WHY: preserve the allocation for the next batch without retaining
++        // unchecked triples, including when VOLE validation returns an error.
++        self.triples.clear();
++
+--- /dev/null
++++ b/crates/zk/tests/real_ot_hash.rs
+@@ -0,0 +1,196 @@
++//! End-to-end private hashing with the production oblivious-transfer protocols.
++
++use std::{
++    alloc::{GlobalAlloc, Layout, System},
++    sync::atomic::{AtomicUsize, Ordering},
++};
++
++use mpz_common::context::test_st_context;
++use mpz_core::Block;
++use mpz_hash::sha256::Sha256;
++use mpz_ot::{
++    chou_orlandi as co, ferret, kos,
++    rcot::shared::{SharedRCOTReceiver, SharedRCOTSender},
++};
++use mpz_vm_core::{
++    Vm,
++    memory::{
++        binary::{Binary, U8},
++        correlated::Delta,
++    },
++    prelude::*,
++};
++use mpz_zk::{Prover, ProverConfig, Verifier, VerifierConfig};
++use rand::{SeedableRng, rngs::StdRng};
++use sha2::Digest;
++
++struct MeasuredAllocator;
++static LIVE_BYTES: AtomicUsize = AtomicUsize::new(0);
++static PEAK_BYTES: AtomicUsize = AtomicUsize::new(0);
++static TOTAL_ALLOCATION_BYTES: AtomicUsize = AtomicUsize::new(0);
++
++fn allocated(size: usize) {
++    TOTAL_ALLOCATION_BYTES.fetch_add(size, Ordering::Relaxed);
++    let live = LIVE_BYTES.fetch_add(size, Ordering::Relaxed) + size;
++    PEAK_BYTES.fetch_max(live, Ordering::Relaxed);
++}
++
++// WHY: measure the real protocol's heap, including OT buffers, instead of
++// replacing its allocator or OT implementation with a capacity-limited fake.
++unsafe impl GlobalAlloc for MeasuredAllocator {
++    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
++        let ptr = unsafe { System.alloc(layout) };
++        if !ptr.is_null() {
++            allocated(layout.size());
++        }
++        ptr
++    }
++    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
++        let ptr = unsafe { System.alloc_zeroed(layout) };
++        if !ptr.is_null() {
++            allocated(layout.size());
++        }
++        ptr
++    }
++    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
++        LIVE_BYTES.fetch_sub(layout.size(), Ordering::Relaxed);
++        unsafe {
++            System.dealloc(ptr, layout);
++        }
++    }
++    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, size: usize) -> *mut u8 {
++        let new_ptr = unsafe { System.realloc(ptr, layout, size) };
++        if !new_ptr.is_null() {
++            LIVE_BYTES.fetch_sub(layout.size(), Ordering::Relaxed);
++            allocated(size);
++        }
++        new_ptr
++    }
++}
++
++#[global_allocator]
++static ALLOCATOR: MeasuredAllocator = MeasuredAllocator;
++
++fn enqueue_hash(
++    vm: &mut dyn Vm<Binary>,
++    data: &[u8],
++    is_prover: bool,
++    public_prefix: u8,
++) -> mpz_vm_core::memory::DecodeFutureTyped<mpz_core::bitvec::BitVec, [u8; 32]> {
++    let private = if data.is_empty() {
++        None
++    } else {
++        let private = vm.alloc_vec::<U8>(data.len()).unwrap();
++        if is_prover {
++            vm.mark_private(private).unwrap();
++            vm.assign(private, data.to_vec()).unwrap();
++        } else {
++            vm.mark_blind(private).unwrap();
++        }
++        vm.commit(private).unwrap();
++        Some(private)
++    };
++    let prefix = vm.alloc_vec::<U8>(1).unwrap();
++    vm.mark_public(prefix).unwrap();
++    vm.assign(prefix, vec![public_prefix]).unwrap();
++    vm.commit(prefix).unwrap();
++    let mut hasher = Sha256::new();
++    hasher.update(&prefix);
++    if let Some(private) = private {
++        hasher.update(&private);
++    }
++    let digest = hasher.finalize(vm).unwrap();
++    vm.decode(digest).unwrap()
++}
++
++#[tokio::test]
++async fn private_sha256_uses_bounded_real_ot_and_rejects_inconsistent_public_input() {
++    let mut rng = StdRng::seed_from_u64(42);
++    let delta = Delta::random(&mut rng);
++    let config = ferret::FerretConfig::builder()
++        .lpn_type(ferret::LpnType::Regular)
++        .build()
++        .unwrap();
++    let send = ferret::Sender::new(
++        config.clone(),
++        Block::random(&mut rng),
++        kos::Sender::new(
++            kos::SenderConfig::default(),
++            delta.into_inner(),
++            co::Receiver::new(),
++        ),
++    );
++    let recv = ferret::Receiver::new(
++        config,
++        Block::random(&mut rng),
++        kos::Receiver::new(kos::ReceiverConfig::default(), co::Sender::new()),
++    );
++    let mut prover = Prover::new(
++        ProverConfig::builder()
++            .batch_gate_ots(true)
++            .build()
++            .unwrap(),
++        SharedRCOTReceiver::new(recv),
++    );
++    let mut verifier = Verifier::new(
++        VerifierConfig::builder()
++            .batch_gate_ots(true)
++            .build()
++            .unwrap(),
++        delta,
++        SharedRCOTSender::new(send),
++    );
++    let (mut ctx_p, mut ctx_v) = test_st_context(8);
++
++    // WHY: enqueue a long dependent hash before executing it, just as a private
++    // TLS response commitment does. Eager gate OTs used to retain the entire
++    // callstack's preprocessing even though only one compression is ready.
++    for size in [0, 65, 32 * 1024, 257] {
++        let data: Vec<u8> = (0..size).map(|i| (i * 31 + 7) as u8).collect();
++        let mut digest_p = enqueue_hash(&mut prover, &data, true, 42);
++        let mut digest_v = enqueue_hash(&mut verifier, &data, false, 42);
++        let (p, v) = futures::join!(
++            prover.execute_all(&mut ctx_p),
++            verifier.execute_all(&mut ctx_v)
++        );
++        p.unwrap();
++        v.unwrap();
++        let mut expected = sha2::Sha256::new();
++        expected.update([42]);
++        expected.update(&data);
++        let expected: [u8; 32] = expected.finalize().into();
++        assert_eq!(digest_p.try_recv().unwrap().unwrap(), expected);
++        assert_eq!(digest_v.try_recv().unwrap().unwrap(), expected);
++    }
++    let peak = PEAK_BYTES.load(Ordering::Relaxed);
++    eprintln!("peak Rust allocation: {peak} bytes");
++    let total = TOTAL_ALLOCATION_BYTES.load(Ordering::Relaxed);
++    eprintln!("total successful allocation requests: {total} bytes");
++    // WHY: bounded live memory alone missed consistency-check buffers being
++    // freed and regrown for every batch. Count successful allocation requests
++    // across the real proof so that repeated multi-megabyte churn stays caught.
++    assert!(
++        (total as u64) < 9_u64 * 1024 * 1024 * 1024,
++        "private SHA-256 requested {total} bytes across its allocations"
++    );
++    assert!(
++        peak < 256 * 1024 * 1024,
++        "private SHA-256 peaked at {peak} heap bytes"
++    );
++
++    // WHY: batching must preserve the consistency proof; equal lengths and
++    // honest OT alone must not make mismatched circuit inputs acceptable.
++    drop(enqueue_hash(&mut prover, b"private response", true, 42));
++    drop(enqueue_hash(&mut verifier, b"private response", false, 43));
++    let (p, v) = futures::join!(
++        prover.execute_all(&mut ctx_p),
++        verifier.execute_all(&mut ctx_v)
++    );
++    p.unwrap();
++    let error = v.expect_err("inconsistent public input was accepted");
++    assert_eq!(
++        format!("{error:?}"),
++        "VmError(Execute(VerifierError(Check(Invalid))))",
++        "the consistency proof must reject the input, not an unrelated failure"
++    );
++}
+--- /dev/null
++++ b/crates/zk/tests/shared_ot_batches.rs
+@@ -0,0 +1,100 @@
++use mpz_common::context::test_st_context;
++use mpz_core::Block;
++use mpz_hash::sha256::Sha256;
++use mpz_ot::{
++    chou_orlandi as co, ferret, kos,
++    rcot::shared::{SharedRCOTReceiver, SharedRCOTSender},
++};
++use mpz_vm_core::{
++    Vm,
++    memory::{
++        binary::{Binary, U8},
++        correlated::Delta,
++    },
++    prelude::*,
++};
++use mpz_zk::{Prover, ProverConfig, Verifier, VerifierConfig};
++use rand::{SeedableRng, rngs::StdRng};
++use sha2::Digest;
++use std::time::Duration;
++
++fn enqueue(
++    vm: &mut dyn Vm<Binary>,
++    data: &[u8],
++    is_prover: bool,
++) -> mpz_vm_core::memory::DecodeFutureTyped<mpz_core::bitvec::BitVec, [u8; 32]> {
++    let private = vm.alloc_vec::<U8>(data.len()).unwrap();
++    if is_prover {
++        vm.mark_private(private).unwrap();
++        vm.assign(private, data.to_vec()).unwrap();
++    } else {
++        vm.mark_blind(private).unwrap();
++    }
++    vm.commit(private).unwrap();
++    let mut hasher = Sha256::new();
++    hasher.update(&private);
++    let digest = hasher.finalize(vm).unwrap();
++    vm.decode(digest).unwrap()
++}
++
++#[tokio::test]
++async fn shared_real_ot_completes_unequal_hash_batches() {
++    let mut rng = StdRng::seed_from_u64(43);
++    let delta = Delta::random(&mut rng);
++    let config = ferret::FerretConfig::builder()
++        .lpn_type(ferret::LpnType::Regular)
++        .build()
++        .unwrap();
++    let send = ferret::Sender::new(
++        config.clone(),
++        Block::random(&mut rng),
++        kos::Sender::new(
++            kos::SenderConfig::default(),
++            delta.into_inner(),
++            co::Receiver::new(),
++        ),
++    );
++    let recv = ferret::Receiver::new(
++        config,
++        Block::random(&mut rng),
++        kos::Receiver::new(kos::ReceiverConfig::default(), co::Sender::new()),
++    );
++    let send = SharedRCOTSender::new(send);
++    let recv = SharedRCOTReceiver::new(recv);
++    let mut prover_a = Prover::new(ProverConfig::default(), recv.clone());
++    let mut verifier_a = Verifier::new(VerifierConfig::default(), delta, send.clone());
++    let mut prover_b = Prover::new(ProverConfig::default(), recv);
++    let mut verifier_b = Verifier::new(VerifierConfig::default(), delta, send);
++    let (mut ctx_pa, mut ctx_va) = test_st_context(8);
++    let (mut ctx_pb, mut ctx_vb) = test_st_context(8);
++    let short = vec![7; 65];
++    let long = vec![8; 129];
++    let mut pa = enqueue(&mut prover_a, &short, true);
++    let mut va = enqueue(&mut verifier_a, &short, false);
++    let mut pb = enqueue(&mut prover_b, &long, true);
++    let mut vb = enqueue(&mut verifier_b, &long, false);
++
++    // WHY: a reusable VM may finish its current work while another VM that
++    // shares preprocessing still has dependent calls. Finishing the short
++    // proof must not strand the long proof inside a collective OT barrier.
++    tokio::time::timeout(Duration::from_secs(10), async {
++        let (pa, va, pb, vb) = futures::join!(
++            prover_a.execute_all(&mut ctx_pa),
++            verifier_a.execute_all(&mut ctx_va),
++            prover_b.execute_all(&mut ctx_pb),
++            verifier_b.execute_all(&mut ctx_vb),
++        );
++        pa.unwrap();
++        va.unwrap();
++        pb.unwrap();
++        vb.unwrap();
++    })
++    .await
++    .expect("shared OT proof stalled after the shorter VM finished");
++    let short_hash: [u8; 32] = sha2::Sha256::digest(&short).into();
++    let long_hash: [u8; 32] = sha2::Sha256::digest(&long).into();
++    assert_eq!(pa.try_recv().unwrap().unwrap(), short_hash);
++    assert_eq!(va.try_recv().unwrap().unwrap(), short_hash);
++    assert_eq!(pb.try_recv().unwrap().unwrap(), long_hash);
++    assert_eq!(vb.try_recv().unwrap().unwrap(), long_hash);
++}

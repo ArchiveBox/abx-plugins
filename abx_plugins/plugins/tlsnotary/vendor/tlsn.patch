@@ -1,0 +1,148 @@
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1560 +1559,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3568 +3566,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3634 +3631,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3643 +3639,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3658 +3653,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3668 +3662,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3681 +3674,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3692 +3684,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3714 +3705,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3739 +3729,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3756 +3745,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3782 +3770,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3813 +3800,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3826 +3812,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3843 +3828,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3858 +3842,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3876 +3859,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3892 +3874,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3916 +3897,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3947 +3927,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3963 +3942,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3977 +3955,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -3990 +3967,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+@@ -4008 +3984,0 @@
+-source = "git+https://github.com/tlsnotary/mpz2?rev=8f897838f4e24aff9da8e8b012e8ba35ae770141#8f897838f4e24aff9da8e8b012e8ba35ae770141"
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -71,15 +71,15 @@
+-mpz-circuits = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-circuits-data = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-memory-core = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-common = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-core = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-vm-core = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-garble = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-garble-core = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-ole = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-ot = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-share-conversion = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-fields = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-zk = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
+-mpz-hash = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141", default-features = false }
+-mpz-ideal-vm = { git = "https://github.com/tlsnotary/mpz2", rev = "8f897838f4e24aff9da8e8b012e8ba35ae770141" }
++mpz-circuits = { path = "../tlsnotary-mpz2-8f89783/crates/circuits" }
++mpz-circuits-data = { path = "../tlsnotary-mpz2-8f89783/crates/circuits-data" }
++mpz-memory-core = { path = "../tlsnotary-mpz2-8f89783/crates/memory-core" }
++mpz-common = { path = "../tlsnotary-mpz2-8f89783/crates/common" }
++mpz-core = { path = "../tlsnotary-mpz2-8f89783/crates/core" }
++mpz-vm-core = { path = "../tlsnotary-mpz2-8f89783/crates/vm-core" }
++mpz-garble = { path = "../tlsnotary-mpz2-8f89783/crates/garble" }
++mpz-garble-core = { path = "../tlsnotary-mpz2-8f89783/crates/garble-core" }
++mpz-ole = { path = "../tlsnotary-mpz2-8f89783/crates/ole" }
++mpz-ot = { path = "../tlsnotary-mpz2-8f89783/crates/ot" }
++mpz-share-conversion = { path = "../tlsnotary-mpz2-8f89783/crates/share-conversion" }
++mpz-fields = { path = "../tlsnotary-mpz2-8f89783/crates/fields" }
++mpz-zk = { path = "../tlsnotary-mpz2-8f89783/crates/zk" }
++mpz-hash = { path = "../tlsnotary-mpz2-8f89783/crates/hash", default-features = false }
++mpz-ideal-vm = { path = "../tlsnotary-mpz2-8f89783/crates/ideal-vm" }
+--- a/crates/tlsn/src/deps/prover.rs
++++ b/crates/tlsn/src/deps/prover.rs
+@@ -77,5 +77,4 @@
+-        let mpc =
+-            cfg_select! {
+-                tlsn_insecure => mpz_ideal_vm::IdealVm::new(),
+-                _ => ProverMpc::new(DerandCOTSender::new(rcot_send.clone()), rng.random(), delta),
+-            };
++        let mpc = cfg_select! {
++            tlsn_insecure => mpz_ideal_vm::IdealVm::new(),
++            _ => ProverMpc::new(DerandCOTSender::new(rcot_send.clone()), rng.random(), delta),
++        };
+@@ -85 +84,9 @@
+-            _ => ProverZk::new(Default::default(), rcot_recv.clone()),
++            _ => ProverZk::new(
++                // Full-transcript hashes queue many circuits. Their gate OTs
++                // must follow execution batches instead of retaining the whole
++                // proof in memory. MPC-TLS drops its ZK-OT handle before this
++                // VM executes, so there is no other active shared consumer.
++                mpz_zk::ProverConfig::builder()
++                    .batch_gate_ots(true)
++                    .build()
++                    .expect("ZK config is valid"), rcot_recv.clone()),
+@@ -157,0 +165,3 @@
++                // Proxy verification starts only after the TLS connection closes.
++                // Keep eager OTs here: an interactive flush during execution
++                // would wait for the verifier while preventing that close.
+--- a/crates/tlsn/src/deps/verifier.rs
++++ b/crates/tlsn/src/deps/verifier.rs
+@@ -85 +85,9 @@
+-            _ => VerifierZk::new(Default::default(), delta, rcot_send.clone()),
++            _ => VerifierZk::new(
++                // Full-transcript hashes queue many circuits. Their gate OTs
++                // must follow execution batches instead of retaining the whole
++                // proof in memory. MPC-TLS drops its ZK-OT handle before this
++                // VM executes, so there is no other active shared consumer.
++                mpz_zk::VerifierConfig::builder()
++                    .batch_gate_ots(true)
++                    .build()
++                    .expect("ZK config is valid"), delta, rcot_send.clone()),
+@@ -162,0 +171,3 @@
++                // Proxy verification starts only after the TLS connection closes.
++                // Keep eager OTs here: an interactive flush during execution
++                // would wait for the verifier while preventing that close.
+--- a/crates/tlsn/src/prover.rs
++++ b/crates/tlsn/src/prover.rs
+@@ -300,0 +301,2 @@
++        let read_tls_ready = state.tls_client.wants_read_tls();
++        let write_ready = state.tls_client.wants_write();
+@@ -304,0 +307,9 @@
++        }
++
++        // Buffered input may have been blocked on an MPC operation. Retry it
++        // once when the client becomes ready, not continuously while pending:
++        // self-waking without progress starves browser I/O and timer callbacks.
++        if (!read_tls_ready && state.tls_client.wants_read_tls())
++            || (!write_ready && state.tls_client.wants_write())
++        {
++            cx.waker().wake_by_ref();
+@@ -414,2 +424,0 @@
+-                } else {
+-                    cx.waker().wake_by_ref();
+@@ -446,2 +454,0 @@
+-            } else if !buf.is_empty() {
+-                cx.waker().wake_by_ref();
