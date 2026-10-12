@@ -1,0 +1,29 @@
+abx_plugins/plugins/importers_browser/importer.py
+  s_3ec68491c59b11::t_03ef2fccb8d1ed 60-85,89-90,92,113,117-119,149-151
+abx_plugins/plugins/opencode/tests/test_browser.py
+  s_20f72622e178fb::t_b51c49d35edce5 16,101-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "df29222af9b0a2f4dc7d6a3d577325dc68eadea9",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_3ec68491c59b11": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12f1b-3715-7853-9216-4333117b594f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
