@@ -1,0 +1,22 @@
+abx_plugins/plugins/tlsnotary/on_Snapshot__92_tlsnotary.js
+  s_2b44ee96cc775e::t_1f572258a26065 296
+  s_2b44ee96cc775e::t_ac3c451f3d5528 31-41,263,297-303,457,459,484,545-549
+abx_plugins/plugins/tlsnotary/tests/test_capacity_outcomes.py
+  s_2b44ee96cc775e::t_1f572258a26065 27,421-531
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b34486d05016a7cc2974578f31bbfeb6738b2dd1",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
