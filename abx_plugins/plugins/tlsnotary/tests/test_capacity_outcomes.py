@@ -189,6 +189,77 @@ def test_real_hook_reports_expected_verifier_absence(
         ), state
 
 
+@pytest.mark.parametrize(
+    ("setting", "limit", "direction"),
+    [
+        ("TLSNOTARY_MAX_RECV_BYTES", 1024, "response"),
+        ("TLSNOTARY_MAX_SENT_BYTES", 512, "request"),
+    ],
+)
+def test_real_hook_reports_explicit_transcript_size_limit(
+    tmp_path,
+    verifier,
+    setting,
+    limit,
+    direction,
+):
+    # WHY: exercise the real TLS record-layer refusal, including Chrome's
+    # request headers, instead of treating any crash or deadline as oversized.
+    url = "https://www.rfc-editor.org/rfc/rfc8441.txt"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=45,
+        env_overrides={
+            **verifier,
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_TIMEOUT": "60",
+            setting: str(limit),
+        },
+        crawl_setup=_prepare,
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        output = Path(env["SNAP_DIR"]) / "tlsnotary"
+        output.mkdir(exist_ok=True)
+        previous = output / "previous-proof.txt"
+        previous.write_text("previous capture remains available")
+        result = subprocess.run(
+            [str(SNAPSHOT_HOOK), f"--url={url}", "--snapshot-id=test-snapshot"],
+            cwd=output,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=70,
+            check=False,
+        )
+        print(result.stdout, result.stderr)
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert len(records) == 1, records
+        assert records[0]["type"] == "ArchiveResult"
+        assert records[0]["status"] == "noresults", records
+        expected = f"{direction} exceeds the configured size limit ({setting}={limit})"
+        assert expected in records[0]["output_str"], records
+        assert "WARNING" in result.stderr
+        assert expected in result.stderr
+        assert previous.read_text() == "previous capture remains available"
+        assert not (output / "receipt.json").exists()
+        assert not (output / "response.http").exists()
+        assert not (Path(env["CRAWL_DIR"]) / "tlsnotary/capture.lock").exists()
+        state = _inspect_browser(
+            env,
+            (snapshot_chrome_dir / "cdp_url.txt").read_text().strip(),
+            "",
+        )
+        assert state["pageUrls"].count(url) == 1, state
+        assert all(
+            not page.startswith("chrome-extension://") for page in state["pageUrls"]
+        ), state
+
+
 def test_real_hook_rejects_a_receipt_signed_by_an_untrusted_key(tmp_path, verifier):
     """Service availability does not relax cryptographic acceptance of a proof."""
     url = "https://example.com/"

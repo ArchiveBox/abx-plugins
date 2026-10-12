@@ -81,12 +81,18 @@ function emitTerminalArchiveResult(status, outputStr) {
   terminalRecordEmitted = true;
   emitArchiveResultRecord(status, outputStr);
 }
-function captureFailureMessage(error) {
+function expectedAbsenceMessage(error) {
   if (resourceFailure) return resourceFailure;
   const message = String(error.message || error);
   if (/maximum number of streams reached|TooManyStreams/i.test(message))
     return "TLSNotary cannot authenticate this response within the verifier's simultaneous-task limit; no proof was created.";
-  return "TLSNotary extension capture failed; see hook log";
+  // WHY: these exact record-layer refusals identify configured transcript caps.
+  // Other protocol errors, crashes and deadlines keep their failed outcome.
+  if (message.includes("record layer error: attempted to receive more data than was configured, increase `max_recv`"))
+    return `TLSNotary response exceeds the configured size limit (TLSNOTARY_MAX_RECV_BYTES=${config.TLSNOTARY_MAX_RECV_BYTES}); no proof was created.`;
+  if (message.includes("record layer error: attempted to send more data than was configured, increase `max_sent`"))
+    return `TLSNotary request exceeds the configured size limit (TLSNOTARY_MAX_SENT_BYTES=${config.TLSNOTARY_MAX_SENT_BYTES}); no proof was created.`;
+  return null;
 }
 async function windowIdFor(target) {
   const targetId = chrome.getTargetIdFromTarget(target);
@@ -505,9 +511,9 @@ async function capture() {
   try {
     await capture();
   } catch (error) {
-    const expectedAbsence = Boolean(resourceFailure) ||
-      /maximum number of streams reached|TooManyStreams/i.test(String(error.message || error));
-    const message = captureFailureMessage(error);
+    const expectedMessage = expectedAbsenceMessage(error);
+    const expectedAbsence = expectedMessage !== null;
+    const message = expectedMessage || "TLSNotary extension capture failed; see hook log";
     console.error(`[tlsnotary] ${expectedAbsence ? "WARNING: " + message : error.message}`);
     if (!deadlineExceeded)
       emitTerminalArchiveResult(
