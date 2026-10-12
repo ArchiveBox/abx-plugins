@@ -29,7 +29,8 @@ by its existing owner on completion/cancellation.
 - Every repair starts a fresh OpenCode session with the current task and replay
   error. Only scripts and Browser Harness domain knowledge persist.
 - The agent edits the script in place; the host independently replays it and uses
-  the shared JSONL validator before returning output. Failed runs never commit progress.
+  the shared JSONL validator before returning output, including checking that
+  continuation advances the checkpoint. Failed runs never commit progress.
 - The agent reports verified login, CAPTCHA, MFA, and account mismatches as
   `needs_login`; ordinary script failures remain repairable errors.
 - Discovery is read-only. Check/preview never commit discovery progress.

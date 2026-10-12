@@ -92,6 +92,15 @@ def read_records(lines, request, on_progress=None):
                 dict,
             ):
                 raise ValueError("Importer checkpoint and account must be objects.")
+            if (
+                record["status"] == "succeeded"
+                and request["action"] == "import"
+                and record.get("has_more")
+                and record.get("checkpoint", {}) == request.get("checkpoint", {})
+            ):
+                raise ValueError(
+                    "The importer reported more items without advancing its checkpoint. Progress was not advanced.",
+                )
             finished = True
         else:
             raise ValueError("Importer returned an unknown record type.")
