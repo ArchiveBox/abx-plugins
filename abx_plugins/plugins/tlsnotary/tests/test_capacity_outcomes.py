@@ -24,6 +24,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 )
 from abx_plugins.plugins.tlsnotary.tests.test_navigation_headers import (
     CHECK_CAPTURE,
+    CHROME_UTILS,
     PLUGIN_DIR,
     PREPARE_HOOK,
     SNAPSHOT_HOOK,
@@ -417,3 +418,114 @@ def test_real_proof_fits_between_admission_and_stop_reserves(tmp_path, verifier)
             peak - baseline,
             reserves,
         )
+
+
+def test_real_proof_succeeds_while_another_snapshot_tab_is_in_front(
+    tmp_path,
+    verifier,
+):
+    """A concurrent snapshot selecting its own tab must not stall the proof.
+
+    In a crawl-shared browser, other snapshots' hooks (screencast, screenshot,
+    SingleFile, ArchiveWeb.page) bring their tabs to the front. That hides the
+    page this hook opens for the extension's ``window.tlsn`` API, and on a busy
+    host that API is injected only after the page has loaded.
+    """
+    url = "https://example.com/"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=45,
+        env_overrides={
+            **verifier,
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_TIMEOUT": "90",
+        },
+        crawl_setup=_prepare,
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        output = Path(env["SNAP_DIR"]) / "tlsnotary"
+        output.mkdir(exist_ok=True)
+        # Another snapshot's tab keeps re-selecting itself through its own real
+        # CDP connection, as concurrent snapshots' hooks do in one crawl.
+        other_snapshot = subprocess.Popen(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                r"""
+const chrome = require(process.argv[1]);
+(async () => {
+  const browser = await chrome.connectToBrowserEndpoint(
+    chrome.resolvePuppeteerModule(), process.argv[2], {defaultViewport: null},
+  );
+  const page = await browser.newPage();
+  await page.goto("data:text/html,<title>other snapshot</title>");
+  // Shared-host CPU load: renderers of pages opened from now on run their main
+  // thread slowed from their first instruction, as on a busy host.
+  const root = await browser.target().createCDPSession();
+  const connection = root.connection();
+  root.on("Target.attachedToTarget", async ({sessionId, targetInfo}) => {
+    const session = connection.session(sessionId);
+    try {
+      if (targetInfo.type === "page") {
+        await session.send("Emulation.setCPUThrottlingRate", {rate: 100});
+      }
+    } finally {
+      await session.send("Runtime.runIfWaitingForDebugger").catch(() => {});
+    }
+  });
+  await root.send("Target.setAutoAttach", {
+    autoAttach: true, waitForDebuggerOnStart: true, flatten: true,
+  });
+  console.log("ready");
+  for (;;) {
+    await page.bringToFront();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+})().catch((error) => { console.error(error); process.exit(1); });
+""",
+                str(CHROME_UTILS),
+                (snapshot_chrome_dir / "cdp_url.txt").read_text().strip(),
+            ],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert other_snapshot.stdout is not None
+            assert other_snapshot.stdout.readline().strip() == "ready"
+            result = subprocess.run(
+                [str(SNAPSHOT_HOOK), f"--url={url}", "--snapshot-id=test-snapshot"],
+                cwd=output,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=100,
+                check=False,
+            )
+            assert other_snapshot.poll() is None, other_snapshot.stderr
+        finally:
+            other_snapshot.kill()
+            other_snapshot.communicate(timeout=10)
+        print(result.stdout, result.stderr)
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert [record["status"] for record in records] == ["succeeded"], records
+        checked = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                str(CHECK_CAPTURE),
+                str(output),
+                verifier["TLSNOTARY_TRUSTED_KEY"],
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert checked.returncode == 0, checked.stdout + checked.stderr

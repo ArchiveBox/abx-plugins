@@ -28,6 +28,17 @@ let cleanupPromise;
 let terminalRecordEmitted = false;
 let memoryMonitor, verifierMonitor, resourceFailure;
 const GIB = 1024 ** 3;
+const hookStartedAt = Date.now();
+let phaseStartedAt = hookStartedAt;
+// Production proofs took 51-67s against 4-5s locally. Per-phase timings on
+// stderr show whether that time is lock waits for another snapshot's proof,
+// extension startup, or MPC itself. Only logged once a proof is attempted, so
+// early refusals keep their single explanatory stderr line.
+function logPhase(name) {
+  const now = Date.now();
+  console.error(`[tlsnotary] phase=${name} elapsed_ms=${now - phaseStartedAt} total_ms=${now - hookStartedAt}`);
+  phaseStartedAt = now;
+}
 
 function requireProofMemory(minimum, phase) {
   let available;
@@ -249,6 +260,7 @@ async function capture() {
   )
     throw new Error("Verifier endpoint requires HTTPS");
   await checkVerifierAdmission(verifierUrl);
+  logPhase("lock+connect+admission");
   // Admit only proofs that can finish above the stop reserve (see memory.cjs).
   requireProofMemory(PROOF_START_HEADROOM, "start");
   const original = chrome.findExtensionMetadataByName(
@@ -281,7 +293,14 @@ async function capture() {
   caller = await browser.newPage();
   await caller.goto(`http://127.0.0.1:${server.address().port}/`);
   managedWindowUrl = caller.url();
-  await caller.waitForFunction(() => !!window.tlsn, { timeout: 10000 });
+  // Interval polling, not puppeteer's default requestAnimationFrame polling:
+  // in a crawl-shared browser other snapshots bring their own tabs to the
+  // front, hiding this page. A hidden page runs no animation frames, so if the
+  // extension's content script injects window.tlsn after the first check (it
+  // runs at document_idle and loads its API script asynchronously, late on a
+  // busy host) the wait never re-checks and times out after 10s.
+  await caller.waitForFunction(() => !!window.tlsn, { timeout: 10000, polling: 100 });
+  logPhase("extension ready");
   const receiptId = crypto.randomBytes(32).toString("hex");
   console.error(
     "[tlsnotary] capture correlation",
@@ -435,7 +454,9 @@ async function capture() {
     }
   } else throw new Error("Extension-managed window did not open");
   console.error("[tlsnotary] request headers captured; proof in progress");
+  logPhase("approval+headers");
   const raw = await resultPromise;
+  logPhase("mpc proof");
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!result.ok)
     throw new Error(
@@ -460,6 +481,7 @@ async function capture() {
     await new Promise((r) => setTimeout(r, 200));
   }
   if (!receipt) throw new Error("Verifier did not issue a signed receipt");
+  logPhase("receipt");
   receipt.blinder = Buffer.from(opening.blinder).toString("base64");
   const { verifyReceipt, TRUSTED_PUBLIC_KEY } = await import(
     "./server/web/verify.mjs"
@@ -520,6 +542,11 @@ async function capture() {
     const expectedAbsence = expectedMessage !== null;
     const message = expectedMessage || "TLSNotary extension capture failed; see hook log";
     console.error(`[tlsnotary] ${expectedAbsence ? "WARNING: " + message : error.message}`);
+    // Puppeteer and fetch keep the underlying protocol/network failure on
+    // error.cause; "see hook log" must actually lead to it.
+    for (let cause = error.cause; cause; cause = cause.cause) {
+      console.error(`[tlsnotary] caused by ${cause.name || "Error"}: ${cause.message || cause}`);
+    }
     if (!deadlineExceeded)
       emitTerminalArchiveResult(
         expectedAbsence ? "noresults" : "failed",
