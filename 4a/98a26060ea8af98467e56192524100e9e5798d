@@ -1,0 +1,19 @@
+abx_plugins/plugins/responses/templates/card.html
+  s_2b44ee96cc775e::t_4029c7eb86f282 3-11,16,29,112-115,150-157,172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4a98a26060ea8af98467e56192524100e9e5798d",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
