@@ -1,0 +1,31 @@
+abx_plugins/plugins/notion/on_Snapshot__53_notion.js
+  s_20f72622e178fb::t_235a3337725759 82-120
+abx_plugins/plugins/wetransfer/on_Snapshot__53_wetransfer.js
+  s_6b24a346776494::t_9ee78245be2e07 99,104
+abx_plugins/plugins/wetransfer/tests/test_wetransfer.py
+  s_6b24a346776494::t_8c5877b32776da 122-127,175-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3da9288f37588b9490c90cbb800aeb7498070230",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_6b24a346776494": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12d36-b475-7512-8802-f1286cbf9c58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
