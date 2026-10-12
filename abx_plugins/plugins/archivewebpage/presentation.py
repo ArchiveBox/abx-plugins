@@ -206,14 +206,17 @@ def _replay_index(wacz_path: Path) -> dict:
                 source.seek(entry.header_offset)
                 data = source.read(length)
                 ranges.append(
-                    [entry.header_offset, base64.b64encode(data).decode("ascii")]
+                    [entry.header_offset, base64.b64encode(data).decode("ascii")],
                 )
                 limit -= length
             directory_size = before.st_size - archive.start_dir
             if 0 < directory_size <= limit:
                 source.seek(archive.start_dir)
                 ranges.append(
-                    [archive.start_dir, base64.b64encode(source.read()).decode("ascii")]
+                    [
+                        archive.start_dir,
+                        base64.b64encode(source.read()).decode("ascii"),
+                    ],
                 )
         after = wacz_path.stat()
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):

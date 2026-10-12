@@ -115,7 +115,9 @@ def test_replay_index_contains_exact_metadata_but_no_warc_response_bytes():
                 if not entry.filename.startswith("archive/"):
                     continue
                 name_size, extra_size = struct.unpack_from(
-                    "<HH", raw, entry.header_offset + 26
+                    "<HH",
+                    raw,
+                    entry.header_offset + 26,
                 )
                 start = entry.header_offset + 30 + name_size + extra_size
                 end = start + entry.compress_size
