@@ -15,7 +15,10 @@ import subprocess
 import tempfile
 import time
 import os
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 import pytest
 
 from abx_plugins.plugins.base.testing import (
@@ -182,6 +185,56 @@ def test_config_timeout():
         assert elapsed_time <= 6.0, (
             f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
         )
+
+
+@pytest.mark.parametrize("previous_exists", [False, True])
+def test_failed_download_preserves_files_without_reporting_success(
+    tmp_path,
+    previous_exists,
+):
+    binary_path = require_gallerydl_binary()
+    previous = tmp_path / "gallerydl" / "previous.json"
+    previous.parent.mkdir()
+    original = b'{"title":"Previous capture"}\n'
+    if previous_exists:
+        previous.write_bytes(original)
+    # A real static server returns 404 for the missing Wikimedia-shaped image.
+    # Gallery-DL also writes info.json before its download fails; neither that
+    # metadata nor the previous capture may turn a failed download into success.
+    handler = partial(SimpleHTTPRequestHandler, directory=str(tmp_path))
+    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = subprocess.run(
+                [
+                    str(GALLERYDL_HOOK),
+                    "--url",
+                    f"http://127.0.0.1:{server.server_port}/wikipedia/commons/a/a9/Missing.jpg",
+                ],
+                cwd=tmp_path,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "GALLERYDL_BINARY": binary_path,
+                    "SNAP_DIR": str(tmp_path),
+                },
+                timeout=30,
+            )
+        finally:
+            server.shutdown()
+            thread.join()
+    record = parse_jsonl_output(result.stdout)
+    assert "404" in result.stderr, result.stderr
+    assert result.returncode == 1, (result.stdout, result.stderr)
+    assert record and record["status"] == "failed", record
+    assert "404" in record["output_str"], record
+    assert (previous.parent / "info.json").is_file()
+    if previous_exists:
+        assert previous.read_bytes() == original
+    else:
+        assert not previous.exists()
 
 
 def test_real_gallery_url(httpserver):

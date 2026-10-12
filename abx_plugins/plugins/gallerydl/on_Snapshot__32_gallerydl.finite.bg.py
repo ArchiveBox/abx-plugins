@@ -92,8 +92,13 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     # Build command
     # Use -D for exact directory (flat structure) instead of -d (nested structure)
+    # Provider rate-limit waits can bypass --retries (Imgur sleeps 600s).
+    # Use gallery-dl's native action policy to retain a failed exit immediately;
+    # explicit configured arguments below may override this default policy.
     cmd = [
         binary,
+        "--option",
+        'actions={"info:^Waiting .+ [(]rate limit[)]$":"exit 1"}',
         *gallerydl_args,
         "-D",
         str(output_dir),
@@ -172,7 +177,9 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
             )
         ]
 
-        if downloaded_files:
+        # Metadata is written before downloads, and previous captures remain
+        # on reruns. Neither may hide a real downloader failure.
+        if downloaded_files and process.returncode == 0:
             # Return first image file, or first file if no images
             image_files = [
                 f
