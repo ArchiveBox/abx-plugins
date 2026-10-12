@@ -1,0 +1,44 @@
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  s_2b44ee96cc775e::t_794e72b42facce 88-92,94-95,100-101
+  s_2b44ee96cc775e::t_021ffe7ab34917 75-78
+  s_2b44ee96cc775e::t_0ab6211ee62b12 85
+  s_2b44ee96cc775e::t_bead661f5cab34 102-105,107
+  s_2b44ee96cc775e::t_cd8f60a46b02e5 117
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_2b44ee96cc775e::t_ea59024c03318f 328-334
+  s_2b44ee96cc775e::t_353bdcb1d08322 145-151
+tests/test_archivewebpage_concurrent_collections.py
+  s_2b44ee96cc775e::t_4696018718bc7d 1144-1201
+abx_plugins/plugins/accessibility/tests/test_accessibility.py
+  s_2b44ee96cc775e::t_e4f2b14af5321a 125-180,184
+  s_2b44ee96cc775e::t_581d7f67587cf0 181-183
+abx_plugins/plugins/staticfile/tests/test_staticfile.py
+  s_2b44ee96cc775e::t_f40c5192be4099 379-456
+  s_2b44ee96cc775e::t_c40df43a5b8dbc 457-458
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_2b44ee96cc775e::t_01ddda69a47381 474-615
+  s_2b44ee96cc775e::t_89ec4d0c104547 616-619
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  s_2b44ee96cc775e::t_f0bc1f95e7e65b 482-487
+  s_2b44ee96cc775e::t_cf73984c362b86 145-147,307-320,324,518-525
+abx_plugins/plugins/opendataloader/config.json
+  s_2b44ee96cc775e::t_4930bf83547128 21
+abx_plugins/plugins/opendataloader/on_Snapshot__67_opendataloader.py
+  s_2b44ee96cc775e::t_e12f6537480018 36,51-55,140,143-158,179-181,183-187,189,193-205,211,217-224,272-273,275-277,279-287,293,321,323-324,327,336-337,339,342-343,355-358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8416e55287af49c9238e13c4203c575ca996c2d1",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
