@@ -1,0 +1,24 @@
+abx_plugins/plugins/importers_browser/README.md
+  s_20f72622e178fb::t_40a3d7a8e3916c 32-33
+tests/test_importer_protocol.py
+  s_20f72622e178fb::t_35e9185969ab5f 1-39
+  s_20f72622e178fb::t_c4cefccf466a15 40-44
+abx_plugins/plugins/base/importers.py
+  s_20f72622e178fb::t_40a3d7a8e3916c 95-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "69ba9d77d64b785005870b0192187c0494de7624",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
