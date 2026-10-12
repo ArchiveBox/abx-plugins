@@ -1,10 +1,19 @@
 {% load core_tags %}
 {% snapshot_preview_url snapshot 'responses/index.jsonl' as responses_index_url %}
+<style>
+/* Same 3x3 grid as the LiteParse card, showing only its original-file cells.
+   The server renders every captured document/image so the script can dedupe
+   them with index.jsonl; tiles past the ninth stay unrendered (and lazy images
+   unfetched) so a 100+ response capture never squeezes into thin rows. */
+.responses-thumbnail>*{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:0;overflow:hidden;background:#eceff3;font:12px system-ui;}
+.responses-thumbnail>img{display:block;width:100%;height:100%;object-fit:contain;}
+.responses-thumbnail>:nth-child(n+10){display:none;}
+</style>
 <div class="responses-thumbnail" aria-label="Captured documents and images" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:3px;width:100%;height:100%;overflow:hidden;background:#f5f6f8;">
 {% for path, info in result.output_files.items %}
     {% if info.mimetype == 'application/pdf' or info.extension == 'pdf' or 'officedocument' in info.mimetype or 'opendocument' in info.mimetype or info.mimetype == 'application/epub+zip' or info.mimetype == 'application/msword' or info.mimetype == 'application/vnd.ms-excel' or info.mimetype == 'application/vnd.ms-powerpoint' or info.mimetype == 'text/markdown' or info.mimetype == 'text/x-markdown' or info.extension == 'epub' or info.extension == 'doc' or info.extension == 'docx' or info.extension == 'ppt' or info.extension == 'pptx' or info.extension == 'xls' or info.extension == 'xlsx' or info.extension == 'odt' or info.extension == 'ods' or info.extension == 'odp' or info.extension == 'rtf' or info.extension == 'md' or info.extension == 'markdown' %}
         {% if path|slice:':4' == 'all/' or path|slice:':14' == 'responses/all/' %}
-            <span title="{{ path }}" aria-label="Document: {{ path }}" data-name="{{ path }}" data-size="{{ info.size|default:0 }}" style="display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:0;overflow:hidden;background:white;font:10px system-ui;"><span style="font-size:24px;">📄</span>{{ info.extension|upper }}</span>
+            <span title="{{ path }}" aria-label="Document: {{ path }}" data-name="{{ path }}" data-size="{{ info.size|default:0 }}"><span style="font-size:24px;">📄</span>{{ info.extension|upper }}</span>
         {% endif %}
     {% endif %}
 {% endfor %}
@@ -17,7 +26,7 @@
                 {% else %}
                     {% snapshot_preview_url snapshot image_path as image_url %}
                 {% endif %}
-                <img src="{{ image_url|cut:"?preview=1" }}?raw=1" alt="{{ path }}" loading="lazy" decoding="async" fetchpriority="low" data-name="{{ path }}" data-size="{{ info.size|default:0 }}" style="display:block;width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;background:white;">
+                <img src="{{ image_url|cut:"?preview=1" }}?raw=1" alt="{{ path }}" loading="lazy" decoding="async" fetchpriority="low" data-name="{{ path }}" data-size="{{ info.size|default:0 }}">
             {% endwith %}
         {% endif %}
     {% endif %}
@@ -37,7 +46,6 @@
         grid.style.display = items.length ? 'grid' : 'none';
         summary.hidden = items.length > 0;
     };
-    showItems(fallbackItems);
     const normalizePath = path => path.replace(/^\.\//, '').replace(/^responses\//, '');
     const captureKey = path => normalizePath(path).replace(/^all\/\d{8}T\d{6}__[^_]+__/, '');
     const infoFor = (path, metadata) => metadata.get(normalizePath(path)) || metadata.get(captureKey(path));
@@ -74,12 +82,10 @@
                     item.alt = source.name;
                     item.loading = 'lazy';
                     item.decoding = 'async';
-                    item.style.cssText = 'display:block;width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;background:white;';
                 } else {
                     item = window.document.createElement('span');
                     item.title = source.name;
                     item.setAttribute('aria-label', `Document: ${source.name}`);
-                    item.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:0;overflow:hidden;background:white;font:10px system-ui;';
                     item.innerHTML = `<span style="font-size:24px">📄</span>${extension.toUpperCase()}`;
                 }
                 item.dataset.name = source.name;
@@ -103,6 +109,10 @@
         }
         showItems(selected);
     };
+    // Paint the largest nine captures from DB-recorded sizes right away; the
+    // index/LiteParse fetches below only refine dedupe and order, and can take
+    // seconds on a busy server.
+    render(new Map());
     const indexUrl = '{{ responses_index_url|cut:"?preview=1"|escapejs }}?raw=1';
     const raw = url => { const value = new URL(url); value.searchParams.set('raw', '1'); return value.href; };
     const snapshotRoot = new URL('../', indexUrl);
@@ -137,20 +147,14 @@
         if (!documents.has(name) || /\.txt$/i.test(relative)) documents.set(name, {name, url, json: /\.json$/i.test(relative)});
     }
     const orderedDocs = [...documents.values()].sort((a, b) => (Number(match(b.name)?.size) || 0) - (Number(match(a.name)?.size) || 0) || a.name.localeCompare(b.name));
-    const resolveLiteparseOrder = async () => {
-        const orderedSources = [];
-        for (const document of orderedDocs) {
-            try {
-                const response = await fetch(raw(document.url));
-                if (!response.ok) continue;
-                const value = await response.text();
-                const source = value.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/);
-                const original = match(document.name, source?.[1]);
-                if (original) orderedSources.push(original);
-            } catch {}
-        }
-        return orderedSources;
-    };
+    // Read every LiteParse source header concurrently with the index (the
+    // LiteParse card fetches these same files) instead of one round trip at a
+    // time; Promise.all keeps the size order computed above.
+    const liteparseOrder = Promise.all(orderedDocs.map(document => fetch(raw(document.url))
+        .then(response => response.ok ? response.text() : null)
+        .then(value => value === null ? null : match(document.name, value.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/)?.[1]))
+        .catch(() => null)))
+        .then(matches => matches.filter(Boolean));
     fetch(indexUrl).then(response => {
         if (!response.ok) throw new Error(`responses index HTTP ${response.status}`);
         return response.text();
@@ -165,7 +169,7 @@
                 }
             } catch {}
         }
-        return resolveLiteparseOrder().then(orderedSources => render(metadata, orderedSources));
+        return liteparseOrder.then(orderedSources => render(metadata, orderedSources));
     }).catch(() => render(new Map()));
 })();
 </script>
