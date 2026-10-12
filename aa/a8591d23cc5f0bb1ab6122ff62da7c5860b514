@@ -1,0 +1,35 @@
+abx_plugins/plugins/tlsnotary/README.md
+  s_abed0e561cd58d::t_ddae6735d407dc 13,37-38,52-65
+abx_plugins/plugins/tlsnotary/config.json
+  s_abed0e561cd58d::t_b71bf0b7c7a7f9 49-53,66
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  s_abed0e561cd58d::t_044a2b809f3a34 19-49
+abx_plugins/plugins/tlsnotary/vendor/README.md
+  s_abed0e561cd58d::t_efc21e5983d43d 1-35
+abx_plugins/plugins/tlsnotary/vendor/build.py
+  s_abed0e561cd58d::t_7eb249f6a9f9b9 1-172
+abx_plugins/plugins/tlsnotary/vendor/extension.patch
+  s_abed0e561cd58d::t_ac6e5e29b53e3e 1-858
+abx_plugins/plugins/tlsnotary/vendor/mpz.patch
+  s_abed0e561cd58d::t_fc53ac3df5f192 1-546
+abx_plugins/plugins/tlsnotary/vendor/tlsn.patch
+  s_abed0e561cd58d::t_70e3da736f8a71 1-148
+pyproject.toml
+  s_abed0e561cd58d::t_ef89a7f020cd5d 134-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aaa8591d23cc5f0bb1ab6122ff62da7c5860b514",
+  "prompts": {},
+  "sessions": {
+    "s_abed0e561cd58d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12e04-1f08-7ea1-94df-2e240b481935",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
