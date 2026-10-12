@@ -4711,8 +4711,20 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
         ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
       });
     }
-    if (config.BROWSER_LANGUAGE) await session.send("Emulation.setLocaleOverride", { locale: config.BROWSER_LANGUAGE });
-    if (config.BROWSER_TIMEZONE) await session.send("Emulation.setTimezoneOverride", { timezoneId: config.BROWSER_TIMEZONE });
+    // Blink holds locale and timezone overrides per renderer process, owned by
+    // the first DevTools session that set them. Targets sharing a process (all
+    // pages of one extension, same-site popups) get "already in effect" for
+    // the persona value an earlier hydration applied there; nothing else in
+    // this browser sets these overrides.
+    const setProcessOverride = async (method, params) => {
+      try {
+        await session.send(method, params);
+      } catch (error) {
+        if (!String(error?.message).includes("override is already in effect")) throw error;
+      }
+    };
+    if (config.BROWSER_LANGUAGE) await setProcessOverride("Emulation.setLocaleOverride", { locale: config.BROWSER_LANGUAGE });
+    if (config.BROWSER_TIMEZONE) await setProcessOverride("Emulation.setTimezoneOverride", { timezoneId: config.BROWSER_TIMEZONE });
     if (config.BROWSER_GEOLOCATION && Object.keys(config.BROWSER_GEOLOCATION).length) {
       await session.send("Emulation.setGeolocationOverride", { accuracy: 0, ...config.BROWSER_GEOLOCATION });
     }

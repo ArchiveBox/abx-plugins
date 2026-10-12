@@ -243,15 +243,20 @@ const watchDir = process.argv[2];
 
 @pytest.fixture
 def archivewebpage_crawl(
+    request,
     tmp_path,
 ) -> Iterator[tuple[dict[str, str], Path, list[subprocess.Popen[str]]]]:
-    """Run the real shared-browser topology used by an ArchiveBox crawl."""
+    """Run the real shared-browser topology used by an ArchiveBox crawl.
+
+    Indirect parametrization supplies persona config for the crawl browser.
+    """
     env = setup_test_env(tmp_path)
     env.update(
         {
             "CHROME_HEADLESS": "true",
             "CHROME_ISOLATION": "crawl",
             "CHROME_KEEPALIVE": "false",
+            **getattr(request, "param", {}),
         },
     )
     for plugin_name in ("archivewebpage", "ublock"):
@@ -1827,3 +1832,57 @@ def test_background_stop_keeps_its_collection_while_another_tab_starts(
             assert archive.testzip() is None
             assert any(name.endswith(".warc.gz") for name in archive.namelist())
     assert len(collection_ids) == 3
+
+
+@pytest.mark.parametrize(
+    "archivewebpage_crawl",
+    [{"BROWSER_LANGUAGE": "fr-FR", "BROWSER_TIMEZONE": "Europe/Paris"}],
+    indirect=True,
+)
+def test_concurrent_starts_attach_helpers_while_other_tabs_record(
+    archivewebpage_crawl,
+    chrome_test_url,
+    tmp_path,
+):
+    """Concurrent AWP starts must survive persona locale/timezone hydration.
+
+    WHY: the demo server's persona sets a browser language and timezone. More
+    than half of its AWP starts failed right after the tab-id helper popup was
+    attached, with puppeteer's bare ``Waiting failed`` / ``frame got
+    detached`` errors. Blink owns locale and timezone overrides per renderer
+    process, and every AWP popup shares the extension's process. Hydrating a
+    second concurrent popup reported "Another locale override is already in
+    effect", and the launch daemon closed that popup under the start hook.
+    """
+    env, crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    root = tmp_path / "concurrent-starts"
+    _start_snapshot_recording(
+        root,
+        env,
+        tab_processes,
+        snapshot_id="already-recording",
+        url=f"{chrome_test_url}#already-recording",
+    )
+    snapshot_ids = [f"concurrent-{index}" for index in range(8)]
+    with ThreadPoolExecutor(max_workers=len(snapshot_ids)) as executor:
+        runs = list(
+            executor.map(
+                lambda snapshot_id: _start_snapshot_recording(
+                    root,
+                    env,
+                    tab_processes,
+                    snapshot_id=snapshot_id,
+                    url=f"{chrome_test_url}#{snapshot_id}",
+                ),
+                snapshot_ids,
+            ),
+        )
+    collection_ids = {
+        json.loads((snapshot_dir / "archivewebpage/recording.json").read_text())[
+            "collId"
+        ]
+        for snapshot_dir, _env in runs
+    }
+    assert len(collection_ids) == len(snapshot_ids)
+    launch_log = (crawl_chrome_dir / "chrome_launch.stderr.log").read_text()
+    assert "Persona hydration failed" not in launch_log, launch_log

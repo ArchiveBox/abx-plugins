@@ -374,8 +374,14 @@ async function main() {
     );
     process.exit(0);
   } catch (error) {
-    const detail = `${error.name || "Error"}: ${error.message || error}`;
+    // Puppeteer wraps poll failures as a bare "Waiting failed" and keeps the
+    // actual browser/protocol failure on error.cause.
+    let detail = `${error.name || "Error"}: ${error.message || error}`;
+    for (let cause = error.cause; cause; cause = cause.cause) {
+      detail += ` (caused by ${cause.name || "Error"}: ${cause.message || cause})`;
+    }
     console.error(`ERROR: ${detail}`);
+    if (error.stack) console.error(error.stack);
     emitArchiveResultRecord("failed", detail);
     process.exit(1);
   } finally {
