@@ -165,6 +165,7 @@ def test_live_submission_classifies_service_response(request_timeout):
             # A real service rate limit must be a failed extraction, never a
             # successful retry-link artifact. This branch still verifies the
             # complete hook contract; it does not skip a rate-limited run.
+            # Accept HTTP 429 in CI: there is not much we can do to force 200.
             assert result.returncode == 1, result.stdout + result.stderr
             assert result_json == {
                 "type": "ArchiveResult",
