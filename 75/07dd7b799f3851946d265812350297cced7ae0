@@ -1,0 +1,56 @@
+abx_plugins/plugins/base/importers.py
+  s_2b44ee96cc775e::t_ad818342b6557f 13-14,128-129
+abx_plugins/plugins/archivedotorg/config.json
+  s_2b44ee96cc775e::t_1430ef79e157c6 29-34
+abx_plugins/plugins/parse_jsonl_urls/on_Snapshot__74_parse_jsonl_urls.py
+  s_2b44ee96cc775e::t_ad818342b6557f 33,155-156
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  s_2b44ee96cc775e::t_ad818342b6557f 55,174-175
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  s_2b44ee96cc775e::t_ad818342b6557f 29,201-202
+tests/test_non_ascii_urls.py
+  s_2b44ee96cc775e::t_98425547a213f5 123-154
+  s_2b44ee96cc775e::t_6794d11a693d77 1-15,18-37,59-122
+  s_2b44ee96cc775e::t_bb96bfdd89a39c 16-17,38-58
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_2b44ee96cc775e::t_6d65d1abf6ec94 251-279
+abx_plugins/plugins/parse_txt_urls/on_Snapshot__71_parse_txt_urls.py
+  s_2b44ee96cc775e::t_bb6b3b1b1dbb10 255-256
+  s_2b44ee96cc775e::t_ad818342b6557f 36,253-254,257
+abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py
+  s_2b44ee96cc775e::t_ad818342b6557f 37-41,70-72
+abx_plugins/plugins/parse_rss_urls/on_Snapshot__72_parse_rss_urls.py
+  s_2b44ee96cc775e::t_ad818342b6557f 33,83-84
+abx_plugins/plugins/archivedotorg/on_Snapshot__00_archivedotorg.finite.bg.py
+  s_2b44ee96cc775e::t_0b78551770a825 41-45,125-127
+  s_2b44ee96cc775e::t_bb96bfdd89a39c 156
+  s_2b44ee96cc775e::t_7433672719e792 159-160
+  s_2b44ee96cc775e::t_1430ef79e157c6 124
+abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py
+  s_2b44ee96cc775e::t_bb6b3b1b1dbb10 408-409
+  s_2b44ee96cc775e::t_ad818342b6557f 34,406-407,410
+abx_plugins/plugins/base/utils.py
+  s_2b44ee96cc775e::t_191c2a5421fd70 24,1101-1122,1126-1127
+  s_2b44ee96cc775e::t_bb96bfdd89a39c 1123-1125
+  s_2b44ee96cc775e::t_15c076ef9215f5 1128-1129
+abx_plugins/plugins/archivedotorg/tests/test_archivedotorg.py
+  s_2b44ee96cc775e::t_002ba605788e76 8,116-130,135-170
+  s_2b44ee96cc775e::t_bb6b3b1b1dbb10 131-134
+  s_2b44ee96cc775e::t_71c1ae4179f027 171-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7507dd7b799f3851946d265812350297cced7ae0",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
