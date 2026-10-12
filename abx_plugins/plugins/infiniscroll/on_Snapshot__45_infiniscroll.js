@@ -28,14 +28,6 @@ const path = require("path");
 const { loadConfig } = require("../base/utils.js");
 
 const PLUGIN_DIR = path.basename(__dirname);
-const hookConfig = loadConfig();
-const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
-const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-}
-process.chdir(OUTPUT_DIR);
-
 // Import generic helpers from base/utils.js
 const {
   ensureNodeModuleResolution,
@@ -54,20 +46,43 @@ const {
   resolvePuppeteerModule,
 } = require("../chrome/chrome_utils.js");
 
-// Check if infiniscroll is enabled BEFORE requiring puppeteer
-if (!getEnvBool("INFINISCROLL_ENABLED", true)) {
-  console.error("Skipping infiniscroll (INFINISCROLL_ENABLED=False)");
-  emitArchiveResultRecord("skipped", "INFINISCROLL_ENABLED=False");
-  process.exit(0);
-}
-
-const puppeteer = resolvePuppeteerModule();
-
 const PLUGIN_NAME = "infiniscroll";
 const CHROME_SESSION_DIR = "../chrome";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Broad feeds contain unrelated, effectively unbounded content. Individual
+// posts and profiles retain the normal configured capture limits.
+function isHomeFeed(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const site = [
+      "reddit.com",
+      "facebook.com",
+      "instagram.com",
+      "tiktok.com",
+    ].find((domain) => host === domain || host.endsWith(`.${domain}`));
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    if (site === "reddit.com")
+      return /^\/(?:hot|new|best|top|r\/(?:all|popular)(?:\/(?:hot|new|top|rising))?)?$/.test(
+        pathname,
+      );
+    if (site === "facebook.com")
+      return (
+        /^\/(?:home(?:\.php)?|feeds?)?$/.test(pathname) &&
+        !["story_fbid", "fbid", "v"].some((key) => url.searchParams.has(key))
+      );
+    if (site === "instagram.com")
+      return /^\/(?:explore|reels)?$/.test(pathname);
+    if (site === "tiktok.com")
+      return /^\/(?:foryou|following|explore)?$/.test(pathname);
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -95,7 +110,7 @@ async function expandDetails(page, options = {}) {
     // Github issue discussion hidden comments
     document
       .querySelectorAll(
-        "div.js-discussion details:not(.details-overlay):not([open])"
+        "div.js-discussion details:not(.details-overlay):not([open])",
       )
       .forEach((el) => {
         el.open = true;
@@ -120,6 +135,8 @@ async function expandDetails(page, options = {}) {
     async ({ timeout, limit, delay }) => {
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
+      const inactive = new WeakSet();
+
       // Find all "load more" type buttons/links
       const getLoadMoreLinks = () => {
         const textControls = [
@@ -137,16 +154,21 @@ async function expandDetails(page, options = {}) {
         });
         return [
           ...new Set([
+            ...document.querySelectorAll("faceplate-partial[loading=action]"),
             ...document.querySelectorAll(
-              "faceplate-partial[loading=action]"
-            ),
-            ...document.querySelectorAll(
-              'a[onclick^="return morechildren"], a[onclick^="return togglecomment"]'
+              'a[onclick^="return morechildren"], a[onclick^="return togglecomment"]',
             ),
             ...document.querySelectorAll("a.morelink"),
             ...textControls,
           ]),
         ].filter((element) => {
+          if (
+            inactive.has(element) ||
+            element.slot === "children" ||
+            element.disabled ||
+            !element.getClientRects().length
+          )
+            return false;
           // "Show more" can be a navigation link (e.g. X's recommended
           // people sidebar), not an expansion control. Never leave the
           // captured document to expand content, including nested controls.
@@ -167,16 +189,17 @@ async function expandDetails(page, options = {}) {
 
       while (loadMoreLinks.length > 0) {
         for (const link of loadMoreLinks) {
-          // Skip certain elements
-          if (link.slot === "children") continue;
+          if (!link.isConnected) continue;
 
           try {
-            link.scrollIntoView({ behavior: "smooth" });
+            const before = document.body.innerText;
+            link.scrollIntoView({ behavior: "instant" });
             link.click();
             expanded++;
             await wait(delay);
+            if (document.body.innerText === before) inactive.add(link);
           } catch (e) {
-            // Ignore click errors
+            inactive.add(link);
           }
 
           // Check limits
@@ -191,7 +214,7 @@ async function expandDetails(page, options = {}) {
 
       return expanded;
     },
-    { timeout, limit, delay }
+    { timeout, limit, delay },
   );
 
   if (numExpanded > 0) {
@@ -224,7 +247,7 @@ async function scrollDown(page, options = {}) {
         document.body.scrollHeight || 0,
         document.body.offsetHeight || 0,
         document.documentElement.scrollHeight || 0,
-        document.documentElement.offsetHeight || 0
+        document.documentElement.offsetHeight || 0,
       );
     });
 
@@ -235,12 +258,13 @@ async function scrollDown(page, options = {}) {
 
   console.error(`Initial page height: ${startingHeight}px`);
   console.log(
-    `Scrolled ${startingHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`
+    `Scrolled ${startingHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`,
   );
 
+  // Instant scrolling also works in background tabs where animation frames pause.
   // Scroll to top first
   await page.evaluate(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   });
   await sleep(500);
 
@@ -256,11 +280,11 @@ async function scrollDown(page, options = {}) {
     console.error(
       `Scrolling down ${
         scrollCount + 1
-      }x ${scrollDistance}px... (${scrollPosition}/${lastHeight})`
+      }x ${scrollDistance}px... (${scrollPosition}/${lastHeight})`,
     );
 
     await page.evaluate((yOffset) => {
-      window.scrollTo({ top: yOffset, left: 0, behavior: "smooth" });
+      window.scrollTo({ top: yOffset, left: 0, behavior: "instant" });
     }, scrollPosition);
 
     scrollCount++;
@@ -272,7 +296,7 @@ async function scrollDown(page, options = {}) {
 
     if (addedPx > 0) {
       console.error(
-        `Detected infini-scrolling: ${lastHeight}+${addedPx} => ${newHeight}`
+        `Detected infini-scrolling: ${lastHeight}+${addedPx} => ${newHeight}`,
       );
     } else if (scrollPosition >= newHeight + scrollDistance) {
       // Reached the bottom
@@ -284,7 +308,7 @@ async function scrollDown(page, options = {}) {
 
     lastHeight = newHeight;
     console.log(
-      `Scrolled ${lastHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`
+      `Scrolled ${lastHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`,
     );
 
     // Check if we've reached minimum height and can stop
@@ -294,24 +318,10 @@ async function scrollDown(page, options = {}) {
     }
   }
 
-  // Scroll to absolute bottom
-  if (scrollPosition < lastHeight) {
-    await page.evaluate(() => {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        left: 0,
-        behavior: "smooth",
-      });
-    });
-    await sleep(scrollDelay);
-  }
-
   // Scroll back to top
-  console.error(
-    `Reached bottom of page at ${lastHeight}px, scrolling back to top...`
-  );
+  console.error(`Finished ${scrollCount} scrolls, scrolling back to top...`);
   await page.evaluate(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   });
   await sleep(scrollDelay);
 
@@ -326,6 +336,23 @@ async function scrollDown(page, options = {}) {
 }
 
 async function main() {
+  const hookConfig = loadConfig();
+  const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
+  const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  }
+  process.chdir(OUTPUT_DIR);
+
+  // Check if infiniscroll is enabled BEFORE requiring puppeteer
+  if (!getEnvBool("INFINISCROLL_ENABLED", true)) {
+    console.error("Skipping infiniscroll (INFINISCROLL_ENABLED=False)");
+    emitArchiveResultRecord("skipped", "INFINISCROLL_ENABLED=False");
+    process.exit(0);
+  }
+
+  const puppeteer = resolvePuppeteerModule();
+
   const args = parseArgs();
   const url = args.url;
 
@@ -336,15 +363,17 @@ async function main() {
 
   const timeout = getEnvInt("INFINISCROLL_TIMEOUT", 120) * 1000;
   const scrollDelay = getEnvInt("INFINISCROLL_SCROLL_DELAY", 2000);
-  const scrollDistance = getEnvInt("INFINISCROLL_SCROLL_DISTANCE", 1600);
-  const scrollLimit = getEnvInt("INFINISCROLL_SCROLL_LIMIT", 10);
+  let scrollDistance = getEnvInt("INFINISCROLL_SCROLL_DISTANCE", 1600);
+  let scrollLimit = getEnvInt("INFINISCROLL_SCROLL_LIMIT", 10);
   const minHeight = getEnvInt("INFINISCROLL_MIN_HEIGHT", 16000);
-  const expandDetailsEnabled = getEnvBool("INFINISCROLL_EXPAND_DETAILS", true);
+  let expandDetailsEnabled = getEnvBool("INFINISCROLL_EXPAND_DETAILS", true);
 
   let browser = null;
   try {
     if (hasStaticFileOutput()) {
-      console.error("Skipping infiniscroll - staticfile extractor already downloaded this");
+      console.error(
+        "Skipping infiniscroll - staticfile extractor already downloaded this",
+      );
       emitArchiveResultRecord("noresults", "staticfile already handled");
       process.exit(0);
     }
@@ -364,6 +393,19 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
+    // Background targets otherwise defer scroll events and lazy-load callbacks.
+    // The hook's disconnect restores this target without selecting a user's tab.
+    const session = await page.createCDPSession();
+    await session.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+    if (isHomeFeed(url) || isHomeFeed(page.url())) {
+      scrollLimit = Math.min(scrollLimit, 2);
+      scrollDistance = Math.min(
+        scrollDistance,
+        await page.evaluate(() => window.innerHeight),
+      );
+      expandDetailsEnabled = false;
+      console.error("Home feed: limiting capture to three screenfuls");
+    }
 
     console.error(`Starting infinite scroll on ${url}`);
     console.log("Scrolled 0px | expanded 0 sections | scrolling...");
@@ -415,7 +457,10 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(`Fatal error: ${e.message}`);
-  process.exit(1);
-});
+module.exports = { isHomeFeed };
+
+if (require.main === module)
+  main().catch((e) => {
+    console.error(`Fatal error: ${e.message}`);
+    process.exit(1);
+  });

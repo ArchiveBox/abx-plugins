@@ -102,7 +102,10 @@ INFINISCROLL_TEST_PAGE_HTML = """
     }
 
     addCards('initial', 8);
-    window.addEventListener('scroll', maybeLoadMore, { passive: true });
+    window.addEventListener('scroll', () => {
+      document.body.dataset.maxScroll = Math.max(Number(document.body.dataset.maxScroll || 0), window.scrollY);
+      maybeLoadMore();
+    }, { passive: true });
     window.addEventListener('load', maybeLoadMore);
   </script>
 </body>
@@ -118,6 +121,104 @@ def infiniscroll_test_url(httpserver):
         content_type="text/html",
     )
     return httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+
+
+def save_dom(snapshot_chrome_dir, env, url):
+    dom_dir = snapshot_chrome_dir.parent / "dom"
+    dom_dir.mkdir(exist_ok=True)
+    hook = PLUGIN_DIR.parent / "dom" / "on_Snapshot__53_dom.js"
+    result = subprocess.run(
+        [str(hook), f"--url={url}"],
+        cwd=dom_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    return (dom_dir / "output.html").read_text()
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("https://reddit.com/", True),
+        ("https://old.reddit.com/r/popular/top/?t=day", True),
+        ("https://reddit.com/r/trees/comments/123/title", False),
+        ("https://reddit.com/r/trees/", False),
+        ("https://reddit.com.evil.test/", False),
+        ("https://m.facebook.com/home.php?sk=h_chr", True),
+        ("https://facebook.com/?story_fbid=123", False),
+        ("https://facebook.com/user/posts/123", False),
+        ("https://www.instagram.com/", True),
+        ("https://instagram.com/reels/", True),
+        ("https://instagram.com/p/abc/", False),
+        ("https://instagram.com/reel/abc/", False),
+        ("https://www.tiktok.com/foryou", True),
+        ("https://tiktok.com/@user/video/123", False),
+        ("https://example.com/", False),
+        ("invalid url", False),
+    ],
+)
+def test_home_feed_detection(url, expected):
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            "console.log(require(process.argv[1]).isHomeFeed(process.argv[2]))",
+            str(INFINISCROLL_HOOK),
+            url,
+        ],
+        capture_output=True,
+        text=True,
+        env=get_test_env(),
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == str(expected).lower()
+
+
+def test_expansion_keeps_new_content_without_repeating_inert_buttons(
+    httpserver,
+    tmp_path,
+):
+    html = INFINISCROLL_TEST_PAGE_HTML.replace(
+        '<main id="feed">',
+        """
+      <button onclick="document.body.dataset.inertClicks = Number(document.body.dataset.inertClicks || 0) + 1">Show replies</button>
+      <button onclick="this.insertAdjacentHTML('beforebegin', '<p>Expanded real comment</p>'); this.remove()">Load more</button>
+      <details><summary>Details</summary>Expanded details text</details>
+      <main id="feed">""",
+    )
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={
+            "CHROME_WAIT_FOR": "domcontentloaded",
+            "CHROME_RESOLUTION": "1280,720",
+        },
+    ) as (_, _, chrome_dir, env):
+        env.update(
+            {"INFINISCROLL_SCROLL_LIMIT": "1", "INFINISCROLL_SCROLL_DELAY": "500"},
+        )
+        started = time.monotonic()
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert time.monotonic() - started < 8, result.stderr
+        saved = save_dom(chrome_dir, env, url)
+        assert "<p>Expanded real comment</p>" in saved
+        assert '<details open="">' in saved
+        assert 'data-inert-clicks="2"' in saved
 
 
 def test_hook_script_exists():
@@ -216,7 +317,10 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             snapshot_id="snap-infiniscroll",
             test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-            env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+            env_overrides={
+                "CHROME_WAIT_FOR": "domcontentloaded",
+                "CHROME_RESOLUTION": "1280,720",
+            },
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             # Create infiniscroll output directory (sibling to chrome)
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
@@ -272,6 +376,10 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
                 f"output_str should contain only scrolled pixel count: {output_str}"
             )
 
+            html = save_dom(snapshot_chrome_dir, env, infiniscroll_test_url)
+            assert "batch-1 item 1</article>" in html, result.stderr + html
+            assert 'href="/i/connect_people?user_id=262147093"' in html
+
             # Verify no files created in output directory
             output_files = list(infiniscroll_dir.iterdir())
             assert len(output_files) == 0, (
@@ -288,13 +396,17 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
             snapshot_id="snap-limit",
             test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-            env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+            env_overrides={
+                "CHROME_WAIT_FOR": "domcontentloaded",
+                "CHROME_RESOLUTION": "1280,720",
+            },
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
             infiniscroll_dir.mkdir()
 
             # Set scroll limit to 2 (use env from setup_chrome_session)
             env["INFINISCROLL_SCROLL_LIMIT"] = "2"
+            env["INFINISCROLL_SCROLL_DISTANCE"] = "500"
             env["INFINISCROLL_SCROLL_DELAY"] = "500"
             env["INFINISCROLL_MIN_HEIGHT"] = (
                 "100000"  # High threshold so limit kicks in
@@ -314,6 +426,10 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
                 env=env,
             )
             elapsed = time.time() - start_time
+            html = save_dom(snapshot_chrome_dir, env, infiniscroll_test_url)
+            maximum = re.search(r'data-max-scroll="(\d+)"', html)
+            assert maximum and 0 < int(maximum[1]) <= 1000, html
+            assert "batch-1 item 1</article>" not in html
 
             assert result.returncode == 0, f"Infiniscroll failed: {result.stderr}"
             assert elapsed < 8, (
@@ -358,7 +474,10 @@ def test_config_timeout_honored(infiniscroll_test_url):
             snapshot_id="snap-timeout",
             test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-            env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+            env_overrides={
+                "CHROME_WAIT_FOR": "domcontentloaded",
+                "CHROME_RESOLUTION": "1280,720",
+            },
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
             infiniscroll_dir.mkdir()
