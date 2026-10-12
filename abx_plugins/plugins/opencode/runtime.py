@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import signal
 import shlex
 import subprocess
@@ -27,6 +28,8 @@ _PROCESS_READY: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
 _ASSETS: dict[tuple[str, str, bytes], tuple[bytes, str]] = {}
+_SERVER_PASSWORDS: dict[str, str] = {}
+_SERVER_USERNAME = "opencode"
 _LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
 _CONFIG_PATH = Path(__file__).with_name("config.json")
@@ -339,6 +342,7 @@ def _ensure_default_session(settings: dict) -> str:
     sessions = requests.get(
         f"{settings['origin']}/session",
         params={**params, "roots": "true", "limit": 55},
+        auth=_server_auth(settings),
         timeout=timeout,
     )
     sessions.raise_for_status()
@@ -366,6 +370,7 @@ def _create_session(settings: dict, title: str = "") -> str:
         f"{settings['origin']}/session",
         params={"directory": str(workdir)},
         json={"title": title} if title else {},
+        auth=_server_auth(settings),
         timeout=settings["timeout"],
     )
     session.raise_for_status()
@@ -393,6 +398,7 @@ def start_session(settings: dict, *, title: str, prompt: str) -> str:
         f"{settings['origin']}/session/{session_id}/prompt_async",
         params={"directory": str(settings["workdir"].resolve())},
         json={"parts": [{"type": "text", "text": prompt}]},
+        auth=_server_auth(settings),
         timeout=settings["timeout"],
     )
     response.raise_for_status()
@@ -409,15 +415,70 @@ def _owned_process_ready() -> bool:
     return process is not None and process is _PROCESS and process.poll() is None
 
 
-def _health(settings: dict, timeout: float = 2) -> bool:
+def _server_auth(settings: dict) -> tuple[str, str]:
+    """Basic-auth credentials shared by every process using this state dir.
+
+    WHY: OpenCode's CORS allows any http://localhost:* origin, which is where
+    one-domain ArchiveBox modes replay archived JavaScript. Without a password
+    such a page could drive the shell-capable agent API directly; with one, only
+    the authenticated ArchiveBox proxy can. The file lives beside OpenCode's own
+    private state so separate ArchiveBox processes reuse one running server.
+    """
+    path = Path(settings["opencode_dir"]) / "server_password"
+    key = str(path)
+    if key not in _SERVER_PASSWORDS:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            # Publish a complete 0600 file atomically; concurrent first callers
+            # in other processes keep whichever password was linked first.
+            tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as file:
+                file.write(secrets.token_urlsafe(32))
+            try:
+                os.link(tmp, path)
+            except FileExistsError:
+                pass
+            finally:
+                tmp.unlink()
+        password = path.read_text().strip()
+        if not password:
+            raise RuntimeError(f"Empty OpenCode server password file: {path}")
+        _SERVER_PASSWORDS[key] = password
+    return _SERVER_USERNAME, _SERVER_PASSWORDS[key]
+
+
+def _auth_header(settings: dict) -> str:
+    username, password = _server_auth(settings)
+    return "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
+
+
+def _server_state(settings: dict, timeout: float = 2) -> str:
+    """Return "ready", "unsecured" (answers without credentials), or "down"."""
     try:
         response = requests.get(
             f"{settings['origin']}/global/health",
+            auth=_server_auth(settings),
             timeout=timeout,
         )
-        return response.status_code == 200
+        if response.status_code != 200:
+            return "down"
+        anonymous = requests.get(f"{settings['origin']}/session", timeout=timeout)
+        return "unsecured" if anonymous.status_code != 401 else "ready"
     except requests.RequestException:
-        return False
+        return "down"
+
+
+def _health(settings: dict, timeout: float = 2) -> bool:
+    return _server_state(settings, timeout) == "ready"
+
+
+def _unsecured_error(settings: dict) -> str:
+    return (
+        f"An OpenCode server without a password is already listening on "
+        f"{settings['host']}:{settings['port']}. Stop it so ArchiveBox can start "
+        "its password-protected Agent server."
+    )
 
 
 def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str, str]:
@@ -470,10 +531,13 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     with _PROCESS_LOCK:
         if _owned_process_ready():
             return True, ""
-        if _health(settings):
+        state = _server_state(settings)
+        if state == "ready":
             if _owned_process_running():
                 _PROCESS_READY = _PROCESS
             return True, ""
+        if state == "unsecured" and not _owned_process_running():
+            return False, _unsecured_error(settings)
         if _owned_process_running():
             _stop_owned_process(_PROCESS)
 
@@ -486,6 +550,11 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             return False, str(err)
 
         env = process_environment(settings, binary_env)
+        # Server-only: `opencode run` CLI tasks share process_environment but
+        # start their own in-process server and must not inherit this login.
+        env["OPENCODE_SERVER_USERNAME"], env["OPENCODE_SERVER_PASSWORD"] = _server_auth(
+            settings,
+        )
 
         settings["workdir"].mkdir(parents=True, exist_ok=True)
         settings["config_home"].mkdir(parents=True, exist_ok=True)
@@ -495,8 +564,11 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         settings["home"].mkdir(parents=True, exist_ok=True)
         _ensure_project_files(settings)
 
-        if _health(settings):
+        state = _server_state(settings)
+        if state == "ready":
             return True, ""
+        if state == "unsecured":
+            return False, _unsecured_error(settings)
 
         binary_abspath = binary.loaded_abspath
         if binary.loaded_binprovider is not None:
@@ -638,6 +710,8 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
             "content-length",
             "content-encoding",
             "x-frame-options",
+            # Never surface a Basic-auth prompt for the server-only password.
+            "www-authenticate",
             "etag",
             "cache-control",
         }:
@@ -684,7 +758,7 @@ async def _event_chunks(settings, path, method, params, headers):
                 method,
                 _proxy_url(settings, path),
                 params=params,
-                headers=headers,
+                headers={**headers, "Authorization": _auth_header(settings)},
             ) as upstream:
                 upstream.raise_for_status()
                 async for chunk in upstream.aiter_raw():
@@ -709,6 +783,7 @@ async def websocket_proxy(settings, path, query, protocols, receive, send):
         async with connect(
             url,
             subprotocols=protocols or None,
+            additional_headers={"Authorization": _auth_header(settings)},
             proxy=None,
             open_timeout=settings["timeout"],
         ) as upstream:
@@ -799,7 +874,7 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
         _proxy_url(settings, path),
         params=params,
         data=body if method not in {"GET", "HEAD"} else None,
-        headers=forwarded,
+        headers={**forwarded, "Authorization": _auth_header(settings)},
         # OAuth callbacks are long polls: OpenCode waits for the human to
         # authorize or cancel, and owns that flow's expiry. Keep connection
         # establishment bounded, but do not turn a pending login into a 503.

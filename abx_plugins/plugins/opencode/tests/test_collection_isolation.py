@@ -120,6 +120,7 @@ def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
         sessions = requests.get(
             settings["origin"] + "/session",
             params={"directory": str(collection), "roots": "true", "limit": 55},
+            auth=runtime._server_auth(settings),
             timeout=settings["timeout"],
         )
         sessions.raise_for_status()
@@ -163,6 +164,7 @@ def test_cold_agent_wrapper_defers_startup_until_its_frame_request(
             messages = requests.get(
                 settings["origin"] + f"/session/{custom_session}/message",
                 params={"directory": str(collection)},
+                auth=runtime._server_auth(settings),
                 timeout=10,
             )
             messages.raise_for_status()
@@ -242,6 +244,7 @@ def test_collection_is_not_a_git_project_or_file_index(
             response = requests.get(
                 settings["origin"] + endpoint,
                 params={"directory": str(directory), **params},
+                auth=runtime._server_auth(settings),
                 timeout=30,
             )
             response.raise_for_status()
@@ -399,3 +402,35 @@ def test_opencode_does_not_probe_or_replace_a_ready_owned_process(live_opencode)
     assert process is not None
     assert runtime._PROCESS is process
     assert process.poll() is None
+
+
+def test_opencode_server_rejects_unauthenticated_local_pages(live_opencode):
+    from abx_plugins.plugins.opencode import runtime
+
+    # OpenCode's CORS allows any http://localhost:* origin, which is where
+    # one-domain ArchiveBox modes replay archived JavaScript. Only the
+    # authenticated ArchiveBox proxy may reach the shell-capable agent API.
+    for method in ("GET", "POST"):
+        response = requests.request(
+            method,
+            f"{live_opencode['origin']}/session",
+            params={"directory": str(live_opencode["workdir"])},
+            headers={"Origin": "http://localhost:8000"},
+            json={} if method == "POST" else None,
+            timeout=10,
+        )
+        assert response.status_code == 401, (method, response.status_code)
+
+    status, _headers, body = runtime.proxy(
+        live_opencode,
+        "GET",
+        "session",
+        (("directory", str(live_opencode["workdir"])),),
+        {"Accept": "application/json"},
+        b"",
+    )
+    assert isinstance(body, bytes)
+    assert status == 200, body[:200]
+    assert isinstance(json.loads(body), list)
+    password_file = live_opencode["opencode_dir"] / "server_password"
+    assert password_file.stat().st_mode & 0o777 == 0o600

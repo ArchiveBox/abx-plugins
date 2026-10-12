@@ -88,6 +88,8 @@ def test_opencode_proxy_preserves_protocol_headers(admin_client, live_opencode):
 
 
 def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
+    from abx_plugins.plugins.opencode import runtime
+
     workdir = str(live_opencode.config.data_dir.resolve())
     state_dir = live_opencode.config.state_dir
 
@@ -105,12 +107,14 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     project = requests.get(
         f"{live_opencode.settings['origin']}/project/current",
         params={"directory": workdir},
+        auth=runtime._server_auth(live_opencode.settings),
         timeout=live_opencode.settings["timeout"],
     )
     project.raise_for_status()
 
     config = requests.get(
         f"{live_opencode.settings['origin']}/global/config",
+        auth=runtime._server_auth(live_opencode.settings),
         timeout=live_opencode.settings["timeout"],
     )
     config.raise_for_status()
@@ -123,6 +127,7 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     effective_config = requests.get(
         f"{live_opencode.settings['origin']}/config",
         params={"directory": workdir},
+        auth=runtime._server_auth(live_opencode.settings),
         timeout=live_opencode.settings["timeout"],
     )
     effective_config.raise_for_status()
@@ -136,6 +141,7 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     path = requests.get(
         f"{live_opencode.settings['origin']}/path",
         params={"directory": workdir},
+        auth=runtime._server_auth(live_opencode.settings),
         timeout=live_opencode.settings["timeout"],
     )
     path.raise_for_status()
@@ -144,6 +150,7 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     diff = requests.get(
         f"{live_opencode.settings['origin']}/vcs/diff",
         params={"directory": workdir, "mode": "git"},
+        auth=runtime._server_auth(live_opencode.settings),
         timeout=5,
     )
     diff.raise_for_status()

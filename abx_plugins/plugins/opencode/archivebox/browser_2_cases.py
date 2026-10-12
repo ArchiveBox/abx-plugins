@@ -30,6 +30,8 @@ def test_agent_websocket_matches_http_security_policy(
     http_status,
 ):
     from urllib.parse import urlsplit
+
+    from abx_plugins.plugins.opencode import runtime
     from websockets.asyncio.client import connect
     from websockets.exceptions import InvalidStatus
 
@@ -97,6 +99,7 @@ def test_agent_websocket_matches_http_security_policy(
     finally:
         deleted = requests.delete(
             live_opencode.settings["origin"] + f"/pty/{pty_id}",
+            auth=runtime._server_auth(live_opencode.settings),
             timeout=10,
         )
         assert deleted.status_code == 200
