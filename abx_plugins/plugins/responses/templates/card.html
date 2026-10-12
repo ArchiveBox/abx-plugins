@@ -66,36 +66,31 @@
         };
 
         // LiteParse maps parsed output back to original files by source name
-        // and URL. Render those same originals in that order; response capture
-        // paths can have several timestamped copies of a single URL.
-        if (orderedSources.length) {
-            for (const source of orderedSources.slice(0, 9)) {
-                const info = [...metadata.values()].find(item => item.url === source.url.href);
-                const identity = info?.responseSha256 || source.url.href;
-                if (seen.has(identity)) continue;
-                seen.add(identity);
-                const extension = source.name.split('.').pop();
-                let item;
-                if (source.mime.startsWith('image/') || /\.(png|jpe?g|gif|bmp|tiff?|webp|svg)$/i.test(source.name)) {
-                    item = window.document.createElement('img');
-                    item.src = raw(source.url);
-                    item.alt = source.name;
-                    item.loading = 'lazy';
-                    item.decoding = 'async';
-                } else {
-                    item = window.document.createElement('span');
-                    item.title = source.name;
-                    item.setAttribute('aria-label', `Document: ${source.name}`);
-                    item.innerHTML = `<span style="font-size:24px">📄</span>${extension.toUpperCase()}`;
-                }
-                item.dataset.name = source.name;
-                selected.push(item);
+        // and URL. Render those same originals first, in that order; response
+        // capture paths can have several timestamped copies of a single URL.
+        for (const source of orderedSources) {
+            if (selected.length >= 9) break;
+            const info = source.plugin === 'responses' ? infoFor(source.path, metadata) : undefined;
+            const extension = source.name.split('.').pop();
+            let item;
+            if (source.mime.startsWith('image/') || /\.(png|jpe?g|gif|bmp|tiff?|webp|svg)$/i.test(source.name)) {
+                item = window.document.createElement('img');
+                item.src = raw(source.url);
+                item.alt = source.name;
+                item.loading = 'lazy';
+                item.decoding = 'async';
+            } else {
+                item = window.document.createElement('span');
+                item.title = source.name;
+                item.setAttribute('aria-label', `Document: ${source.name}`);
+                item.innerHTML = `<span style="font-size:24px">📄</span>${extension.toUpperCase()}`;
             }
-            showItems(selected);
-            return;
+            item.dataset.name = source.path;
+            add(item, info, source.url.href);
         }
 
-        // On snapshots without LiteParse, keep the existing size-sorted preview.
+        // Fill the rest of the 3x3 grid with the largest remaining captures:
+        // LiteParse often parses only a few of a page's images.
         const fallback = fallbackItems.sort((a, b) => {
             const aPath = normalizePath(a.dataset.name), bPath = normalizePath(b.dataset.name);
             const aInfo = infoFor(aPath, metadata), bInfo = infoFor(bPath, metadata);
