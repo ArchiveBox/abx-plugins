@@ -36,15 +36,14 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs):
         chrome,
         env,
     ):
-        result = subprocess.run(
-            [str(HOOK), f"--url={MEDIA_KIT_URL}"],
-            cwd=chrome.parent,
-            env=env,
-            capture_output=True,
-            text=True,
+        result, diagnostic = run_observed_hook(
+            tmp_path,
+            chrome,
+            env,
+            MEDIA_KIT_URL,
             timeout=150,
         )
-        assert result.returncode == 0, result.stderr
+        assert result.returncode == 0, diagnostic
         record = parse_jsonl_output(result.stdout)
         assert record is not None, result.stdout
         assert record["status"] == "succeeded", result.stdout
@@ -85,13 +84,12 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs):
                 assert decoded_size == list(expected_size), filename
 
 
-def test_expired_transfer_after_terms_acceptance(tmp_path, ensure_chrome_test_prereqs):
-    with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome, env):
-        # Record the actual export tab while it exists: the hook closes it on
-        # failure. This observer reads DOM state without changing page behavior.
-        observer_script = tmp_path / "observe-wetransfer.js"
-        observer_script.write_text(
-            """const fs = require('fs');
+def run_observed_hook(tmp_path, chrome, env, url, timeout):
+    # Record the actual export tab while it exists: the hook closes it on
+    # failure. This observer reads DOM state without changing page behavior.
+    observer_script = tmp_path / "observe-wetransfer.js"
+    observer_script.write_text(
+        """const fs = require('fs');
 const puppeteer = require('puppeteer');
 let browser;
 let stopped = false;
@@ -149,44 +147,52 @@ process.on('SIGTERM', () => {
 })().catch(error => record({phase: 'observer_error', name: error.name}))
   .finally(() => { if (browser) browser.disconnect(); });
 """,
+    )
+    observations = tmp_path / "wetransfer-page-observations.log"
+    with observations.open("a") as observer_log:
+        observer = subprocess.Popen(
+            [
+                env["NODE_BINARY"],
+                str(observer_script),
+                str(chrome / "cdp_url.txt"),
+                str(observations),
+            ],
+            env=env,
+            stdout=observer_log,
+            stderr=observer_log,
         )
-        observations = tmp_path / "wetransfer-expiry-observations.log"
-        with observations.open("a") as observer_log:
-            observer = subprocess.Popen(
-                [
-                    env["NODE_BINARY"],
-                    str(observer_script),
-                    str(chrome / "cdp_url.txt"),
-                    str(observations),
-                ],
+        try:
+            result = subprocess.run(
+                [str(HOOK), f"--url={url}"],
+                cwd=chrome.parent,
                 env=env,
-                stdout=observer_log,
-                stderr=observer_log,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
             )
+        except subprocess.TimeoutExpired as error:
+            raise AssertionError(
+                f"WeTransfer hook timed out: {error.stdout!r}\n{error.stderr!r}\n"
+                + "\n".join(observations.read_text().splitlines()[-20:]),
+            ) from error
+        finally:
+            observer.terminate()
             try:
-                result = subprocess.run(
-                    [str(HOOK), f"--url={URL}"],
-                    cwd=chrome.parent,
-                    env=env,
-                    capture_output=True,
-                    text=True,
-                    timeout=90,
-                )
-            except subprocess.TimeoutExpired as error:
-                raise AssertionError(
-                    f"WeTransfer hook timed out: {error.stdout!r}\n{error.stderr!r}\n"
-                    + "\n".join(observations.read_text().splitlines()[-20:]),
-                ) from error
-            finally:
-                observer.terminate()
-                try:
-                    observer.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    observer.kill()
-                    observer.wait(timeout=2)
+                observer.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                observer.kill()
+                observer.wait(timeout=2)
+    evidence = "\n".join(observations.read_text().splitlines()[-20:])
+    return (
+        result,
+        f"{result.stdout}\n{result.stderr}\nRead-only page observations:\n{evidence}",
+    )
+
+
+def test_expired_transfer_after_terms_acceptance(tmp_path, ensure_chrome_test_prereqs):
+    with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome, env):
+        result, diagnostic = run_observed_hook(tmp_path, chrome, env, URL, timeout=90)
         record = parse_jsonl_output(result.stdout)
-        evidence = "\n".join(observations.read_text().splitlines()[-20:])
-        diagnostic = f"{result.stdout}\n{result.stderr}\nRead-only page observations:\n{evidence}"
         assert result.returncode == 1, diagnostic
         assert record and record["status"] == "failed", diagnostic
         assert "expired or was deleted" in record["output_str"], diagnostic
