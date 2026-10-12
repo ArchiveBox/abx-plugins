@@ -64,9 +64,10 @@ function sleep(ms) {
 // that, keep the challenge page as this snapshot's (visible) result.
 const CHALLENGE_WAIT_MS = 90000;
 
-// Each poll asks the current main document for its own state over this hook's
-// raw CDP session. Tracking main-frame network events plus Puppeteer's frame
-// context missed a live Cloudflare clearance (a form POST back to the URL).
+// Each poll asks the current main document for its own HTTP status over this
+// hook's raw CDP session. The challenge document is the cf-mitigated 403; the
+// cleared site is whatever replaces it, including a form POST back to the URL.
+// (window._cf_chl_opt is no signal: protected pages define it too.)
 async function waitForChallenge(session, deadline, waitUntil) {
   // The cleared document must load as far as goto() would have waited.
   const readyStates = waitUntil === "domcontentloaded" ? ["interactive", "complete"] : ["complete"];
@@ -75,12 +76,11 @@ async function waitForChallenge(session, deadline, waitUntil) {
     const state = await session.send("Runtime.evaluate", {
       expression: `({
         readyState: document.readyState,
-        challenge: Boolean(window._cf_chl_opt),
         status: performance.getEntriesByType("navigation")[0]?.responseStatus || null,
       })`,
       returnByValue: true,
     }).then(({ result }) => result.value, () => null);
-    if (state && !state.challenge && readyStates.includes(state.readyState)) return state;
+    if (state?.status && state.status < 400 && readyStates.includes(state.readyState)) return state;
   }
   return null;
 }

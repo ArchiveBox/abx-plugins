@@ -28,8 +28,11 @@ CLEARANCE = {
 def challenge_site(clearance: str):
     def handler(request):
         if request.cookies.get("cf_clearance") == "passed" or request.method == "POST":
+            # Protected pages also run Cloudflare's bot-detection script,
+            # which defines the same global as the challenge page.
             return Response(
-                "<!doctype html><title>Real article</title><p>Article body</p>",
+                "<!doctype html><title>Real article</title><p>Article body</p>"
+                "<script>window._cf_chl_opt = {};</script>",
                 content_type="text/html",
             )
         return Response(
