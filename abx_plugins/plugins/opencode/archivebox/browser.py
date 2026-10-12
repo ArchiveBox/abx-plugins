@@ -33,20 +33,36 @@ def _chrome_environment(config):
     )
 
 
-def published_browsers():
+def browser_live_dir(tmp_dir, endpoint: str) -> Path:
+    """Match chrome/browser_observer.js: hot tab/viewer/frame state lives on
+    local TMP_DIR, not on possibly-remote crawl/persona storage."""
+    return (
+        Path(tmp_dir or tempfile.gettempdir())
+        / "chrome_browser"
+        / hashlib.sha256(endpoint.encode()).hexdigest()
+    )
+
+
+def published_browsers(config):
     """Discover local published sessions, grouped by browser WebSocket identity."""
     from archivebox.machine.models import Machine, Process
     from archivebox.personas.models import Persona
 
     candidates = [
-        (persona.path / ".browser", {"persona": persona.name})
+        (persona.path / ".browser", {"persona": persona.name}, config.get("TMP_DIR"))
         for persona in Persona.objects.all().only("name")
     ]
     for process in Process.objects.filter(
         machine=Machine.current_readonly(),
         status=Process.StatusChoices.RUNNING,
         pwd__endswith="/chrome",
-    ).values("pwd", "cmd", "env__CRAWL_DIR", "env__ACTIVE_PERSONA"):
+    ).values(
+        "pwd",
+        "cmd",
+        "env__CRAWL_DIR",
+        "env__ACTIVE_PERSONA",
+        "env__TMP_DIR",
+    ):
         source = {
             key: arg.split("=", 1)[1]
             for key in ("crawl", "snapshot")
@@ -57,9 +73,16 @@ def published_browsers():
             source["crawl"] = Path(process["env__CRAWL_DIR"]).name
         if process["env__ACTIVE_PERSONA"]:
             source["persona_name"] = process["env__ACTIVE_PERSONA"]
-        candidates.append((Path(process["pwd"]), source))
+        # The owner hook's own TMP_DIR locates its live state exactly.
+        candidates.append(
+            (
+                Path(process["pwd"]),
+                source,
+                process["env__TMP_DIR"] or config.get("TMP_DIR"),
+            ),
+        )
     sessions = {}
-    for directory, source in candidates:
+    for directory, source, tmp_dir in candidates:
         try:
             if not json.loads((directory / "browser.json").read_text()).get("ready"):
                 continue
@@ -87,11 +110,13 @@ def published_browsers():
                 }
             if source not in session["sources"]:
                 session["sources"].append(source)
-            state = json.loads((directory / "tabs.json").read_text())
+            live_dir = browser_live_dir(tmp_dir, endpoint)
+            state = json.loads((live_dir / "tabs.json").read_text())
             if state.get("cdp_url") == endpoint and state.get("connected"):
                 os.kill(int(state["owner_pid"]), 0)
                 session.update(
                     directory=str(directory),
+                    live_dir=str(live_dir),
                     available=True,
                     tabs=state["tabs"],
                 )
@@ -103,8 +128,12 @@ def published_browsers():
 def browser_inventory(config):
     """Read owner-published state only: no CDP, installs, or child processes."""
     return [
-        {key: value for key, value in session.items() if key != "directory"}
-        for session in published_browsers()
+        {
+            key: value
+            for key, value in session.items()
+            if key not in ("directory", "live_dir")
+        }
+        for session in published_browsers(config)
     ]
 
 
@@ -195,7 +224,7 @@ def browser_environment(
         session = next(
             (
                 item
-                for item in published_browsers()
+                for item in published_browsers(config)
                 if item["id"] == selected["id"] and item["available"]
             ),
             None,

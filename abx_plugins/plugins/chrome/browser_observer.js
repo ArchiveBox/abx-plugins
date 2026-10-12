@@ -1,12 +1,26 @@
 // Optional browser UI metadata and latest-frame mailbox, owned by Chrome's
 // existing connection. No browser launch, per-request CDP probe, or frame queue.
+const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { writeFileAtomic } = require("../base/utils.js");
 const { getTargetIdFromTarget: idOf } = require("./chrome_utils.js");
 const { startPageScreencast } = require("../chrome_screencast/screencast.js");
 
-async function observeBrowser(browser, directory) {
+// tabs.json is rewritten on every tab title/focus/navigation event and frame
+// mailboxes up to 10x/second per viewed tab. Crawl/persona dirs may be slow
+// remote storage (e.g. rclone FUSE, where each write through a symlinked path
+// costs READLINK/CREATE/RENAME round trips), so this disposable live state
+// lives on local TMP_DIR. It is keyed by the browser's CDP endpoint, which
+// readers already get from the session dir's durable cdp_url.txt.
+function browserLiveDir(tmpDir, cdpUrl) {
+  return path.join(path.resolve(tmpDir || os.tmpdir()), "chrome_browser",
+    crypto.createHash("sha256").update(cdpUrl).digest("hex"));
+}
+
+async function observeBrowser(browser, tmpDir) {
+  const directory = browserLiveDir(tmpDir, browser.wsEndpoint());
   const filename = path.join(directory, "tabs.json");
   const viewersDir = path.join(directory, "viewers");
   const framesDir = path.join(directory, "frames");

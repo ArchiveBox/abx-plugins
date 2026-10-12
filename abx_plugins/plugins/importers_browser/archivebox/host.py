@@ -43,7 +43,7 @@ def connection(run_dir):
         # opened by ArchiveBox's existing browser owner, with its normal hydration.
         if not any(
             source.get("persona") == persona.name
-            for browser in published_browsers()
+            for browser in published_browsers(config)
             for source in browser["sources"]
         ):
             log = (run_dir / "browser.log").open("w")

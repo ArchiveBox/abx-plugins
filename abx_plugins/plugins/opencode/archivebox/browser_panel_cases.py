@@ -14,6 +14,7 @@ import pytest
 import requests
 
 from abx_plugins import get_plugins_dir
+from abx_plugins.plugins.opencode.archivebox.browser import browser_live_dir
 from abx_plugins.plugins.opencode.archivebox.conftest import _login_cookie
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -320,9 +321,10 @@ for(const endpoint of JSON.parse(process.argv[2])) {
             "inventory": inventory(),
             "artifacts": {
                 str(file): file.read_text()[:800]
-                for config in configs
-                for file in (
-                    Path(config["CHROME_USER_DATA_DIR"]).parent / ".browser"
+                for item in live
+                for file in browser_live_dir(
+                    configs[0]["TMP_DIR"],
+                    item["cdp_url"],
                 ).rglob("*.json")
             },
         }
@@ -337,7 +339,7 @@ for(const endpoint of JSON.parse(process.argv[2])) {
         assert all(owner.poll() is None for owner in owners)
         assert not list(
             (
-                Path(configs[0]["CHROME_USER_DATA_DIR"]).parent / ".browser" / "frames"
+                browser_live_dir(configs[0]["TMP_DIR"], browser["cdp_url"]) / "frames"
             ).glob("*.json"),
         )
         # Real UI plus real tab navigation and crash, with another browser alive.

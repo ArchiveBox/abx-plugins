@@ -53,7 +53,7 @@ def browser_view(request, settings, action):
         browser = next(
             (
                 item
-                for item in published_browsers()
+                for item in published_browsers(config)
                 if item["id"] == request.GET.get("id")
             ),
             None,
@@ -68,7 +68,8 @@ def browser_view(request, settings, action):
             )
         ):
             return HttpResponse("Browser or tab unavailable", status=404)
-        directory = Path(browser["directory"])
+        # Polled every 25ms below: local TMP_DIR live state, not archive storage.
+        directory = Path(browser["live_dir"])
 
         async def frames():
             # The launch owner shares one native subscription per selected tab.

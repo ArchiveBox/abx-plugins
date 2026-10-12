@@ -4794,7 +4794,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     startup = false;
     if (outputDir && (config.ABX_RUNTIME === "archivebox" || config.OPENCODE_ENABLED)) {
       // Optional observation must never turn a working capture into a failure.
-      void Promise.resolve().then(() => require("./browser_observer.js").observeBrowser(browser, outputDir))
+      void Promise.resolve().then(() => require("./browser_observer.js").observeBrowser(browser, config.TMP_DIR))
         .catch(error => console.error(`Browser observer unavailable: ${error.message}`));
     }
     return () => browser.disconnect();

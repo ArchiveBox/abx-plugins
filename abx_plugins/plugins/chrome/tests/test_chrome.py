@@ -1239,6 +1239,84 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_browser_observer_keeps_live_state_in_tmp_dir_not_crawl_dir(httpserver):
+    """ArchiveBox's browser observer rewrites tabs.json on every title, focus
+    and navigation event, and frame mailboxes up to 10x/second per viewed tab.
+    Archive dirs may be slow remote storage (e.g. rclone FUSE with symlinks
+    stored as files), where every rewrite costs FUSE lookups/creates/renames,
+    so this live state must live under local TMP_DIR, not the crawl dir."""
+    httpserver.expect_request("/clock").respond_with_data(
+        "<title>t0</title><body><h1 id='clock'></h1><script>let n=0;"
+        "setInterval(()=>{document.title='t'+(++n);"
+        "clock.textContent=Date.now()},50)</script></body>",
+        content_type="text/html",
+    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_dir = Path(tmpdir).resolve() / "runtime-tmp"
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id="observer-crawl",
+            snapshot_id="observer-snap",
+            test_url=httpserver.url_for("/clock"),
+            env_overrides={"ABX_RUNTIME": "archivebox", "TMP_DIR": str(tmp_dir)},
+        ) as (_launch, _pid, snapshot_chrome_dir, _env):
+            crawl_chrome_dir = (
+                Path(tmpdir).resolve() / "crawl" / "observer-crawl" / "chrome"
+            )
+            cdp_url = (crawl_chrome_dir / "cdp_url.txt").read_text().strip()
+            target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
+            live_dir = (
+                tmp_dir
+                / "chrome_browser"
+                / hashlib.sha256(cdp_url.encode()).hexdigest()
+            )
+
+            deadline = time.monotonic() + 15
+            state: dict = {}
+            tab = None
+            while time.monotonic() < deadline and tab is None:
+                try:
+                    state = json.loads((live_dir / "tabs.json").read_text())
+                    tab = next(
+                        (
+                            item
+                            for item in state["tabs"]
+                            if item["target_id"] == target_id
+                            and item["url"].endswith("/clock")
+                        ),
+                        None,
+                    )
+                except (OSError, ValueError):
+                    pass
+                time.sleep(0.1)
+            assert tab is not None, sorted(map(str, tmp_dir.rglob("*")))
+            assert state["cdp_url"] == cdp_url and state["connected"] is True
+            assert is_pid_alive(state["owner_pid"])
+            assert tab["available"] is True and tab["title"].startswith("t")
+
+            # Viewer demand and the frame mailbox use the same local live dir.
+            viewer = live_dir / "viewers" / "test-viewer.json"
+            viewer.write_text(json.dumps({"cdp_url": cdp_url, "target_id": target_id}))
+            frame_path = live_dir / "frames" / f"{target_id}.json"
+            deadline = time.monotonic() + 15
+            frame = None
+            while time.monotonic() < deadline and frame is None:
+                try:
+                    frame = json.loads(frame_path.read_text())
+                except (OSError, ValueError):
+                    time.sleep(0.05)
+            assert frame is not None and frame["type"] == "frame"
+            assert frame["document_id"] == tab["document_id"] and frame["data"]
+            viewer.unlink()
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline and frame_path.exists():
+                time.sleep(0.05)
+            assert not frame_path.exists()
+
+            for name in ("tabs.json", "viewers", "frames"):
+                assert not (crawl_chrome_dir / name).exists(), name
+
+
 def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
     """chrome_tab should emit one succeeded ArchiveResult and remain alive after startup."""
     with tempfile.TemporaryDirectory() as tmpdir:
