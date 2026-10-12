@@ -23,7 +23,6 @@ let deadlineExceeded = false;
 let cleanupPromise;
 let terminalRecordEmitted = false;
 let memoryMonitor, verifierMonitor, resourceFailure;
-const STREAM_CAPACITY_ISSUE = "https://github.com/tlsnotary/tlsn/issues/new";
 const GIB = 1024 ** 3;
 const PROOF_START_HEADROOM = 2 * GIB;
 const PROOF_STOP_HEADROOM = GIB / 2;
@@ -33,8 +32,8 @@ function requireProofMemory(minimum, phase) {
   try {
     available = memoryHeadroomBytes();
   } catch (error) {
-    resourceFailure = "TLSNotary stopped because available memory could not be measured.";
-    throw new Error(resourceFailure, { cause: error });
+    // A broken resource monitor is not evidence of an expected capacity limit.
+    throw new Error("TLSNotary stopped because available memory could not be measured.", { cause: error });
   }
   if (available < minimum) {
     const amounts = `${(available / GIB).toFixed(2)} GiB available, ${(minimum / GIB).toFixed(2)} GiB required.`;
@@ -51,22 +50,30 @@ async function checkVerifierAdmission(verifierUrl) {
       signal: AbortSignal.timeout(3000),
     });
   } catch (error) {
-    // Preserve the existing WebSocket path for old verifiers and temporary
-    // network errors; only an explicit admission response is authoritative.
+    if (error.name === "TimeoutError" ||
+      ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT"].includes(error.cause?.code)) {
+      resourceFailure = `TLSNotary verifier is unavailable (${error.cause?.code || "admission request timed out"}); no proof was created.`;
+      throw new Error(resourceFailure, { cause: error });
+    }
+    // Other fetch failures may reflect an unsupported HTTP preflight. Preserve
+    // the WebSocket path so legacy verifiers report their actual proof outcome.
     console.error(`[tlsnotary] verifier admission check unavailable: ${error.message}`);
     return;
   }
-  if (response.status !== 503) return;
+  // An explicit service refusal before MPC starts is an absent optional proof,
+  // not a failed archived response. Older verifiers may not expose this route.
+  if (![429, 502, 503, 504].includes(response.status)) return;
+  resourceFailure = `TLSNotary verifier is unavailable (HTTP ${response.status}); no proof was created.`;
   let failure;
   try {
     failure = await response.json();
   } catch {
-    return;
+    throw new Error(resourceFailure);
   }
   if (typeof failure.error === "string") {
     resourceFailure = failure.error.slice(0, 240);
-    throw new Error(resourceFailure);
   }
+  throw new Error(resourceFailure);
 }
 
 function emitTerminalArchiveResult(status, outputStr) {
@@ -78,9 +85,7 @@ function captureFailureMessage(error) {
   if (resourceFailure) return resourceFailure;
   const message = String(error.message || error);
   if (/maximum number of streams reached|TooManyStreams/i.test(message))
-    return `TLSNotary couldn’t verify this response: generating its proof required more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
-  if (/proving failed during zk execution[\s\S]*connection is closed/i.test(message))
-    return `The TLSNotary proof connection closed; this can happen when the proof needs more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
+    return "TLSNotary cannot authenticate this response within the verifier's simultaneous-task limit; no proof was created.";
   return "TLSNotary extension capture failed; see hook log";
 }
 async function windowIdFor(target) {
@@ -302,7 +307,12 @@ async function capture() {
       });
       if (response.status === 503) {
         const failure = await response.json();
-        if (typeof failure.error === "string") {
+        // Only documented service/resource failures qualify as absence. An
+        // unrecognized proof error must still fail rather than hide corruption.
+        if ([
+          "TLSNotary verifier stopped this proof because its server is low on memory.",
+          "TLSNotary could not connect to the verifier.",
+        ].includes(failure.error)) {
           resourceFailure = failure.error.slice(0, 240);
           stopped = true;
           await cleanup();
@@ -495,13 +505,16 @@ async function capture() {
   try {
     await capture();
   } catch (error) {
-    console.error(`[tlsnotary] ${error.message}`);
+    const expectedAbsence = Boolean(resourceFailure) ||
+      /maximum number of streams reached|TooManyStreams/i.test(String(error.message || error));
+    const message = captureFailureMessage(error);
+    console.error(`[tlsnotary] ${expectedAbsence ? "WARNING: " + message : error.message}`);
     if (!deadlineExceeded)
       emitTerminalArchiveResult(
-        "failed",
-        captureFailureMessage(error)
+        expectedAbsence ? "noresults" : "failed",
+        message
       );
-    process.exitCode = 1;
+    process.exitCode = expectedAbsence ? 0 : 1;
   } finally {
     clearTimeout(timer);
     if (memoryMonitor) clearInterval(memoryMonitor);
