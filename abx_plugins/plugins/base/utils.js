@@ -119,6 +119,16 @@ function parseConfigValue(rawValue, prop = {}) {
     return parseArrayValue(trimmed, defaultValue || []);
   }
 
+  if (schemaType === "object") {
+    // Environment values are strings; CDP options (e.g. persona geolocation and
+    // client hints) must reach hooks as objects, just like Python config does.
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Expected a JSON object for object config");
+    }
+    return parsed;
+  }
+
   return trimmed;
 }
 

@@ -4653,6 +4653,34 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   const root = await browserTarget.createCDPSession();
   const version = await root.send("Browser.getVersion");
   const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product);
+  const overrideIdentity = userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM;
+  let userAgentMetadata = config.BROWSER_USER_AGENT_METADATA;
+  if (overrideIdentity && !Object.keys(userAgentMetadata || {}).length) {
+    // CDP clears *all* UA hints when only UA/language/platform are overridden.
+    // Older personas have no exported hints: preserve Chrome's real metadata,
+    // read from a local secure page (about:blank has no userAgentData), rather
+    // than inventing OS/CPU values from the reduced UA string. No network I/O.
+    const page = await browser.newPage();
+    try {
+      await page.goto("chrome://version");
+      userAgentMetadata = await page.evaluate(() => navigator.userAgentData.getHighEntropyValues([
+        "architecture", "bitness", "fullVersionList", "model", "platformVersion", "wow64", "formFactors",
+      ]));
+    } finally { await page.close(); }
+  }
+  if (overrideIdentity) {
+    // UA versions already follow the installed Chromium. Keep the corresponding
+    // brand hints in step while retaining the persona's actual OS/CPU metadata
+    // and Chromium's GREASE brand entries.
+    const fullVersion = parseChromiumVersion(version.product).join(".");
+    userAgentMetadata = { ...userAgentMetadata };
+    for (const key of ["brands", "fullVersionList"]) {
+      if (userAgentMetadata[key]) userAgentMetadata[key] = userAgentMetadata[key].map(entry =>
+        /Chrom|Brave|Edge/i.test(entry.brand)
+          ? { ...entry, version: key === "brands" ? fullVersion.split(".")[0] : fullVersion }
+          : entry);
+    }
+  }
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
   const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
   // Import persistent storage once, before publishing readiness. All clients
@@ -4675,11 +4703,10 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     await session.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: Number(config.BROWSER_DEVICE_SCALE_FACTOR || 1), mobile: false,
     });
-    // Even overriding the UA with its existing value clears native client hints.
-    // Leave the browser identity untouched unless this persona requests a change.
-    if (userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM) {
+    if (overrideIdentity) {
       await session.send("Emulation.setUserAgentOverride", {
         userAgent: userAgent || version.userAgent,
+        userAgentMetadata,
         ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
         ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
       });
@@ -4734,13 +4761,12 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     const work = (async () => {
       try {
         await hydrate(session);
+        if (!session.detached) await session.send("Runtime.runIfWaitingForDebugger");
       } catch (error) {
         failure = error;
         // Never allow a newly opened target to run with only half its persona.
         await root.send("Target.closeTarget", { targetId: targetInfo.targetId });
         if (!startup) console.error(`Persona hydration failed: ${error.message}`);
-      } finally {
-        if (!session.detached) await session.send("Runtime.runIfWaitingForDebugger");
       }
     })();
     pending.add(work);
@@ -4874,6 +4900,9 @@ async function ensureChromeSession(options = {}) {
       binary: resolvedBinary,
       outputDir,
       ...chromeLaunchOptions,
+      // Hydration applies UA + metadata together before capture tabs run. The
+      // command-line UA flag discards high-entropy hints before we can read them.
+      CHROME_USER_AGENT: personaConfig ? "" : chromeLaunchOptions.CHROME_USER_AGENT,
       CHROME_USER_DATA_DIR: userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(eagerExtensions),

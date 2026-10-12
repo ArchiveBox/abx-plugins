@@ -342,6 +342,11 @@
       },
       "default": [],
       "description": "CDP Browser.PermissionType grants for the persona browser context"
+    },
+    "BROWSER_USER_AGENT_METADATA": {
+      "type": "object",
+      "default": {},
+      "description": "Persona navigator.userAgentData metadata captured by the browser extension (UA client hints). Empty preserves the capture browser metadata."
     }
   },
   "category": "page_setup",

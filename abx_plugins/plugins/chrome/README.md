@@ -467,6 +467,12 @@ user agent/platform, color scheme, and optional geolocation/permissions before
 scripts execute in new CDP tabs. A retained owner connection keeps those CDP
 settings active for Browser Harness, Stagehand, and other attached clients.
 
+`BROWSER_USER_AGENT_METADATA` carries the extension’s captured UA client hints
+with its user agent. Detect Settings and Sync now refresh older exported personas.
+Without exported hints, hydration preserves the capture browser’s native hints;
+it cannot recover source OS/CPU details that were never exported. Browser version
+hints follow the installed Chromium alongside the existing UA version update.
+
 Portable `auth.json` origins carry localStorage and Dexie IndexedDB exports with
 native store/index schemas; tab entries carry sessionStorage. Hydration imports
 persistent storage once per browser/artifact revision, and sessionStorage once
