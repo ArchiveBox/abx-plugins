@@ -1,0 +1,21 @@
+abx_plugins/plugins/base/utils.py
+  s_2b44ee96cc775e::t_c4b2ef98182bbf 295-336,340,344,347-350,355-374,378-390,401,410,455-458,460-465,806-813,818-822,826-837,839-853,860
+tests/test_runtime_path_isolation.py
+  s_2b44ee96cc775e::t_d35038d05d0f9b 142-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbc4abb643f45fff1f20e4757e83eb39ea532816",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
