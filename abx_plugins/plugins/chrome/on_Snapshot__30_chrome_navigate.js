@@ -29,7 +29,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
+const { connectToPage, readBrowserMetadata, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "chrome_navigate";
@@ -56,6 +56,30 @@ function getWaitCondition() {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Cloudflare Turnstile interstitials answer the real URL with a challenge page
+// that reloads into the site once the browser passes. Later extractors must see
+// the site, not the interstitial, so give it a fixed window to clear. Past
+// that, keep the challenge page as this snapshot's (visible) result.
+const CHALLENGE_WAIT_MS = 90000;
+
+function isChallengeResponse(response) {
+  return response?.headers["cf-mitigated"] === "challenge";
+}
+
+async function waitForChallenge(page, getMainResponse, deadline, waitUntil) {
+  // The cleared reload is a new document; let it load as far as goto() would.
+  const readyStates = waitUntil === "domcontentloaded" ? ["interactive", "complete"] : ["complete"];
+  while (Date.now() < deadline) {
+    await sleep(1000);
+    if (isChallengeResponse(getMainResponse())) continue;
+    const ready = await page
+      .evaluate((states) => states.includes(document.readyState) && !window._cf_chl_opt, readyStates)
+      .catch(() => false);
+    if (ready) return true;
+  }
+  return false;
 }
 
 async function navigate(url) {
@@ -89,8 +113,14 @@ async function navigate(url) {
     browser = conn.browser;
     const page = conn.page;
     const network = await page.createCDPSession();
+    // Chrome takes navigator.platform for each new document from the newest
+    // DevTools session, which is this one: carry the persona identity that
+    // hydration applies to every other session (UA, client hints, platform).
+    const userAgentOverride = readBrowserMetadata(CHROME_SESSION_DIR)?.userAgentOverride;
+    if (userAgentOverride) await network.send("Emulation.setUserAgentOverride", userAgentOverride);
     const { frameTree } = await network.send("Page.getFrameTree");
     let mainRequestId = null;
+    let mainResponse = null;
     const earlyResponses = new Map();
     const rememberResponse = (requestId, status, headers, mimeType = null) => {
       if (status < 200 || status >= 300) return;
@@ -109,8 +139,17 @@ async function navigate(url) {
       observedResponse = earlyResponses.get(mainRequestId) || null;
       earlyResponses.clear();
     });
-    network.on("Network.responseReceived", ({ requestId, response }) => {
+    network.on("Network.responseReceived", ({ requestId, type, frameId, response }) => {
       rememberResponse(requestId, response.status, response.headers, response.mimeType);
+      if (type === "Document" && frameId === frameTree.frame.id) {
+        mainResponse = {
+          status: response.status,
+          url: response.url,
+          headers: Object.fromEntries(
+            Object.entries(response.headers || {}).map(([name, value]) => [name.toLowerCase(), value])
+          ),
+        };
+      }
     });
     // Downloads abort page navigation and may never become Puppeteer Response
     // objects. ExtraInfo still carries their actual HTTP status and headers.
@@ -137,6 +176,18 @@ async function navigate(url) {
       `Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`
     );
     const response = await page.goto(url, { waitUntil, timeout });
+    let challenge = null;
+    if (isChallengeResponse(mainResponse)) {
+      const deadline = Math.min(
+        Date.now() + CHALLENGE_WAIT_MS,
+        navStartTime + hookBudget - 5000
+      );
+      console.log(`Waiting up to ${Math.max(0, deadline - Date.now())}ms for Cloudflare challenge to clear...`);
+      challenge = (await waitForChallenge(page, () => mainResponse, deadline, waitUntil))
+        ? "cleared"
+        : "unsolved";
+      console.log(`Cloudflare challenge ${challenge} after ${Date.now() - navStartTime}ms`);
+    }
 
     // Optional delay
     if (delayAfterLoad > 0) {
@@ -145,7 +196,9 @@ async function navigate(url) {
     }
 
     const finalUrl = page.url();
-    const status = response ? response.status() : null;
+    const status = challenge === "cleared"
+      ? mainResponse.status
+      : response ? response.status() : null;
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
     const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));
@@ -166,6 +219,7 @@ async function navigate(url) {
       finalUrl,
       status,
       content_type: contentType,
+      ...(challenge ? { challenge } : {}),
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(
@@ -175,7 +229,7 @@ async function navigate(url) {
 
     browser.disconnect();
 
-    return { success: true, finalUrl, status, waitUntil, elapsed };
+    return { success: true, finalUrl, status, waitUntil, elapsed, challenge };
   } catch (e) {
     if (browser) browser.disconnect();
     const elapsed = Date.now() - navStartTime;
@@ -211,6 +265,7 @@ async function main() {
     output = result.status
       ? `page loaded http=${result.status}`
       : "page loaded";
+    if (result.challenge === "unsolved") output += " (Cloudflare challenge unsolved)";
     console.log(
       `Page loaded: ${result.finalUrl} (HTTP ${result.status}) in ${result.elapsed}ms (waitUntil: ${result.waitUntil})`
     );

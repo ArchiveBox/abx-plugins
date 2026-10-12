@@ -70,6 +70,21 @@ function configuredChromeUserAgent(userAgent, version = "") {
   return replaceChromeUserAgentVersion(userAgent, version);
 }
 
+// OS named by a UA string, as Chrome reports it in client hints and
+// navigator.platform. Order matters: Android and ChromeOS UAs also say Linux.
+const USER_AGENT_PLATFORMS = [
+  [/Android/, "Android", "Linux armv81"],
+  [/CrOS/, "Chrome OS", "Linux x86_64"],
+  [/Windows/, "Windows", "Win32"],
+  [/Mac OS X|Macintosh/, "macOS", "MacIntel"],
+  [/Linux|X11/, "Linux", "Linux x86_64"],
+];
+
+function userAgentPlatform(userAgent) {
+  const match = USER_AGENT_PLATFORMS.find(([pattern]) => pattern.test(userAgent || ""));
+  return match ? { platform: match[1], navigatorPlatform: match[2] } : null;
+}
+
 function getOption(options, key, fallback) {
   return Object.prototype.hasOwnProperty.call(options, key) &&
     options[key] !== undefined
@@ -2077,19 +2092,21 @@ function readBrowserMetadata(chromeSessionDir) {
     return {
       ready: parsed.ready === true,
       extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [],
+      ...(parsed.userAgentOverride ? { userAgentOverride: parsed.userAgentOverride } : {}),
     };
   } catch (e) {
     return null;
   }
 }
 
-function writeBrowserMetadata(chromeSessionDir, extensions = []) {
+function writeBrowserMetadata(chromeSessionDir, extensions = [], userAgentOverride = null) {
   writeFileAtomic(
     path.join(path.resolve(chromeSessionDir), "browser.json"),
     JSON.stringify(
       {
         ready: true,
         extensions: Array.isArray(extensions) ? extensions : [],
+        ...(userAgentOverride ? { userAgentOverride } : {}),
       },
       null,
       2
@@ -4652,8 +4669,10 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   if (!browserTarget) throw new Error("Chrome connection's browser target is unavailable");
   const root = await browserTarget.createCDPSession();
   const version = await root.send("Browser.getVersion");
-  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product);
-  const overrideIdentity = userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM;
+  // Headless Chromium announces itself in its default UA (not in its hints).
+  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product)
+    || version.userAgent.replace("HeadlessChrome/", "Chrome/");
+  const overrideIdentity = userAgent !== version.userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM;
   let userAgentMetadata = config.BROWSER_USER_AGENT_METADATA;
   if (overrideIdentity && !Object.keys(userAgentMetadata || {}).length) {
     // CDP clears *all* UA hints when only UA/language/platform are overridden.
@@ -4668,6 +4687,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
       ]));
     } finally { await page.close(); }
   }
+  let navigatorPlatform = config.BROWSER_PLATFORM || "";
   if (overrideIdentity) {
     // UA versions already follow the installed Chromium. Keep the corresponding
     // brand hints in step while retaining the persona's actual OS/CPU metadata
@@ -4680,7 +4700,26 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
           ? { ...entry, version: key === "brands" ? fullVersion.split(".")[0] : fullVersion }
           : entry);
     }
+    // Hints and navigator.platform must never contradict the UA they ship
+    // with; bot checks compare them. When the UA names another OS than the
+    // metadata (e.g. a persona UA without exported hints, replayed on this
+    // host), follow the UA and leave its unknown OS version empty.
+    const claimed = userAgentPlatform(userAgent);
+    if (claimed && claimed.platform !== userAgentMetadata.platform) {
+      userAgentMetadata.platform = claimed.platform;
+      userAgentMetadata.platformVersion = "";
+      userAgentMetadata.mobile = claimed.platform === "Android" && /Mobile/.test(userAgent);
+    }
+    if (claimed && !navigatorPlatform && userAgentPlatform(version.userAgent)?.platform !== claimed.platform) {
+      navigatorPlatform = claimed.navigatorPlatform;
+    }
   }
+  const userAgentOverride = overrideIdentity ? {
+    userAgent,
+    userAgentMetadata,
+    ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
+    ...(navigatorPlatform ? { platform: navigatorPlatform } : {}),
+  } : null;
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
   const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
   // Import persistent storage once, before publishing readiness. All clients
@@ -4703,14 +4742,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     await session.send("Emulation.setDeviceMetricsOverride", {
       width, height, deviceScaleFactor: Number(config.BROWSER_DEVICE_SCALE_FACTOR || 1), mobile: false,
     });
-    if (overrideIdentity) {
-      await session.send("Emulation.setUserAgentOverride", {
-        userAgent: userAgent || version.userAgent,
-        userAgentMetadata,
-        ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
-        ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
-      });
-    }
+    if (userAgentOverride) await session.send("Emulation.setUserAgentOverride", userAgentOverride);
     // Blink holds locale and timezone overrides per renderer process, owned by
     // the first DevTools session that set them. Targets sharing a process (all
     // pages of one extension, same-site popups) get "already in effect" for
@@ -4797,7 +4829,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
       void Promise.resolve().then(() => require("./browser_observer.js").observeBrowser(browser, outputDir, config.TMP_DIR))
         .catch(error => console.error(`Browser observer unavailable: ${error.message}`));
     }
-    return () => browser.disconnect();
+    return { stop: () => browser.disconnect(), userAgentOverride };
   } catch (error) {
     await browser.disconnect();
     throw error;
@@ -5025,14 +5057,15 @@ async function ensureChromeSession(options = {}) {
     });
   }
 
-  const stopPersonaHydration = personaConfig
+  const personaHydration = personaConfig
     ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir })
     : null;
   importState.save();
-  writeBrowserMetadata(outputDir, installedExtensions);
+  // Snapshot hooks inherit browser.json; navigation re-applies this identity.
+  writeBrowserMetadata(outputDir, installedExtensions, personaHydration?.userAgentOverride);
 
     return {
-      stopPersonaHydration,
+      stopPersonaHydration: personaHydration?.stop || null,
       cdpUrl: resolvedCdpUrl,
       pid: resolvedPid,
       port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
