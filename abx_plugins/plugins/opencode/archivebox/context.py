@@ -88,7 +88,12 @@ def server_context(*, crawl_id=None, limit=20):
             }
             for p in Persona.objects.only("name").order_by("name")[:limit]
         ],
-        "browsers": browser_inventory(config.model_dump(mode="json")),
+        # An explicit agent read, not the panel poll: include each snapshot's
+        # capture tab ID like `browser --list` does.
+        "browsers": browser_inventory(
+            config.model_dump(mode="json"),
+            snapshot_targets=True,
+        ),
         "selected_browser": selected_browser,
         "performance": performance,
         "only_new": config.ONLY_NEW,
