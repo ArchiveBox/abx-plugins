@@ -137,51 +137,49 @@ async function expandDetails(page, options = {}) {
 
       const inactive = new WeakSet();
 
-      // Find all "load more" type buttons/links
-      const getLoadMoreLinks = () => {
-        const textControls = [
-          ...document.querySelectorAll('a, button, [role="button"]'),
-        ].filter((element) => {
-          const label = (element.textContent || "")
-            .trim()
-            .replace(/\s+/g, " ")
-            .toLowerCase();
-          return (
-            label === "show replies" ||
-            label.includes("show more") ||
-            label.includes("load more")
-          );
-        });
-        return [
-          ...new Set([
-            ...document.querySelectorAll("faceplate-partial[loading=action]"),
-            ...document.querySelectorAll(
-              'a[onclick^="return morechildren"], a[onclick^="return togglecomment"]',
-            ),
-            ...document.querySelectorAll("a.morelink"),
-            ...textControls,
-          ]),
-        ].filter((element) => {
-          if (
-            inactive.has(element) ||
-            element.slot === "children" ||
-            element.disabled ||
-            !element.getClientRects().length
-          )
+      // Select expansion actions from their current state, not an ambiguous
+      // toggle handler. A disclosure that is already open must stay open.
+      const canExpand = (element) => {
+        const label = (element.textContent || "")
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase();
+        const expansionAction =
+          element.matches(
+            'faceplate-partial[loading=action], a[onclick^="return morechildren"], a.morelink',
+          ) ||
+          label === "show replies" ||
+          label.includes("show more") ||
+          label.includes("load more") ||
+          /^\[\s*\+\s*\]$/.test(label);
+        if (
+          !expansionAction ||
+          inactive.has(element) ||
+          element.getAttribute("aria-expanded") === "true" ||
+          (element.matches("summary") && element.parentElement?.open) ||
+          element.slot === "children" ||
+          element.disabled ||
+          !element.getClientRects().length
+        )
+          return false;
+        // "Show more" can be a navigation link (e.g. X's recommended
+        // people sidebar), not an expansion control. Never leave the
+        // captured document to expand content, including nested controls.
+        const anchor = element.closest("a[href]");
+        if (anchor) {
+          const href = anchor.getAttribute("href").trim();
+          if (href && !href.startsWith("#") && !/^javascript:/i.test(href)) {
             return false;
-          // "Show more" can be a navigation link (e.g. X's recommended
-          // people sidebar), not an expansion control. Never leave the
-          // captured document to expand content, including nested controls.
-          const anchor = element.closest("a[href]");
-          if (anchor) {
-            const href = anchor.getAttribute("href").trim();
-            if (href && !href.startsWith("#") && !/^javascript:/i.test(href)) {
-              return false;
-            }
           }
-          return true;
-        });
+        }
+        return true;
       };
+      const getLoadMoreLinks = () =>
+        [
+          ...document.querySelectorAll(
+            'faceplate-partial[loading=action], a, button, [role="button"]',
+          ),
+        ].filter(canExpand);
 
       let expanded = 0;
       let loadMoreLinks = getLoadMoreLinks();
@@ -189,7 +187,8 @@ async function expandDetails(page, options = {}) {
 
       while (loadMoreLinks.length > 0) {
         for (const link of loadMoreLinks) {
-          if (!link.isConnected) continue;
+          // An earlier click can change another control in this same batch.
+          if (!link.isConnected || !canExpand(link)) continue;
 
           try {
             const before = document.body.innerText;

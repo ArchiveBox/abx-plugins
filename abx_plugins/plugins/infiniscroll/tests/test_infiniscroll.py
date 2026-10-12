@@ -11,6 +11,7 @@ Tests verify:
 7. Config options work (scroll limit, min height)
 """
 
+import gzip
 import json
 import re
 import subprocess
@@ -187,7 +188,7 @@ def test_expansion_keeps_new_content_without_repeating_inert_buttons(
         """
       <button onclick="document.body.dataset.inertClicks = Number(document.body.dataset.inertClicks || 0) + 1">Show replies</button>
       <button onclick="this.insertAdjacentHTML('beforebegin', '<p>Expanded real comment</p>'); this.remove()">Load more</button>
-      <details><summary>Details</summary>Expanded details text</details>
+      <details><summary role="button">Show more</summary>Expanded details text</details>
       <main id="feed">""",
     )
     httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
@@ -219,6 +220,124 @@ def test_expansion_keeps_new_content_without_repeating_inert_buttons(
         assert "<p>Expanded real comment</p>" in saved
         assert '<details open="">' in saved
         assert 'data-inert-clicks="2"' in saved
+
+
+def test_expansion_rechecks_aria_state_for_controls_sharing_a_native_popover(
+    httpserver,
+    tmp_path,
+):
+    html = """<!doctype html><html><body>
+      <button popovertarget="replies" aria-expanded="false">Show more</button>
+      <button popovertarget="replies" aria-expanded="false">Show replies</button>
+      <div id="replies" popover="manual">Visible replies after expansion</div>
+      <script>
+        const replies = document.getElementById('replies');
+        replies.addEventListener('toggle', event => {
+          replies.dataset.state = event.newState;
+          document.querySelectorAll('button').forEach(button => {
+            button.setAttribute('aria-expanded', String(event.newState === 'open'));
+          });
+        });
+        document.addEventListener('click', event => {
+          if (event.target.matches('button')) {
+            document.body.dataset.clicks = Number(document.body.dataset.clicks || 0) + 1;
+          }
+        }, true);
+      </script></body></html>"""
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+    ) as (_, _, chrome_dir, env):
+        env.update(
+            {"INFINISCROLL_SCROLL_LIMIT": "1", "INFINISCROLL_SCROLL_DELAY": "500"},
+        )
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        saved = save_dom(chrome_dir, env, url)
+        assert '<body data-clicks="1">' in saved
+        assert 'id="replies" popover="manual" data-state="open"' in saved
+        assert saved.count('aria-expanded="true"') == 2
+        assert 'Clicked 1 "load more" buttons' in result.stderr
+
+
+def test_comment_toggles_expand_without_collapsing_visible_replies(
+    httpserver,
+    tmp_path,
+):
+    """Run Reddit's real client handler, including two controls for one comment."""
+    native_js = gzip.decompress(
+        (Path(__file__).parent / "fixtures" / "reddit-init.js.gz").read_bytes(),
+    )
+    httpserver.expect_request("/reddit-init.js").respond_with_data(
+        native_js,
+        content_type="application/javascript",
+    )
+    controls = (
+        '<a class="expand" href="javascript:void(0)" onclick="return togglecomment(this)">[+]</a>'
+        '<a class="numchildren" href="javascript:void(0)" onclick="return togglecomment(this)">(1 child)</a>'
+    )
+    html = f"""<!doctype html><html><head>
+      <style>.collapsed > .entry > .usertext, .collapsed > .child {{display:none}}</style>
+      <script src="/reddit-init.js"></script></head><body>
+      <div id="visible" class="thing comment noncollapsed"><div class="entry">
+        {controls.replace("[+]", "[–]")}<div class="usertext">Already visible comment</div></div></div>
+      <div id="hidden" class="thing comment collapsed"><div class="entry">
+        {controls}<div class="usertext">Initially hidden comment</div></div>
+        <div class="child"><div id="nested" class="thing comment noncollapsed"><div class="entry">
+          {controls.replace("[+]", "[–]")}<div class="usertext">Nested visible reply</div></div></div></div>
+      </div>
+      <script>
+        document.addEventListener('click', event => {{
+          const control = event.target.closest('a[onclick]');
+          if (!control) return;
+          const comment = control.closest('.thing');
+          comment.dataset.clicks = Number(comment.dataset.clicks || 0) + 1;
+        }}, true);
+      </script></body></html>"""
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+    ) as (_, _, chrome_dir, env):
+        env.update(
+            {"INFINISCROLL_SCROLL_LIMIT": "1", "INFINISCROLL_SCROLL_DELAY": "500"},
+        )
+        started = time.monotonic()
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert time.monotonic() - started < 8, result.stderr
+        saved = save_dom(chrome_dir, env, url)
+        assert (
+            '<div id="hidden" class="thing comment noncollapsed" data-clicks="1">'
+            in saved
+        )
+        assert '<div id="visible" class="thing comment noncollapsed">' in saved
+        assert '<div id="nested" class="thing comment noncollapsed">' in saved
+        assert 'Clicked 1 "load more" buttons' in result.stderr
+        assert "Initially hidden comment" in saved
+        assert "Already visible comment" in saved
+        assert "Nested visible reply" in saved
 
 
 def test_hook_script_exists():
