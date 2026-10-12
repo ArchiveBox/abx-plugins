@@ -1,0 +1,24 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_2b44ee96cc775e::t_a0cd7a042a7700 4714-4723
+  s_2b44ee96cc775e::t_579ff2a1119b11 4724-4726
+abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js
+  s_2b44ee96cc775e::t_a0cd7a042a7700 377-382,384
+tests/test_archivewebpage_concurrent_collections.py
+  s_2b44ee96cc775e::t_a0cd7a042a7700 246,249-252,259,1835-1888
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "900556fdef19ae7fb119065f859d4602e470e9d5",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
