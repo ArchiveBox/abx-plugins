@@ -64,22 +64,25 @@ function sleep(ms) {
 // that, keep the challenge page as this snapshot's (visible) result.
 const CHALLENGE_WAIT_MS = 90000;
 
-function isChallengeResponse(response) {
-  return response?.headers["cf-mitigated"] === "challenge";
-}
-
-async function waitForChallenge(page, getMainResponse, deadline, waitUntil) {
-  // The cleared reload is a new document; let it load as far as goto() would.
+// Each poll asks the current main document for its own state over this hook's
+// raw CDP session. Tracking main-frame network events plus Puppeteer's frame
+// context missed a live Cloudflare clearance (a form POST back to the URL).
+async function waitForChallenge(session, deadline, waitUntil) {
+  // The cleared document must load as far as goto() would have waited.
   const readyStates = waitUntil === "domcontentloaded" ? ["interactive", "complete"] : ["complete"];
   while (Date.now() < deadline) {
     await sleep(1000);
-    if (isChallengeResponse(getMainResponse())) continue;
-    const ready = await page
-      .evaluate((states) => states.includes(document.readyState) && !window._cf_chl_opt, readyStates)
-      .catch(() => false);
-    if (ready) return true;
+    const state = await session.send("Runtime.evaluate", {
+      expression: `({
+        readyState: document.readyState,
+        challenge: Boolean(window._cf_chl_opt),
+        status: performance.getEntriesByType("navigation")[0]?.responseStatus || null,
+      })`,
+      returnByValue: true,
+    }).then(({ result }) => result.value, () => null);
+    if (state && !state.challenge && readyStates.includes(state.readyState)) return state;
   }
-  return false;
+  return null;
 }
 
 async function navigate(url) {
@@ -120,7 +123,6 @@ async function navigate(url) {
     if (userAgentOverride) await network.send("Emulation.setUserAgentOverride", userAgentOverride);
     const { frameTree } = await network.send("Page.getFrameTree");
     let mainRequestId = null;
-    let mainResponse = null;
     const earlyResponses = new Map();
     const rememberResponse = (requestId, status, headers, mimeType = null) => {
       if (status < 200 || status >= 300) return;
@@ -139,17 +141,8 @@ async function navigate(url) {
       observedResponse = earlyResponses.get(mainRequestId) || null;
       earlyResponses.clear();
     });
-    network.on("Network.responseReceived", ({ requestId, type, frameId, response }) => {
+    network.on("Network.responseReceived", ({ requestId, response }) => {
       rememberResponse(requestId, response.status, response.headers, response.mimeType);
-      if (type === "Document" && frameId === frameTree.frame.id) {
-        mainResponse = {
-          status: response.status,
-          url: response.url,
-          headers: Object.fromEntries(
-            Object.entries(response.headers || {}).map(([name, value]) => [name.toLowerCase(), value])
-          ),
-        };
-      }
     });
     // Downloads abort page navigation and may never become Puppeteer Response
     // objects. ExtraInfo still carries their actual HTTP status and headers.
@@ -177,15 +170,15 @@ async function navigate(url) {
     );
     const response = await page.goto(url, { waitUntil, timeout });
     let challenge = null;
-    if (isChallengeResponse(mainResponse)) {
+    let cleared = null;
+    if (response?.headers()["cf-mitigated"] === "challenge") {
       const deadline = Math.min(
         Date.now() + CHALLENGE_WAIT_MS,
         navStartTime + hookBudget - 5000
       );
       console.log(`Waiting up to ${Math.max(0, deadline - Date.now())}ms for Cloudflare challenge to clear...`);
-      challenge = (await waitForChallenge(page, () => mainResponse, deadline, waitUntil))
-        ? "cleared"
-        : "unsolved";
+      cleared = await waitForChallenge(network, deadline, waitUntil);
+      challenge = cleared ? "cleared" : "unsolved";
       console.log(`Cloudflare challenge ${challenge} after ${Date.now() - navStartTime}ms`);
     }
 
@@ -196,9 +189,7 @@ async function navigate(url) {
     }
 
     const finalUrl = page.url();
-    const status = challenge === "cleared"
-      ? mainResponse.status
-      : response ? response.status() : null;
+    const status = cleared?.status || (response ? response.status() : null);
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
     const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));

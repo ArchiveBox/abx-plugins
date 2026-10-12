@@ -11,25 +11,35 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
 )
 
-# Cloudflare's managed challenge answers the real URL with 403 + cf-mitigated,
-# runs its checks in the page, stores clearance in a cookie, and reloads.
+# Cloudflare's managed challenge answers the real URL with 403 + cf-mitigated
+# (isolated with COOP/COEP), runs its checks in the page, then either reloads
+# with a clearance cookie or submits the solution as a form POST to the URL.
 CHALLENGE_PAGE = """<!doctype html><title>Just a moment...</title>
+<form method="post"></form>
 <script>window._cf_chl_opt = {};
-setTimeout(() => { %s location.reload(); }, 2000);</script>"""
+setTimeout(() => { %s }, 2000);</script>"""
+CLEARANCE = {
+    "reload": 'document.cookie = "cf_clearance=passed; path=/"; location.reload();',
+    "post": "document.forms[0].submit();",
+    "unsolved": "location.reload();",
+}
 
 
-def challenge_site(passes: bool):
+def challenge_site(clearance: str):
     def handler(request):
-        if request.cookies.get("cf_clearance") == "passed":
+        if request.cookies.get("cf_clearance") == "passed" or request.method == "POST":
             return Response(
                 "<!doctype html><title>Real article</title><p>Article body</p>",
                 content_type="text/html",
             )
         return Response(
-            CHALLENGE_PAGE
-            % ('document.cookie = "cf_clearance=passed; path=/";' if passes else ""),
+            CHALLENGE_PAGE % CLEARANCE[clearance],
             status=403,
-            headers={"cf-mitigated": "challenge"},
+            headers={
+                "cf-mitigated": "challenge",
+                "Cross-Origin-Opener-Policy": "same-origin",
+                "Cross-Origin-Embedder-Policy": "require-corp",
+            },
             content_type="text/html",
         )
 
@@ -52,9 +62,10 @@ def navigate(url, chrome_dir, env):
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-def test_navigation_waits_for_cleared_challenge(tmp_path, httpserver):
+@pytest.mark.parametrize("clearance", ["reload", "post"])
+def test_navigation_waits_for_cleared_challenge(tmp_path, httpserver, clearance):
     httpserver.expect_request("/article").respond_with_handler(
-        challenge_site(passes=True),
+        challenge_site(clearance),
     )
     url = httpserver.url_for("/article")
     with chrome_session(tmp_path, test_url=url, navigate=False) as (
@@ -77,7 +88,7 @@ def test_navigation_waits_for_cleared_challenge(tmp_path, httpserver):
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 def test_unsolved_challenge_is_kept_without_failing(tmp_path, httpserver):
     httpserver.expect_request("/article").respond_with_handler(
-        challenge_site(passes=False),
+        challenge_site("unsolved"),
     )
     url = httpserver.url_for("/article")
     with chrome_session(tmp_path, test_url=url, navigate=False) as (
