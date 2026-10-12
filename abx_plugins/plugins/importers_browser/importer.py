@@ -57,10 +57,39 @@ def task_tab(env, run_dir):
             )
 
 
+def capture_failure(env, run_dir, attempt=0):
+    """Keep the failing viewport private before learning or tab cleanup changes it."""
+    path = run_dir / f"failure-{attempt}.png"
+    try:
+        subprocess.run(
+            ["browser-harness"],
+            input=f"capture_screenshot(path={str(path)!r})\n",
+            env=env,
+            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            check=True,
+        )
+        path.chmod(0o600)
+    except (OSError, subprocess.SubprocessError) as error:
+        # Evidence failure must not replace the actual importer failure.
+        try:
+            with (run_dir / "evidence.log").open("a") as log:
+                log.write(
+                    f"Attempt {attempt}: screenshot unavailable ({type(error).__name__}).\n",
+                )
+        except OSError:
+            pass  # The original failure still reaches the caller on a full disk.
+
+
 def replay(workspace, request, env, run_dir, attempt, deadline):
     script = workspace / "importer.py"
     if not script.is_file():
+        if attempt:
+            capture_failure(env, run_dir, attempt)
         return None, "No learned importer script exists yet."
+    succeeded = False
     try:
         process = subprocess.run(
             ["browser-harness"],
@@ -81,9 +110,13 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
             return None, str(result.get("message", "Discovery failed."))
         if result["status"] == "succeeded" and not result.get("account", {}).get("id"):
             raise ValueError("Identify the signed-in account before returning success.")
+        succeeded = result["status"] == "succeeded"
         return records, ""
     except (TypeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
         return None, f"{type(error).__name__}: {error}"
+    finally:
+        if not succeeded:
+            capture_failure(env, run_dir, attempt)
 
 
 def learn(binary, task, env, workspace, run_dir, error, attempt, deadline):
@@ -113,6 +146,9 @@ def learn(binary, task, env, workspace, run_dir, error, attempt, deadline):
         except subprocess.TimeoutExpired:
             # Replay whatever the agent saved before its budget expired.
             pass
+        except (OSError, RuntimeError, TimeoutError):
+            capture_failure(env, run_dir, attempt)
+            raise
         finally:
             _stop_owned_process(process)
 

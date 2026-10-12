@@ -13,6 +13,7 @@ from abxpkg import BinProvider
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 from abx_plugins.plugins.importers_browser.importer import task_tab
+from abx_plugins.plugins.importers_browser.importer import capture_failure
 
 PLUGIN = Path(__file__).parents[1]
 
@@ -97,6 +98,11 @@ print(json.dumps(js("window.agentHeap = 'still-live'; sessionStorage.setItem('ag
             assert str(harness_screenshot) in run_harness(
                 f"activate_tab(current_tab()); print(capture_screenshot(path={str(harness_screenshot)!r}))",
             )
+            capture_failure(env, tmp_path)
+            failure_screenshot = tmp_path / "failure-0.png"
+            assert failure_screenshot.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+            assert failure_screenshot.stat().st_mode & 0o777 == 0o600
+            assert "still-live" in run_harness("print(js('window.agentHeap'))")
             task = tmp_path / "stagehand.mts"
             task.write_text("""const {StagehandClient} = await import(process.env.ARCHIVEBOX_STAGEHAND_MODULE);
 const {writeFile} = await import('node:fs/promises');
