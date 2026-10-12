@@ -12,6 +12,7 @@ Tests verify:
 """
 
 import json
+import signal
 import struct
 import subprocess
 import tempfile
@@ -21,6 +22,7 @@ from pathlib import Path
 
 import pytest
 import psutil
+from pytest_httpserver import HTTPServer
 from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.testing import (
@@ -34,6 +36,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     close_target_and_wait_destroyed,
     get_test_env,
+    launch_snapshot_tab,
 )
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -366,6 +369,168 @@ const source = fs.readFileSync(process.argv[4]).toString("base64");
             assert pixel_result.returncode == 0, pixel_result.stderr
             pixels = json.loads(pixel_result.stdout)
             assert pixels["captured"] == pixels["expected"], pixels
+
+
+def test_concurrent_snapshot_stuck_loading_does_not_stall_screenshot():
+    """A crawl-shared browser must not let one stuck page starve another tab.
+
+    Snapshot B's page holds 8 requests to an asset host that never answer, so
+    its navigation never finishes. Snapshot A, a different tab of the same
+    crawl browser, then loads a page with a visible image from that host. Its
+    screenshot must finish while B is still stuck, not after B's navigation
+    timeout closes B's tab.
+    """
+    image_bytes = (
+        Path(__file__).parents[4] / "docs/assets/plugins/singlefile.png"
+    ).read_bytes()
+    release_hung_requests = threading.Event()
+    hung_requests = []
+    hung_requests_lock = threading.Lock()
+
+    def hung_response(request):
+        with hung_requests_lock:
+            hung_requests.append(request.path)
+        release_hung_requests.wait(timeout=120)
+        return Response("", status=204)
+
+    server = HTTPServer(host="127.0.0.1", threaded=True)
+    server.start()
+    try:
+        # Same server, different host name: pages and assets are separate
+        # connection groups, as with a site and its CDN.
+        page_origin = server.url_for("/").rstrip("/")
+        asset_origin = page_origin.replace("127.0.0.1", "localhost", 1)
+        server.expect_request("/hang").respond_with_handler(hung_response)
+        server.expect_request("/hang.js").respond_with_handler(hung_response)
+        server.expect_request("/pixel.png").respond_with_data(
+            image_bytes,
+            content_type="image/png",
+        )
+        server.expect_request("/stuck").respond_with_data(
+            f"""<!doctype html>
+<html><head><title>stuck</title></head><body>
+<script>
+  // Credentialed like the page's own images, so they share one socket group.
+  for (let i = 0; i < 8; i++) fetch("{asset_origin}/hang?n=" + i, {{mode: "no-cors", credentials: "include"}});
+</script>
+<script src="{page_origin}/hang.js"></script>
+</body></html>""",
+            content_type="text/html; charset=utf-8",
+        )
+        server.expect_request("/normal").respond_with_data(
+            f"""<!doctype html>
+<html><head><title>normal</title></head><body>
+<img src="{asset_origin}/pixel.png" width="128" height="128">
+</body></html>""",
+            content_type="text/html; charset=utf-8",
+        )
+        stuck_url = f"{page_origin}/stuck"
+        normal_url = f"{page_origin}/normal"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with chrome_session(
+                Path(tmpdir),
+                crawl_id="test-screenshot-concurrent-crawl",
+                snapshot_id="stuck-snapshot",
+                test_url=stuck_url,
+                navigate=False,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            ) as (_chrome_process, _chrome_pid, stuck_chrome_dir, env):
+                stuck_navigation = subprocess.Popen(
+                    [
+                        str(CHROME_NAVIGATE_HOOK),
+                        f"--url={stuck_url}",
+                        "--snapshot-id=stuck-snapshot",
+                    ],
+                    cwd=str(stuck_chrome_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env | {"CHROME_PAGELOAD_TIMEOUT": "90"},
+                )
+                normal_tab = None
+                try:
+                    # Chrome's default allows 6 connections per host, so B
+                    # alone can already occupy every socket to the asset host.
+                    deadline = time.monotonic() + 30
+                    while time.monotonic() < deadline:
+                        with hung_requests_lock:
+                            if hung_requests.count("/hang") >= 6:
+                                break
+                        time.sleep(0.1)
+                    with hung_requests_lock:
+                        assert hung_requests.count("/hang") >= 6, hung_requests
+
+                    normal_snap_dir = Path(tmpdir) / "snap" / "normal-snapshot"
+                    normal_chrome_dir = normal_snap_dir / "chrome"
+                    normal_chrome_dir.mkdir(parents=True)
+                    normal_env = env | {"SNAP_DIR": str(normal_snap_dir)}
+                    normal_tab = launch_snapshot_tab(
+                        snapshot_chrome_dir=normal_chrome_dir,
+                        tab_env=normal_env,
+                        test_url=normal_url,
+                        snapshot_id="normal-snapshot",
+                        crawl_id="test-screenshot-concurrent-crawl",
+                    )
+                    navigation = subprocess.run(
+                        [
+                            str(CHROME_NAVIGATE_HOOK),
+                            f"--url={normal_url}",
+                            "--snapshot-id=normal-snapshot",
+                        ],
+                        cwd=str(normal_chrome_dir),
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                        env=normal_env,
+                    )
+                    assert navigation.returncode == 0, navigation.stderr
+
+                    screenshot_dir = normal_snap_dir / "screenshot"
+                    screenshot_dir.mkdir()
+                    result = subprocess.run(
+                        [
+                            str(SCREENSHOT_HOOK),
+                            f"--url={normal_url}",
+                            "--snapshot-id=normal-snapshot",
+                        ],
+                        cwd=str(screenshot_dir),
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                        env=normal_env
+                        | {
+                            "SCREENSHOT_RESOLUTION": "800,600",
+                            "SCREENSHOT_TIMEOUT": "20",
+                        },
+                    )
+                    # The other snapshot must still be stuck: A finished on
+                    # its own, not because B's navigation gave up.
+                    assert stuck_navigation.poll() is None, stuck_navigation.stderr
+                    assert not (stuck_chrome_dir / "navigation.json").exists()
+                    assert result.returncode == 0, result.stderr
+                    result_json = parse_jsonl_output(result.stdout)
+                    assert result_json and result_json["status"] == "succeeded"
+                    screenshot = screenshot_dir / "screenshot.png"
+                    assert screenshot.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+                    assert any(
+                        request.path == "/pixel.png" for request, _ in server.log
+                    )
+                finally:
+                    release_hung_requests.set()
+                    if normal_tab is not None:
+                        normal_tab.send_signal(signal.SIGTERM)
+                        normal_tab.wait(timeout=10)
+                        for attr in ("_stdout_handle", "_stderr_handle"):
+                            handle = getattr(normal_tab, attr, None)
+                            if handle:
+                                handle.close()
+                    if stuck_navigation.poll() is None:
+                        stuck_navigation.terminate()
+                    stuck_navigation.communicate(timeout=30)
+    finally:
+        release_hung_requests.set()
+        server.stop()
 
 
 def test_skips_when_staticfile_exists(real_staticfile_output, local_staticfile_urls):

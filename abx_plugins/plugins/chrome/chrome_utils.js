@@ -929,6 +929,39 @@ async function launchChromium(options = {}) {
   // Dynamic args come after base so they can override if needed
   const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
 
+  // All tabs of one browser share Chrome's HTTP/1.1 connection pool, which
+  // allows only 6 connections per host. With CHROME_ISOLATION=crawl those tabs
+  // are concurrent snapshots: a page that never finishes loading can hold all
+  // 6 sockets to a host with requests that never complete, and every other
+  // snapshot's requests to that host (usually the same site or CDN) then queue
+  // until that tab closes. A concurrent screenshot waiting for its own visible
+  // images stalled for the stuck page's entire navigation timeout this way.
+  // Chrome has no per-tab pool, so give the shared one a per-host budget that
+  // leaves room beyond what one stuck page typically holds: 32, Chrome's own
+  // default cap on connections to a single proxy server, so a host never sees
+  // more than Chrome already sends one proxy. Only the HappyEyeballsV3 stream
+  // pool exposes that limit. A user setting for HappyEyeballsV3 takes precedence.
+  // Chrome honors only the last --enable-features switch, so merge them all.
+  const featureList = (flag) =>
+    chromiumArgs
+      .filter((arg) => arg.startsWith(`${flag}=`))
+      .flatMap((arg) => arg.slice(flag.length + 1).split(","))
+      .filter(Boolean);
+  const enabledFeatures = featureList("--enable-features");
+  if (
+    ![...enabledFeatures, ...featureList("--disable-features")].some(
+      (feature) => feature.split(":")[0] === "HappyEyeballsV3"
+    )
+  ) {
+    enabledFeatures.push("HappyEyeballsV3:max_stream_per_group/32");
+  }
+  for (let index = chromiumArgs.length - 1; index >= 0; index -= 1) {
+    if (chromiumArgs[index].startsWith("--enable-features=")) {
+      chromiumArgs.splice(index, 1);
+    }
+  }
+  chromiumArgs.push(`--enable-features=${[...new Set(enabledFeatures)].join(",")}`);
+
   // Ensure keychain prompts are disabled on macOS
   if (!chromiumArgs.includes("--use-mock-keychain")) {
     chromiumArgs.push("--use-mock-keychain");
