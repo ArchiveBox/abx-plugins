@@ -10,10 +10,12 @@ chromewebstore provider — that extension ships pre-built ``ui.js`` and
 from __future__ import annotations
 
 import json
+import base64
 import mimetypes
+import struct
 from email.utils import formatdate
 from html import escape as html_escape
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import zipfile
 from pathlib import Path
 
@@ -28,6 +30,7 @@ ReplayAssetResponse = tuple[bytes, str, dict[str, str]]
 # and ``ui.js`` are the static assets it boots from.
 _REPLAY_ASSETS = {
     "sw.js": "sw.js",
+    "sw-index.js": "sw.js",
     "ui.js": "ui.js",
 }
 
@@ -103,6 +106,8 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
         return None
 
     body = file_path.read_bytes()
+    if target == "sw.js":
+        body += b"\n" + (_PLUGIN_DIR / "replay_index.js").read_bytes()
     content_type = (
         "application/javascript; charset=utf-8"
         if file_path.suffix == ".js"
@@ -171,6 +176,57 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
     return first_url
 
 
+def _replay_index(wacz_path: Path) -> dict:
+    """Inline bounded ZIP headers and indexes, never archived response bytes.
+
+    Wabac normally fetches these small ranges sequentially over the network.
+    Supplying the exact compressed index bytes with the viewer preserves its
+    ZIP parser/hash verification and leaves WARC response reads on demand.
+    """
+    limit = 512 * 1024
+    try:
+        before = wacz_path.stat()
+        ranges = []
+        with zipfile.ZipFile(wacz_path) as archive, wacz_path.open("rb") as source:
+            for entry in archive.infolist():
+                source.seek(entry.header_offset)
+                header = source.read(30)
+                if len(header) != 30 or header[:4] != b"PK\x03\x04":
+                    return {}
+                name_size, extra_size = struct.unpack_from("<HH", header, 26)
+                length = 30 + name_size + extra_size
+                is_index = entry.filename in {
+                    "datapackage.json",
+                    "datapackage-digest.json",
+                } or entry.filename.startswith(("pages/", "indexes/"))
+                if is_index and length + entry.compress_size <= limit:
+                    length += entry.compress_size
+                if length > limit:
+                    continue
+                source.seek(entry.header_offset)
+                data = source.read(length)
+                ranges.append(
+                    [entry.header_offset, base64.b64encode(data).decode("ascii")]
+                )
+                limit -= length
+            directory_size = before.st_size - archive.start_dir
+            if 0 < directory_size <= limit:
+                source.seek(archive.start_dir)
+                ranges.append(
+                    [archive.start_dir, base64.b64encode(source.read()).decode("ascii")]
+                )
+        after = wacz_path.stat()
+        if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+            return {}
+        return {
+            "size": before.st_size,
+            "version": f"{before.st_mtime_ns}-{before.st_size}",
+            "ranges": ranges,
+        }
+    except (OSError, ValueError, zipfile.BadZipFile):
+        return {}
+
+
 def _replay_base_for_output_path(output_path: str) -> str:
     """Return the route prefix used to serve replayweb.page assets.
 
@@ -213,6 +269,18 @@ def render_replay_html(
     if not archived_url:
         archived_url = fallback_url or ""
 
+    replay_index = (
+        _replay_index(wacz_path)
+        if wacz_path and wacz_path.suffix.lower() == ".wacz"
+        else {}
+    )
+    if replay_index:
+        # Separate old body-caching collections and invalidate indexes when a
+        # capture is replaced. The raw endpoint ignores this version parameter.
+        source = urlsplit(output_path)
+        query = dict(parse_qsl(source.query))
+        query["replay-index"] = replay_index["version"]
+        output_path = urlunsplit(source._replace(query=urlencode(query)))
     replay_base = _replay_base_for_output_path(output_path)
     archived_url_attr = (
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
@@ -228,6 +296,7 @@ def render_replay_html(
         .replace("{{ output_path }}", html_escape(output_path, quote=True))
         .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
         .replace("{{ replay_base }}", html_escape(replay_base, quote=True))
+        .replace("{{ replay_index }}", json.dumps(replay_index, separators=(",", ":")))
     )
 
 

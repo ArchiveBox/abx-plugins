@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import base64
+import struct
 import zipfile
 from pathlib import Path
 
@@ -53,11 +55,13 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
         fallback_url="https://fallback.example/",
     )
 
-    assert 'data-source="/archivewebpage/archivewebpage.wacz"' in html
+    assert 'data-source="/archivewebpage/archivewebpage.wacz?replay-index=' in html
     assert 'data-url="https://example.com/"' in html
     assert "navigator.serviceWorker.register(" in html
     assert "customElements.whenDefined('replay-web-page')" in html
     assert ".then(mountReplay)" in html
+    assert "noWebWorker" in html
+    assert "noCache" in html
     assert "rwp-page-loading" in html
     assert "archivebox-replay-ready" in html
     assert "openBrowser.href = window.location.href" in html
@@ -93,3 +97,32 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
         'data-replaybase="/snapshot/06a219240eb5778d8000f850baa5d427/replay/"'
         in onedomain_html
     )
+
+
+def test_replay_index_contains_exact_metadata_but_no_warc_response_bytes():
+    path = Path(__file__).parent / "fixtures/replay/iframetest.wacz"
+    raw = path.read_bytes()
+    index = presentation._replay_index(path)
+    assert index["size"] == len(raw)
+    ranges = [
+        (offset, base64.b64decode(encoded)) for offset, encoded in index["ranges"]
+    ]
+    assert 0 < sum(len(data) for _, data in ranges) <= 512 * 1024
+    with zipfile.ZipFile(path) as archive:
+        for offset, data in ranges:
+            assert data == raw[offset : offset + len(data)]
+            for entry in archive.infolist():
+                if not entry.filename.startswith("archive/"):
+                    continue
+                name_size, extra_size = struct.unpack_from(
+                    "<HH", raw, entry.header_offset + 26
+                )
+                start = entry.header_offset + 30 + name_size + extra_size
+                end = start + entry.compress_size
+                assert offset + len(data) <= start or offset >= end
+        for name in ("pages/pages.jsonl", "datapackage.json"):
+            entry = archive.getinfo(name)
+            assert any(
+                offset == entry.header_offset and len(data) > entry.compress_size
+                for offset, data in ranges
+            )
