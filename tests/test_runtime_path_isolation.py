@@ -139,6 +139,89 @@ def test_plugin_config_fallbacks_only_propagate_explicit_values() -> None:
     assert plugin_override["claudecodecleanup"]["CLAUDECODECLEANUP_TIMEOUT"] == 150
 
 
+def test_plugin_config_values_reach_plugins_resolved_before_their_source() -> None:
+    # Schemas resolve in sorted order, so "aaa" runs before "zzz" produces the
+    # explicit fallback and placeholder values it depends on; only a later pass
+    # can deliver them, so that pass must re-resolve "aaa".
+    schemas = {
+        "aaa": {
+            "properties": {
+                "AAA_TIMEOUT": {
+                    "type": "integer",
+                    "default": 10,
+                    "x-fallback": "ZZZ_TIMEOUT",
+                },
+                "AAA_URL": {"type": "string", "default": "http://{ZZZ_HOST}/aaa"},
+            },
+        },
+        "base": {
+            "properties": {
+                "TIMEOUT": {"type": "integer", "default": 60},
+            },
+        },
+        "zzz": {
+            "properties": {
+                "ZZZ_TIMEOUT": {
+                    "type": "integer",
+                    "default": 30,
+                    "x-fallback": "TIMEOUT",
+                },
+                "ZZZ_HOST": {"type": "string", "default": "zzz.local"},
+            },
+        },
+    }
+
+    defaults = resolve_plugin_configs(schemas, user_config={}, environ={})
+    overridden = resolve_plugin_configs(
+        schemas,
+        user_config={"TIMEOUT": "90", "ZZZ_HOST": "archive.example"},
+        environ={},
+    )
+    # ArchiveBox seeds global_config with already-resolved values, so in these
+    # cases the later pass changes no value "aaa" itself reads except one: either
+    # ZZZ_TIMEOUT only becoming explicit, or ZZZ_HOST only appearing for the
+    # placeholder. Each alone must still re-resolve "aaa".
+    seeded_explicit = resolve_plugin_configs(
+        schemas,
+        global_config={
+            "AAA_TIMEOUT": 10,
+            "AAA_URL": "http://zzz.local/aaa",
+            "TIMEOUT": 90,
+            "ZZZ_HOST": "zzz.local",
+            "ZZZ_TIMEOUT": 90,
+        },
+        user_config={"TIMEOUT": "90"},
+        environ={},
+    )
+    seeded_placeholder = resolve_plugin_configs(
+        schemas,
+        global_config={
+            "AAA_TIMEOUT": 10,
+            "AAA_URL": "http://{ZZZ_HOST}/aaa",
+            "TIMEOUT": 60,
+            "ZZZ_TIMEOUT": 30,
+        },
+        user_config={},
+        environ={},
+    )
+
+    assert defaults["aaa"] == {"AAA_TIMEOUT": 10, "AAA_URL": "http://zzz.local/aaa"}
+    assert defaults["zzz"] == {"ZZZ_TIMEOUT": 30, "ZZZ_HOST": "zzz.local"}
+    assert overridden["aaa"] == {
+        "AAA_TIMEOUT": 90,
+        "AAA_URL": "http://archive.example/aaa",
+    }
+    assert overridden["zzz"] == {"ZZZ_TIMEOUT": 90, "ZZZ_HOST": "archive.example"}
+    assert seeded_explicit["aaa"] == {
+        "AAA_TIMEOUT": 90,
+        "AAA_URL": "http://zzz.local/aaa",
+    }
+    assert seeded_placeholder["aaa"] == {
+        "AAA_TIMEOUT": 10,
+        "AAA_URL": "http://zzz.local/aaa",
+    }
+
+
 @pytest.mark.parametrize(
     ("plugin", "overrides", "expected"),
     [

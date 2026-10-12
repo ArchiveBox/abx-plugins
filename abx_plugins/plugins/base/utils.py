@@ -292,32 +292,102 @@ def resolve_alias(
     return key
 
 
+class _ResolvedConfigView(Mapping[str, Any]):
+    """One schema's view of the shared resolved config: base values plus its own writes.
+
+    Resolving a schema used to start by copying the whole shared config, once per
+    plugin per pass, which cost more than the resolution itself. Writes go to a
+    private layer so the caller's mapping is still never mutated. Every key looked
+    up (present or not) is recorded in ``reads``, so resolve_plugin_configs() can
+    tell whether a later change to the shared config could alter this result.
+    """
+
+    __slots__ = ("_base", "_local", "reads")
+
+    def __init__(self, base: Mapping[str, Any], reads: set[str]) -> None:
+        self._base = base
+        self._local: dict[str, Any] = {}
+        self.reads = reads
+
+    def __getitem__(self, key: str) -> Any:
+        self.reads.add(key)
+        if key in self._local:
+            return self._local[key]
+        return self._base[key]
+
+    def __contains__(self, key: object) -> bool:
+        self.reads.add(cast(str, key))
+        return key in self._local or key in self._base
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._local[key] = value
+
+    def __iter__(self):
+        self.reads.update(self._base)
+        return iter({**self._base, **self._local})
+
+    def __len__(self) -> int:
+        self.reads.update(self._base)
+        return len(self._base.keys() | self._local.keys())
+
+
+_NOT_FOUND = object()
+
+
 def _resolve_schema_payload(
     properties: dict[str, Any],
     *,
-    resolved_config: dict[str, Any] | None = None,
+    resolved_config: Mapping[str, Any] | None = None,
     explicit_config_keys: set[str] | None = None,
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
+    reads: set[str] | None = None,
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
-    resolved = dict(resolved_config or {})
+    resolved = _ResolvedConfigView(
+        resolved_config or {},
+        set() if reads is None else reads,
+    )
     if explicit_config_keys is None:
         explicit_config_keys = set()
     payload: dict[str, Any] = {}
 
-    for _ in range(max(len(properties), 1) + 1):
-        changed = False
-        for key, prop in properties.items():
-            alias_values = prop["x-aliases"] if "x-aliases" in prop else []
-            aliases = [key, *(str(alias) for alias in alias_values)]
-            raw_value, found, persisted = _lookup_raw_value(
-                aliases,
+    # Explicit env/user inputs do not change between passes, so look each property
+    # up and coerce it (often a json.loads) once instead of on every pass.
+    inputs: list[tuple[str, Any, Any, Any]] = []
+    for key, prop in properties.items():
+        alias_values = prop["x-aliases"] if "x-aliases" in prop else []
+        raw_value, found, persisted = _lookup_raw_value(
+            [key, *(str(alias) for alias in alias_values)],
+            environ=environ,
+            user_config=user_config,
+        )
+        explicit_value = (
+            _coerce_raw_value(raw_value, prop, persisted=persisted)
+            if found
+            else _NOT_FOUND
+        )
+        fallback_key = prop["x-fallback"] if "x-fallback" in prop else None
+        fallback_value = _NOT_FOUND
+        if explicit_value is _NOT_FOUND and fallback_key:
+            fallback_raw_value, fallback_found, fallback_persisted = _lookup_raw_value(
+                [str(fallback_key)],
                 environ=environ,
                 user_config=user_config,
             )
-            if found:
-                resolved_value = _coerce_raw_value(raw_value, prop, persisted=persisted)
+            if fallback_found:
+                fallback_value = _coerce_raw_value(
+                    fallback_raw_value,
+                    prop,
+                    persisted=fallback_persisted,
+                )
+        inputs.append((key, prop, explicit_value, (fallback_key, fallback_value)))
+
+    for _ in range(max(len(properties), 1) + 1):
+        changed = False
+        for key, prop, explicit_value, (fallback_key, fallback_value) in inputs:
+            if explicit_value is not _NOT_FOUND:
+                resolved_value = explicit_value
                 if isinstance(resolved_value, str) and "{" in resolved_value:
                     resolved_value = _hydrate_value(resolved_value, resolved)
                 explicit_config_keys.add(key)
@@ -327,21 +397,8 @@ def _resolve_schema_payload(
                     changed = True
                 continue
 
-            fallback_key = prop["x-fallback"] if "x-fallback" in prop else None
             if fallback_key:
-                fallback_raw_value, fallback_found, fallback_persisted = (
-                    _lookup_raw_value(
-                        [str(fallback_key)],
-                        environ=environ,
-                        user_config=user_config,
-                    )
-                )
-                if fallback_found:
-                    fallback_value = _coerce_raw_value(
-                        fallback_raw_value,
-                        prop,
-                        persisted=fallback_persisted,
-                    )
+                if fallback_value is not _NOT_FOUND:
                     if isinstance(fallback_value, str) and "{" in fallback_value:
                         fallback_value = _hydrate_value(fallback_value, resolved)
                     explicit_config_keys.add(key)
@@ -350,6 +407,7 @@ def _resolve_schema_payload(
                         resolved[key] = fallback_value
                         changed = True
                     continue
+                resolved.reads.add(fallback_key)
                 if fallback_key in resolved and fallback_key in explicit_config_keys:
                     fallback_value = resolved[fallback_key]
                     explicit_config_keys.add(key)
@@ -394,7 +452,17 @@ def _resolve_schema_payload(
 
 def _hydrate_value(value: Any, context: Mapping[str, Any]) -> Any:
     if isinstance(value, str):
+        # Without braces str.format() can only return the string unchanged, and the
+        # resolver hydrates every default on every pass, so skip formatting then.
+        if "{" not in value and "}" not in value:
+            return value
         try:
+            # format(**context) copies the whole resolved config (hundreds of keys)
+            # into kwargs for every string; format_map() looks keys up in place.
+            # Only mappings without __missing__ take that path, since __missing__
+            # would answer lookups that format(**context) reports as missing.
+            if type(context) in (dict, _ResolvedConfigView):
+                return value.format_map(context)
             return value.format(**context)
         except Exception:
             return value
@@ -735,35 +803,61 @@ def resolve_plugin_configs(
     }
     explicit_config_keys: set[str] = set()
     resolved_payloads: dict[str, dict[str, Any]] = {}
+    # Each pass re-resolved every schema just to confirm nothing moved. A schema's
+    # payload is a pure function of the shared keys it read (values, presence and
+    # explicitness) plus the fixed user_config/environ, so it is recomputed only if
+    # one of those keys changed at or after the visit that last computed it; else
+    # it would equal resolved_payloads[plugin_name] and take the reuse path below.
+    visit = 0
+    key_changed_at: dict[str, int] = {}
+    payload_inputs: dict[str, tuple[int, set[str]]] = {}
 
     for _ in range(max(len(plugin_schemas), 1) + 1):
         changed = False
         for plugin_name, schema in sorted(plugin_schemas.items()):
-            properties = _schema_properties(schema)
-            payload = _resolve_schema_payload(
-                properties,
-                resolved_config=resolved_values,
-                explicit_config_keys=explicit_config_keys,
-                user_config=user_config,
-                environ=environ,
-            )
-            if (
-                plugin_name in resolved_sections
-                and resolved_payloads.get(plugin_name) == payload
+            visit += 1
+            previous_inputs = payload_inputs.get(plugin_name)
+            if previous_inputs is not None and not any(
+                key_changed_at.get(key, 0) >= previous_inputs[0]
+                for key in previous_inputs[1]
             ):
                 plugin_config = resolved_sections[plugin_name]
             else:
-                model = build_config_model(plugin_name, properties)
-                plugin_config = normalize_config_value(
-                    model.model_validate(payload).model_dump(mode="json"),
+                properties = _schema_properties(schema)
+                reads: set[str] = set()
+                not_yet_explicit = [
+                    key for key in properties if key not in explicit_config_keys
+                ]
+                payload = _resolve_schema_payload(
+                    properties,
+                    resolved_config=resolved_values,
+                    explicit_config_keys=explicit_config_keys,
+                    user_config=user_config,
+                    environ=environ,
+                    reads=reads,
                 )
-                resolved_payloads[plugin_name] = payload
+                for key in not_yet_explicit:
+                    if key in explicit_config_keys:
+                        key_changed_at[key] = visit
+                payload_inputs[plugin_name] = (visit, reads)
+                if (
+                    plugin_name in resolved_sections
+                    and resolved_payloads.get(plugin_name) == payload
+                ):
+                    plugin_config = resolved_sections[plugin_name]
+                else:
+                    model = build_config_model(plugin_name, properties)
+                    plugin_config = normalize_config_value(
+                        model.model_validate(payload).model_dump(mode="json"),
+                    )
+                    resolved_payloads[plugin_name] = payload
             if resolved_sections.get(plugin_name) != plugin_config:
                 resolved_sections[plugin_name] = plugin_config
                 changed = True
             for key, value in plugin_config.items():
                 if resolved_values.get(key) != value:
                     resolved_values[key] = value
+                    key_changed_at[key] = visit
                     changed = True
         if not changed:
             break
