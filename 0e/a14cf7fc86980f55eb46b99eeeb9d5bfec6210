@@ -1,0 +1,57 @@
+abx_plugins/plugins/nextcloud/on_Snapshot__53_nextcloud.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-53
+abx_plugins/plugins/canva/on_Snapshot__53_canva.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,55-59
+abx_plugins/plugins/protondocs/on_Snapshot__53_protondocs.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-51
+abx_plugins/plugins/figma/on_Snapshot__53_figma.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,42-55
+abx_plugins/plugins/iclouddrive/on_Snapshot__53_iclouddrive.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 16,38-52
+abx_plugins/plugins/miro/on_Snapshot__53_miro.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,53-57
+abx_plugins/plugins/microsoft365/on_Snapshot__53_microsoft365.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,42-81
+abx_plugins/plugins/drawio/on_Snapshot__53_drawio.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-65
+abx_plugins/plugins/protondrive/on_Snapshot__53_protondrive.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-54
+tests/test_provider_noresults.py
+  s_2b44ee96cc775e::t_1bf19deff629f0 140-142,173-175,181-184
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 14,107-139,143-172,176-180,185-190
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 5185-5209,5375
+  s_2b44ee96cc775e::t_a63ee586593fab 5184
+abx_plugins/plugins/notion/on_Snapshot__53_notion.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 19,62-74
+abx_plugins/plugins/tldraw/on_Snapshot__53_tldraw.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-51
+abx_plugins/plugins/onedrive/on_Snapshot__53_onedrive.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 16,38-53
+abx_plugins/plugins/excalidraw/on_Snapshot__53_excalidraw.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-62,70-71
+abx_plugins/plugins/mega/on_Snapshot__53_mega.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-55
+abx_plugins/plugins/box/on_Snapshot__53_box.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,41-52
+abx_plugins/plugins/wetransfer/on_Snapshot__53_wetransfer.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,40-58
+abx_plugins/plugins/iwork/on_Snapshot__53_iwork.js
+  s_2b44ee96cc775e::t_f7f417dcabe2b0 18,41-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ea14cf7fc86980f55eb46b99eeeb9d5bfec6210",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
