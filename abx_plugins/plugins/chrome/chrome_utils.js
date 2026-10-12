@@ -5182,6 +5182,32 @@ async function waitForNavigationComplete(
 }
 
 /**
+ * Read the requested and post-redirect URLs that `chrome_navigate` recorded.
+ *
+ * Site-specific hooks use this to rule themselves out before connecting to
+ * Chrome. A puppeteer CDP connect plus target discovery costs seconds on a
+ * loaded host, and 20+ such hooks run on every snapshot, so connecting only to
+ * read `page.url()` for an unrelated site dominated snapshot time.
+ *
+ * @param {string} chromeSessionDir - Path to the snapshot chrome session directory
+ * @returns {string[]|null} - `[url, finalUrl]`, or null when navigation.json is
+ *   missing, malformed, or records a failed navigation; callers must then
+ *   inspect the live page as before.
+ */
+function readNavigatedUrls(chromeSessionDir) {
+  try {
+    const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
+    const navigation = JSON.parse(fs.readFileSync(navigationFile, "utf8"));
+    const urls = [navigation?.url, navigation?.finalUrl];
+    if (navigation.error || !urls.every((value) => URL.canParse(value)))
+      return null;
+    return urls;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Read all browser cookies from a running Chrome CDP debug port.
  * Uses existing CDP bootstrap helpers and puppeteer connection logic.
  *
@@ -5346,6 +5372,7 @@ module.exports = {
   connectToPage,
   downloadBrowserResource,
   waitForNavigationComplete,
+  readNavigatedUrls,
   waitForVisibleImages,
   setBrowserDownloadBehavior,
   waitForBrowserDownload,

@@ -16,6 +16,7 @@ const {
 const {
   connectToPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -58,6 +59,19 @@ async function main() {
     if (value <= 0) throw new Error("Notion capture deadline exceeded");
     return value;
   };
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (navigatedUrls) {
+    // Without requireContent, isNotionPage checks only the URL, not the page.
+    const matches = await Promise.all(
+      [url, ...navigatedUrls].map((value) =>
+        isNotionPage(null, new URL(value), false),
+      ),
+    );
+    if (!matches.some(Boolean)) {
+      console.error("Not a Notion document page");
+      return emitArchiveResultRecord("noresults", "Not a Notion document page");
+    }
+  }
   const { browser, page } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,

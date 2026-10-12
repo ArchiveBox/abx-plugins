@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,21 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isShare = (candidate) =>
+    candidate.protocol === "https:" &&
+    candidate.hostname === "drive.proton.me" &&
+    /^\/urls\/[A-Za-z0-9]+/.test(candidate.pathname);
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => isShare(new URL(value)))
+  ) {
+    console.error("Not a Proton Drive public share");
+    return emitArchiveResultRecord(
+      "noresults",
+      "Not a Proton Drive public share",
+    );
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,10 +59,6 @@ async function main() {
   let page = sourcePage;
   let downloads = [];
   try {
-    const isShare = (candidate) =>
-      candidate.protocol === "https:" &&
-      candidate.hostname === "drive.proton.me" &&
-      /^\/urls\/[A-Za-z0-9]+/.test(candidate.pathname);
     if (!isShare(new URL(url)) && !isShare(new URL(page.url()))) {
       console.error("Not a Proton Drive public share");
       return emitArchiveResultRecord(

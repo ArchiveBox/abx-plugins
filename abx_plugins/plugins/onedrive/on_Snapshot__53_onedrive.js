@@ -13,6 +13,7 @@ const {
 const {
   connectToPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   downloadBrowserResource,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
@@ -34,20 +35,28 @@ async function main() {
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const chromeSessionDir = path.join(snapshotDir, "chrome");
+  const candidate = (value) =>
+    value.protocol === "https:" &&
+    ((value.hostname === "1drv.ms" &&
+      /^\/[a-z]\/[\w!-]+/i.test(value.pathname)) ||
+      (value.hostname === "onedrive.live.com" &&
+        (value.searchParams.has("redeem") ||
+          value.searchParams.has("authkey") ||
+          /\/:\w:\//.test(value.pathname))));
+  const navigatedUrls = readNavigatedUrls(chromeSessionDir);
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => candidate(new URL(value)))
+  ) {
+    console.error("Not a shared OneDrive item");
+    return emitArchiveResultRecord("noresults", "Not a shared OneDrive item");
+  }
   const { browser, page, cdpSession } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
   });
   let temporary;
   try {
-    const candidate = (value) =>
-      value.protocol === "https:" &&
-      ((value.hostname === "1drv.ms" &&
-        /^\/[a-z]\/[\w!-]+/i.test(value.pathname)) ||
-        (value.hostname === "onedrive.live.com" &&
-          (value.searchParams.has("redeem") ||
-            value.searchParams.has("authkey") ||
-            /\/:\w:\//.test(value.pathname))));
     const source = new URL(url);
     if (!candidate(source) && !candidate(new URL(page.url()))) {
       console.error("Not a shared OneDrive item");

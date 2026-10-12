@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   downloadBrowserResource,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
@@ -38,6 +39,46 @@ async function main() {
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const chromeSessionDir = path.join(snapshotDir, "chrome");
+  const original = new URL(url);
+  const sharepointHost = (host) => /(^|\.)sharepoint\.com$/.test(host);
+  const sharepointCandidate = (value) =>
+    value.protocol === "https:" &&
+    sharepointHost(value.hostname) &&
+    (/\/:([bwpx]):\//.test(value.pathname) ||
+      (value.searchParams.get("p") === "true" &&
+        /\.[a-z0-9]{1,12}$/i.test(value.searchParams.get("id") || "")));
+  const officeSource = (value) => {
+    const sourceURL = value.searchParams.get("src");
+    if (
+      value.protocol !== "https:" ||
+      value.hostname !== "view.officeapps.live.com" ||
+      !/^\/op\/(view|embed)\.aspx$/.test(value.pathname) ||
+      !sourceURL ||
+      !URL.canParse(sourceURL)
+    )
+      return null;
+    const source = new URL(sourceURL);
+    return /^https?:$/.test(source.protocol) &&
+      !source.username &&
+      !source.password &&
+      /\.(docx?|xlsx?|pptx?)$/i.test(source.pathname)
+      ? source
+      : null;
+  };
+  const navigatedUrls = readNavigatedUrls(chromeSessionDir);
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => {
+      const candidate = new URL(value);
+      return sharepointCandidate(candidate) || officeSource(candidate);
+    })
+  ) {
+    console.error("Not a Microsoft365 document URL");
+    return emitArchiveResultRecord(
+      "noresults",
+      "Not a Microsoft365 document URL",
+    );
+  }
   const { browser, page: sourcePage, cdpSession } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
@@ -46,32 +87,6 @@ async function main() {
   let temporary;
   let downloads = [];
   try {
-    const original = new URL(url);
-    const sharepointHost = (host) => /(^|\.)sharepoint\.com$/.test(host);
-    const sharepointCandidate = (value) =>
-      value.protocol === "https:" &&
-      sharepointHost(value.hostname) &&
-      (/\/:([bwpx]):\//.test(value.pathname) ||
-        (value.searchParams.get("p") === "true" &&
-          /\.[a-z0-9]{1,12}$/i.test(value.searchParams.get("id") || "")));
-    const officeSource = (value) => {
-      const sourceURL = value.searchParams.get("src");
-      if (
-        value.protocol !== "https:" ||
-        value.hostname !== "view.officeapps.live.com" ||
-        !/^\/op\/(view|embed)\.aspx$/.test(value.pathname) ||
-        !sourceURL ||
-        !URL.canParse(sourceURL)
-      )
-        return null;
-      const source = new URL(sourceURL);
-      return /^https?:$/.test(source.protocol) &&
-        !source.username &&
-        !source.password &&
-        /\.(docx?|xlsx?|pptx?)$/i.test(source.pathname)
-        ? source
-        : null;
-    };
     const attached = new URL(page.url());
     const initialDocument =
       sharepointCandidate(original) ||

@@ -11,6 +11,7 @@ from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
+    get_test_env,
 )
 
 PROVIDERS = (
@@ -103,3 +104,87 @@ def test_provider_noresults(provider, unrelated_page):
     assert result.stderr.strip() == record["output_str"]
     assert "\n" not in record["output_str"] and len(record["output_str"]) <= 70
     assert not output.exists(), f"{provider}: irrelevant page created output"
+
+
+# calendar scans the live page for feed links, so it must always connect.
+NAVIGATION_GATED_PROVIDERS = tuple(p for p in PROVIDERS if p != "calendar")
+
+
+def run_provider_without_browser(provider, url, snapshot, env):
+    """Run a provider hook in a snapshot whose chrome dir has no live session."""
+    hooks = list((PLUGINS / provider).glob("on_Snapshot__*"))
+    assert len(hooks) == 1, f"{provider}: expected one snapshot hook, found {hooks}"
+    assert not (snapshot / "chrome/cdp_url.txt").exists()
+    assert not (snapshot / "chrome/target_id.txt").exists()
+    started = time.monotonic()
+    try:
+        return subprocess.run(
+            [str(hooks[0]), f"--url={url}"],
+            cwd=snapshot,
+            env={
+                **env,
+                "SNAP_DIR": str(snapshot),
+                "CRAWL_DIR": str(snapshot.parent / "crawl"),
+                f"{provider.upper()}_ENABLED": "true",
+            },
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    finally:
+        print(f"{provider}: {time.monotonic() - started:.3f}s without browser")
+
+
+@pytest.mark.parametrize("provider", NAVIGATION_GATED_PROVIDERS)
+def test_provider_rules_out_navigated_url_without_connecting(
+    provider,
+    unrelated_page,
+    tmp_path,
+):
+    """A recorded unrelated navigation is enough to return noresults.
+
+    The snapshot gets the real navigation.json from chrome_navigate but no
+    cdp_url.txt or target_id.txt, so any CDP connection attempt fails.
+    """
+    url, source_snapshot, env = unrelated_page
+    navigation_json = (source_snapshot / "chrome/navigation.json").read_text()
+    snapshot = tmp_path / "snapshot"
+    (snapshot / "chrome").mkdir(parents=True)
+    (snapshot / "chrome/navigation.json").write_text(navigation_json)
+
+    result = run_provider_without_browser(provider, url, snapshot, env)
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout + result.stderr
+    if json.loads(navigation_json).get("error"):
+        # A failed navigation records no settled URL: hooks must fall back to
+        # inspecting the live page, which needs the Chrome session.
+        assert result.returncode == 1, result.stdout
+        assert record["status"] == "failed", result.stdout
+        assert "No Chrome session found" in record["output_str"], result.stdout
+    else:
+        assert result.returncode == 0, result.stderr
+        assert record["status"] == "noresults", result.stdout
+        assert result.stderr.strip() == record["output_str"]
+    assert not (snapshot / provider).exists()
+
+
+@pytest.mark.parametrize("provider", NAVIGATION_GATED_PROVIDERS)
+def test_provider_without_navigation_record_inspects_live_page(
+    provider,
+    tmp_path,
+    ensure_chrome_test_prereqs,
+):
+    """Without navigation.json, hooks keep connecting to check the live page."""
+    snapshot = tmp_path / "snapshot"
+    (snapshot / "chrome").mkdir(parents=True)
+    result = run_provider_without_browser(
+        provider,
+        "https://example.com",
+        snapshot,
+        get_test_env(),
+    )
+    record = parse_jsonl_output(result.stdout)
+    assert result.returncode == 1, result.stdout
+    assert record is not None and record["status"] == "failed", result.stdout
+    assert "No Chrome session found" in record["output_str"], result.stdout
+    assert not (snapshot / provider).exists()

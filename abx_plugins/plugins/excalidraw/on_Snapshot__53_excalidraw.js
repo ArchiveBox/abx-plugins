@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,29 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const original = new URL(url);
+  const isShare = (candidate) =>
+    candidate.protocol === "https:" &&
+    ["excalidraw.com", "app.excalidraw.com"].includes(candidate.hostname) &&
+    /^#json=[A-Za-z0-9_-]+,[A-Za-z0-9_-]+$/.test(candidate.hash);
+  const notShare = (candidates) => {
+    const liveRoom = candidates.some(
+      (candidate) =>
+        candidate.protocol === "https:" &&
+        ["excalidraw.com", "app.excalidraw.com"].includes(candidate.hostname) &&
+        candidate.hash.startsWith("#room="),
+    );
+    const reason = liveRoom
+      ? "Live rooms need a saved #json scene link"
+      : "Not an Excalidraw shared scene";
+    console.error(reason);
+    return emitArchiveResultRecord("noresults", reason);
+  };
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (navigatedUrls) {
+    const candidates = [original, ...navigatedUrls.map((value) => new URL(value))];
+    if (!candidates.some(isShare)) return notShare(candidates);
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,24 +67,8 @@ async function main() {
   let page = sourcePage;
   const downloads = [];
   try {
-    const original = new URL(url);
-    const isShare = (candidate) =>
-      candidate.protocol === "https:" &&
-      ["excalidraw.com", "app.excalidraw.com"].includes(candidate.hostname) &&
-      /^#json=[A-Za-z0-9_-]+,[A-Za-z0-9_-]+$/.test(candidate.hash);
-    if (!isShare(original) && !isShare(new URL(page.url()))) {
-      const liveRoom = [original, new URL(page.url())].some(
-        (candidate) =>
-          candidate.protocol === "https:" &&
-          ["excalidraw.com", "app.excalidraw.com"].includes(candidate.hostname) &&
-          candidate.hash.startsWith("#room="),
-      );
-      const reason = liveRoom
-        ? "Live rooms need a saved #json scene link"
-        : "Not an Excalidraw shared scene";
-      console.error(reason);
-      return emitArchiveResultRecord("noresults", reason);
-    }
+    if (!isShare(original) && !isShare(new URL(page.url())))
+      return notShare([original, new URL(page.url())]);
     await waitForNavigationComplete(
       path.join(snapshotDir, "chrome"),
       remaining(),

@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,22 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isShare = (candidate) =>
+    candidate.protocol === "https:" &&
+    candidate.hostname === "mega.nz" &&
+    /^\/(file|folder)\/[A-Za-z0-9_-]+/.test(candidate.pathname) &&
+    Boolean(candidate.hash);
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => isShare(new URL(value)))
+  ) {
+    console.error("Not a MEGA public file or folder share");
+    return emitArchiveResultRecord(
+      "noresults",
+      "Not a MEGA public file or folder share",
+    );
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,11 +60,6 @@ async function main() {
   let page = sourcePage;
   let downloads = [];
   try {
-    const isShare = (candidate) =>
-      candidate.protocol === "https:" &&
-      candidate.hostname === "mega.nz" &&
-      /^\/(file|folder)\/[A-Za-z0-9_-]+/.test(candidate.pathname) &&
-      Boolean(candidate.hash);
     if (!isShare(new URL(url)) && !isShare(new URL(page.url()))) {
       console.error("Not a MEGA public file or folder share");
       return emitArchiveResultRecord(

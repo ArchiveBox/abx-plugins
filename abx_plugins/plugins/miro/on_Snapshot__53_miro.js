@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -49,6 +50,11 @@ async function main() {
       return false;
     }
   };
+  const navigatedUrls = readNavigatedUrls(chromeSessionDir);
+  if (navigatedUrls && ![url, ...navigatedUrls].some(isBoard)) {
+    console.error("Not a Miro board");
+    return emitArchiveResultRecord("noresults", "Not a Miro board");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir,
     timeoutMs,

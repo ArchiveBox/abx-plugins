@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -51,6 +52,11 @@ async function main() {
       return false;
     }
   };
+  const navigatedUrls = readNavigatedUrls(chromeSessionDir);
+  if (navigatedUrls && ![url, ...navigatedUrls].some(isDesign)) {
+    console.error("Not a Canva design");
+    return emitArchiveResultRecord("noresults", "Not a Canva design");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir,
     timeoutMs,

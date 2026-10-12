@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -37,6 +38,18 @@ async function main() {
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const chromeSessionDir = path.join(snapshotDir, "chrome");
+  const candidate = (value) =>
+    value.protocol === "https:" &&
+    /(^|\.)box\.com$/.test(value.hostname) &&
+    /^\/s\/[\w-]+/.test(value.pathname);
+  const navigatedUrls = readNavigatedUrls(chromeSessionDir);
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => candidate(new URL(value)))
+  ) {
+    console.error("Not a Box share");
+    return emitArchiveResultRecord("noresults", "Not a Box share");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
@@ -44,10 +57,6 @@ async function main() {
   let page = sourcePage;
   let downloads = [];
   try {
-    const candidate = (value) =>
-      value.protocol === "https:" &&
-      /(^|\.)box\.com$/.test(value.hostname) &&
-      /^\/s\/[\w-]+/.test(value.pathname);
     if (!candidate(new URL(url)) && !candidate(new URL(page.url()))) {
       console.error("Not a Box share");
       return emitArchiveResultRecord("noresults", "Not a Box share");

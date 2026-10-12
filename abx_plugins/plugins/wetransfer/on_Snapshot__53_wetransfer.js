@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,25 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isTransfer = (candidate) =>
+    candidate.protocol === "https:" &&
+    /(^|\.)wetransfer\.com$/.test(candidate.hostname) &&
+    (candidate.pathname.startsWith("/downloads/") ||
+      /^\/previews\/[a-f0-9]+\/[a-f0-9]+\/?$/.test(candidate.pathname));
+  const original = new URL(url);
+  const shortLink =
+    original.protocol === "https:" &&
+    original.hostname === "we.tl" &&
+    /^\/t-[A-Za-z0-9]+\/?$/.test(original.pathname);
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    !shortLink &&
+    ![url, ...navigatedUrls].some((value) => isTransfer(new URL(value)))
+  ) {
+    console.error("Not a WeTransfer download");
+    return emitArchiveResultRecord("noresults", "Not a WeTransfer download");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,16 +63,6 @@ async function main() {
   let page = sourcePage;
   let downloads = [];
   try {
-    const isTransfer = (candidate) =>
-      candidate.protocol === "https:" &&
-      /(^|\.)wetransfer\.com$/.test(candidate.hostname) &&
-      (candidate.pathname.startsWith("/downloads/") ||
-        /^\/previews\/[a-f0-9]+\/[a-f0-9]+\/?$/.test(candidate.pathname));
-    const original = new URL(url);
-    const shortLink =
-      original.protocol === "https:" &&
-      original.hostname === "we.tl" &&
-      /^\/t-[A-Za-z0-9]+\/?$/.test(original.pathname);
     if (
       !shortLink &&
       !isTransfer(original) &&

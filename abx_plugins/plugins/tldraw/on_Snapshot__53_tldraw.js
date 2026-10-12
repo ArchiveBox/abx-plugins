@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,18 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isBoard = (candidate) =>
+    candidate.protocol === "https:" &&
+    ["www.tldraw.com", "tldraw.com"].includes(candidate.hostname) &&
+    /^\/(?:r|ro|f)\//.test(candidate.pathname);
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => isBoard(new URL(value)))
+  ) {
+    console.error("Not a tldraw board");
+    return emitArchiveResultRecord("noresults", "Not a tldraw board");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,10 +56,6 @@ async function main() {
   let page = sourcePage;
   const downloads = [];
   try {
-    const isBoard = (candidate) =>
-      candidate.protocol === "https:" &&
-      ["www.tldraw.com", "tldraw.com"].includes(candidate.hostname) &&
-      /^\/(?:r|ro|f)\//.test(candidate.pathname);
     if (!isBoard(new URL(url)) && !isBoard(new URL(page.url()))) {
       console.error("Not a tldraw board");
       return emitArchiveResultRecord("noresults", "Not a tldraw board");

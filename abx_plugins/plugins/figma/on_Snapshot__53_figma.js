@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -38,6 +39,20 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isDocument = (candidate) =>
+    candidate.protocol === "https:" &&
+    ["www.figma.com", "figma.com"].includes(candidate.hostname) &&
+    /^\/(?:design|file|board|slides|buzz|sites|make)\/[^/]+/.test(
+      candidate.pathname,
+    );
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => isDocument(new URL(value)))
+  ) {
+    console.error("Not a Figma document");
+    return emitArchiveResultRecord("noresults", "Not a Figma document");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -46,12 +61,6 @@ async function main() {
   const downloads = [];
   let phase = "Checking Figma document";
   try {
-    const isDocument = (candidate) =>
-      candidate.protocol === "https:" &&
-      ["www.figma.com", "figma.com"].includes(candidate.hostname) &&
-      /^\/(?:design|file|board|slides|buzz|sites|make)\/[^/]+/.test(
-        candidate.pathname,
-      );
     if (!isDocument(new URL(url)) && !isDocument(new URL(page.url()))) {
       console.error("Not a Figma document");
       return emitArchiveResultRecord("noresults", "Not a Figma document");

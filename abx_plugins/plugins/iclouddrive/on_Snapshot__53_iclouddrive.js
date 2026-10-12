@@ -13,6 +13,7 @@ const {
 const {
   connectToPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   downloadBrowserResource,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
@@ -34,16 +35,27 @@ async function main() {
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const chromeSessionDir = path.join(snapshotDir, "chrome");
+  const candidate = (value) =>
+    value.protocol === "https:" &&
+    value.hostname === "www.icloud.com" &&
+    /^\/iclouddrive\/[A-Za-z0-9_-]+\/?$/.test(value.pathname);
+  const navigatedUrls = readNavigatedUrls(chromeSessionDir);
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => candidate(new URL(value)))
+  ) {
+    console.error("Not an iCloud Drive public share");
+    return emitArchiveResultRecord(
+      "noresults",
+      "Not an iCloud Drive public share",
+    );
+  }
   const { browser, page, cdpSession } = await connectToPage({
     chromeSessionDir,
     timeoutMs,
   });
   let temporary;
   try {
-    const candidate = (value) =>
-      value.protocol === "https:" &&
-      value.hostname === "www.icloud.com" &&
-      /^\/iclouddrive\/[A-Za-z0-9_-]+\/?$/.test(value.pathname);
     if (!candidate(new URL(url)) && !candidate(new URL(page.url()))) {
       console.error("Not an iCloud Drive public share");
       return emitArchiveResultRecord(

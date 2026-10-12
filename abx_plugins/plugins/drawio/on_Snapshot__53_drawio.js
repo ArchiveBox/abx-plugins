@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,32 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isDiagram = (candidate) => {
+    if (
+      candidate.protocol !== "https:" ||
+      !["app.diagrams.net", "app.draw.io"].includes(candidate.hostname)
+    )
+      return false;
+    // https://www.drawio.com/docs/reference/supported-location-hash-properties/
+    // Storage/document references differ from editor settings and local files.
+    const reference = candidate.hash.slice(1).split("#", 1)[0];
+    if (/^[GWTDAHR].+/.test(reference)) return true;
+    if (!reference.startsWith("U")) return false;
+    try {
+      const source = new URL(decodeURIComponent(reference.slice(1)));
+      return ["http:", "https:"].includes(source.protocol);
+    } catch {
+      return false;
+    }
+  };
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => isDiagram(new URL(value)))
+  ) {
+    console.error("Not a shared draw.io diagram");
+    return emitArchiveResultRecord("noresults", "Not a shared draw.io diagram");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -44,24 +71,6 @@ async function main() {
   let downloads = [];
   let phase = "Checking shared diagram";
   try {
-    const isDiagram = (candidate) => {
-      if (
-        candidate.protocol !== "https:" ||
-        !["app.diagrams.net", "app.draw.io"].includes(candidate.hostname)
-      )
-        return false;
-      // https://www.drawio.com/docs/reference/supported-location-hash-properties/
-      // Storage/document references differ from editor settings and local files.
-      const reference = candidate.hash.slice(1).split("#", 1)[0];
-      if (/^[GWTDAHR].+/.test(reference)) return true;
-      if (!reference.startsWith("U")) return false;
-      try {
-        const source = new URL(decodeURIComponent(reference.slice(1)));
-        return ["http:", "https:"].includes(source.protocol);
-      } catch {
-        return false;
-      }
-    };
     if (!isDiagram(new URL(url)) && !isDiagram(new URL(page.url()))) {
       console.error("Not a shared draw.io diagram");
       return emitArchiveResultRecord(

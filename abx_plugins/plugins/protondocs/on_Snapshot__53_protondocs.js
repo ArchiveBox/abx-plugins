@@ -15,6 +15,7 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -36,6 +37,18 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isDocument = (candidate) =>
+    candidate.protocol === "https:" &&
+    candidate.hostname === "docs.proton.me" &&
+    candidate.pathname === "/doc";
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    ![url, ...navigatedUrls].some((value) => isDocument(new URL(value)))
+  ) {
+    console.error("Not a Proton document");
+    return emitArchiveResultRecord("noresults", "Not a Proton document");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,10 +56,6 @@ async function main() {
   let page = sourcePage;
   const downloads = [];
   try {
-    const isDocument = (candidate) =>
-      candidate.protocol === "https:" &&
-      candidate.hostname === "docs.proton.me" &&
-      candidate.pathname === "/doc";
     if (!isDocument(new URL(url)) && !isDocument(new URL(page.url()))) {
       console.error("Not a Proton document");
       return emitArchiveResultRecord("noresults", "Not a Proton document");
