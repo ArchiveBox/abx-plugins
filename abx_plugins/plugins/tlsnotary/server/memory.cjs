@@ -8,7 +8,20 @@ function readNumber(file) {
   return value;
 }
 
-function memoryHeadroomBytes({ includeCgroup = true } = {}) {
+// A real proof grows Chrome's memory before its cleanup: the resident set of
+// the browser process tree rose 2.2-2.5 GiB during real proofs (an upper bound,
+// since new extension processes also count shared pages). The client stops a
+// proof once headroom falls below PROOF_STOP_HEADROOM_BYTES, so it must only
+// start one with room for that whole growth plus the stop reserve, and other
+// snapshots on the same host keep allocating meanwhile. Admitting at a flat
+// 2 GiB let a proof on a host with ~2 GiB free run for minutes and then be
+// stopped at 0.43 GiB with no proof.
+const GIB = 1024 ** 3;
+const PROOF_PEAK_BYTES = 3 * GIB;
+const PROOF_STOP_HEADROOM_BYTES = GIB / 2;
+const PROOF_START_HEADROOM_BYTES = PROOF_PEAK_BYTES + PROOF_STOP_HEADROOM_BYTES;
+
+function memoryHeadroomBytes({ includeCgroup = true, includeSwap = true } = {}) {
   if (process.platform !== "linux") {
     // Node does not expose independently backed swap on other platforms.
     const available = process.availableMemory?.() ?? os.freemem();
@@ -38,7 +51,7 @@ function memoryHeadroomBytes({ includeCgroup = true } = {}) {
   }
   const swapFree = Math.min(meminfo.SwapFree, diskSwapFree);
   let memoryRoom = meminfo.MemAvailable;
-  let swapRoom = swapFree;
+  let swapRoom = includeSwap ? swapFree : 0;
   if (!includeCgroup) return memoryRoom + swapRoom;
 
   const root = "/sys/fs/cgroup";
@@ -65,6 +78,10 @@ function memoryHeadroomBytes({ includeCgroup = true } = {}) {
       }
       // RAM and swap can be limited by different ancestors, including an
       // unlimited-RAM cgroup with swap disabled. Apply their bounds separately.
+      if (!includeSwap) {
+        if (dir === root) break;
+        continue;
+      }
       const swapLimit = fs.readFileSync(`${dir}/memory.swap.max`, "utf8").trim();
       if (swapLimit !== "max") {
         const limitBytes = BigInt(swapLimit);
@@ -91,4 +108,9 @@ function memoryHeadroomBytes({ includeCgroup = true } = {}) {
   return headroom;
 }
 
-module.exports = { memoryHeadroomBytes };
+module.exports = {
+  memoryHeadroomBytes,
+  PROOF_PEAK_BYTES,
+  PROOF_START_HEADROOM_BYTES,
+  PROOF_STOP_HEADROOM_BYTES,
+};

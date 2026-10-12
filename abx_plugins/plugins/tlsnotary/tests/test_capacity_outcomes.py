@@ -8,11 +8,13 @@ import os
 import shutil
 import socket
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+import psutil
 import pytest
 
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
@@ -325,3 +327,93 @@ def test_real_hook_rejects_a_receipt_signed_by_an_untrusted_key(tmp_path, verifi
                 assert records[0]["status"] == "failed", records
                 assert "signature" in result.stderr.lower(), result.stderr
                 assert {name: (output / name).read_bytes() for name in saved} == saved
+
+
+def test_real_proof_fits_between_admission_and_stop_reserves(tmp_path, verifier):
+    """A proof that is admitted must be able to finish above its stop reserve.
+
+    Otherwise a host with just enough admission headroom spends minutes in MPC
+    and is then stopped for low memory with no proof. Measure a real proof's
+    memory growth across Chrome's process tree (resident set, an upper bound)
+    against the hook's own reserves, read from the module the hook uses.
+    """
+    reserves = json.loads(
+        subprocess.check_output(
+            [
+                resolve_node_with_abxpkg(os.environ.copy()),
+                "-e",
+                "const m = require(process.argv[1]); console.log(JSON.stringify({"
+                "start: m.PROOF_START_HEADROOM_BYTES, stop: m.PROOF_STOP_HEADROOM_BYTES,"
+                "ram: m.memoryHeadroomBytes({includeSwap: false})}))",
+                str(PLUGIN_DIR / "server" / "memory.cjs"),
+            ],
+            text=True,
+            timeout=30,
+        ),
+    )
+    assert reserves["ram"] > 0, reserves
+
+    url = "https://news.ycombinator.com/"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=45,
+        env_overrides={
+            **verifier,
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_TIMEOUT": "90",
+        },
+        crawl_setup=_prepare,
+    ) as (_process, chrome_pid, _chrome_dir, env):
+        output = Path(env["SNAP_DIR"]) / "tlsnotary"
+        output.mkdir(exist_ok=True)
+
+        def resident_bytes() -> int:
+            total = 0
+            root = psutil.Process(chrome_pid)
+            for process in (root, *root.children(recursive=True)):
+                try:
+                    total += process.memory_info().rss
+                except psutil.Error:
+                    pass
+            return total
+
+        baseline = resident_bytes()
+        peak = baseline
+        finished = threading.Event()
+
+        def sample() -> None:
+            nonlocal peak
+            while not finished.is_set():
+                peak = max(peak, resident_bytes())
+                time.sleep(0.05)
+
+        sampler = threading.Thread(target=sample)
+        sampler.start()
+        try:
+            result = subprocess.run(
+                [str(SNAPSHOT_HOOK), f"--url={url}", "--snapshot-id=test-snapshot"],
+                cwd=output,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=100,
+                check=False,
+            )
+        finally:
+            finished.set()
+            sampler.join()
+        print(result.stdout, result.stderr, f"growth={peak - baseline}", reserves)
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert [record["status"] for record in records] == ["succeeded"], records
+        assert (output / "receipt.json").is_file()
+        assert peak - baseline > 0
+        assert peak - baseline + reserves["stop"] <= reserves["start"], (
+            peak - baseline,
+            reserves,
+        )

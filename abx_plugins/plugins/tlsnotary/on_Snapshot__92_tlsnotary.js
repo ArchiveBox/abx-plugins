@@ -13,7 +13,11 @@ const {
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const chrome = require("../chrome/chrome_utils.js");
-const { memoryHeadroomBytes } = require("./server/memory.cjs");
+const {
+  memoryHeadroomBytes,
+  PROOF_START_HEADROOM_BYTES: PROOF_START_HEADROOM,
+  PROOF_STOP_HEADROOM_BYTES: PROOF_STOP_HEADROOM,
+} = require("./server/memory.cjs");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
@@ -24,13 +28,14 @@ let cleanupPromise;
 let terminalRecordEmitted = false;
 let memoryMonitor, verifierMonitor, resourceFailure;
 const GIB = 1024 ** 3;
-const PROOF_START_HEADROOM = 2 * GIB;
-const PROOF_STOP_HEADROOM = GIB / 2;
 
 function requireProofMemory(minimum, phase) {
   let available;
   try {
-    available = memoryHeadroomBytes();
+    // RAM only: MPC touches its whole working set continuously, so a proof
+    // that spills into disk swap thrashes for minutes until the hook deadline
+    // instead of finishing in seconds. Swap is not usable proof headroom.
+    available = memoryHeadroomBytes({ includeSwap: false });
   } catch (error) {
     // A broken resource monitor is not evidence of an expected capacity limit.
     throw new Error("TLSNotary stopped because available memory could not be measured.", { cause: error });
@@ -244,7 +249,7 @@ async function capture() {
   )
     throw new Error("Verifier endpoint requires HTTPS");
   await checkVerifierAdmission(verifierUrl);
-  // A real proof can add roughly 1.6 GiB of client memory before cleanup.
+  // Admit only proofs that can finish above the stop reserve (see memory.cjs).
   requireProofMemory(PROOF_START_HEADROOM, "start");
   const original = chrome.findExtensionMetadataByName(
     connection.extensions || [],
