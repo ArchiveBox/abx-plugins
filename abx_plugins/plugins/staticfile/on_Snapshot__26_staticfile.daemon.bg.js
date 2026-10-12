@@ -141,6 +141,7 @@ let detectedContentType = null;
 let isStaticFile = false;
 let savedOutputPath = null;
 let downloadError = null;
+let pendingMainResponse = null;
 let page = null;
 let browser = null;
 let finalized = false;
@@ -617,6 +618,12 @@ function emitResult(result) {
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
+  // A navigation can finish by starting a browser download. Let the main
+  // response handler publish its bytes and result before this hook exits.
+  if (isStaticFile && pendingMainResponse && !finalized) {
+    await pendingMainResponse;
+    return;
+  }
   if (finalized) {
     process.exit(0);
   }
@@ -654,6 +661,7 @@ async function main() {
     // Set up static file listener BEFORE navigation and finish on the
     // first successful main-document response.
     const connection = await setupStaticFileListener();
+    pendingMainResponse = connection.mainResponseHandled;
     console.log("staticfile listener attached");
     console.error("waiting for initial response...");
     const result = await connection.mainResponseHandled;
