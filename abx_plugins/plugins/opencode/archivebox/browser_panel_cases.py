@@ -83,7 +83,10 @@ import json
 from archivebox.config.django import setup_django
 setup_django(check_db=True)
 from archivebox.config.common import get_config
+from archivebox.misc.checks import check_data_folder
 from archivebox.personas.models import Persona
+# Resolve TMP_DIR as CLI/server startup does: owners and the server must agree.
+check_data_folder()
 result=[]
 for name in ('Preview A', 'Preview B'):
     persona=Persona.objects.create(name=name)
@@ -248,6 +251,43 @@ print(json.dumps(result))
             ]
             time.sleep(0.1)
         assert len(live) == 2, [Path(log.name).read_text() for log in logs]
+        # The panel polls this inventory every second. Session dirs live on
+        # archive storage that may be remote, so a poll must read only the
+        # owners' local TMP_DIR state and DB rows, never persona/crawl files.
+        out, err, code = run_python_cwd(
+            """
+import json, os, sys
+from archivebox.config.django import setup_django
+setup_django(check_db=True)
+from archivebox.config.common import get_config
+from archivebox.config.constants import CONSTANTS
+from archivebox.misc.checks import check_data_folder
+from abx_plugins.plugins.opencode.archivebox.browser import browser_inventory
+check_data_folder()
+config = get_config().model_dump(mode='json')
+browser_inventory(config)  # Open the DB connection outside the observed poll.
+paths = []
+def observe(event, args):
+    if event in ('open', 'os.scandir', 'os.listdir') and isinstance(args[0], (str, bytes, os.PathLike)):
+        paths.append(os.path.realpath(os.fsdecode(args[0])))
+sys.addaudithook(observe)
+browsers = browser_inventory(config)
+data_dir = str(CONSTANTS.DATA_DIR.resolve())
+tmp_dir = os.path.realpath(config['TMP_DIR'])
+print(json.dumps({
+    'browsers': sorted(source.get('persona', '') for item in browsers for source in item['sources']),
+    'archive_reads': [path for path in paths if path.startswith(data_dir) and not path.startswith(tmp_dir)],
+    'local_reads': [path for path in paths if path.startswith(tmp_dir)],
+}))
+""",
+            cwd=data_dir,
+            timeout=60,
+        )
+        assert code == 0, err
+        poll = json.loads(out.splitlines()[-1])
+        assert poll["browsers"] == ["Preview A", "Preview B"], poll
+        assert poll["archive_reads"] == [], poll
+        assert poll["local_reads"], poll
         # Use the existing unified connection helper for every client.
         output = node(
             r"""
