@@ -1,6 +1,17 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
 // /// script
 // ///
+// A finite background hook: it starts right after navigation and proves while
+// the snapshot's other ~40 hooks run, instead of adding its 5-60s of MPC to the
+// end of every snapshot as a foreground hook. Snapshot cleanup sends SIGTERM as
+// the polite "snapshot is done" signal before its hard SIGKILL deadline, which
+// is this plugin's own timeout. Like wget, treating it as "stop now" would
+// throw away a proof cleanup allows to finish; the hook's own deadline timer
+// below still ends the capture and closes its windows and extension in time.
+// Installed before any module loading so an early SIGTERM cannot kill it.
+process.on("SIGTERM", () => {
+  console.error("[tlsnotary] snapshot cleanup requested; finishing the proof within its deadline");
+});
 const fs = require("node:fs"),
   path = require("node:path"),
   http = require("node:http"),
@@ -514,6 +525,9 @@ async function capture() {
     emitArchiveResultRecord("skipped", "TLSNOTARY_ENABLED=False");
     return;
   }
+  // Readiness for the next hook: this hook only needs the completed
+  // navigation, which the foreground navigate hook already finished.
+  console.log("tlsnotary capture started");
   const timer = setTimeout(() => {
     deadlineExceeded = true;
     stopped = true;
@@ -531,10 +545,6 @@ async function capture() {
       finish();
     });
   }, config.TLSNOTARY_TIMEOUT * 1000 - 1500);
-  process.once("SIGTERM", () => {
-    stopped = true;
-    cleanup().finally(() => process.exit(1));
-  });
   try {
     await capture();
   } catch (error) {

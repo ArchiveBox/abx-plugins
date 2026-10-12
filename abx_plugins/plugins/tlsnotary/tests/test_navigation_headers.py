@@ -30,7 +30,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 PLUGIN_DIR = Path(__file__).resolve().parents[1]
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 PREPARE_HOOK = PLUGIN_DIR / "on_CrawlSetup__80_tlsnotary_prepare.py"
-SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__92_tlsnotary.js"
+SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__31_tlsnotary.finite.bg.js"
 CHECK_CAPTURE = PLUGIN_DIR / "tests" / "check_capture.mjs"
 TARGET_URL = "https://docs.sweeting.me/s/cookie-dilemma"
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -533,8 +533,17 @@ def test_real_hook_terminal_result_and_cleanup(tmp_path, verifier):
 
 
 @pytest.mark.parametrize("unrelated_tab", [False, True])
-def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab, verifier):
-    """Cancelling a real proof must not leave its separate auth page in Chrome."""
+def test_sigterm_finishes_proof_and_closes_its_managed_window(
+    tmp_path,
+    unrelated_tab,
+    verifier,
+):
+    """Snapshot cleanup's SIGTERM lets a real proof finish within its deadline.
+
+    The hook is a finite background hook: like wget, SIGTERM is the polite
+    "snapshot is done" signal, not "stop now". It must still end with exactly
+    one terminal result and leave no auth page or extension behind in Chrome.
+    """
 
     url = "https://news.ycombinator.com/"
     with chrome_session(
@@ -576,6 +585,10 @@ def test_cancelled_hook_closes_its_managed_window(tmp_path, unrelated_tab, verif
             try:
                 deadline = time.monotonic() + 15
                 while time.monotonic() < deadline and hook.poll() is None:
+                    # Background readiness comes first, before any capture work.
+                    first_line = stdout_path.read_text().split("\n", 1)[0]
+                    if first_line:
+                        assert first_line == "tlsnotary capture started", first_line
                     state = _inspect_browser(env, cdp_url, extension_id)
                     if (
                         "capture correlation" in stderr_path.read_text()
@@ -640,7 +653,7 @@ const chrome = require(process.argv[1]);
                         f"STDOUT:\n{stdout_path.read_text()}\n"
                         f"STDERR:\n{stderr_path.read_text()}",
                     )
-                assert hook.wait(timeout=15) == 1
+                returncode = hook.wait(timeout=40)
             finally:
                 if hook.poll() is None:
                     hook.kill()
@@ -660,4 +673,30 @@ const chrome = require(process.argv[1]);
                 page["targetId"] for page in state["pages"]
             }, state
         assert not (Path(env["CRAWL_DIR"]) / "tlsnotary" / "capture.lock").exists()
-        assert not (output_dir / "receipt.json").exists()
+        lines = stdout_path.read_text().splitlines()
+        assert lines[0] == "tlsnotary capture started", lines
+        records = [json.loads(line) for line in lines[1:]]
+        assert len(records) == 1, (lines, stderr_path.read_text())
+        if records[0]["status"] == "succeeded":
+            assert returncode == 0, stderr_path.read_text()
+            checked = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    str(CHECK_CAPTURE),
+                    str(output_dir),
+                    verifier["TLSNOTARY_TRUSTED_KEY"],
+                ],
+                cwd=PLUGIN_DIR.parent.parent,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            assert checked.returncode == 0, checked.stderr
+        else:
+            assert returncode == 1, stderr_path.read_text()
+            assert records[0]["type"] == "ArchiveResult", records
+            assert records[0]["status"] == "failed", records
+            assert records[0]["output_str"] == "TLSNotary capture deadline exceeded"
+            assert not (output_dir / "receipt.json").exists()
