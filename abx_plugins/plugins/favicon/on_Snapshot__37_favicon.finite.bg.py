@@ -34,7 +34,11 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, get_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    get_config,
+    iri_to_uri,
+)
 
 import rich_click as click
 
@@ -63,7 +67,9 @@ def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, byte
     with tempfile.TemporaryFile() as result_file:
         child_pid = os.fork()
         if child_pid == 0:
-            request = Request(url, headers=headers)
+            # Page, <link rel=icon> hrefs, and provider URLs can all be IRIs
+            # (/über, /ícono.png); http.client only sends ASCII request lines.
+            request = Request(iri_to_uri(url), headers=headers)
             status = 0
             body = b""
             returncode = 0

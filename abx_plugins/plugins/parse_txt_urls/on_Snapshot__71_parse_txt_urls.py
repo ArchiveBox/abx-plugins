@@ -33,6 +33,7 @@ from abx_plugins.plugins.base.url_cleaning import (
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    iri_to_uri,
     load_config,
     read_file_url_text,
     write_text_atomic,
@@ -249,7 +250,11 @@ def main(
 
             import urllib.request
 
-            req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            # http.client sends the request line as ASCII; encode IRIs like /über first.
+            req = urllib.request.Request(
+                iri_to_uri(url),
+                headers={"User-Agent": user_agent},
+            )
             response = urllib.request.urlopen(req, timeout=timeout)
             readers = [io.TextIOWrapper(response, encoding="utf-8", errors="replace")]
         else:

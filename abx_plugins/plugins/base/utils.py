@@ -21,7 +21,7 @@ from html.parser import HTMLParser
 import os
 import stat
 import sys
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse, urlsplit
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
@@ -1096,6 +1096,35 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
         for path in sorted(staticfile_dir.glob("*.txt"))
         if path.is_file() and path.stat().st_size > 0
     )
+
+
+# RFC 3986 reserved delimiters plus "%" so existing escapes are not re-encoded.
+_URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
+
+
+def iri_to_uri(url: str) -> str:
+    """Return an ASCII URI for an IRI, ready for urllib/http.client requests.
+
+    Snapshot URLs routinely contain non-ASCII text (https://example.com/über,
+    https://münchen.de/), but http.client encodes the request line as ASCII and
+    raises UnicodeEncodeError before anything is sent. Convert per RFC 3987
+    section 3.1: IDNA-encode the hostname and UTF-8 percent-encode every other
+    character outside the URI grammar. Reserved delimiters and existing %XX
+    escapes are left untouched, so already-valid URIs pass through unchanged
+    and the server sees the same resource a browser would request.
+    """
+    netloc = urlsplit(url).netloc
+    userinfo, at, hostport = netloc.rpartition("@")
+    host, colon, port = hostport, "", ""
+    # IPv6 literals are ASCII, and their colons are not a port separator.
+    if not hostport.startswith("[") and ":" in hostport:
+        host, colon, port = hostport.rpartition(":")
+    if not host.isascii():
+        ascii_netloc = (
+            f"{userinfo}{at}{host.encode('idna').decode('ascii')}{colon}{port}"
+        )
+        url = url.replace(netloc, ascii_netloc, 1)
+    return quote(url, safe=_URI_SAFE_CHARS)
 
 
 def read_file_url_text(url: str) -> str | None:

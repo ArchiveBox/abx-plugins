@@ -5,6 +5,7 @@ Tests verify standalone archive.org extractor execution.
 """
 
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -110,6 +111,63 @@ def test_connection_failure_preserves_previous_archive(tmp_path):
     assert record["status"] == "failed", record
     assert "URLError" in record["output_str"], record
     assert output.read_text() == previous
+
+
+@pytest.mark.parametrize(
+    ("target_url", "expected_request_uri"),
+    [
+        (
+            "https://example.com/über?q=ü",
+            "/save/https://example.com/%C3%BCber?q=%C3%BC",
+        ),
+        (
+            "https://münchen.example/straße/ü dir/",
+            "/save/https://xn--mnchen-3ya.example/stra%C3%9Fe/%C3%BC%20dir/",
+        ),
+    ],
+    ids=["non-ascii-path-and-query", "idn-hostname"],
+)
+def test_non_ascii_url_is_submitted_as_encoded_uri(
+    tmp_path,
+    httpserver,
+    target_url,
+    expected_request_uri,
+):
+    # Production snapshots of URLs like https://example.com/über died with
+    # UnicodeEncodeError before any request left the process, because
+    # http.client writes the request line as ASCII. The local server stands in
+    # for Save Page Now so we can assert the exact bytes Wayback would receive.
+    replay_path = f"/web/20261012000000/{expected_request_uri.removeprefix('/save/')}"
+    httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
+        "",
+        headers={"Content-Location": replay_path},
+    )
+    result = subprocess.run(
+        [str(ARCHIVEDOTORG_HOOK), "--url", target_url],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "ARCHIVEDOTORG_ENABLED": "True",
+            "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+            "no_proxy": "*",
+            "NO_PROXY": "*",
+        },
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "succeeded",
+        "output_str": "archivedotorg/archive.org.txt",
+    }, result.stdout + result.stderr
+    assert len(httpserver.log) == 1, httpserver.log
+    request, _response = httpserver.log[0]
+    assert request.environ["REQUEST_URI"] == expected_request_uri
+    output = tmp_path / "archivedotorg" / "archive.org.txt"
+    assert output.read_text(encoding="utf-8") == httpserver.url_for(replay_path)
 
 
 def test_private_url_has_noresults(tmp_path):

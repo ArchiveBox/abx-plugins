@@ -52,6 +52,7 @@ from urllib.request import Request, urlopen
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     find_article_html_source,
+    iri_to_uri,
     is_non_html_document,
     load_config,
 )
@@ -170,7 +171,8 @@ def find_paper_identifiers(url: str, binary: str, deadline: float) -> list[str]:
     elif is_non_html_document():
         return []
     else:
-        request = Request(url, headers={"User-Agent": CONFIG.USER_AGENT})
+        # http.client sends the request line as ASCII; encode IRIs like /über first.
+        request = Request(iri_to_uri(url), headers={"User-Agent": CONFIG.USER_AGENT})
         with urlopen(
             request,
             timeout=max(0.001, deadline - time.monotonic()),

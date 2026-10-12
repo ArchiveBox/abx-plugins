@@ -10,6 +10,8 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from abx_plugins.plugins.base.utils import iri_to_uri
+
 
 class NeedsLogin(Exception):
     pass
@@ -123,7 +125,8 @@ def fetch(url, *, authenticated=False):
         cookies.load(cookie_file, ignore_discard=True, ignore_expires=False)
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
     request = urllib.request.Request(
-        url,
+        # Feed and sheet URLs may be IRIs; http.client only sends ASCII.
+        iri_to_uri(url),
         headers={"User-Agent": os.environ.get("USER_AGENT") or "ArchiveBox importer"},
     )
     try:

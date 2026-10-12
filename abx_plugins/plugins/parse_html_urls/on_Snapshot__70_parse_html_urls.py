@@ -31,6 +31,7 @@ from abx_plugins.plugins.base.url_cleaning import (
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    iri_to_uri,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -402,7 +403,11 @@ def main(
             import io
             import urllib.request
 
-            req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            # http.client sends the request line as ASCII; encode IRIs like /über first.
+            req = urllib.request.Request(
+                iri_to_uri(url),
+                headers={"User-Agent": user_agent},
+            )
             response = urllib.request.urlopen(req, timeout=timeout)
             final_url = response.geturl()
             if isinstance(final_url, str) and final_url.lower().startswith(

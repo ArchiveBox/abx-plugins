@@ -30,6 +30,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     emit_tag_record,
+    iri_to_uri,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -79,7 +80,8 @@ def fetch_content(url: str) -> str:
 
     import urllib.request
 
-    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    # http.client sends the request line as ASCII; encode IRIs like /über first.
+    req = urllib.request.Request(iri_to_uri(url), headers={"User-Agent": user_agent})
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return response.read().decode("utf-8", errors="replace")
 

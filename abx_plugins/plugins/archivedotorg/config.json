@@ -26,6 +26,12 @@
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for archive.org submission in seconds"
+    },
+    "ARCHIVEDOTORG_SAVE_URL": {
+      "type": "string",
+      "default": "https://web.archive.org/save/",
+      "format": "uri",
+      "description": "Wayback Machine Save Page Now endpoint; the snapshot URL is appended to it. Replay links are only accepted from this endpoint's host."
     }
   },
   "category": "main",

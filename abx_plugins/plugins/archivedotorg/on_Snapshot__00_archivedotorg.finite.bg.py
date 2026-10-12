@@ -38,7 +38,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    iri_to_uri,
+    load_config,
+)
 
 import rich_click as click
 
@@ -117,7 +121,10 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
     )
 
-    submit_url = f"https://web.archive.org/save/{url}"
+    save_endpoint = config.ARCHIVEDOTORG_SAVE_URL
+    # Save Page Now takes the target in the request path, so a non-ASCII
+    # snapshot URL must become an ASCII URI or http.client refuses to send it.
+    submit_url = f"{save_endpoint}{iri_to_uri(url)}"
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
     log(f"GET {submit_url}")
 
@@ -146,12 +153,11 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         # A save-request URL is not proof that a capture exists. Only replace
         # a previous result once Wayback returns an actual replay location.
         archive_url = (
-            urljoin("https://web.archive.org", content_location)
-            if content_location
-            else final_url
+            urljoin(save_endpoint, content_location) if content_location else final_url
         )
         archived = urlparse(archive_url)
-        if archived.hostname == "web.archive.org" and archived.path.startswith("/web/"):
+        save_host = urlparse(save_endpoint).hostname
+        if archived.hostname == save_host and archived.path.startswith("/web/"):
             Path(OUTPUT_FILE).write_text(archive_url, encoding="utf-8")
             log(f"Saved archive URL -> {archive_url}")
             return True, OUTPUT_FILE, ""

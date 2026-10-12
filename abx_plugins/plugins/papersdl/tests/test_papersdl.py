@@ -248,6 +248,35 @@ def test_real_public_paper_download():
         )
 
 
+def test_fetches_non_ascii_article_url(tmp_path, httpserver):
+    """A page URL like /über must be fetched, not crash http.client's ASCII encode."""
+    httpserver.expect_request("/über/artikel").respond_with_data(
+        "<html><body><p>No citations here.</p></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    result = subprocess.run(
+        [str(PAPERSDL_HOOK), "--url", httpserver.url_for("/über/artikel")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+            "SNAP_DIR": str(tmp_path),
+        },
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No papers found",
+    }, result.stdout + result.stderr
+    assert [request.environ["REQUEST_URI"] for request, _ in httpserver.log] == [
+        "/%C3%BCber/artikel",
+    ]
+
+
 @pytest.mark.parametrize("saved_html", [False, True])
 def test_download_paper_linked_from_article(tmp_path, saved_html):
     """Download the paper linked by a real page whose own URL has no identifier."""
