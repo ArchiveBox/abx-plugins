@@ -1,0 +1,46 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_a286607305588e::t_c01d52101df5ce 2095,2102,2109,4717-4722,4745,4832,5060,5064-5065,5068
+  s_2b44ee96cc775e::t_a0cd7a042a7700 73-87,4672-4675,4690,4703-4715
+abx_plugins/plugins/chrome/tests/test_chrome_challenge.py
+  s_a286607305588e::t_9e98ef289240b8 91-93
+  s_a286607305588e::t_ddc6ec0f659d23 29-30,48-50,56-58,60-65,79-81,83-88,90,94,97-100
+  s_a286607305588e::t_e8a28655277774 1-28,31-47,51-55,59,66-78,82,89,95-96,101-103
+abx_plugins/plugins/chrome/on_Snapshot__30_chrome_navigate.js
+  s_a286607305588e::t_8f164e9d85f0c4 32,116-120
+  s_2b44ee96cc775e::t_a0cd7a042a7700 61-70,74-77,79-84,123,142,144-152,179-185,187-190,199-201,222,232,268
+  s_a286607305588e::t_92265dda243c2c 71-73,78,186
+pyproject.toml
+  s_2b44ee96cc775e::t_b8dc5462115abd 135
+abx_plugins/plugins/chrome/tests/test_user_agent_hints.py
+  s_a286607305588e::t_ddc6ec0f659d23 108-110,161-163,165-167
+  s_a286607305588e::t_2e1dc5143dac86 5,18-54,57-58,64-69,112-114,116-117,119-124,149-153,168-171
+  s_a286607305588e::t_5aaf9f1c3c564e 160,164
+  s_a286607305588e::t_c38eafd6348d6b 6,126,130-139,141-144,146,154-159
+  s_a286607305588e::t_c76dc0ec9c4579 9,115,118,125,127-129,140,145,147-148,172-175
+  s_a286607305588e::t_d7f4a9cf85cb5f 106-107
+  s_a286607305588e::t_26852dfc31952f 17,55-56,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12f8a13c06e70f6670cc47767ab695e36e37bc59",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "unknown"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a286607305588e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf8bf608-099b-4dff-9e7c-f87508f3f76d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
