@@ -1,0 +1,39 @@
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_2b44ee96cc775e::t_a0cd7a042a7700 1242-1274,1276-1319
+  s_2b44ee96cc775e::t_2d61080d4bbb89 1275
+abx_plugins/plugins/opencode/archivebox/browser_panel_cases.py
+  s_2b44ee96cc775e::t_0d97b9580a4d60 17,324-327,342
+abx_plugins/plugins/opencode/archivebox/browser.py
+  s_2b44ee96cc775e::t_d61ec2d2c92475 227
+  s_2b44ee96cc775e::t_ee974442fe552b 131-136
+  s_2b44ee96cc775e::t_3598dc34b2de37 36-46,52,59-65
+  s_2b44ee96cc775e::t_5ebb3fdc1027e6 113-114,119
+  s_2b44ee96cc775e::t_19e44d1801fb85 76-83,85
+abx_plugins/plugins/chrome/README.md
+  s_2b44ee96cc775e::t_e8093b32e1d175 488-491
+abx_plugins/plugins/opencode/archivebox/screencast.py
+  s_2b44ee96cc775e::t_4ab69e3102483f 56
+  s_2b44ee96cc775e::t_64f6b220fc4792 71-72
+abx_plugins/plugins/chrome/browser_observer.js
+  s_2b44ee96cc775e::t_a0cd7a042a7700 3,5,11-23
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_2b44ee96cc775e::t_e995e8668a77ff 4797
+abx_plugins/plugins/importers_browser/archivebox/host.py
+  s_2b44ee96cc775e::t_830e9da187895e 46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ba22158c4505dbd8bed1ddbe55ade9cdf3d33ee8",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
