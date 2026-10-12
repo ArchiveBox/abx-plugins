@@ -191,6 +191,22 @@ function argvUrl() {
   return "";
 }
 
+/**
+ * Return the URL in the normalized form Chrome and Node report it in.
+ *
+ * Snapshot URLs arrive as typed (https://münchen.de/über, https://example.com),
+ * while page.url(), request.url() and fetch report the WHATWG-serialized URI
+ * (https://xn--mnchen-3ya.de/%C3%BCber, https://example.com/). Compare URLs
+ * through this, never as raw strings. Input that does not parse is returned unchanged.
+ */
+function normalizeUrl(url) {
+  try {
+    return new URL(url).href;
+  } catch (error) {
+    return url;
+  }
+}
+
 function maybeSkipUnsupportedSnapshotUrl(schema) {
   const scriptName = path.basename(process.argv[1] || process.argv[0] || "");
   const url = argvUrl();
@@ -720,6 +736,7 @@ module.exports = {
   getTestEnv,
   ensureNodeModuleResolution,
   parseArgs,
+  normalizeUrl,
   emitArchiveResultRecord,
   emitSnapshotRecord,
   writeFileAtomic,

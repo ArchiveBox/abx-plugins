@@ -31,6 +31,7 @@ from abx_plugins.plugins.base.url_cleaning import (
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    build_request,
     iri_to_uri,
     iter_staticfile_text_inputs,
     load_config,
@@ -65,6 +66,9 @@ class HrefParser(HTMLParser):
     def __init__(self, *, root_url: str, urls_found: set[str]):
         super().__init__()
         self.root_url = root_url
+        # root_url is usually Chrome's encoded URI (/%C3%BCber) while hrefs
+        # stay IRIs (/über); compare both in URI form to spot self-links.
+        self.root_uri = iri_to_uri(root_url)
         self.urls_found = urls_found
         self.raw_tail = ""
 
@@ -72,7 +76,7 @@ class HrefParser(HTMLParser):
         normalized = normalize_url(url, root_url=self.root_url)
         lowered = normalized.lower()
         if lowered.startswith(HTTP_PREFIXES):
-            if normalized != self.root_url:
+            if iri_to_uri(normalized) != self.root_uri:
                 self.urls_found.add(
                     unescape(normalized) if "&" in normalized else normalized,
                 )
@@ -403,11 +407,8 @@ def main(
             import io
             import urllib.request
 
-            # http.client sends the request line as ASCII; encode IRIs like /über first.
-            req = urllib.request.Request(
-                iri_to_uri(url),
-                headers={"User-Agent": user_agent},
-            )
+            # IRIs (/über) and URL credentials need the shared request builder.
+            req = build_request(url, headers={"User-Agent": user_agent})
             response = urllib.request.urlopen(req, timeout=timeout)
             final_url = response.geturl()
             if isinstance(final_url, str) and final_url.lower().startswith(

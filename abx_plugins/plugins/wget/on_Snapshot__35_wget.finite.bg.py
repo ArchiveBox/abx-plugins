@@ -47,6 +47,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     has_netscape_cookie_entries,
     has_staticfile_output,
+    iri_to_uri,
     load_config,
 )
 
@@ -75,6 +76,19 @@ def rel_output(path_str: str | None) -> str | None:
         return str(resolved.relative_to(SNAP_DIR.resolve()))
     except Exception:
         return path.name or path_str
+
+
+def unescape_wget_filename(name: str) -> str:
+    """Decode the octal byte escapes wget uses for filenames under LC_ALL=C.
+
+    The hook runs wget in the C locale so its messages stay parseable English,
+    but there it prints non-ASCII filename bytes as \\303\\274 instead of ü.
+    """
+    return re.sub(
+        rb"\\([0-7]{3})",
+        lambda match: bytes([int(match[1], 8)]),
+        name.encode("utf-8", "surrogateescape"),
+    ).decode("utf-8", "surrogateescape")
 
 
 def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -123,7 +137,10 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Wget reports the requested document before its page requisites. Use its
     # actual filename, including redirects and --adjust-extension, rather than
     # guessing from directory traversal order (which can pick an ad iframe).
-    cmd.extend(["--no-quiet", "--verbose", url])
+    # Give wget an ASCII URI (IDNA host, UTF-8 percent-encoded path): under
+    # LC_ALL=C it cannot know the charset of a Unicode URL. Userinfo stays in
+    # the URL; wget answers the server's Basic challenge with it.
+    cmd.extend(["--no-quiet", "--verbose", iri_to_uri(url)])
 
     # Run wget
     try:
@@ -140,8 +157,9 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
             saved = re.search(r"'(.+)' saved \[", line)
             unchanged = re.match(r"File '(.+)' not modified on server\.", line)
             match = saved or unchanged
-            if match and Path(match[1]).is_file():
-                return True, match[1], ""
+            filename = unescape_wget_filename(match[1]) if match else ""
+            if filename and Path(filename).is_file():
+                return True, filename, ""
 
         if result.returncode != 0:
             return False, None, f"wget failed (exit={result.returncode})"

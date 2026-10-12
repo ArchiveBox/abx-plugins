@@ -36,9 +36,10 @@ from ipaddress import ip_address
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 from abx_plugins.plugins.base.utils import (
+    build_request,
     emit_archive_result_record,
     iri_to_uri,
     load_config,
@@ -130,7 +131,7 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 
     try:
         print("submitting to archive.org...", file=sys.stderr)
-        req = Request(submit_url, headers={"User-Agent": user_agent})
+        req = build_request(submit_url, headers={"User-Agent": user_agent})
         response = urlopen(req, timeout=timeout)
         final_url = response.url
         status = response.status

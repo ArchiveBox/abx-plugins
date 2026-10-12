@@ -14,6 +14,7 @@ Import directly via the package path::
 
 from __future__ import annotations
 
+import base64
 import html
 import json
 import re
@@ -21,11 +22,15 @@ from html.parser import HTMLParser
 import os
 import stat
 import sys
+import unicodedata
 from urllib.parse import quote, unquote, urljoin, urlparse, urlsplit
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import TYPE_CHECKING, Any, TextIO, cast
+
+if TYPE_CHECKING:
+    import urllib.request
 
 
 # ---------------------------------------------------------------------------
@@ -1100,6 +1105,27 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
 
 # RFC 3986 reserved delimiters plus "%" so existing escapes are not re-encoded.
 _URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
+# Inside a userinfo component ":" and "@" are data, not delimiters.
+_USERINFO_SAFE_CHARS = "!$%&'()*+,;=~"
+# Label separators UTS #46 accepts: ASCII, ideographic, fullwidth, halfwidth.
+_IDNA_DOTS = re.compile("[.\u3002\uff0e\uff61]")
+
+
+def _idna_host(host: str) -> str:
+    """Map a non-ASCII hostname to the ASCII name a browser would resolve.
+
+    Uses UTS #46 nontransitional processing like Chrome and Node's URL parser,
+    not Python's "idna" codec: that codec implements IDNA 2003, which folds
+    ß/ς to ss/σ and so resolves a different domain (straße.de vs strasse.de)
+    than the Chrome hooks capturing the same snapshot. NFKC plus lowercase is
+    the UTS #46 mapping for real hostnames; it also folds fullwidth letters
+    and dots to the ASCII host they display as.
+    """
+    labels = _IDNA_DOTS.split(unicodedata.normalize("NFKC", host).lower())
+    return ".".join(
+        label if label.isascii() else "xn--" + label.encode("punycode").decode()
+        for label in labels
+    )
 
 
 def iri_to_uri(url: str) -> str:
@@ -1112,19 +1138,66 @@ def iri_to_uri(url: str) -> str:
     character outside the URI grammar. Reserved delimiters and existing %XX
     escapes are left untouched, so already-valid URIs pass through unchanged
     and the server sees the same resource a browser would request.
+
+    Userinfo is encoded per component, as browsers parse it: split at the last
+    "@" and the first ":", with any later "@" or ":" escaped so the encoded URL
+    keeps the same username, password, host and port.
     """
     netloc = urlsplit(url).netloc
     userinfo, at, hostport = netloc.rpartition("@")
+    if at:
+        username, colon, password = userinfo.partition(":")
+        userinfo = (
+            quote(username, safe=_USERINFO_SAFE_CHARS)
+            + colon
+            + quote(password, safe=_USERINFO_SAFE_CHARS)
+        )
     host, colon, port = hostport, "", ""
     # IPv6 literals are ASCII, and their colons are not a port separator.
     if not hostport.startswith("[") and ":" in hostport:
         host, colon, port = hostport.rpartition(":")
     if not host.isascii():
-        ascii_netloc = (
-            f"{userinfo}{at}{host.encode('idna').decode('ascii')}{colon}{port}"
-        )
+        host = _idna_host(host)
+    ascii_netloc = f"{userinfo}{at}{host}{colon}{port}"
+    if ascii_netloc != netloc:
         url = url.replace(netloc, ascii_netloc, 1)
     return quote(url, safe=_URI_SAFE_CHARS)
+
+
+def build_request(
+    url: str,
+    headers: Mapping[str, str] | None = None,
+) -> urllib.request.Request:
+    """Build the urllib Request for fetching a snapshot/source URL.
+
+    Every Python hook fetches through this so non-ASCII URLs and URL
+    credentials behave the same everywhere. urllib cannot send either itself:
+    http.client rejects non-ASCII request lines, and urllib passes userinfo to
+    http.client as part of the hostname ("user:pw@host"), so the connection
+    fails. The userinfo is moved into a preemptive Basic Authorization header
+    (UTF-8, per RFC 7617, as browsers send it) and the rest of the URL is
+    sent as an ASCII URI. The header is unredirected: urllib copies ordinary
+    headers onto redirected requests, which would leak the credentials to
+    whatever origin the server redirects to.
+    """
+    # Imported here: most hooks import this module but never fetch, and
+    # urllib.request pulls in http.client, email and ssl at startup.
+    import urllib.request
+
+    uri = iri_to_uri(url)
+    parts = urlsplit(uri)
+    request_url = uri
+    authorization = None
+    if "@" in parts.netloc:
+        userinfo, _, hostport = parts.netloc.rpartition("@")
+        request_url = uri.replace(parts.netloc, hostport, 1)
+        username, _, password = userinfo.partition(":")
+        credentials = f"{unquote(username)}:{unquote(password)}".encode()
+        authorization = "Basic " + base64.b64encode(credentials).decode("ascii")
+    request = urllib.request.Request(request_url, headers=dict(headers or {}))
+    if authorization:
+        request.add_unredirected_header("Authorization", authorization)
+    return request
 
 
 def read_file_url_text(url: str) -> str | None:

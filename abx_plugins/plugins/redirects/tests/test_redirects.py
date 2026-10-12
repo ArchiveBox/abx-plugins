@@ -217,6 +217,75 @@ class TestRedirectsWithChrome:
             _stdout, stderr = result.communicate(timeout=20)
             assert result.returncode == 0, stderr
 
+    @pytest.mark.parametrize("path", ["/über?q=ü", "/plain"])
+    def test_unredirected_url_is_not_reported_as_redirect(self, httpserver, path):
+        """Chrome reports the URL it requested in normalized URI form
+        (/%C3%BCber, or with a trailing "/" on a bare origin). Comparing that
+        string with the snapshot URL as typed flagged every IRI as a redirect.
+        """
+        httpserver.expect_request(path.split("?")[0]).respond_with_data(
+            "<html><body>no redirect here</body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+        # A bare origin with no path is the other URL Chrome rewrites.
+        test_url = (
+            httpserver.url_for(path)
+            if path != "/plain"
+            else f"http://{httpserver.host}:{httpserver.port}"
+        )
+        if path == "/plain":
+            httpserver.clear()
+            httpserver.expect_request("/").respond_with_data(
+                "<html><body>no redirect here</body></html>",
+                content_type="text/html; charset=utf-8",
+            )
+        snapshot_id = "test-redirects-unredirected"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-redirects-crawl",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=30,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
+            result = start_process_and_wait_for_file(
+                [
+                    str(REDIRECTS_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                marker_path,
+                cwd=snapshot_chrome_dir,
+                env=env,
+                ready=prenav_is_ready,
+            )
+            nav_result = subprocess.run(
+                [
+                    str(CHROME_NAVIGATE_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
+            assert nav_result.returncode == 0, nav_result.stdout + nav_result.stderr
+
+            stdout, stderr = result.communicate(timeout=20)
+            assert result.returncode == 0, stderr
+            records = [
+                json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+            ]
+            archive_result = next(r for r in records if r["type"] == "ArchiveResult")
+            assert archive_result["status"] == "succeeded", archive_result
+            assert archive_result["original_url"] == test_url, archive_result
+            assert archive_result["redirect_count"] == 0, archive_result
+            assert archive_result["is_redirect"] is False, archive_result
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

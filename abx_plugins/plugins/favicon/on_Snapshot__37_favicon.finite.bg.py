@@ -32,10 +32,11 @@ import time
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote, urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    build_request,
     get_config,
     iri_to_uri,
 )
@@ -68,8 +69,8 @@ def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, byte
         child_pid = os.fork()
         if child_pid == 0:
             # Page, <link rel=icon> hrefs, and provider URLs can all be IRIs
-            # (/über, /ícono.png); http.client only sends ASCII request lines.
-            request = Request(iri_to_uri(url), headers=headers)
+            # (/über, /ícono.png) or carry the page's URL credentials.
+            request = build_request(url, headers=headers)
             status = 0
             body = b""
             returncode = 0
@@ -150,7 +151,9 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     # Build list of possible favicon URLs
     parsed = urlparse(url)
     base_url = f"{parsed.scheme}://{parsed.netloc}"
-    domain = parsed.hostname or parsed.netloc
+    # Providers look domains up in DNS, so give them the IDNA name
+    # (xn--mnchen-3ya.de), not a percent-encoded Unicode one.
+    domain = urlparse(iri_to_uri(url)).hostname or parsed.netloc
 
     favicon_urls = [
         urljoin(base_url, "/favicon.ico"),

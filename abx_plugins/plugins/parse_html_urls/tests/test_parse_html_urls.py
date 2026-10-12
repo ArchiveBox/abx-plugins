@@ -365,6 +365,40 @@ class TestParseHtmlUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://other.com"
 
+    def test_excludes_source_url_written_as_iri(self, tmp_path):
+        """A page linking to itself as /über is not a new URL.
+
+        The root URL comes from Chrome's headers.json in encoded URI form
+        (/%C3%BCber), while the page's own href stays an IRI, so a plain string
+        comparison emitted the page as its own child.
+        """
+        headers_dir = tmp_path / "headers"
+        headers_dir.mkdir()
+        (headers_dir / "headers.json").write_text(
+            json.dumps({"final_url": "https://example.com/%C3%BCber?q=%C3%BC"}),
+        )
+        singlefile_dir = tmp_path / "singlefile"
+        singlefile_dir.mkdir()
+        (singlefile_dir / "singlefile.html").write_text(
+            '<a href="/über?q=ü">Self</a><a href="/andere">Other</a>',
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", "https://example.com/über?q=ü"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+        )
+
+        assert result.returncode == 0, result.stderr
+        urls = [
+            json.loads(line)["url"]
+            for line in result.stdout.splitlines()
+            if '"type": "Snapshot"' in line
+        ]
+        assert urls == ["https://example.com/andere"], result.stdout
+
     def test_runs_even_if_parse_dom_outlinks_urls_exist(self, tmp_path):
         """parse_html_urls should not skip just because parse_dom_outlinks already wrote urls.jsonl."""
         input_file = tmp_path / "page.html"

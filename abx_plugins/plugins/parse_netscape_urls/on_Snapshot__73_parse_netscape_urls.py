@@ -26,7 +26,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     emit_tag_record,
-    iri_to_uri,
+    build_request,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -198,8 +198,8 @@ def fetch_content(url: str) -> str:
 
     import urllib.request
 
-    # http.client sends the request line as ASCII; encode IRIs like /über first.
-    req = urllib.request.Request(iri_to_uri(url), headers={"User-Agent": user_agent})
+    # IRIs (/über) and URL credentials need the shared request builder.
+    req = build_request(url, headers={"User-Agent": user_agent})
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return response.read().decode("utf-8", errors="replace")
 

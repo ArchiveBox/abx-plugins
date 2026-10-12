@@ -24,6 +24,7 @@ const {
   getEnvBool,
   getEnvInt,
   loadConfig,
+  normalizeUrl,
   parseArgs,
   emitArchiveResultRecord,
   writeFileAtomic,
@@ -79,9 +80,7 @@ function appendRedirectEntry(outputPath, entry) {
     finalUrl = entry.to_url;
     lastObservedUrl = entry.to_url;
   }
-  const redirectCount = redirectChain.filter(
-    (redirect) => redirect.type !== "initial"
-  ).length;
+  const redirectCount = countRedirects();
   const progressLine =
     redirectCount === 0
       ? "0 redirects"
@@ -93,6 +92,11 @@ function appendRedirectEntry(outputPath, entry) {
     lastProgressLine = progressLine;
   }
   return true;
+}
+
+// The "initial" entry records the first request, not a redirect.
+function countRedirects() {
+  return redirectChain.filter((redirect) => redirect.type !== "initial").length;
 }
 
 async function setupRedirectListener() {
@@ -305,9 +309,12 @@ async function handleShutdown(signal) {
     plugin: PLUGIN_NAME,
     original_url: originalUrl,
     final_url: finalUrl || originalUrl,
-    redirect_count: redirectChain.length,
+    redirect_count: countRedirects(),
+    // finalUrl is Chrome's serialized URI; originalUrl is the snapshot URL as
+    // typed (/über, no trailing "/"). Compare them in the same form.
     is_redirect:
-      redirectChain.length > 0 || (finalUrl && finalUrl !== originalUrl),
+      countRedirects() > 0 ||
+      Boolean(finalUrl && normalizeUrl(finalUrl) !== normalizeUrl(originalUrl)),
   };
 
   await emitResult(result);
