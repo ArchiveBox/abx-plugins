@@ -48,6 +48,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_cookies_via_cdp,
     get_test_env,
     is_pid_alive,
+    install_chromium_with_abxpkg,
     kill_chrome,
     kill_chromium_session,
     launch_chromium_session,
@@ -437,6 +438,10 @@ def test_empty_extension_directory_uses_managed_cache(tmp_path):
         UBLOCK_ENABLED="true",
         CHROME_HEADLESS="true",
     )
+    # Changing the lib root invalidates the shared runtime prepared by the
+    # fixture. Install into this root before measuring browser readiness.
+    install_chromium_with_abxpkg(env)
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = ""
     chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
     chrome_dir.mkdir()
     process, _cdp_url = launch_chromium_session(
