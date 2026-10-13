@@ -205,6 +205,8 @@ def _replay_index(wacz_path: Path) -> dict:
         ranges = []
         with zipfile.ZipFile(wacz_path) as archive, wacz_path.open("rb") as source:
             for entry in archive.infolist():
+                if limit < 30:
+                    break  # No local header fits; do not read the remaining entries.
                 source.seek(entry.header_offset)
                 header = source.read(30)
                 if len(header) != 30 or header[:4] != b"PK\x03\x04":
@@ -218,7 +220,7 @@ def _replay_index(wacz_path: Path) -> dict:
                 if is_index and length + entry.compress_size <= limit:
                     length += entry.compress_size
                 if length > limit:
-                    continue
+                    break
                 source.seek(entry.header_offset)
                 data = source.read(length)
                 ranges.append(

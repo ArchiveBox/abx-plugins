@@ -4,10 +4,45 @@ import json
 import base64
 from html import escape as html_escape
 import struct
+import sys
 import zipfile
 from pathlib import Path
 
 from abx_plugins.plugins.archivewebpage import presentation
+
+
+def test_replay_index_stops_file_reads_after_metadata_budget(tmp_path):
+    """Profile real ZIP reads: a full inline budget must stop the header scan."""
+    path = tmp_path / "capture.wacz"
+    name = "pages/pages.jsonl"
+    budget = 512 * 1024
+    page = b'{"url":"https://example.com/"}\n'
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(name, page.ljust(budget - 30 - len(name), b"\n"))
+        for number in range(10):
+            archive.writestr(f"indexes/index-{number}.cdxj", b"index\n")
+
+    reads = []
+
+    def profile(frame, event, function):
+        if (
+            event == "c_call"
+            and frame.f_code is presentation._replay_index.__code__
+            and getattr(function, "__name__", "") == "read"
+        ):
+            reads.append(function.__self__.tell())
+
+    previous = sys.getprofile()
+    try:
+        sys.setprofile(profile)
+        index = presentation._replay_index(path)
+    finally:
+        sys.setprofile(previous)
+
+    assert index["size"] == path.stat().st_size
+    assert len(index["ranges"]) == 1
+    assert len(base64.b64decode(index["ranges"][0][1])) == budget
+    assert reads == [0, 0], reads  # Read its header, then its exact inline bytes.
 
 
 def test_replay_prefers_requested_page_over_unrelated_first_page(
