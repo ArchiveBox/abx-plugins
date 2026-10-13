@@ -42,7 +42,16 @@ def test_evidence_hooks_run_in_order():
     assert all(hooks)
     names = [hook.name for hook in hooks if hook is not None]
     assert names == sorted(names)
-    assert all(".bg." not in name for name in names)
+    tlsnotary, hashes, opentimestamps = names
+    # TLSNotary proves in the background right after navigation, so hashes must
+    # declare it as an output dependency the runner waits for before hashing.
+    assert ".bg." in tlsnotary
+    hashes_config = json.loads((PLUGINS / "hashes/config.json").read_text())
+    assert "tlsnotary" in hashes_config["wait_for_plugins"]
+    # The manifest and its timestamp stay foreground: each starts only after
+    # the previous evidence step has exited.
+    assert ".bg." not in hashes
+    assert ".bg." not in opentimestamps
 
 
 def test_host_card_contains_standalone_preview():
