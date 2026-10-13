@@ -1,0 +1,75 @@
+.pre-commit-config.yaml
+  s_8dbda046044e96::t_6873d8feb8db8d 1-3
+abx_plugins/plugins/papersdl/config.json
+  s_8dbda046044e96::t_207cb39014a2d0 110-117
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  s_8dbda046044e96::t_b29fa72dfd1152 68,164-170,273-281,288
+abx_plugins/plugins/papersdl/papers-dl-patches/LICENSE
+  s_fc592191f5c2e8::t_342d0af6ef4314 1-21
+abx_plugins/plugins/papersdl/papers-dl-patches/README.md
+  s_fc592191f5c2e8::t_02499d63b3c329 1-31
+abx_plugins/plugins/papersdl/papers-dl-patches/fetch/__init__.py
+  s_fc592191f5c2e8::t_474d2628e6d60d 1
+abx_plugins/plugins/papersdl/papers-dl-patches/fetch/fetch.py
+  s_fc592191f5c2e8::t_bb437eda00d38c 1-240
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/__init__.py
+  s_fc592191f5c2e8::t_1b4f0d48761ad6 1-6
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/arxiv.py
+  s_fc592191f5c2e8::t_a9f4c515e701b5 1-13
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/biorxiv.py
+  s_fc592191f5c2e8::t_b3f39be2ca313d 1-76
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/europepmc.py
+  s_fc592191f5c2e8::t_e23b66c7512bea 1-56
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/figshare.py
+  s_fc592191f5c2e8::t_5d8f21a6920e00 1-70
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/hal.py
+  s_fc592191f5c2e8::t_34ead2db16fb48 1-70
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/medrxiv.py
+  s_fc592191f5c2e8::t_979d0ca5303a9c 1-7
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/ntrs.py
+  s_fc592191f5c2e8::t_5433c9be23e737 1-37
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/osti.py
+  s_fc592191f5c2e8::t_1cd44ce7dea099 1-48
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/pmc.py
+  s_fc592191f5c2e8::t_7796e162dbfe00 1-190
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/publisher.py
+  s_fc592191f5c2e8::t_82345d1571348a 1-62
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/scidb.py
+  s_fc592191f5c2e8::t_1aa21017c0ce6c 1-25
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/scihub.py
+  s_fc592191f5c2e8::t_5656197b8a086a 1-125
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/unpaywall.py
+  s_fc592191f5c2e8::t_ab48b984cb3976 1-46
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/zenodo.py
+  s_fc592191f5c2e8::t_155f5643faf756 1-44
+abx_plugins/plugins/papersdl/tests/fixtures/science-brain-sleep-citation.html
+  s_fc592191f5c2e8::t_4dc84eaf92e461 1-5
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_8dbda046044e96::t_550100b2635aaa 386-465
+pyproject.toml
+  s_8dbda046044e96::t_6731e15835549e 117,138-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ebdf32adb0f88cbc4bd04711a6ca3c5e20f4d6d",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_fc592191f5c2e8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133c8-4002-7303-9eb8-9ac868c98d1f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
