@@ -51,9 +51,7 @@ those values. `--url` identifies the hook invocation; it is not sent to calendar
 
 `on_Snapshot__92_tlsnotary.js` → `on_Snapshot__93_hashes.py` →
 `on_Snapshot__99_opentimestamps.py`. All three are foreground hooks: the next one
-starts after the previous process exits. Hashes also declares `wait_for_plugins`
-for optional download producers, so runners supporting that metadata wait for
-already-started downloads without enabling them.
+starts after the previous process exits.
 It declares `wait_for_background_cleanup` so supported runners flush and stop
 snapshot monitors after TLSNotary finishes and before the manifest is generated.
 

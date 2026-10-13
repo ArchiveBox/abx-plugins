@@ -293,8 +293,6 @@ def test_hook_scripts_exist():
 def test_parser_runs_after_papersdl_finishes():
     papers_hook = next((PLUGINS_ROOT / "papersdl").glob("on_Snapshot__*.py"))
     assert papers_hook.name < LITEPARSE_HOOK.name
-    config = json.loads((PLUGIN_DIR / "config.json").read_text())
-    assert "papersdl" in config["wait_for_plugins"]
 
 
 def test_crawl_hook_emits_lit_binary_request_record():

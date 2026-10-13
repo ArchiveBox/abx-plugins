@@ -8,9 +8,6 @@
     "dom",
     "responses"
   ],
-  "wait_for_plugins": [
-    "wget"
-  ],
   "required_binaries": [
     {
       "name": "{READABILITY_BINARY}",

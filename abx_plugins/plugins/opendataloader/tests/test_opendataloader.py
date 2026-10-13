@@ -219,8 +219,6 @@ def test_hook_script_exists():
 def test_parser_runs_after_papersdl_finishes():
     papers_hook = next((PLUGINS_ROOT / "papersdl").glob("on_Snapshot__*.py"))
     assert papers_hook.name < OPENDATALOADER_HOOK.name
-    config = json.loads((PLUGIN_DIR / "config.json").read_text())
-    assert "papersdl" in config["wait_for_plugins"]
 
 
 def test_verify_deps_with_install_hooks():
