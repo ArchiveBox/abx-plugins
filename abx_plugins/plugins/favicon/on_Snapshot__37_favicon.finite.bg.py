@@ -198,7 +198,9 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
             break
         try:
             status_code, body = http_get(
-                favicon_url, headers=headers, timeout=remaining()
+                favicon_url,
+                headers=headers,
+                timeout=remaining(),
             )
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""
@@ -212,7 +214,9 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     if provider_url and remaining() > 0:
         try:
             status_code, body = http_get(
-                provider_url, headers=headers, timeout=remaining()
+                provider_url,
+                headers=headers,
+                timeout=remaining(),
             )
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""

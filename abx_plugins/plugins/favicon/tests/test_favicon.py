@@ -136,7 +136,8 @@ def test_timeout_bounds_whole_hook_across_sequential_requests(httpserver):
     def slow_page(_request):
         release.wait(3)
         return Response(
-            "<html><head></head><body></body></html>", content_type="text/html"
+            "<html><head></head><body></body></html>",
+            content_type="text/html",
         )
 
     def stalled(_request):
