@@ -109,8 +109,43 @@ process.on('SIGTERM', () => {
   });
   record({phase: 'observer_attached'});
   const previous = new Map();
+  const observed = new Set();
+  const observe = async page => {
+    if (observed.has(page)) return;
+    observed.add(page);
+    const pageId = [...observed].indexOf(page);
+    const address = raw => { try { const url = new URL(raw); return url.origin + url.pathname; } catch { return ''; } };
+    page.on('response', response => {
+      if (['xhr', 'fetch'].includes(response.request().resourceType()))
+        record({phase: 'response', page: pageId, url: address(response.url()), status: response.status()});
+    });
+    page.on('requestfailed', request => record({phase: 'request_failed', page: pageId,
+      url: address(request.url()), type: request.resourceType(), error: request.failure()?.errorText}));
+    page.on('pageerror', error => record({phase: 'page_error', page: pageId, name: error.name}));
+    await page.exposeFunction('__archiveboxObserveTransferEvent', event => record({phase: 'input', page: pageId, ...event}));
+    const listen = () => {
+      if (window.__archiveboxTransferInputObserved) return;
+      window.__archiveboxTransferInputObserved = true;
+      for (const type of ['pointerdown', 'pointerup', 'click']) document.addEventListener(type, event => {
+        const target = event.target;
+        const button = target.closest?.('button');
+        const top = document.elementFromPoint(event.clientX, event.clientY);
+        const props = button && Object.keys(button).find(key => key.startsWith('__reactProps$'));
+        window.__archiveboxObserveTransferEvent({type, trusted: event.isTrusted,
+          url: location.origin + location.pathname, tag: target.tagName,
+          text: (button?.innerText || target.innerText || '').slice(0, 100),
+          buttonTestId: button?.getAttribute('data-testid'),
+          top: top?.tagName, sameTarget: target === top || target.contains(top),
+          reactClickHandler: props ? typeof button[props]?.onClick : null});
+      }, true);
+    };
+    await page.evaluateOnNewDocument(listen);
+    await page.evaluate(listen).catch(() => {});
+  };
+  browser.on('targetcreated', target => target.page().then(page => page && observe(page)).catch(error => record({phase: 'attach_error', name: error.name})));
   while (!stopped) {
     for (const page of await browser.pages()) {
+      await observe(page);
       if (!/(^|\\.)wetransfer\\.com$/.test(new URL(page.url()).hostname)) continue;
       try {
         const state = await page.evaluate(() => {
@@ -137,7 +172,7 @@ process.on('SIGTERM', () => {
           const phase = state.expired ? 'expired' : state.buttons.some(button => button.text === 'I agree')
             ? 'terms' : state.buttons.some(button => /^(Download|Download all)$/.test(button.text))
             ? 'download' : 'loading';
-          record({phase, page: previous.has(page) ? [...previous.keys()].indexOf(page) : previous.size, state});
+          record({phase, page: [...observed].indexOf(page), state});
           previous.set(page, {encoded, at: Date.now()});
         }
       } catch (error) { record({phase: 'page_read_error', name: error.name}); }
