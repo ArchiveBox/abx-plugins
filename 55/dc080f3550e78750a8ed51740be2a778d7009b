@@ -1,0 +1,27 @@
+README.md
+  s_8dbda046044e96::t_ee93f4b4317d86 158
+TODO.md
+  s_8dbda046044e96::t_db6dc1c87e27ac 524
+abx_plugins/plugins/liteparse/config.json
+  s_8dbda046044e96::t_c43cf2116bb419 9
+abx_plugins/plugins/opendataloader/config.json
+  s_8dbda046044e96::t_92fa37b39145fb 9
+abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__64_parse_dom_outlinks.js
+  s_8dbda046044e96::t_498b3978d5a32d 6-7,18,238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55dc080f3550e78750a8ed51740be2a778d7009b",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
