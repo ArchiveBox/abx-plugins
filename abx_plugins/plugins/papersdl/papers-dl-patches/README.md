@@ -3,10 +3,10 @@
 Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
 License: MIT; see LICENSE. These Python files are copied unchanged from the
-canonical papers-dl source at `77cb3514b715dce8efaae9788ec63d7eb92c763d`.
+canonical papers-dl source at `9b70547a38ad695e55c178445b4c523477e14d3b`.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
-PYTHONPATH. It replaces its parser/fetch/provider modules
+PYTHONPATH. It replaces its CLI entrypoint and parser/fetch/provider modules
 without changing the shared installed package or importing papers-dl into the
 hook's interpreter. Runtime dependencies come from
 the pinned PyPI package. Remove this overlay and update the package pin once
@@ -36,3 +36,7 @@ false paper identifiers. The same overlay is used for both CLI parsing and fetch
 
 Publisher title markup/entities are decoded before naming PDFs, and path separators
 are replaced so paper titles remain filenames inside the output directory.
+
+Known DOI queries reuse identifier metadata when naming the downloaded paper,
+avoiding repeated PDF extraction and Google searches. Queries without usable DOI
+metadata retain the existing PDF title discovery.

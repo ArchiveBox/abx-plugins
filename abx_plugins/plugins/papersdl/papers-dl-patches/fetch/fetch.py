@@ -9,6 +9,7 @@ import aiohttp
 import pdf2doi
 from bs4 import BeautifulSoup
 from loguru import logger
+from parse.parse import parse_ids_from_text
 
 from providers import (
     arxiv,
@@ -212,7 +213,7 @@ def generate_name(content):
     return f"{pdf_hash}" + ".pdf"
 
 
-def rename(out_dir, path, name=None) -> str:
+def rename(out_dir, path, name=None, identifier=None) -> str:
     """
     Renames a PDF to either the given name or its appropriate title, if
     possible. Adds the PDF extension. Returns the new path if renaming was
@@ -224,10 +225,20 @@ def rename(out_dir, path, name=None) -> str:
 
     try:
         if name is None:
-            result_info = pdf2doi.pdf2doi(path)
-            if not result_info:
+            identifiers = parse_ids_from_text(identifier or "", ["doi"])
+            raw_validation_info = None
+            if len(identifiers) == 1:
+                # The fetch already resolved this paper. Do not rediscover its
+                # identifier by extracting the PDF and searching Google again.
+                known = identifiers[0]
+                raw_validation_info = pdf2doi.finders.validate(known["id"], known["type"])
+            if not raw_validation_info:
+                result_info = pdf2doi.pdf2doi(path)
+                if not result_info:
+                    return path
+                raw_validation_info = result_info["validation_info"]
+            if not raw_validation_info:
                 return path
-            raw_validation_info = result_info["validation_info"]
             if isinstance(raw_validation_info, (str, bytes, bytearray)):
                 validation_info = json.loads(raw_validation_info)
             else:

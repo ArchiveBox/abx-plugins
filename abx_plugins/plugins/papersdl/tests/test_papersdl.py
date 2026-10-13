@@ -421,6 +421,7 @@ if __name__ == "__main__":
         ("10.1038/sj.bjp.0705942", "pmc"),
         ("10.1016/j.cell.2024.11.027", "pmc"),
         ("10.21105/joss.01112", "unpaywall"),
+        ("10.1086/322460", "unpaywall"),
         ("10.1101/833400v1.full.pdf", "biorxiv"),
     ],
 )
@@ -462,6 +463,12 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
             "Intravenous anaesthetics inhibit nicotinic acetylcholine "
             "receptor‐mediated currents and Ca2+ transients in rat "
             "intracardiac ganglion neurons.pdf"
+        )
+
+    if identifier == "10.1086/322460":
+        assert pdfs[0].name == (
+            "Timescale Stretch Parameterization of Type Ia "
+            "SupernovaB‐Band Light Curves.pdf"
         )
 
 
