@@ -233,6 +233,9 @@ def main():
     agent_config = json.loads(env.get("OPENCODE_CONFIG_CONTENT") or "{}")
     agent_config["instructions"] = []
     agent_config["permission"] = {
+        # Global Agent UI skills assume a collection cwd and own browser setup.
+        # This standalone task already has its connection and Harness knowledge.
+        "skill": "deny",
         "external_directory": {
             "*": "deny",
             str(state / "*"): "allow",

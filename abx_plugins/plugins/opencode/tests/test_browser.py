@@ -279,6 +279,63 @@ emit_collection(request, links, message=source['label'], account=source)
                 "print(json.dumps(list_tabs()))",
             )
             assert "still-live" in run_harness("print(js('window.agentHeap'))")
+            # Exercise the complete standalone entry point and OpenCode's real
+            # tool resolution. Host-wide skills must not leak into a task whose
+            # cwd is an adapter workspace rather than an ArchiveBox collection.
+            opencode = install_required_binary_from_config(PLUGIN, "opencode", env=env)
+            standalone_dir = tmp_path / "standalone-importer"
+            standalone_dir.mkdir()
+            state_dir = standalone_dir / "state"
+            standalone_workspace = state_dir / "current"
+            standalone_workspace.mkdir(parents=True)
+            reader = (workspace / "importer.py").read_text()
+            reader = reader.replace(
+                "emit_collection(request, links,",
+                """import subprocess
+agent = subprocess.run([os.environ['OPENCODE_BINARY'], 'debug', 'agent', 'build'], capture_output=True, text=True, check=True, timeout=30)
+skills_enabled = json.loads(agent.stdout)['tools'].get('skill', False)
+for link in links:
+    link['metadata']['host_skills_enabled'] = skills_enabled
+emit_collection(request, links,""",
+            )
+            (standalone_workspace / "importer.py").write_text(reader)
+            standalone = subprocess.run(
+                [sys.executable, str(Path(replay.__code__.co_filename))],
+                input=json.dumps(
+                    {
+                        **request,
+                        "action": "preview",
+                        "checkpoint": {},
+                        "feed": "x_bookmarks",
+                    },
+                ),
+                cwd=standalone_dir,
+                env={
+                    **env,
+                    "IMPORTERS_STATE_DIR": str(state_dir),
+                    "OPENCODE_BINARY": str(opencode.loaded_abspath),
+                    "OPENCODE_CONFIG_CONTENT": json.dumps(
+                        {
+                            "model": "openai/gpt-6-luna",
+                            "small_model": "openai/gpt-6-luna",
+                        },
+                    ),
+                },
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert standalone.returncode == 0, standalone.stdout + standalone.stderr
+            standalone_records = [
+                json.loads(line) for line in standalone.stdout.splitlines()
+            ]
+            assert len(standalone_records) == 3
+            assert standalone_records[-1]["status"] == "succeeded"
+            assert all(
+                item["metadata"]["host_skills_enabled"] is False
+                for item in standalone_records[:-1]
+            )
+            assert not list(standalone_dir.glob("learning-*.jsonl"))
             # The official daemon shutdown command must also preserve this external browser.
             interrupted_dir = tmp_path / "interrupted-importer"
             interrupted_dir.mkdir()

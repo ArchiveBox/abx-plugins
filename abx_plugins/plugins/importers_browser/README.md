@@ -28,6 +28,9 @@ by its existing owner on completion/cancellation.
 - A saved script replays without an agent. Failures trigger up to two live repairs.
 - Every repair starts a fresh OpenCode session with the current task and replay
   error. Only scripts and Browser Harness domain knowledge persist.
+- Importer sessions hide host-wide OpenCode skills, which may assume a collection
+  working directory or a different browser lifecycle. They use the supplied
+  connection, installed Harness API, and Harness domain knowledge instead.
 - The agent edits the script in place; the host independently replays it and uses
   the shared JSONL validator before returning output, including checking that
   continuation advances the checkpoint. Failed runs never commit progress.
