@@ -1,0 +1,22 @@
+abx_plugins/plugins/opendataloader/on_Snapshot__67_opendataloader.py
+  s_2b44ee96cc775e::t_86382bc3eb4ea9 147,218
+  s_2b44ee96cc775e::t_22c8da9b0976a5 75-81,84
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_2b44ee96cc775e::t_dcb7807dbe1065 519-522,524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d42d702aa19dbab1ddecc4bb8f22a4e920c47838",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
