@@ -122,11 +122,14 @@ async function main() {
         }, { timeout: remaining(), polling: 100 });
         try {
           const button = control.asElement();
-          const accepting = await button.evaluate(element => element.textContent.trim() === "I agree");
-          await button.click();
-          if (accepting) break;
+          const label = await button.evaluate(element => (element.getAttribute("aria-label") || element.textContent).trim());
+          const selector = `::-p-aria([name=${JSON.stringify(label)}][role="button"])`;
+          // React can replace the button after observation. Resolve the live
+          // control for the click, just as we do for the Download button.
+          await page.locator(selector).setTimeout(remaining()).click();
+          if (label === "I agree") break;
           console.error("Dismissed optional WeTransfer dialog");
-          await page.waitForFunction(element => !element.isConnected || !element.checkVisibility(), { timeout: remaining(), polling: 100 }, button);
+          await page.waitForSelector(selector, { hidden: true, timeout: remaining() });
         } finally { await control.dispose(); }
       }
       console.error("WeTransfer agreement clicked; waiting for transfer status");
