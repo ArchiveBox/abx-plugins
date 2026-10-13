@@ -3341,7 +3341,10 @@ async function closeExistingTabs(browser) {
     const url = page.target().url() || "";
     if (
       page === aboutBlankPage ||
-      url.startsWith(CHROME_EXTENSION_URL_PREFIX)
+      // Chrome's first-run welcome is exposed as a page target, but it is
+      // browser UI: Page.close can wait forever for its target destruction.
+      // Preserve internal browser/extension pages and clean up web tabs only.
+      /^(chrome|chrome-extension|chrome-untrusted|devtools):/.test(url)
     ) {
       continue;
     }
