@@ -521,7 +521,7 @@ Move to `on_SnapshotChromeTabNavigated__...`:
 - `abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js`
 - `abx_plugins/plugins/dom/on_Snapshot__53_dom.js`
 - `abx_plugins/plugins/title/on_Snapshot__54_title.js`
-- `abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js`
+- `abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__64_parse_dom_outlinks.js`
 
 ### 5. Late settled-stage hooks
 

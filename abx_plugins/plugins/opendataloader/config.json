@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
+  "wait_for_background_cleanup": true,
   "required_binaries": [
     {
       "name": "{OPENDATALOADER_BINARY}",

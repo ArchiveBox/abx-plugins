@@ -3,6 +3,8 @@
 // ///
 /**
  * Extract and categorize outgoing links from a page's DOM.
+ * Runs before final-file PDF consumers flush background hooks and close the
+ * snapshot tab; link extraction still needs the live rendered DOM.
  *
  * Categorizes links by type:
  * - hrefs: All <a> links
@@ -13,7 +15,7 @@
  * - iframes: <iframe src>
  * - links: <link> tags with rel/href
  *
- * Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url>
+ * Usage: on_Snapshot__64_parse_dom_outlinks.js --url=<url>
  * Output: Writes parse_dom_outlinks/urls.jsonl
  *
  * Environment variables:
@@ -233,7 +235,7 @@ async function main() {
   const depth = parseInt(String(depthValue), 10) || 0;
 
   if (!url) {
-    console.error("Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url>");
+    console.error("Usage: on_Snapshot__64_parse_dom_outlinks.js --url=<url>");
     emitArchiveResultRecord("failed", "missing required args");
     process.exit(1);
   }
