@@ -10,7 +10,8 @@
     {
       "name": "{OPENDATALOADER_BINARY}",
       "binproviders": "env,uv",
-      "min_version": null,
+      "min_version": "2.5.8",
+      "max_version": "2.5.8",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,

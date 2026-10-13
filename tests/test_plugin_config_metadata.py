@@ -90,11 +90,12 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
                     failures.append(f"{label}.name must be a non-empty string")
                 if not _is_non_empty_string(item_dict.get("binproviders")):
                     failures.append(f"{label}.binproviders must be a non-empty string")
-                min_version = item_dict.get("min_version")
-                if min_version is not None and not _is_non_empty_string(min_version):
-                    failures.append(
-                        f"{label}.min_version must be null or a non-empty string",
-                    )
+                for field in ("min_version", "max_version"):
+                    version = item_dict.get(field)
+                    if version is not None and not _is_non_empty_string(version):
+                        failures.append(
+                            f"{label}.{field} must be null or a non-empty string",
+                        )
                 if "overrides" in item_dict and not isinstance(
                     item_dict["overrides"],
                     dict,

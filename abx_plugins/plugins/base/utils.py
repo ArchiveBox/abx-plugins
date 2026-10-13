@@ -629,6 +629,7 @@ def load_required_binary(
         raise ValueError("required_binaries record is missing a name")
 
     min_version = hydrated_record.get("min_version")
+    max_version = hydrated_record.get("max_version")
     binary = Binary(
         name=name,
         binproviders=build_binproviders(
@@ -637,6 +638,7 @@ def load_required_binary(
             environ=environ,
         ),
         min_version=SemVer(min_version) if min_version else None,
+        max_version=SemVer(max_version) if max_version else None,
         min_release_age=hydrated_record.get("min_release_age"),
         postinstall_scripts=hydrated_record.get("postinstall_scripts"),
         overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
@@ -1394,6 +1396,7 @@ def emit_binary_request_record(
     binproviders: str,
     overrides: dict[str, Any] | None = None,
     min_version: str | None = None,
+    max_version: str | None = None,
 ) -> None:
     """Output BinaryRequest JSONL record for a dependency."""
     record: dict[str, Any] = {
@@ -1405,6 +1408,8 @@ def emit_binary_request_record(
         record["overrides"] = overrides
     if min_version:
         record["min_version"] = min_version
+    if max_version:
+        record["max_version"] = max_version
     print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 

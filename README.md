@@ -102,6 +102,11 @@ Lifecycle:
 2. Hook config helpers hydrate `*_BINARY` values from env, known local paths, and abxpkg provider state so hooks can run as standalone CLIs.
 3. Runners may perform an install preflight from the same declarations. `abx-dl` and ArchiveBox use abxpkg services/cache backends to prepare env/DB state, but hooks must not depend on those services being active.
 
+Optional `min_version` and `max_version` are inclusive bounds on acceptable
+installed binaries. Set both to the same version for an exact requirement;
+provider `install_args` alone select what to install and do not reject a
+different binary already present on the host.
+
 `config.json` declaration:
 
 ```json
