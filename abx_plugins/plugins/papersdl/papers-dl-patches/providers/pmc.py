@@ -3,12 +3,12 @@
 import asyncio
 import hashlib
 import re
-from urllib.parse import quote, unquote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from xml.etree import ElementTree
 
 import aiohttp
-from loguru import logger
 from bs4 import BeautifulSoup
+from loguru import logger
 
 from parse.parse import parse_ids_from_text
 from providers import publisher
@@ -93,6 +93,7 @@ async def get_urls(session, identifier):
                     params["continuation-token"] = token
 
             versions = []
+            xml_versions = []
             for key in keys:
                 async with session.get(DATASET + key, timeout=TIMEOUT) as response:
                     # Only licensed, publicly distributed versions are in S3.
@@ -103,6 +104,8 @@ async def get_urls(session, identifier):
                     metadata = await response.json(content_type=None)
                 if metadata.get("pdf_url"):
                     versions.append(metadata)
+                elif metadata.get("xml_url"):
+                    xml_versions.append(metadata)
             # Prefer published articles to author manuscripts, then the newest
             # deposited version of that kind. Do not pick a supplemental PDF.
             versions.sort(
@@ -124,9 +127,40 @@ async def get_urls(session, identifier):
                 if urlsplit(pdf_url).scheme in ("https", "http"):
                     urls.append(pdf_url)
                     break
-            if not versions and "." not in pmcid:
-                # Some author manuscripts expose only text/XML in the dataset.
-                # Their public article page still advertises the original PDF.
+            if not versions and xml_versions and "." not in pmcid:
+                # Manuscript PDFs may be absent from the public dataset while
+                # its JATS XML advertises the article's browser-download PDF.
+                # Read that self-uri directly: the HTML landing page can return
+                # a browser challenge instead of its citation metadata.
+                xml_versions.sort(
+                    key=lambda v: (v.get("is_manuscript", False), -int(v["version"]))
+                )
+                for metadata in xml_versions:
+                    xml_url = metadata["xml_url"]
+                    if xml_url.startswith("s3://pmc-oa-opendata/"):
+                        xml_url = DATASET + xml_url.removeprefix(
+                            "s3://pmc-oa-opendata/"
+                        )
+                    async with session.get(xml_url, timeout=TIMEOUT) as response:
+                        response.raise_for_status()
+                        article = ElementTree.fromstring(await response.read())
+                    pdf = article.find(
+                        "./front/article-meta/self-uri[@content-type='pmc-pdf']"
+                    )
+                    filename = (
+                        pdf.get("{http://www.w3.org/1999/xlink}href")
+                        if pdf is not None
+                        else None
+                    )
+                    if filename:
+                        pdf_url = urljoin(
+                            f"https://pmc.ncbi.nlm.nih.gov/articles/{pmcid}/pdf/",
+                            filename,
+                        )
+                        if urlsplit(pdf_url).scheme in ("https", "http"):
+                            urls.append(pdf_url)
+                            break
+            elif not versions and "." not in pmcid:
                 urls.extend(
                     await publisher.get_urls(
                         session,

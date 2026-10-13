@@ -3,7 +3,7 @@
 Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
 License: MIT; see LICENSE. These Python files are copied unchanged from the
-canonical papers-dl source at `e21d2a2c90a0ec3cdcdde7efc1877c498ffb7f10`.
+canonical papers-dl source at `95f424a0c97d7c8e4a25fadb39b7878bd814fdaf`.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
 PYTHONPATH. It replaces its fetch/provider modules
@@ -27,5 +27,6 @@ verification time its advertised mirror sci-hub.41610.org did not resolve.
 Europe PMC/medRxiv PDF endpoints may require a browser challenge; metadata
 lookup alone is not reported as a downloaded paper. bioRxiv may rate-limit
 requests. PMC's public automatic SHA-256 download proof is handled with bounded work,
-without executing downloaded JavaScript. No CAPTCHA solving or rate-limit
-retries are added.
+without executing downloaded JavaScript. Manuscript PDF discovery reads the
+article self-link from official dataset XML, avoiding challenged HTML landing
+pages. No CAPTCHA solving or rate-limit retries are added.

@@ -389,6 +389,7 @@ if __name__ == "__main__":
     ("identifier", "provider"),
     [
         ("10.1126/sciadv.1602552", "pmc"),
+        ("10.1016/j.cell.2024.11.027", "pmc"),
         ("10.21105/joss.01112", "unpaywall"),
         ("10.1101/833400v1.full.pdf", "biorxiv"),
     ],
