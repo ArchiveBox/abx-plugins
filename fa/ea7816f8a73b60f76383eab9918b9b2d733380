@@ -1,0 +1,23 @@
+abx_plugins/plugins/chrome/on_Snapshot__30_chrome_navigate.js
+  s_8dbda046044e96::t_aefa4b3028e09f 88,95,103,107-117,127,146,242
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_8dbda046044e96::t_55a3c128a7d0a5 29-30,3372-3408,3470-3473,3475
+abx_plugins/plugins/chrome/tests/test_persona_hydration.py
+  s_8dbda046044e96::t_480a2a2dc0dae8 399-401
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "faea7816f8a73b60f76383eab9918b9b2d733380",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
