@@ -348,7 +348,7 @@ def test_redirected_phpbb_probe_is_noresults(httpserver, tmp_path):
     """
     post = '<!doctype html><html lang="en" dir="ltr"><body><p>A social post</p></body></html>'
     httpserver.expect_request(
-        re.compile(r"^/posts/(123|canonical-456)/?$")
+        re.compile(r"^/posts/(123|canonical-456)/?$"),
     ).respond_with_data(
         post,
         content_type="text/html",
@@ -376,6 +376,32 @@ def test_redirected_phpbb_probe_is_noresults(httpserver, tmp_path):
     )
     assert "ValueError" not in result.stderr, result.stderr
     assert "ExtractorNotFoundError" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No forum found",
+    }, (record, result.stderr)
+    assert not (tmp_path / "forumdl" / "forum.jsonl").exists()
+
+
+def test_facebook_post_is_noresults(tmp_path):
+    """The production Facebook post that forum-dl misdetected as phpBB."""
+    url = "https://www.facebook.com/nikisweeting/posts/pfbid02fqyuKpQ8m8P9RDi4Nzpgmcg2nitD1iXaZDGdWXaqKZLEef8a7ANWLDpwYrZ66Hhml"
+    result = subprocess.run(
+        [str(FORUMDL_HOOK), f"--url={url}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "FORUMDL_BINARY": require_forumdl_binary(),
+            "SNAP_DIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert "ValueError" not in result.stderr, result.stderr
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record == {
