@@ -36,11 +36,10 @@ _upstream_phpbb_detect = PhpbbExtractor._detect
 
 
 def _detect_phpbb(session, url, options):
-    extractor = _upstream_phpbb_detect(session, url, options)
-    if extractor is None:
-        return None
-    # Upstream fetched this probe with should_cache=True, so this re-reads its
-    # cached response rather than making another request.
+    # Validate the probe before upstream constructs a board and fetches its
+    # root URL. Non-forum pages can pass its loose HTML check, then fail during
+    # construction before a post-construction check could reject them.
+    # Upstream reuses this cached response without making another request.
     probe = session.try_get(
         urljoin(
             normalize_url(url, remove_suffixes=["viewforum.php", "viewtopic.php"]),
@@ -53,7 +52,7 @@ def _detect_phpbb(session, url, options):
         return None
     if "ucp.php" not in probe.text:
         return None
-    return extractor
+    return _upstream_phpbb_detect(session, url, options)
 
 
 PhpbbExtractor._detect = staticmethod(_detect_phpbb)

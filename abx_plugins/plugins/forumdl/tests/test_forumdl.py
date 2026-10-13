@@ -386,9 +386,15 @@ def test_redirected_phpbb_probe_is_noresults(httpserver, tmp_path):
     assert not (tmp_path / "forumdl" / "forum.jsonl").exists()
 
 
-def test_facebook_post_is_noresults(tmp_path):
-    """The production Facebook post that forum-dl misdetected as phpBB."""
-    url = "https://www.facebook.com/nikisweeting/posts/pfbid02fqyuKpQ8m8P9RDi4Nzpgmcg2nitD1iXaZDGdWXaqKZLEef8a7ANWLDpwYrZ66Hhml"
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.facebook.com/nikisweeting/posts/pfbid02fqyuKpQ8m8P9RDi4Nzpgmcg2nitD1iXaZDGdWXaqKZLEef8a7ANWLDpwYrZ66Hhml",
+        "https://en.wikipedia.org/wiki/Control_theory",
+    ],
+)
+def test_non_forum_phpbb_probe_is_noresults(tmp_path, url):
+    """Real production pages must be rejected before constructing a phpBB board."""
     result = subprocess.run(
         [str(FORUMDL_HOOK), f"--url={url}"],
         cwd=tmp_path,
