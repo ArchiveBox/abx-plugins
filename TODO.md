@@ -415,7 +415,7 @@ The first snapshot-scoped Chrome event guaranteed in both modes is:
    - `abx_plugins/plugins/wget/on_Snapshot__35_wget.finite.bg.py`
    - `abx_plugins/plugins/archivedotorg/on_Snapshot__00_archivedotorg.finite.bg.py`
    - `abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py`
-   - `abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py`
+   - `abx_plugins/plugins/papersdl/on_Snapshot__54_papersdl.finite.bg.py`
 3. Chrome branch:
    - crawl isolation: `chrome_tab` subscribes directly to `Snapshot`
    - snapshot isolation: launch emits `SnapshotChromeBrowserReady` and `SnapshotChromeExtensionsReady`, then `chrome_tab` runs
