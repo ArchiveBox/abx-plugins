@@ -94,6 +94,19 @@ def test_snapshot_tab_keeps_persona_viewport_and_focus_after_hook_overrides(
         baseline = _tab_state(env, chrome_dir)
         assert baseline == {**persona, "visibility": "visible", "focused": True}
 
+        _run_hook(
+            PLUGINS_DIR / "infiniscroll" / "on_Snapshot__45_infiniscroll.js",
+            env
+            | {
+                "INFINISCROLL_SCROLL_LIMIT": "1",
+                "INFINISCROLL_SCROLL_DELAY": "100",
+                "INFINISCROLL_EXPAND_DETAILS": "False",
+            },
+            url,
+            tmp_path,
+        )
+        assert _tab_state(env, chrome_dir) == baseline
+
         screenshot_dir = tmp_path / "screenshot"
         screenshot_dir.mkdir()
         _run_hook(

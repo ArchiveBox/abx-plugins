@@ -392,10 +392,6 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
-    // Background targets otherwise defer scroll events and lazy-load callbacks.
-    // The hook's disconnect restores this target without selecting a user's tab.
-    const session = await page.createCDPSession();
-    await session.send("Emulation.setFocusEmulationEnabled", { enabled: true });
     if (isHomeFeed(url) || isHomeFeed(page.url())) {
       scrollLimit = Math.min(scrollLimit, 2);
       scrollDistance = Math.min(
