@@ -1,0 +1,21 @@
+abx_plugins/plugins/base/utils.py
+  s_8dbda046044e96::t_48ac52761bb788 25,1095,1098-1106,1126,1134-1172
+tests/test_staticfile_skip_helpers.py
+  s_8dbda046044e96::t_5b85d475d8db9b 4,124-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c0e556800672297b5d6371c1ed91c7237526ab3",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
