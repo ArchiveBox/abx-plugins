@@ -18,6 +18,7 @@ const {
   readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
+  withTimeout,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -126,7 +127,41 @@ async function main() {
           const selector = `::-p-aria([name=${JSON.stringify(label)}][role="button"])`;
           // React can replace the button after observation. Resolve the live
           // control for the click, just as we do for the Download button.
-          await page.locator(selector).setTimeout(remaining()).click();
+          // A survey can also appear between that observation and mouseup.
+          // Advance only when the native click actually reaches this control.
+          const receipt = await page.evaluateHandle(() => {
+            const controller = new AbortController();
+            const result = new Promise(resolve => {
+              document.addEventListener("click", event => {
+                if (!event.isTrusted) return;
+                controller.abort();
+                const button = event.composedPath().find(node => node instanceof HTMLButtonElement);
+                const target = event.target instanceof Element ? event.target : null;
+                resolve({
+                  label: button ? (button.getAttribute("aria-label") || button.textContent).trim() : null,
+                  overlay: Boolean(target?.closest('[role="dialog"]') || target?.querySelector('[role="dialog"]')),
+                });
+              }, {capture: true, signal: controller.signal});
+            });
+            return {result, controller};
+          });
+          let delivered;
+          try {
+            [delivered] = await withTimeout(() => Promise.all([
+              receipt.evaluate(({result}) => result),
+              page.locator(selector).setTimeout(remaining()).click(),
+            ]), remaining(), "WeTransfer click delivery timed out");
+          } finally {
+            // Navigation destroys the listener too; cleanup must not replace
+            // the original click error if its execution context has gone away.
+            if (!delivered) await receipt.evaluate(({controller}) => controller.abort()).catch(() => {});
+            await receipt.dispose();
+          }
+          if (delivered.label !== label) {
+            if (!delivered.overlay) throw new Error("WeTransfer click reached an unexpected control");
+            console.error("Dismissed WeTransfer overlay before accepting terms");
+            continue;
+          }
           if (label === "I agree") break;
           console.error("Dismissed optional WeTransfer dialog");
           await page.waitForSelector(selector, { hidden: true, timeout: remaining() });
