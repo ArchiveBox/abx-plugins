@@ -1,0 +1,23 @@
+abx_plugins/plugins/papersdl/papers-dl-patches/README.md
+  s_8dbda046044e96::t_3ba9e72c82b147 6
+abx_plugins/plugins/papersdl/papers-dl-patches/fetch/fetch.py
+  s_8dbda046044e96::t_efa8e2b8e8389f 156-162
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/pmc.py
+  s_8dbda046044e96::t_c64b7023f58a2e 202-215,238-251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cc9f2ffdb5601c6e198300f448df459c820edac8",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
