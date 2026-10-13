@@ -84,7 +84,7 @@ def test_replay_prefers_latest_capture_of_requested_page_including_post(
         zf.writestr(
             "pages/pages.jsonl",
             "\n".join(
-                json.dumps(page)
+                json.dumps(page, ensure_ascii=False)
                 for page in [
                     {"format": "json-pages-1.0"},
                     {
@@ -100,6 +100,7 @@ def test_replay_prefers_latest_capture_of_requested_page_including_post(
                         "url": cleared,
                         "ts": "2026-10-12T11:57:05.819Z",
                         "title": "Brain | Science",
+                        "text": "Article paragraph\u2028Next paragraph\u2029More text\u0085End",
                     },
                 ]
             ),

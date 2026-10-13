@@ -169,7 +169,9 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
                     raw = zf.read(name).decode("utf-8", errors="replace")
                 except KeyError:
                     continue
-                for line in raw.splitlines():
+                # JSONL records end at LF; Unicode separators can occur inside
+                # recorded page text and must not split an otherwise valid row.
+                for line in raw.split("\n"):
                     line = line.strip()
                     if not line or not line.startswith("{"):
                         continue
