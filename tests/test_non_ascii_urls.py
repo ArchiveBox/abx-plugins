@@ -416,3 +416,66 @@ def test_wget_resolves_idn_hostname_as_idna(tmp_path, httpserver):
     assert json.loads(result.stdout.splitlines()[-1])["status"] == "succeeded", (
         result.stdout + result.stderr
     )
+
+
+def test_idn_hostnames_match_chrome_and_node():
+    """Compare hostname mapping with the actual runtimes that capture URLs."""
+    from playwright.sync_api import sync_playwright
+
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+        get_test_env,
+        install_chromium_with_abxpkg,
+    )
+
+    hosts = [
+        "Straße.example",
+        "ς.example",
+        "😀.example",
+        "ＥＸＡＭＰＬＥ。com",
+        "e\u0301.example",
+        "a\u200bb.example",
+        "a\u00adb.example",
+        "a\u034fb.example",
+        "\ufeffexample.com",
+        "a\ufe0fb.example",
+        "نامه\u200cای.ir",
+        "a\u200cb.example",
+        "a\u200db.example",
+        "\u0308.example",
+    ]
+    parse_hosts = """hosts => hosts.map(host => {
+        try { return new URL(`https://${host}/`).hostname; }
+        catch { return null; }
+    })"""
+    env = get_test_env()
+    chrome_binary = install_chromium_with_abxpkg(env)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=chrome_binary,
+            headless=True,
+            args=["--no-sandbox"],
+        )
+        try:
+            chrome_hosts = browser.new_page().evaluate(parse_hosts, hosts)
+        finally:
+            browser.close()
+    node = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            f"console.log(JSON.stringify(({parse_hosts})(JSON.parse(process.argv[1]))))",
+            json.dumps(hosts),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=True,
+    )
+    assert json.loads(node.stdout) == chrome_hosts
+    for host, expected in zip(hosts, chrome_hosts, strict=True):
+        if expected is None:
+            with pytest.raises(ValueError):
+                iri_to_uri(f"https://{host}/")
+        else:
+            assert iri_to_uri(f"https://{host}/") == f"https://{expected}/"

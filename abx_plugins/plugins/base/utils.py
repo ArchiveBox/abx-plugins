@@ -22,7 +22,6 @@ from html.parser import HTMLParser
 import os
 import stat
 import sys
-import unicodedata
 from urllib.parse import quote, unquote, urljoin, urlparse, urlsplit
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
@@ -1107,25 +1106,18 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
 _URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
 # Inside a userinfo component ":" and "@" are data, not delimiters.
 _USERINFO_SAFE_CHARS = "!$%&'()*+,;=~"
-# Label separators UTS #46 accepts: ASCII, ideographic, fullwidth, halfwidth.
-_IDNA_DOTS = re.compile("[.\u3002\uff0e\uff61]")
 
 
 def _idna_host(host: str) -> str:
-    """Map a non-ASCII hostname to the ASCII name a browser would resolve.
+    """Map Unicode hosts with the existing WHATWG URL parser's IDNA handling.
 
-    Uses UTS #46 nontransitional processing like Chrome and Node's URL parser,
-    not Python's "idna" codec: that codec implements IDNA 2003, which folds
-    ß/ς to ss/σ and so resolves a different domain (straße.de vs strasse.de)
-    than the Chrome hooks capturing the same snapshot. NFKC plus lowercase is
-    the UTS #46 mapping for real hostnames; it also folds fullwidth letters
-    and dots to the ASCII host they display as.
+    Pydantic's Rust URL parser preserves ß/ς and emoji, maps ignored code
+    points, and validates combining characters and joiners. Invalid labels
+    raise ValueError; no IDNA 2003 or handwritten mapping fallback is used.
     """
-    labels = _IDNA_DOTS.split(unicodedata.normalize("NFKC", host).lower())
-    return ".".join(
-        label if label.isascii() else "xn--" + label.encode("punycode").decode()
-        for label in labels
-    )
+    from pydantic_core import Url
+
+    return cast(str, Url(f"https://{host}/").host)
 
 
 def iri_to_uri(url: str) -> str:
