@@ -1,0 +1,24 @@
+abx_plugins/plugins/figma/tests/test_figma.py
+  s_8dbda046044e96::t_cc43e00a69990d 6,11,19-74,78-80
+  s_8dbda046044e96::t_f06ed4d7d2f943 75-77,81-94
+abx_plugins/plugins/figma/on_Snapshot__53_figma.js
+  s_8dbda046044e96::t_6130b956b0a6ec 81-83
+abx_plugins/plugins/figma/tests/fixtures/human-verification.html
+  s_8dbda046044e96::t_9f0f9e4916be41 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ce9f9fdeed12452d48c08644a0780b79735f539f",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
