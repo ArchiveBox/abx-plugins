@@ -33,3 +33,19 @@ the text post and public comments. Its post metadata has `is_self=true`,
 `is_video=false`, and no `media_metadata`; the real downloader reported
 `ERROR: [Reddit] 1k11yw5: No media found`.
 Native `--load-pages` replays this response through the actual Reddit extractor.
+
+`reddit-deleted-text-post.json.gz` contains the byte-exact anonymous Reddit API
+response recorded on 2026-10-13 with yt-dlp 2026.06.09:
+
+```sh
+yt-dlp --ignore-config --write-pages --skip-download https://www.reddit.com/comments/5z4wer/
+```
+
+API URL: https://www.reddit.com/comments/5z4wer/.json
+Uncompressed size: 220241 bytes.
+SHA256: `020583c030e83e1d78ce1d47efe5f77b4c0dcbabe625a88b4c8569ef5ac69bcc`.
+No account cookies or authentication were supplied. The post has `is_self=true`,
+`is_video=false`, `removed_by_category="deleted"`, an empty `url`, and no media.
+The upstream extractor passes the empty URL to its generic extractor, which
+fails with `'' is not a valid URL`. Native `--load-pages` exercises the actual
+Reddit extractor against this unchanged response.

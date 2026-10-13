@@ -221,18 +221,37 @@ def test_twitter_post_without_video_reports_noresults(tmp_path, ytdlp_runtime_en
     assert not list((tmp_path / "ytdlp").iterdir())
 
 
-def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
+@pytest.mark.parametrize(
+    "post_id,fixture_name,sha256",
+    [
+        (
+            "1k11yw5",
+            "reddit-text-post.json.gz",
+            "7a1ce8abd0549a72be7c469a1e6333e366eff6ba1b71ff04c082ea3eef118db2",
+        ),
+        (
+            "5z4wer",
+            "reddit-deleted-text-post.json.gz",
+            "020583c030e83e1d78ce1d47efe5f77b4c0dcbabe625a88b4c8569ef5ac69bcc",
+        ),
+    ],
+)
+def test_reddit_text_post_reports_noresults(
+    tmp_path,
+    ytdlp_runtime_env,
+    post_id,
+    fixture_name,
+    sha256,
+):
     """The real Reddit parser recognizes a saved text post with no media."""
     page = gzip.decompress(
-        (Path(__file__).parent / "fixtures" / "reddit-text-post.json.gz").read_bytes(),
+        (Path(__file__).parent / "fixtures" / fixture_name).read_bytes(),
     )
-    assert hashlib.sha256(page).hexdigest() == (
-        "7a1ce8abd0549a72be7c469a1e6333e366eff6ba1b71ff04c082ea3eef118db2"
-    )
+    assert hashlib.sha256(page).hexdigest() == sha256
     output_dir = tmp_path / "ytdlp"
     output_dir.mkdir()
     saved_page = (
-        output_dir / "1k11yw5_https_-_www.reddit.com_comments_1k11yw5_.json.dump"
+        output_dir / f"{post_id}_https_-_www.reddit.com_comments_{post_id}_.json.dump"
     )
     saved_page.write_bytes(page)
     # A real refused proxy connection makes session setup warn, while native
@@ -241,7 +260,7 @@ def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
         unavailable_proxy.bind(("127.0.0.1", 0))
         proxy = f"http://127.0.0.1:{unavailable_proxy.getsockname()[1]}"
         result = subprocess.run(
-            [str(YTDLP_HOOK), "--url=https://www.reddit.com/comments/1k11yw5/"],
+            [str(YTDLP_HOOK), f"--url=https://www.reddit.com/comments/{post_id}/"],
             cwd=tmp_path,
             env={
                 **os.environ,
@@ -256,7 +275,7 @@ def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
     assert "Session request failed" in result.stderr, result.stderr
     assert "Loading request from" in result.stderr, result.stderr
     assert "Unable to load request" not in result.stderr, result.stderr
-    assert "ERROR: [Reddit+archivebox] 1k11yw5: No media found" in result.stderr, (
+    assert f"ERROR: [Reddit+archivebox] {post_id}: No media found" in result.stderr, (
         result.stderr
     )
     assert result.returncode == 0, result.stderr
