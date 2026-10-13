@@ -66,6 +66,15 @@ BIN_NAME = "papers-dl"
 BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 PATCHES_DIR = Path(__file__).resolve().with_name("papers-dl-patches")
+PAPERSDL_ENV = {
+    **os.environ,
+    "PYTHONPATH": os.pathsep.join(
+        [
+            str(PATCHES_DIR),
+            *filter(None, os.environ.get("PYTHONPATH", "").split(os.pathsep)),
+        ],
+    ),
+}
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -211,6 +220,7 @@ def find_paper_identifiers(url: str, binary: str, deadline: float) -> list[str]:
         input=text,
         capture_output=True,
         text=True,
+        env=PAPERSDL_ENV,
         timeout=max(0.001, deadline - time.monotonic()),
         check=True,
     )
@@ -270,22 +280,13 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
     try:
         print(f"Downloading paper: {identifier}", file=sys.stderr)
         output_lines: list[str] = []
-        # Overlay the upstream PR modules only inside the installed CLI.
-        env = os.environ.copy()
-        env["PYTHONPATH"] = os.pathsep.join(
-            [
-                str(PATCHES_DIR),
-                *filter(None, env.get("PYTHONPATH", "").split(os.pathsep)),
-            ],
-        )
-        env["UNPAYWALL_EMAIL"] = config.PAPERSDL_UNPAYWALL_EMAIL
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            env=env,
+            env={**PAPERSDL_ENV, "UNPAYWALL_EMAIL": config.PAPERSDL_UNPAYWALL_EMAIL},
         )
 
         def _read_output() -> None:

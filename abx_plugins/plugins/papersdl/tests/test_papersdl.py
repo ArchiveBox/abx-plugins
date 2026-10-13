@@ -74,6 +74,35 @@ def test_hook_script_exists():
     assert PAPERSDL_HOOK.exists(), f"Hook not found: {PAPERSDL_HOOK}"
 
 
+def test_wayback_timestamp_is_not_a_paper_identifier(tmp_path):
+    """A real archived citation from Wikipedia must not become a bogus DOI."""
+    (tmp_path / "dom").mkdir()
+    (tmp_path / "dom/output.html").write_text(
+        '<a href="https://web.archive.org/web/20100105152318/http://www.networkcomputing.com/1119/1119f1products_5.html">'
+        "Network Computing</a>",
+    )
+    result = subprocess.run(
+        [str(PAPERSDL_HOOK), "--url=https://en.wikipedia.org/wiki/Network_switch"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No papers found",
+    }, result.stderr
+    assert "Downloading paper:" not in result.stderr
+    assert not list((tmp_path / "papersdl").glob("*.pdf"))
+
+
 def test_verify_deps_with_abxpkg():
     """Verify papers-dl is installed by calling the REAL installation hooks."""
     binary_path = require_papersdl_binary()

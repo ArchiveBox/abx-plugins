@@ -3,12 +3,12 @@
 Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
 License: MIT; see LICENSE. These Python files are copied unchanged from the
-canonical papers-dl source at `e60f1de233ce775fc22a0dcba6c3599936d9cfb7`.
+canonical papers-dl source at `21afb55bfbae613e28f66460d834ab961df0cadd`.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
-PYTHONPATH. It replaces its fetch/provider modules
+PYTHONPATH. It replaces its parser/fetch/provider modules
 without changing the shared installed package or importing papers-dl into the
-hook's interpreter. The remaining parser and runtime dependencies come from
+hook's interpreter. Runtime dependencies come from
 the pinned PyPI package. Remove this overlay and update the package pin once
 the upstream release contains these changes.
 
@@ -30,3 +30,6 @@ requests. PMC's public automatic SHA-256 download proof is handled with bounded 
 without executing downloaded JavaScript. Manuscript PDF discovery reads the
 article self-link from official dataset XML, avoiding challenged HTML landing
 pages. No CAPTCHA solving or rate-limit retries are added.
+
+DOI prefixes require a literal period, so archived-link timestamps do not become
+false paper identifiers. The same overlay is used for both CLI parsing and fetching.
