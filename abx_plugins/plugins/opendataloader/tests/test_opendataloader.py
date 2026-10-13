@@ -516,7 +516,12 @@ def test_line_art_pdf_extracts_within_production_heap():
     list without bound on this real paper (OutOfMemoryError in
     ChunkParser.processLineArts even with an 8 GiB heap). 2.5.8 extracts it in
     seconds, so the plugin pins that release.
+
+    The unpinned hybrid OCR extra installs opendataloader-pdf 2.5.12 into a
+    sibling package venv whose site-packages abxpkg also exposes on the hook's
+    PYTHONPATH. Install it first so the pinned CLI must not import that copy.
     """
+    require_opendataloader_hybrid_binary()
     pdf_content = _download_line_art_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:

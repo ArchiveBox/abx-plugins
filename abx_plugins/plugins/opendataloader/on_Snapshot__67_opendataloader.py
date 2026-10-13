@@ -72,12 +72,17 @@ class OpendataloaderRunError(RuntimeError):
     """Raised when the opendataloader CLI itself fails to execute successfully."""
 
 
-def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
+def _opendataloader_env(java_binary: str) -> dict[str, str]:
+    env = os.environ.copy()
+    # The opendataloader-pdf CLI runs its own venv interpreter. The PYTHONPATH
+    # abxpkg gives this hook lists every uv package venv in the lib, including
+    # the unpinned hybrid extra's newer opendataloader_pdf, which would shadow
+    # the pinned wrapper's package and launch that version's JAR instead.
+    env.pop("PYTHONPATH", None)
     java_path = Path(str(java_binary or "").strip()).expanduser()
     if not java_path.is_absolute() or not java_path.is_file():
-        return None
+        return env
 
-    env = os.environ.copy()
     binary_dir = str(java_path.parent)
     current_path = env.get("PATH", "")
     env["PATH"] = os.pathsep.join(path for path in (binary_dir, current_path) if path)
@@ -139,7 +144,7 @@ def _run_opendataloader(
     out_dir: Path,
     timeout: float,
     extra_args: list[str],
-    env: dict[str, str] | None,
+    env: dict[str, str],
 ) -> tuple[str, str]:
     """Extract one PDF to markdown and text, return (md_content, text_content).
 
@@ -210,7 +215,7 @@ def _extract_single_pdf(
     source_file: Path,
     timeout: float,
     extra_args: list[str],
-    env: dict[str, str] | None,
+    env: dict[str, str],
 ) -> tuple[str, str]:
     """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
     with tempfile.TemporaryDirectory() as tmpdir:
