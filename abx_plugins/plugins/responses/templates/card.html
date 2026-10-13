@@ -1,4 +1,5 @@
 {% load core_tags %}
+{% snapshot_results snapshot 'responses,staticfile,wget,liteparse' as captures %}
 {% snapshot_preview_url snapshot 'responses/index.jsonl' as responses_index_url %}
 <style>
 /* Same 3x3 grid as the LiteParse card, showing only its original-file cells.
@@ -116,7 +117,7 @@
         const parts = path.split('/').filter(part => part && part !== '.');
         return parts.length && !parts.includes('..') ? new URL(parts.map(encodeURIComponent).join('/'), root) : null;
     };
-    const sources = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
+    const sources = [{% for capture in captures %}{% if capture.plugin == 'responses' or capture.plugin == 'staticfile' or capture.plugin == 'wget' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
     const originals = new Map();
     for (const source of sources) {
         const path = source.path.replace(/^\.\//, '');
@@ -131,7 +132,7 @@
         const matches = named.length ? named : values.filter(file => sanitized(file.name) === name);
         return matches.length === 1 ? matches[0] : null;
     };
-    const liteparseFiles = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'liteparse' %}{% for path, info in capture.output_files.items %}'{{ path|escapejs }}',{% endfor %}{% endif %}{% endfor %}];
+    const liteparseFiles = [{% for capture in captures %}{% if capture.plugin == 'liteparse' %}{% for path, info in capture.output_files.items %}'{{ path|escapejs }}',{% endfor %}{% endif %}{% endfor %}];
     const documents = new Map();
     const pluginRoot = new URL('liteparse/', snapshotRoot);
     for (const path of liteparseFiles) {

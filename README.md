@@ -33,6 +33,13 @@ Each plugin lives under `plugins/<name>/` and may include:
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
 - `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`
 
+ArchiveBox templates that need sibling output manifests should bind
+`{% snapshot_results snapshot 'responses,wget' as captures %}` after
+`{% load core_tags %}`, then reuse `captures` across their loops. The host selects
+only the named plugins' manifests or reuses already-prefetched results; it does
+not load every result's fields and files for each loop. This works in live cards
+and static exports.
+
 Hooks run with:
 
 - **SNAP_DIR** = base snapshot directory (default: `.`)
