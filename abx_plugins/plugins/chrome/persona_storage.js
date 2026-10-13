@@ -23,9 +23,9 @@ function readStorageState(filename) {
       if (entry[key] !== undefined && (!Array.isArray(entry[key]) || entry[key].some(item =>
         typeof item.name !== "string" || typeof item.value !== "string"))) throw new Error(`Invalid auth ${key}`);
     }
-    if (entry.indexedDB !== undefined && (!Array.isArray(entry.indexedDB) || entry.indexedDB.some(value =>
-      typeof value.data !== "string" || typeof value.name !== "string" || !Number.isInteger(value.version) || !Array.isArray(value.stores)))) {
-      throw new Error("IndexedDB state must contain Dexie JSON exports");
+    if (entry.indexedDB !== undefined && !Array.isArray(entry.indexedDB)) {
+      console.error(`[!] Skipped saved IndexedDB for ${entry.origin}: expected an array of Dexie JSON exports`);
+      entry.indexedDB = [];
     }
   }
   for (const tab of tabs) {
@@ -60,6 +60,9 @@ async function restoreOriginStorage(browser, origins) {
         for (const item of state.localStorage || []) localStorage.setItem(item.name, item.value);
         for (const exported of state.indexedDB || []) {
           try {
+            if (!exported || typeof exported.data !== "string" || typeof exported.name !== "string" || !Number.isInteger(exported.version) || !Array.isArray(exported.stores)) {
+              throw new Error("IndexedDB state must contain Dexie JSON exports");
+            }
             const metadata = JSON.parse(exported.data);
             if (metadata.formatName !== "dexie" || metadata.formatVersion !== 1) throw new Error("Invalid IndexedDB export");
             const name = metadata.data.databaseName;
@@ -152,7 +155,7 @@ async function restoreOriginStorage(browser, origins) {
             } finally { db?.close(); }
           } catch (error) {
             const first = Object.values(error?.failuresByPos || {})[0] || error?.failures?.[0];
-            skipped.push(`${exported.name}: ${error?.name || "Error"} ${error?.message || error}${first ? ` (${first.name}: ${first.message})` : ""}`);
+            skipped.push(`${exported?.name || "<unnamed>"}: ${error?.name || "Error"} ${error?.message || error}${first ? ` (${first.name}: ${first.message})` : ""}`);
           }
         }
         return skipped;

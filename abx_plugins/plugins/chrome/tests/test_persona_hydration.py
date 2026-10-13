@@ -47,6 +47,7 @@ def test_persona_settings_and_storage_on_external_cdp_tabs(
                 "origins": [
                     {
                         "origin": origin,
+                        "indexedDB": {},
                         "localStorage": [{"name": "login", "value": "local-value"}],
                         **(
                             {
@@ -217,7 +218,7 @@ const {captureOriginStorage} = require(require('path').join(require('path').dirn
     # database; it must never abort Chrome launch or the other databases.
     saved = json.loads(auth.read_text())
     rejected = dict(saved["origins"][0]["indexedDB"][0], name="rejected-db")
-    saved["origins"][0]["indexedDB"].insert(0, rejected)
+    saved["origins"][0]["indexedDB"][0:0] = [None, {"name": "malformed-db"}, rejected]
     auth.write_text(json.dumps(saved))
     profile = tmp_path / "destination-profile"
     if existing_schema:
@@ -284,6 +285,14 @@ const utils = require(process.argv[1]);
         ) as (chrome_process, _, chrome_dir, env):
             diagnostics = chrome_process._stderr_log.read_text()
             assert "Skipped saved IndexedDB" in diagnostics
+            assert (
+                "malformed-db: Error IndexedDB state must contain Dexie JSON exports"
+                in diagnostics
+            )
+            assert (
+                "<unnamed>: Error IndexedDB state must contain Dexie JSON exports"
+                in diagnostics
+            )
             if malformed:
                 assert "DataError" in diagnostics
             else:
