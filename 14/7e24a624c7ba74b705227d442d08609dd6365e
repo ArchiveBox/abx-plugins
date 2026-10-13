@@ -1,0 +1,23 @@
+abx_plugins/plugins/chrome/tests/test_persona_hydration.py
+  s_2b44ee96cc775e::t_9b37003bdb8bba 286-292
+  s_2b44ee96cc775e::t_970bcec414ff8d 265-271,322
+  s_2b44ee96cc775e::t_9ed3956e2b2311 260-264,272-285,293-321,323-344
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_2b44ee96cc775e::t_d07a3f336c7c53 4832-4841,4852-4854
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "147e24a624c7ba74b705227d442d08609dd6365e",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
