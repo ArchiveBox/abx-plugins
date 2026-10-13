@@ -107,6 +107,14 @@
         "PAPERSDL_EXTRA_ARGS"
       ],
       "description": "Extra arguments to append to papers-dl command"
+    },
+    "PAPERSDL_UNPAYWALL_EMAIL": {
+      "type": "string",
+      "default": "unpaywall-papersdl@archivebox.io",
+      "x-aliases": [
+        "UNPAYWALL_EMAIL"
+      ],
+      "description": "Contact email sent to the Unpaywall DOI API; empty disables Unpaywall lookup"
     }
   },
   "category": "text",

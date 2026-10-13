@@ -383,3 +383,83 @@ def test_download_linked_and_inline_citations(tmp_path):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize(
+    ("identifier", "provider"),
+    [
+        ("10.1126/sciadv.1602552", "pmc"),
+        ("10.21105/joss.01112", "unpaywall"),
+        ("10.1101/833400v1.full.pdf", "biorxiv"),
+    ],
+)
+def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
+    """Exercise the installed PyPI CLI through the real hook and vendored providers."""
+    import json
+
+    url = (
+        f"https://www.biorxiv.org/content/{identifier}"
+        if provider == "biorxiv"
+        else f"https://doi.org/{identifier}"
+    )
+    result = subprocess.run(
+        [str(PAPERSDL_HOOK), "--url", url],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+            "PAPERSDL_ARGS_EXTRA": json.dumps(["--providers", provider]),
+            "PAPERSDL_UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
+        },
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", (record, result.stderr)
+    pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
+    assert len(pdfs) == 1, result.stdout
+    assert record["output_str"] == f"papersdl/{pdfs[0].name}"
+    assert pdfs[0].read_bytes().startswith(b"%PDF-")
+    assert pdfs[0].stat().st_size > 10_000
+
+
+def test_science_brain_sleep_article_discovers_and_downloads_cited_paper(tmp_path):
+    """Regression for the real Science news article's primary Cell citation."""
+    import shutil
+
+    (tmp_path / "dom").mkdir()
+    shutil.copyfile(
+        PLUGIN_DIR / "tests/fixtures/science-brain-sleep-citation.html",
+        tmp_path / "dom/output.html",
+    )
+    result = subprocess.run(
+        [
+            str(PAPERSDL_HOOK),
+            "--url",
+            "https://www.science.org/content/article/scientists-uncover-how-brain-washes-itself-during-sleep",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+            "PAPERSDL_UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
+        },
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Downloading paper: 10.1016/j.cell.2024.11.027" in result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", (record, result.stderr)
+    pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
+    assert len(pdfs) == 1, result.stderr
+    assert record["output_str"] == f"papersdl/{pdfs[0].name}"
+    assert pdfs[0].read_bytes().startswith(b"%PDF-")
+    assert pdfs[0].stat().st_size > 100_000

@@ -1,3 +1,6 @@
+# Preserve the vendored upstream papers-dl source byte-for-byte.
+exclude: ^abx_plugins/plugins/papersdl/papers-dl-patches/
+
 repos:
   - repo: https://github.com/asottile/yesqa
     rev: v1.5.0

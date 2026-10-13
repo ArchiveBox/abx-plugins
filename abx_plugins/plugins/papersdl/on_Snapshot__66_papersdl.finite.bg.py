@@ -65,6 +65,7 @@ PLUGIN_NAME = "papersdl"
 BIN_NAME = "papers-dl"
 BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
+PATCHES_DIR = Path(__file__).resolve().with_name("papers-dl-patches")
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -160,6 +161,13 @@ def normalize_identifier(identifier: str) -> str:
 
 def find_paper_identifiers(url: str, binary: str, deadline: float) -> list[str]:
     """Keep direct paper URLs fast; otherwise discover citations in article HTML."""
+    # Preserve an explicitly requested bioRxiv/medRxiv version in its URL.
+    if (urlsplit(url).hostname or "").removeprefix("www.") in {
+        "biorxiv.org",
+        "medrxiv.org",
+    }:
+        if extract_doi_from_url(url):
+            return [url]
     doi = extract_doi_from_url(url)
     arxiv_id = extract_arxiv_id_from_url(url)
     if doi or arxiv_id:
@@ -262,12 +270,22 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
     try:
         print(f"Downloading paper: {identifier}", file=sys.stderr)
         output_lines: list[str] = []
+        # Overlay the upstream PR modules only inside the installed CLI.
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join(
+            [
+                str(PATCHES_DIR),
+                *filter(None, env.get("PYTHONPATH", "").split(os.pathsep)),
+            ],
+        )
+        env["UNPAYWALL_EMAIL"] = config.PAPERSDL_UNPAYWALL_EMAIL
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            env=env,
         )
 
         def _read_output() -> None:
