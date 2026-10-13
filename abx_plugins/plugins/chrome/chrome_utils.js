@@ -5357,6 +5357,25 @@ async function waitForVisibleImages(page, timeoutMs) {
     return ms;
   };
   const visit = async (frame, waitForDocument) => {
+    // Log before the wait: the runner's hook deadline can expire before this
+    // helper's timeout, otherwise leaving no evidence of the blocking frame.
+    const state = await frame.evaluate(() => {
+      const visible = [...document.images].filter((img) => {
+        const rect = img.getBoundingClientRect();
+        return rect.bottom >= 0 && rect.right >= 0
+          && rect.top < innerHeight && rect.left < innerWidth
+          && img.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
+      });
+      return {
+        url: /^https?:$/.test(location.protocol)
+          ? `${location.origin}${location.pathname}` : location.protocol,
+        readyState: document.readyState,
+        visibleImages: visible.length,
+        incompleteImages: visible.filter((img) => !img.complete).length,
+      };
+    }).catch(() => ({readyState: "unavailable during frame navigation"}));
+    const kind = frame === page.mainFrame() ? "main" : "child";
+    console.error(`[screenshot] ${kind} frame readiness ${JSON.stringify(state)}`);
     await frame.waitForFunction(async (needsDocument) => {
       if (needsDocument && location.href === "about:blank") return false;
       if (document.readyState === "loading") return false;
@@ -5375,6 +5394,7 @@ async function waitForVisibleImages(page, timeoutMs) {
       await Promise.all(images.filter((img) => img.naturalWidth > 0).map((img) => img.decode()));
       return true;
     }, {timeout: remaining()}, waitForDocument);
+    console.error(`[screenshot] ${kind} frame images ready ${JSON.stringify(state.url || "")}`);
 
     // Inspect each child only after its parent document exists. This includes
     // cross-origin frames via CDP without changing sandbox or loading policy.
