@@ -1,0 +1,23 @@
+abx_plugins/plugins/ytdlp/yt-dlp-plugins/archivebox/yt_dlp_plugins/extractor/archivebox_reddit.py
+  s_8dbda046044e96::t_04147289e245a0 1,9-13,35-41,44
+abx_plugins/plugins/ytdlp/tests/fixtures/README.md
+  s_8dbda046044e96::t_04147289e245a0 36-51
+abx_plugins/plugins/ytdlp/tests/test_ytdlp.py
+  s_8dbda046044e96::t_02274623cd5501 224-245,248,250,254,263,278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24e64bfa0922f9c73c950b00552bef95c355fd3b",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
