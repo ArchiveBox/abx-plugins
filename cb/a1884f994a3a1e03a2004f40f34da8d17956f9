@@ -1,0 +1,19 @@
+abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py
+  s_8dbda046044e96::t_99fc3f13fcc3e3 60-72,82-83,133-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cba1884f994a3a1e03a2004f40f34da8d17956f9",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
