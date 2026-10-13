@@ -2016,7 +2016,8 @@ def test_background_snapshot_tab_still_records_range_as_query_dash_video(
     segments = [
         [offset, next_offset + next_size - 1]
         for (kind, offset, _size), (_next_kind, next_offset, next_size) in zip(
-            boxes, boxes[1:]
+            boxes,
+            boxes[1:],
         )
         if kind == "moof"
     ]

@@ -16,11 +16,16 @@ import io
 import json
 import os
 import socket
+import ssl
 import subprocess
+import sys
 import tempfile
+import threading
 import time
 import wave
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 import pytest
 
 from abx_plugins.plugins.base.testing import (
@@ -251,7 +256,9 @@ def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
     assert "Session request failed" in result.stderr, result.stderr
     assert "Loading request from" in result.stderr, result.stderr
     assert "Unable to load request" not in result.stderr, result.stderr
-    assert "ERROR: [Reddit] 1k11yw5: No media found" in result.stderr, result.stderr
+    assert "ERROR: [Reddit+archivebox] 1k11yw5: No media found" in result.stderr, (
+        result.stderr
+    )
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "noresults", result.stdout
@@ -259,6 +266,276 @@ def test_reddit_text_post_reports_noresults(tmp_path, ytdlp_runtime_env):
     assert saved_page.read_bytes() == page
     saved_page.unlink()  # Remove only the unchanged test input before checking outputs.
     assert not list(output_dir.iterdir())
+
+
+class _RecordedHTTPSProxy(ThreadingHTTPServer):
+    """Local HTTP proxy that answers HTTPS requests from recorded responses.
+
+    Real yt-dlp tunnels https:// requests through CONNECT; the tunnel is
+    terminated with a throwaway self-signed certificate (the hook runs with
+    certificate checks disabled), so the real extractors run unmodified against
+    their real https://www.reddit.com/... URLs. Unrecorded URLs get HTTP 404.
+    """
+
+    daemon_threads = True
+
+    def __init__(self, tls_dir: Path, routes: dict[str, tuple[int, dict, bytes]]):
+        key_path, cert_path = tls_dir / "proxy.key", tls_dir / "proxy.crt"
+        subprocess.run(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-nodes",
+                "-keyout",
+                str(key_path),
+                "-out",
+                str(cert_path),
+                "-days",
+                "1",
+                "-subj",
+                "/CN=www.reddit.com",
+            ],
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        self.ssl_context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+        self.routes = routes
+        self.requests: list[str] = []
+        super().__init__(("127.0.0.1", 0), _RecordedHTTPSProxyHandler)
+
+    @property
+    def url(self) -> str:
+        return f"http://127.0.0.1:{self.server_address[1]}"
+
+    def handle_error(self, request, client_address):
+        # yt-dlp may drop idle keep-alive tunnels when it exits.
+        if not isinstance(sys.exc_info()[1], ConnectionError):
+            super().handle_error(request, client_address)
+
+
+class _RecordedHTTPSProxyHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    tunnel_host = ""
+
+    @property
+    def proxy(self) -> _RecordedHTTPSProxy:
+        assert isinstance(self.server, _RecordedHTTPSProxy)
+        return self.server
+
+    def log_message(self, format, *args):
+        pass
+
+    def do_CONNECT(self):
+        self.send_response(200, "Connection Established")
+        self.end_headers()
+        try:
+            tls = self.proxy.ssl_context.wrap_socket(self.connection, server_side=True)
+        except (ssl.SSLError, OSError):
+            self.close_connection = True
+            return
+        # Keep serving requests on this connection, now inside the TLS tunnel.
+        self.connection = self.request = tls
+        self.rfile, self.wfile = tls.makefile("rb"), tls.makefile("wb")
+        self.tunnel_host = self.path.rsplit(":", 1)[0]
+
+    def do_GET(self):
+        url = urlsplit(
+            self.path
+            if not self.tunnel_host
+            else f"https://{self.tunnel_host}{self.path}",
+        )
+        key = f"{url.scheme}://{url.hostname}{url.path}"
+        self.proxy.requests.append(key)
+        status, headers, body = self.proxy.routes.get(key, (404, {}, b"not recorded"))
+        self.send_response(status)
+        for name, value in headers.items():
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture
+def recorded_https_proxy(tmp_path_factory):
+    servers: list[_RecordedHTTPSProxy] = []
+
+    def start(routes: dict[str, tuple[int, dict, bytes]]) -> _RecordedHTTPSProxy:
+        server = _RecordedHTTPSProxy(tmp_path_factory.mktemp("proxy_tls"), routes)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        servers.append(server)
+        return server
+
+    yield start
+    for server in servers:
+        server.shutdown()
+        server.server_close()
+
+
+def _recorded_reddit_json(name: str, sha256: str) -> bytes:
+    page = gzip.decompress((Path(__file__).parent / "fixtures" / name).read_bytes())
+    assert hashlib.sha256(page).hexdigest() == sha256
+    return page
+
+
+def _run_hook_through_proxy(tmp_path, env, proxy, url, timeout=120):
+    start = time.monotonic()
+    result = subprocess.run(
+        [str(YTDLP_HOOK), f"--url={url}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_CHECK_SSL_VALIDITY": "False",
+            "YTDLP_ARGS_EXTRA": json.dumps(["--proxy", proxy.url]),
+        },
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    return result, time.monotonic() - start
+
+
+GALLERY_POST_URL = "https://www.reddit.com/r/interestingasfuck/comments/1hkxvx5/san_francisco_bay_bridge_workers_in_a_white/"
+
+
+def test_reddit_gallery_post_does_not_loop(
+    tmp_path,
+    ytdlp_runtime_env,
+    recorded_https_proxy,
+):
+    """A gallery post must stop at "No media found" instead of re-extracting itself.
+
+    reddit-gallery-post.json.gz is the byte-exact anonymous public API response
+    for this production post, recorded on 2026-10-12 with yt-dlp 2026.06.09:
+    ``yt-dlp --ignore-config --write-pages --skip-download https://www.reddit.com/comments/1hkxvx5/``
+    (224246 bytes; post ``url`` is https://www.reddit.com/gallery/1hkxvx5, two
+    ``Image`` media_metadata entries, no video). Reddit answers the gallery URL
+    with a redirect back to the post, which is what makes unpatched yt-dlp loop
+    (Reddit -> generic /gallery/<id> -> redirect -> Reddit ...) until the hook
+    timeout. Live Reddit only sustains that loop for logged-in sessions, so the
+    responses are replayed locally to keep the reproduction deterministic.
+    """
+    gallery = "https://www.reddit.com/gallery/1hkxvx5"
+    post_json = "https://www.reddit.com/r/interestingasfuck/comments/1hkxvx5/.json"
+    proxy = recorded_https_proxy(
+        {
+            post_json: (
+                200,
+                {"Content-Type": "application/json; charset=UTF-8"},
+                _recorded_reddit_json(
+                    "reddit-gallery-post.json.gz",
+                    "5421818e285d37e34cce8f6470522fbd02f78e4bf6b85ec20a85f4651b9d188c",
+                ),
+            ),
+            gallery: (301, {"Location": GALLERY_POST_URL}, b""),
+            GALLERY_POST_URL: (
+                200,
+                {"Content-Type": "text/html; charset=utf-8"},
+                b"<!doctype html><title>reddit</title>",
+            ),
+        },
+    )
+    result, elapsed = _run_hook_through_proxy(
+        tmp_path,
+        {**ytdlp_runtime_env, "YTDLP_TIMEOUT": "30"},
+        proxy,
+        GALLERY_POST_URL,
+    )
+    assert "ERROR: [Reddit+archivebox] 1hkxvx5: No media found" in result.stderr, (
+        result.stderr
+    )
+    assert "[generic]" not in result.stderr, result.stderr
+    assert proxy.requests.count(post_json) == 1, proxy.requests
+    assert gallery not in proxy.requests, proxy.requests
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No media found",
+    }, result.stdout
+    assert elapsed < 25, f"gallery extraction took {elapsed:.1f}s"
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
+def test_reddit_hosted_video_still_downloads(
+    tmp_path,
+    ytdlp_runtime_env,
+    recorded_https_proxy,
+):
+    """Reddit-hosted video extraction is unchanged by the gallery override.
+
+    reddit-video-post.json.gz is the byte-exact anonymous public API response
+    recorded on 2026-10-12 with yt-dlp 2026.06.09:
+    ``yt-dlp --ignore-config --write-pages --skip-download https://www.reddit.com/comments/6rrwyj/``
+    (391823 bytes; ``secure_media.reddit_video`` for v.redd.it/zv89llsvexdz).
+    The HLS/DASH manifests are not recorded, so RedditIE's real fallback
+    format is downloaded; a locally encoded MP4 stands in for its bytes.
+    """
+    video = tmp_path / "source.mp4"
+    subprocess.run(
+        [
+            ytdlp_runtime_env["FFMPEG_BINARY"],
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=1:size=64x64:rate=5",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:v",
+            "mpeg4",
+            str(video),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=60,
+    )
+    post_json = "https://www.reddit.com/r/videos/comments/6rrwyj/.json"
+    fallback = "https://v.redd.it/zv89llsvexdz/DASH_2_4_M"
+    proxy = recorded_https_proxy(
+        {
+            post_json: (
+                200,
+                {"Content-Type": "application/json; charset=UTF-8"},
+                _recorded_reddit_json(
+                    "reddit-video-post.json.gz",
+                    "3144a7da79dae71f24bfbfd5b5305b1f8c59110214d4f0f7a5e5ad1ffe6226ac",
+                ),
+            ),
+            fallback: (200, {"Content-Type": "video/mp4"}, video.read_bytes()),
+        },
+    )
+    video.unlink()
+    result, _elapsed = _run_hook_through_proxy(
+        tmp_path,
+        ytdlp_runtime_env,
+        proxy,
+        "https://www.reddit.com/r/videos/comments/6rrwyj/that_small_heart_attack/",
+    )
+    assert "[Reddit+archivebox] Extracting URL" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    assert proxy.requests.count(fallback) == 1, proxy.requests
+    saved = tmp_path / record["output_str"]
+    assert saved.suffix == ".mp4" and saved.parent == tmp_path / "ytdlp", record
+    with saved.open("rb") as media:
+        assert media.read(12)[4:8] == b"ftyp"
+    info = json.loads(next((tmp_path / "ytdlp").glob("*.info.json")).read_text())
+    assert (info["id"], info["display_id"], info["title"], info["format_id"]) == (
+        "zv89llsvexdz",
+        "6rrwyj",
+        "That small heart attack.",
+        "fallback",
+    ), info
 
 
 def test_substack_newsletter_reports_noresults(tmp_path, ytdlp_runtime_env):

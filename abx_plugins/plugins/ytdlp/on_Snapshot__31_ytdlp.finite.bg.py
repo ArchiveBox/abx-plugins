@@ -57,6 +57,9 @@ import rich_click as click
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
+# yt-dlp extractor overrides loaded via yt-dlp's own plugin system; see the
+# override module for why each exists and when to delete it.
+YTDLP_PLUGIN_DIRS = Path(__file__).resolve().with_name("yt-dlp-plugins")
 CONFIG = load_config(CONFIG_PATH, hydrate_binaries=False)
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -224,6 +227,8 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     # Build command (later options take precedence)
     cmd = [
         binary,
+        # Before YTDLP_ARGS so a user's --no-plugin-dirs can still opt out.
+        f"--plugin-dirs={YTDLP_PLUGIN_DIRS}",
         *ytdlp_args,
         # Format with max_size limit (appended after YTDLP_ARGS so it can be overridden by YTDLP_ARGS_EXTRA)
         f"--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)",
@@ -332,7 +337,7 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
             # Reddit's extractor reports text-only posts with this expected
             # no-format error. Keep HTTP and extraction failures above authoritative.
             if re.search(
-                r"(?m)^ERROR: \[Reddit\] [0-9a-z]+: No media found$",
+                r"(?m)^ERROR: \[Reddit(?:\+archivebox)?\] [0-9a-z]+: No media found$",
                 stderr,
             ):
                 return True, "No media found", ""
