@@ -1,0 +1,23 @@
+abx_plugins/plugins/base/unpack_downloads.py
+  s_8dbda046044e96::t_fa1311b97c063b 31
+  s_8dbda046044e96::t_04c7d714f2dbf9 30,32
+tests/test_unpack_downloads.py
+  s_8dbda046044e96::t_aed425b85224f8 4,96-127
+  s_8dbda046044e96::t_e14c18953eaa27 128-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c66e7a7ebf4b652585d7c17ead79b4e57cd346e",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
