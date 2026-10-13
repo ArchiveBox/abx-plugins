@@ -1,0 +1,23 @@
+abx_plugins/plugins/tlsnotary/README.md
+  s_8dbda046044e96::t_98059f433c4dd0 49-50,166-171
+abx_plugins/plugins/tlsnotary/on_Snapshot__31_tlsnotary.finite.bg.js
+  s_8dbda046044e96::t_f13e872ad9c5c3 259-266
+abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py
+  s_8dbda046044e96::t_17ec554c4c3cd6 703-817
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d2c020ec40082a0420dbe50a0f5d3a985468b60",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
