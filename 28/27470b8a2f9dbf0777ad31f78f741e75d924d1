@@ -1,0 +1,20 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_8dbda046044e96::t_4f9fa5285aec56 5377-5378,5397
+  s_8dbda046044e96::t_037a6b451d0c02 5360-5376
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2827470b8a2f9dbf0777ad31f78f741e75d924d1",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
