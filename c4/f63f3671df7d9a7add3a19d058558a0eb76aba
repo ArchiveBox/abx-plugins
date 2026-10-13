@@ -1,0 +1,21 @@
+abx_plugins/plugins/importers_browser/importer.py
+  s_20f72622e178fb::t_efc029436e904b 47-53
+abx_plugins/plugins/opencode/tests/test_browser.py
+  s_20f72622e178fb::t_efc029436e904b 8-9,183-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4f63f3671df7d9a7add3a19d058558a0eb76aba",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
