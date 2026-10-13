@@ -1,0 +1,19 @@
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_8dbda046044e96::t_bef205848b9f62 425,457-487,508,527,539-556
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae75b38b4974bce4386c3ed8acd770010fcd1464",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
