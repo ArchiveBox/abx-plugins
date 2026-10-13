@@ -460,6 +460,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
     if (depth > 10) return results || { chromePids: [], hookPids: [], personaDirs: [] };
 
     const found = results || { chromePids: [], hookPids: [], personaDirs: [] };
+    const resolvedDir = path.resolve(dir);
+    const isRuntimeDir =
+      excludeSessionDirs.has(resolvedDir) || excludeCrawlDirs.has(resolvedDir);
     const normalizeHookPidFileName = (fileName) =>
       fileName.slice(0, -4).replace(/\.[0-9a-f]{32}$/i, "");
 
@@ -509,7 +512,16 @@ async function killZombieChrome(snapDir = null, options = {}) {
           continue;
         }
 
-        if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
+        // SNAP_DIR/CRAWL_DIR already identify a runtime root. Its other
+        // children are archived plugin outputs, not more Chrome sessions.
+        // Walking them hits remote storage and can mistake captured .pid
+        // files for our own bookkeeping. Collection-level sweeps can still
+        // descend until they reach a known runtime root.
+        if (
+          !isRuntimeDir &&
+          !entry.name.startsWith(".") &&
+          entry.name !== "node_modules"
+        ) {
           findChromeRuntimeFiles(fullPath, depth + 1, found);
         }
       }

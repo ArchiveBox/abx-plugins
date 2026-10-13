@@ -4826,6 +4826,54 @@ def test_kill_zombie_chrome_does_not_kill_its_launcher(tmp_path):
     assert "chrome zombies. cpu usage:" in stdout
 
 
+def test_zombie_cleanup_does_not_walk_saved_plugin_outputs(tmp_path):
+    """Archived files named like runtime PID files remain capture data."""
+    env = _isolated_test_env(tmp_path)
+    crawl_dir = Path(env["CRAWL_DIR"])
+    snap_dir = Path(env["SNAP_DIR"])
+    hook_path = CHROME_UTILS.parent / "on_CrawlSetup__89_chrome_kill_zombies.js"
+    first = subprocess.Popen(
+        [str(hook_path)],
+        cwd=crawl_dir,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    stdout, stderr = first.communicate(timeout=30)
+    assert first.returncode == 0, stderr
+    assert "0 chrome zombies." in stdout
+    pid_filename = (
+        "on_CrawlSetup__89_chrome_kill_zombies.js.0123456789abcdef0123456789abcdef.pid"
+    )
+    runtime_pid_file = crawl_dir / "chrome" / pid_filename
+    runtime_pid_file.write_text(str(first.pid))
+    saved_pid_files = []
+    for root in (snap_dir, crawl_dir):
+        saved_chrome_dir = root / "wget/example.org/source/chrome"
+        saved_chrome_dir.mkdir(parents=True)
+        (saved_chrome_dir / "index.html").write_text("<h1>Archived source tree</h1>")
+        saved_pid_file = saved_chrome_dir / pid_filename
+        saved_pid_file.write_text(str(first.pid))
+        saved_pid_files.append(saved_pid_file)
+
+    result = subprocess.run(
+        [str(hook_path)],
+        cwd=crawl_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "0 chrome zombies." in result.stdout
+    assert not runtime_pid_file.exists(), (
+        "The exited real hook's runtime PID file is still cleaned"
+    )
+    for saved_pid_file in saved_pid_files:
+        assert saved_pid_file.read_text() == str(first.pid)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
