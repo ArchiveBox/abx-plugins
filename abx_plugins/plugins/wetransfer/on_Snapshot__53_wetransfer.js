@@ -107,10 +107,28 @@ async function main() {
     );
     if (terms) {
       console.error("Accepting WeTransfer terms");
-      await page
-        .locator('::-p-aria([name="I agree"][role="button"])')
-        .setTimeout(remaining())
-        .click();
+      while (true) {
+        // A survey can cover the consent button after navigation. Like other
+        // provider exports, act on the topmost control: a covered click merely
+        // dismisses the survey backdrop without accepting the transfer terms.
+        const control = await page.waitForFunction(() => {
+          return [...document.querySelectorAll("button")].find(button => {
+            const label = (button.getAttribute("aria-label") || button.textContent).trim();
+            if (label !== "I agree" && !(button.closest('[role="dialog"]') && /^(skip(?:\s|$)|close$)/i.test(label))) return false;
+            if (button.disabled) return false;
+            const box = button.getBoundingClientRect();
+            return box.width && box.height && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+          });
+        }, { timeout: remaining(), polling: 100 });
+        try {
+          const button = control.asElement();
+          const accepting = await button.evaluate(element => element.textContent.trim() === "I agree");
+          await button.click();
+          if (accepting) break;
+          console.error("Dismissed optional WeTransfer dialog");
+          await page.waitForFunction(element => !element.isConnected || !element.checkVisibility(), { timeout: remaining(), polling: 100 }, button);
+        } finally { await control.dispose(); }
+      }
       console.error("WeTransfer agreement clicked; waiting for transfer status");
       await page.waitForFunction(
         () =>
