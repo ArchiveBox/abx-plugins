@@ -1,6 +1,7 @@
 """Real provider ZIPs publish a raw tree without retaining transport copies."""
 
 import io
+import hashlib
 import json
 import stat
 import zipfile
@@ -90,6 +91,42 @@ def test_shared_zip_file_is_preserved(tmp_path):
     assert len(manifest["files"]) == 1
     assert (output / "files/folder.zip").read_bytes() == original
     assert not source.exists()
+
+
+@pytest.mark.parametrize("require_zip", [False, True])
+def test_replacing_downloads_publishes_new_tree_and_manifest(tmp_path, require_zip):
+    output = tmp_path / "calendar"
+    for filename, data in [("old.ics", b"old calendar"), ("new.ics", b"new calendar")]:
+        source = tmp_path / ("browser.zip" if require_zip else filename)
+        if require_zip:
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr(filename, data)
+        else:
+            source.write_bytes(data)
+        manifest = unpack_downloads(
+            output,
+            {
+                "title": "Calendar",
+                "requireZip": require_zip,
+                "downloads": [
+                    {"filePath": str(source), "suggestedFilename": source.name},
+                ],
+            },
+        )
+        assert (output / "files" / filename).read_bytes() == data
+        assert manifest["files"] == [
+            {
+                "path": "files/" + filename,
+                "filename": filename,
+                "format": "ics",
+                "size": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            },
+        ]
+        assert json.loads((output / "downloads.json").read_text()) == manifest
+        assert not source.exists()
+        assert not list(output.glob(".unpack-*"))
+    assert [p.name for p in (output / "files").iterdir()] == ["new.ics"]
 
 
 def test_duplicate_member_names_preserve_every_file(tmp_path):

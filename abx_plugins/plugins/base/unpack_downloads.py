@@ -27,7 +27,9 @@ def unpack_downloads(output: Path, request: dict) -> dict:
     if not isinstance(old_manifest, dict):
         old_manifest = {}
     with tempfile.TemporaryDirectory(prefix=".unpack-", dir=output) as temporary:
-        staging = Path(temporary) / "files"
+        # A same-basename directory move into this temporary parent can evict
+        # its existing child on rclone FUSE when backing up the old files tree.
+        staging = Path(temporary) / "incoming"
         staging.mkdir()
 
         def destination_for(name: str) -> Path:
