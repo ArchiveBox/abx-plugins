@@ -150,11 +150,13 @@ async function takeScreenshot(url) {
     puppeteer,
   });
   console.log("Screenshot capture started");
+  const captureStartedAt = Date.now();
 
   let captureSession;
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
     const viewport = getScreenshotViewport();
+    console.error(`[screenshot] setting viewport (${Date.now() - captureStartedAt}ms)`);
     await page.setViewport(viewport);
     // Keep image decoding active even while another snapshot selects its tab.
     // Detaching below restores this target's prior state.
@@ -178,10 +180,13 @@ async function takeScreenshot(url) {
       String(waitForFrameUrl || ""),
       captureTimeoutMs
     );
+    console.error(`[screenshot] waiting for visible images (${Date.now() - captureStartedAt}ms)`);
     await waitForVisibleImages(page, captureTimeoutMs);
     // Focus emulation alone does not activate the headless compositor. Select
     // this target before requesting pixels, or captureScreenshot can stall.
+    console.error(`[screenshot] selecting target for pixels (${Date.now() - captureStartedAt}ms)`);
     await page.bringToFront();
+    console.error(`[screenshot] capturing pixels (${Date.now() - captureStartedAt}ms)`);
     await Promise.race([
       page.screenshot({ path: tempOutputPath, fullPage: false }),
       new Promise((_, reject) => {
