@@ -100,8 +100,14 @@ async function restoreOriginStorage(browser, origins) {
                     if (!matches && [...db.objectStoreNames].some(store => !exported.stores.some(definition => definition.name === store))) {
                       throw new Error("Cannot replace IndexedDB schema while preserving stores omitted from the export");
                     }
-                    resolve(matches);
-                  } catch (error) { reject(error); } finally { db.close(); }
+                    // close() is deferred while this schema transaction is
+                    // active. Wait for it before deleting/reopening the database,
+                    // otherwise our own connection can block the replacement.
+                    if (transaction) {
+                      transaction.oncomplete = () => { db.close(); resolve(matches); };
+                      transaction.onabort = () => { db.close(); reject(transaction.error); };
+                    } else { db.close(); resolve(matches); }
+                  } catch (error) { db.close(); reject(error); }
                 };
               });
               if (!matches) await new Promise((resolve, reject) => {
