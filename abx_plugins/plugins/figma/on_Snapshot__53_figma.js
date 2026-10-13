@@ -60,6 +60,7 @@ async function main() {
   let page = sourcePage;
   const downloads = [];
   let phase = "Checking Figma document";
+  let lastClick = null;
   try {
     if (!isDocument(new URL(url)) && !isDocument(new URL(page.url()))) {
       console.error("Not a Figma document");
@@ -114,13 +115,22 @@ async function main() {
           const box = element.getBoundingClientRect();
           const x = box.x + box.width / 2;
           const y = box.y + box.height / 2;
-          return control.contains(document.elementFromPoint(x, y)) && { x, y };
+          return control.contains(document.elementFromPoint(x, y)) && {
+            x,
+            y,
+            disabled: control.matches(":disabled, [aria-disabled='true']"),
+          };
         },
         { timeout: remaining(), polling: 100 },
         element,
       );
-      const { x, y } = await ready.jsonValue();
+      const { x, y, disabled } = await ready.jsonValue();
       await ready.dispose();
+      lastClick = {
+        selector,
+        disabled,
+        elapsedMs: Date.now() - (deadline - timeoutMs),
+      };
       await page.mouse.click(x, y);
     };
     const openFileMenu = async () => {
@@ -289,6 +299,7 @@ async function main() {
     emitArchiveResultRecord("succeeded", "figma/downloads.json");
   } catch (error) {
     if (!(error instanceof ExportPrerequisiteError)) {
+      console.error("Figma last export click:", JSON.stringify(lastClick));
       error.message = `${phase} (${timeoutMs - (deadline - Date.now())}ms elapsed, ${timeoutMs}ms budget): ${error.message}`;
       // Record the primary failure before target teardown can fail separately.
       console.error(error.stack || error.message);

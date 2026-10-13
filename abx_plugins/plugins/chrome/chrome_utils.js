@@ -3030,7 +3030,14 @@ async function captureBrowserDownloads({
     if (frames.has(event.frameId)) {
       downloads.set(event.guid, { ...event, state: "inProgress" });
       resolveStarted();
-      console.error("Provider browser download started");
+      console.error("Provider browser download started:", JSON.stringify({
+        filename: event.suggestedFilename,
+        guid: event.guid,
+        frameId: event.frameId,
+        elapsedMs: Date.now() - (deadline - timeoutMs),
+      }));
+    } else {
+      console.error("Ignoring browser download from another frame:", event.frameId);
     }
   };
   const progress = (event) => {
