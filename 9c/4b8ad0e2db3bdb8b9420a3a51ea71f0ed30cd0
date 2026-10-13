@@ -1,0 +1,19 @@
+abx_plugins/plugins/ytdlp/templates/full.html
+  s_8dbda046044e96::t_75d2764544231a 79-87,91-92,209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9c4b8ad0e2db3bdb8b9420a3a51ea71f0ed30cd0",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
