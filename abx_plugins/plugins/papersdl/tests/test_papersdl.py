@@ -410,6 +410,7 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
             **os.environ,
             "SNAP_DIR": str(tmp_path),
             "PAPERSDL_BINARY": require_papersdl_binary(),
+            "PAPERSDL_ARGS": json.dumps(["-v", "fetch"]),
             "PAPERSDL_ARGS_EXTRA": json.dumps(["--providers", provider]),
             "PAPERSDL_UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
         },
