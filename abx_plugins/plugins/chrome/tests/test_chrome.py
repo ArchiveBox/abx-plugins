@@ -3985,8 +3985,10 @@ const utils = require(process.argv[1]);
         assert "renderer crash invalidated only its owned target" in result.stdout
         assert is_pid_alive(chrome_pid), "renderer failure killed the shared browser"
         box_hook = CHROME_UTILS.parent.parent / "box" / "on_Snapshot__53_box.js"
+        # A Box share URL keeps the provider from ruling itself out via
+        # navigation.json, so it must attach to the crashed snapshot target.
         followup = subprocess.run(
-            [str(box_hook), "--url=https://example.com"],
+            [str(box_hook), "--url=https://app.box.com/s/renderer-crash"],
             cwd=chrome_dir.parent,
             env={**env, "BOX_ENABLED": "true"},
             capture_output=True,
