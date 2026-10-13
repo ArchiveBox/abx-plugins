@@ -85,7 +85,10 @@
     if(!source){entry.original.append(el('span','Original file unavailable','placeholder'));filter();return}
     entry.originalLink.hidden=false;entry.originalLink.href=raw(source.url);entry.originalLink.title='Open original: '+source.name;
     const link=el('a');link.href=raw(source.url);link.setAttribute('aria-label',entry.originalLink.title);entry.original.append(link);
-    if(isImage(source.name)||source.mime.startsWith('image/')){
+    // OCR output stems can be truncated before the extension; classify the
+    // resolved original, using the same decision as its preview below.
+    entry.group=isImage(source.name)||source.mime.startsWith('image/')?'Images':'Documents';
+    if(entry.group==='Images'){
       const img=el('img');img.alt=source.name;img.loading='lazy';img.decoding='async';
       img.addEventListener('load',()=>{entry.dimensions.textContent=img.naturalWidth+' × '+img.naturalHeight});
       img.addEventListener('error',()=>{link.replaceChildren(el('span','Image preview unavailable — open original','placeholder'))});
