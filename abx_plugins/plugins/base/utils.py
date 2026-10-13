@@ -22,7 +22,7 @@ from html.parser import HTMLParser
 import os
 import stat
 import sys
-from urllib.parse import quote, unquote, urljoin, urlparse, urlsplit
+from urllib.parse import quote, unquote, urldefrag, urljoin, urlparse, urlsplit
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
@@ -1092,11 +1092,18 @@ def get_config(
 
 
 def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Path, ...]:
-    """Return imported text and the captured staticfile's text response body."""
+    """Return imported text and the captured main document's raw text body."""
     base = Path(snap_dir or os.environ.get("SNAP_DIR") or ".").expanduser().resolve()
     staticfile_dir = base / "staticfile"
-    if not staticfile_dir.is_dir():
-        return ()
+    text_mime_types = {
+        "application/json",
+        "application/jsonl",
+        "application/x-ndjson",
+        "application/xml",
+        "application/rss+xml",
+        "application/atom+xml",
+        "application/xhtml+xml",
+    }
     paths = set(staticfile_dir.glob("*.txt"))
     stdout_log = staticfile_dir / "stdout.log"
     if stdout_log.is_file():
@@ -1116,17 +1123,7 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
             )
             output = record.get("output_str")
             if not isinstance(output, str) or not (
-                content_type.startswith("text/")
-                or content_type
-                in {
-                    "application/json",
-                    "application/jsonl",
-                    "application/x-ndjson",
-                    "application/xml",
-                    "application/rss+xml",
-                    "application/atom+xml",
-                    "application/xhtml+xml",
-                }
+                content_type.startswith("text/") or content_type in text_mime_types
             ):
                 continue
             # Staticfile reuses the responses-owned body when available. Its
@@ -1134,6 +1131,45 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
             path = (base / output).resolve()
             if path.is_relative_to(base):
                 paths.add(path)
+    # HTML deliberately has no staticfile result. Reuse the exact raw response,
+    # not DOM/SingleFile (which can transform feeds or bookmark exports). The
+    # response index is reset for each capture and records only completed bodies.
+    try:
+        navigation = json.loads((base / "chrome/navigation.json").read_text())
+        if isinstance(navigation, dict) and 200 <= navigation.get("status", 0) < 300:
+            final_url = urldefrag(navigation["finalUrl"])[0]
+            response_dir = base / "responses"
+            document_paths: set[Path] = set()
+            for line in (response_dir / "index.jsonl").read_text().split("\n"):
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                mime_type = str(entry.get("mimeType", "")).split(";", 1)[0].lower()
+                if (
+                    entry.get("resourceType") == "document"
+                    and entry.get("method") == "GET"
+                    and 200 <= entry.get("status", 0) < 300
+                    and urldefrag(entry.get("url", ""))[0] == final_url
+                    and (mime_type.startswith("text/") or mime_type in text_mime_types)
+                    and isinstance(entry.get("path"), str)
+                ):
+                    path = (response_dir / entry["path"]).resolve()
+                    if (
+                        path.is_relative_to(base)
+                        and path.is_file()
+                        and path.stat().st_size > 0
+                    ):
+                        document_paths.add(path)
+            # The index does not identify frames. Multiple same-URL documents
+            # can include an iframe, so retain HTTP fallback when ambiguous.
+            if len(document_paths) == 1:
+                paths.update(document_paths)
+    except (OSError, ValueError, TypeError, KeyError):
+        # Missing/malformed optional capture artifacts retain HTTP fallback.
+        pass
     return tuple(
         path
         for path in sorted(paths)
