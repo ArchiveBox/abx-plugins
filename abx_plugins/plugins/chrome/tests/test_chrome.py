@@ -1271,10 +1271,15 @@ def test_browser_observer_keeps_live_state_in_tmp_dir_not_crawl_dir(httpserver):
                 / hashlib.sha256(cdp_url.encode()).hexdigest()
             )
 
+            # The observer publishes a tab as soon as it sees the target, with
+            # an empty title until CDP reports the document's title, so wait
+            # for a published state that has caught up to the page's title.
             deadline = time.monotonic() + 15
             state: dict = {}
             tab = None
-            while time.monotonic() < deadline and tab is None:
+            while time.monotonic() < deadline and (
+                tab is None or not tab["title"].startswith("t")
+            ):
                 try:
                     state = json.loads((live_dir / "tabs.json").read_text())
                     tab = next(
