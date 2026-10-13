@@ -62,9 +62,55 @@ async function restoreOriginStorage(browser, origins) {
           try {
             const metadata = JSON.parse(exported.data);
             if (metadata.formatName !== "dexie" || metadata.formatVersion !== 1) throw new Error("Invalid IndexedDB export");
-            const blob = new Blob([exported.data], { type: "application/json" });
             const name = metadata.data.databaseName;
             if (name !== exported.name) throw new Error("IndexedDB name does not match its schema");
+            // Validate the portable schema with Dexie's parser before replacing
+            // any working data. The native schema preserves real index names.
+            const schema = new Dexie(name);
+            schema.version(metadata.data.databaseVersion).stores(Object.fromEntries(metadata.data.tables.map(table => [table.name, table.schema])));
+            if (metadata.data.databaseVersion * 10 !== exported.version || schema.tables.length !== exported.stores.length || exported.stores.some(definition => {
+              const table = schema.tables.find(table => table.name === definition.name);
+              return !table || JSON.stringify(table.schema.primKey.keyPath) !== JSON.stringify(definition.keyPath) || table.schema.primKey.auto !== definition.autoIncrement ||
+                table.schema.indexes.length !== definition.indexes.length || definition.indexes.some(index => !table.schema.indexes.some(parsed =>
+                  JSON.stringify(parsed.keyPath) === JSON.stringify(index.keyPath) && parsed.unique === index.unique && parsed.multi === index.multiEntry));
+            })) throw new Error("IndexedDB export does not match its native schema");
+            schema.close();
+            // A previous persona can have a different schema at the same native
+            // version. onupgradeneeded will not run for it; increasing the version
+            // would break the site's own indexedDB.open(name, expectedVersion).
+            // Replace only this supplied database, at the saved native version.
+            if ((await indexedDB.databases()).some(database => database.name === name)) {
+              const matches = await new Promise((resolve, reject) => {
+                const request = indexedDB.open(name);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                  const db = request.result;
+                  try {
+                    const transaction = db.objectStoreNames.length ? db.transaction([...db.objectStoreNames]) : null;
+                    const matches = db.version === exported.version && exported.stores.every(definition => {
+                      if (!db.objectStoreNames.contains(definition.name)) return false;
+                      const store = transaction.objectStore(definition.name);
+                      return JSON.stringify(store.keyPath) === JSON.stringify(definition.keyPath) && store.autoIncrement === definition.autoIncrement &&
+                        store.indexNames.length === definition.indexes.length && definition.indexes.every(index => {
+                          if (!store.indexNames.contains(index.name)) return false;
+                          const existing = store.index(index.name);
+                          return JSON.stringify(existing.keyPath) === JSON.stringify(index.keyPath) && existing.unique === index.unique && existing.multiEntry === index.multiEntry;
+                        });
+                    });
+                    if (!matches && [...db.objectStoreNames].some(store => !exported.stores.some(definition => definition.name === store))) {
+                      throw new Error("Cannot replace IndexedDB schema while preserving stores omitted from the export");
+                    }
+                    resolve(matches);
+                  } catch (error) { reject(error); } finally { db.close(); }
+                };
+              });
+              if (!matches) await new Promise((resolve, reject) => {
+                const request = indexedDB.deleteDatabase(name);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+                request.onblocked = () => reject(new Error(`IndexedDB ${name} is in use`));
+              });
+            }
             // Dexie's schema notation uses key paths as index names. Recreate the
             // real native names first so sites using store.index(name) keep working.
             await new Promise((resolve, reject) => {
@@ -90,7 +136,13 @@ async function restoreOriginStorage(browser, origins) {
               await db.open();
               // The export is the site's complete saved state. Merging it into the
               // profile's previous copy broke unique indexes (ConstraintError).
-              await db.import(blob, { overwriteValues: true, clearTablesBeforeImport: true });
+              const tables = metadata.data.tables.map(table => db.table(table.name));
+              await db.transaction("rw", tables, async () => {
+                for (const table of tables) await table.clear();
+                // The JSON is already parsed. Dexie's completed JsonStream
+                // input avoids asynchronous Blob reads inside this transaction.
+                await db.import({ result: metadata, done: () => true, eof: () => true }, { overwriteValues: true, noTransaction: true });
+              });
             } finally { db?.close(); }
           } catch (error) {
             const first = Object.values(error?.failuresByPos || {})[0] || error?.failures?.[0];

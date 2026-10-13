@@ -145,7 +145,16 @@ const utils = require(process.argv[1]);
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-def test_indexeddb_and_tab_storage_roundtrip(tmp_path, httpserver):
+@pytest.mark.parametrize(
+    ("existing_schema", "account_keypath"),
+    [(False, "type"), (False, ["type"]), (True, ["type"])],
+)
+def test_indexeddb_and_tab_storage_roundtrip(
+    tmp_path,
+    httpserver,
+    existing_schema,
+    account_keypath,
+):
     httpserver.expect_request("/").respond_with_data(
         "<title>Persona database</title>",
         content_type="text/html",
@@ -168,23 +177,25 @@ const {captureOriginStorage} = require(require('path').join(require('path').dirn
 (async () => {
   const {browser, page} = await utils.connectToPage({chromeSessionDir:process.argv[2]});
   try {
-    await page.evaluate(async () => {
+    await page.evaluate(async accountKeyPath => {
       localStorage.setItem('token','local-token'); sessionStorage.setItem('token','tab-token');
       await new Promise((resolve,reject) => {
         const request = indexedDB.open('login-state', 3);
         request.onupgradeneeded = () => {
           const store = request.result.createObjectStore('sessions', {keyPath:'id', autoIncrement:true});
           store.createIndex('byAccount','account',{unique:true});
+          request.result.createObjectStore('accountData', {keyPath:accountKeyPath});
         };
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
-          const db = request.result; const tx = db.transaction('sessions','readwrite');
+          const db = request.result; const tx = db.transaction(['sessions','accountData'],'readwrite');
+          tx.objectStore('accountData').put({type:'settings',theme:'dark'});
           tx.objectStore('sessions').put({id:7,account:'alice',token:'idb-token',
             created:new Date('2026-01-01T00:00:00Z'),bytes:new Uint8Array([0,127,255]),blob:new Blob(['saved-session'])});
           tx.oncomplete = () => {db.close();resolve();}; tx.onerror = () => reject(tx.error);
         };
       });
-    });
+    }, JSON.parse(process.argv[4]));
     const state = await captureOriginStorage(page);
     fs.writeFileSync(process.argv[3],JSON.stringify({cookies:[],origins:[{origin:state.origin,
       localStorage:state.localStorage,indexedDB:state.indexedDB}],tabs:[{url:state.url,sessionStorage:state.sessionStorage}]}));
@@ -194,6 +205,7 @@ const {captureOriginStorage} = require(require('path').join(require('path').dirn
                 str(CHROME_UTILS),
                 str(chrome_dir),
                 str(auth),
+                json.dumps(account_keypath),
             ],
             env=env,
             text=True,
@@ -207,56 +219,126 @@ const {captureOriginStorage} = require(require('path').join(require('path').dirn
     rejected = dict(saved["origins"][0]["indexedDB"][0], name="rejected-db")
     saved["origins"][0]["indexedDB"].insert(0, rejected)
     auth.write_text(json.dumps(saved))
-    with chrome_session(
-        tmp_path / "destination",
-        test_url=url,
-        env_overrides={"AUTH_STORAGE_FILE": str(auth)},
-    ) as (_, _, chrome_dir, env):
-        result = subprocess.run(
-            [
-                env["NODE_BINARY"],
-                "-e",
-                r"""
+    profile = tmp_path / "destination-profile"
+    if existing_schema:
+        with chrome_session(
+            tmp_path / "previous-crawl",
+            test_url=url,
+            env_overrides={"PERSONAS_DIR": str(profile)},
+        ) as (_, _, chrome_dir, env):
+            result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    r"""
 const utils = require(process.argv[1]);
 (async () => {
   const {browser,page} = await utils.connectToPage({chromeSessionDir:process.argv[2]});
   try {
-    console.log(JSON.stringify(await page.evaluate(async () => {
-      const db = await new Promise((resolve,reject) => {const r=indexedDB.open('login-state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-      const store = db.transaction('sessions').objectStore('sessions');
-      const row = await new Promise((resolve,reject) => {const r=store.get(7);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-      const result = {version:db.version,keyPath:store.keyPath,autoIncrement:store.autoIncrement,
-        unique:store.index('byAccount').unique,account:row.account,token:row.token,date:row.created.toISOString(),
-        bytes:Array.from(row.bytes),blob:await row.blob.text(),local:localStorage.getItem('token'),session:sessionStorage.getItem('token'),
-        databases:(await indexedDB.databases()).map(d=>d.name).sort()};
-      db.close();return result;
-    })));
+    await page.evaluate(() => new Promise((resolve,reject) => {
+      const request = indexedDB.open('login-state', 3);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore('sessions', {keyPath:'id', autoIncrement:true});
+        store.createIndex('byAccount','account',{unique:true});
+        request.result.createObjectStore('accountData', {keyPath:'type'});
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result; const tx = db.transaction('sessions','readwrite');
+        tx.objectStore('sessions').put({id:99,account:'alice',token:'previous-token'});
+        tx.oncomplete = () => {db.close();resolve();}; tx.onerror = () => reject(tx.error);
+      };
+    }));
   } finally {await browser.disconnect();}
 })().catch(e=>{console.error(e);process.exit(1)});
 """,
-                str(CHROME_UTILS),
-                str(chrome_dir),
-            ],
-            env=env,
-            text=True,
-            capture_output=True,
-            timeout=45,
-        )
-        assert result.returncode == 0, result.stderr
-        assert json.loads(result.stdout) == {
-            "version": 3,
-            "keyPath": "id",
-            "autoIncrement": True,
-            "unique": True,
-            "account": "alice",
-            "token": "idb-token",
-            "date": "2026-01-01T00:00:00.000Z",
-            "bytes": [0, 127, 255],
-            "blob": "saved-session",
-            "local": "local-token",
-            "session": "tab-token",
-            "databases": ["login-state"],
-        }
+                    str(CHROME_UTILS),
+                    str(chrome_dir),
+                ],
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=45,
+            )
+            assert result.returncode == 0, result.stderr
+    for attempt, malformed in enumerate((False, isinstance(account_keypath, str))):
+        if malformed:
+            # Corrupt an incoming key, then run a new crawl with the same profile.
+            # Its failed import must roll back the clear and preserve good rows.
+            payload = json.loads(saved["origins"][0]["indexedDB"][-1]["data"])
+            account_data = next(
+                table
+                for table in payload["data"]["data"]
+                if table["tableName"] == "accountData"
+            )
+            del account_data["rows"][0]["type"]
+            saved["origins"][0]["indexedDB"][-1]["data"] = json.dumps(payload)
+            auth.write_text(json.dumps(saved))
+        with chrome_session(
+            tmp_path / f"restore-{attempt}",
+            test_url=url,
+            env_overrides={
+                "AUTH_STORAGE_FILE": str(auth),
+                "PERSONAS_DIR": str(profile),
+            },
+        ) as (chrome_process, _, chrome_dir, env):
+            diagnostics = chrome_process._stderr_log.read_text()
+            assert "Skipped saved IndexedDB" in diagnostics
+            if malformed:
+                assert "DataError" in diagnostics
+            else:
+                assert "login-state:" not in diagnostics
+            result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    r"""
+    const utils = require(process.argv[1]);
+    (async () => {
+      const {browser,page} = await utils.connectToPage({chromeSessionDir:process.argv[2]});
+      try {
+        console.log(JSON.stringify(await page.evaluate(async accountKeyPath => {
+          const db = await new Promise((resolve,reject) => {const r=indexedDB.open('login-state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+          const store = db.transaction('sessions').objectStore('sessions');
+          const row = await new Promise((resolve,reject) => {const r=store.get(7);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+          const unique=store.index('byAccount').unique;
+          const result = {version:db.version,keyPath:store.keyPath,autoIncrement:store.autoIncrement,
+            accountKeyPath:db.transaction('accountData').objectStore('accountData').keyPath,
+            accountData:await new Promise((resolve,reject)=>{const r=db.transaction('accountData').objectStore('accountData').get(Array.isArray(accountKeyPath) ? ['settings'] : 'settings');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);}),
+            unique,account:row.account,token:row.token,date:row.created.toISOString(),
+            bytes:Array.from(row.bytes),blob:await row.blob.text(),local:localStorage.getItem('token'),session:sessionStorage.getItem('token'),
+            databases:(await indexedDB.databases()).map(d=>d.name).sort()};
+          db.close();return result;
+        }, JSON.parse(process.argv[3]))));
+      } finally {await browser.disconnect();}
+    })().catch(e=>{console.error(e);process.exit(1)});
+    """,
+                    str(CHROME_UTILS),
+                    str(chrome_dir),
+                    json.dumps(account_keypath),
+                ],
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=45,
+            )
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout) == {
+                "version": 3,
+                "keyPath": "id",
+                "autoIncrement": True,
+                "unique": True,
+                "accountKeyPath": account_keypath,
+                "accountData": {"type": "settings", "theme": "dark"},
+                "account": "alice",
+                "token": "idb-token",
+                "date": "2026-01-01T00:00:00.000Z",
+                "bytes": [0, 127, 255],
+                "blob": "saved-session",
+                "local": "local-token",
+                "session": "tab-token",
+                "databases": ["login-state"],
+            }
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
