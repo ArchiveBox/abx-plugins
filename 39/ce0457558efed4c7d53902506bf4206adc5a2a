@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/persona_storage.js
+  s_8dbda046044e96::t_e2bb172c3eecdb 67-113,139-145
+abx_plugins/plugins/chrome/tests/test_persona_hydration.py
+  s_8dbda046044e96::t_6e711e5af30c4e 148-157,180,187,191-192,198,208,222-233,238-251,255-341
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "39ce0457558efed4c7d53902506bf4206adc5a2a",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
