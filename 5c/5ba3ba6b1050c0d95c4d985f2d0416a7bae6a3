@@ -1,0 +1,19 @@
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_2b44ee96cc775e::t_d0d375bc3b01ec 1274-1276,1280-1282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c5ba3ba6b1050c0d95c4d985f2d0416a7bae6a3",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
