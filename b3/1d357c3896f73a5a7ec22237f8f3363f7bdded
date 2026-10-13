@@ -1,0 +1,20 @@
+abx_plugins/plugins/wget/on_Snapshot__35_wget.finite.bg.py
+  s_24004f468c231b::t_1ad3061d537670 153-155
+  s_24004f468c231b::t_e6ca0f4fda4a40 171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b31d357c3896f73a5a7ec22237f8f3363f7bdded",
+  "prompts": {},
+  "sessions": {
+    "s_24004f468c231b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "34429556-fd91-451d-8604-40cec6049bda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
