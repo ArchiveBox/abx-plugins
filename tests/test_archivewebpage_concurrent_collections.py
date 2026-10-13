@@ -1525,12 +1525,14 @@ const progress = (...args) => console.error(`Replay probe +${Date.now() - starte
         const parsed = new URL(frame.url());
         const state = await frame.evaluate(() => ({
           readyState: document.readyState,
+          bodyText: (document.body?.innerText || "").slice(0, 512),
           bodyBytes: new TextEncoder().encode(document.documentElement?.outerHTML || "").length,
           textBytes: new TextEncoder().encode(document.body?.innerText || "").length,
           bodyElements: document.body?.childElementCount || 0,
           childFrames: document.querySelectorAll("iframe").length,
         })).catch(() => null);
         return {
+          url: frame.url(),
           pathKind: parsed.pathname === "/replay/"
             ? "replay-shell"
             : parsed.pathname.startsWith("/replay/w/")
@@ -1632,7 +1634,7 @@ const progress = (...args) => console.error(`Replay probe +${Date.now() - starte
         and frame["state"]["textBytes"] > 1000
         and frame["state"]["bodyElements"] > 0
         for frame in archived_frames
-    ), observed
+    ), json.dumps(observed, indent=2)
     assert any(
         widget["visible"] and widget["framePresent"] for widget in observed["widgets"]
     ), observed
