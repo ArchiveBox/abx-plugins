@@ -12,6 +12,7 @@ Tests verify:
 """
 
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -334,3 +335,52 @@ def test_google_drive_board_metadata_is_noresults(tmp_path):
         record = parse_jsonl_output(result.stdout)
         assert record and record["status"] == "noresults", (record, result.stderr)
         assert not (tmp_path / "forumdl/forum.jsonl").exists()
+
+
+def test_redirected_phpbb_probe_is_noresults(httpserver, tmp_path):
+    """A site that redirects forum-dl's phpBB probe must not be taken for phpBB.
+
+    forum-dl detects phpBB by fetching <url>/viewforum.php and accepting any
+    page whose <html> has a dir attribute. Facebook redirects that unknown
+    subpath to the post's canonical URL, whose <html dir="ltr"> passed the
+    check, and forum-dl then crashed with a bare ValueError mapping the
+    requested post URL to a node of that "board". Reproduce it locally.
+    """
+    post = '<!doctype html><html lang="en" dir="ltr"><body><p>A social post</p></body></html>'
+    httpserver.expect_request(
+        re.compile(r"^/posts/(123|canonical-456)/?$")
+    ).respond_with_data(
+        post,
+        content_type="text/html",
+    )
+    httpserver.expect_request(re.compile(r".*/viewforum\.php$")).respond_with_data(
+        "",
+        status=302,
+        headers={"Location": "/posts/canonical-456/"},
+    )
+    httpserver.expect_request(re.compile(".*")).respond_with_data(
+        "Not Found",
+        status=404,
+    )
+    result = subprocess.run(
+        [str(FORUMDL_HOOK), f"--url={httpserver.url_for('/posts/123')}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "FORUMDL_BINARY": require_forumdl_binary(),
+            "SNAP_DIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "ValueError" not in result.stderr, result.stderr
+    assert "ExtractorNotFoundError" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No forum found",
+    }, (record, result.stderr)
+    assert not (tmp_path / "forumdl" / "forum.jsonl").exists()

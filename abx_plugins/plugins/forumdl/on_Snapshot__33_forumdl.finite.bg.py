@@ -29,8 +29,6 @@ if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
 import json
 import os
 import subprocess
-import tempfile
-import textwrap
 import threading
 from pathlib import Path
 
@@ -49,6 +47,8 @@ PLUGIN_NAME = "forumdl"
 BIN_NAME = "forum-dl"
 BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
+# Imported by forum-dl at interpreter startup through PYTHONPATH.
+FORUMDL_PATCHES_DIR = Path(__file__).resolve().with_name("forum-dl-patches")
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -97,19 +97,6 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     else:
         output_file = output_dir / f"forum.{output_format}"
 
-    # Inject a sitecustomize shim via PYTHONPATH so forum-dl can still run as a
-    # black-box executable while we patch its Pydantic v2 incompatibility.
-    sitecustomize_code = textwrap.dedent(
-        """
-        try:
-            from forum_dl.writers.jsonl import JsonlWriter
-            def _patched_serialize_entry(self, entry):
-                return entry.model_dump_json(serialize_as_any=True)
-            JsonlWriter._serialize_entry = _patched_serialize_entry
-        except Exception:
-            pass
-        """,
-    ).strip()
     cmd = [
         binary,
         *forumdl_args,
@@ -127,98 +114,96 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         print(f"[forumdl] Starting download (timeout={timeout}s)", file=sys.stderr)
         output_lines: list[str] = []
-        with tempfile.TemporaryDirectory(prefix="forumdl-sitecustomize-") as shim_dir:
-            shim_path = Path(shim_dir) / "sitecustomize.py"
-            shim_path.write_text(sitecustomize_code, encoding="utf-8")
+        # forum-dl stays a black-box executable; its bugs are patched from
+        # inside its interpreter by forum-dl-patches/sitecustomize.py.
+        env = os.environ.copy()
+        current_pythonpath = env.get("PYTHONPATH", "")
+        pythonpath_parts = (
+            current_pythonpath.split(os.pathsep) if current_pythonpath else []
+        )
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(FORUMDL_PATCHES_DIR), *pythonpath_parts],
+        )
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
 
-            env = os.environ.copy()
-            current_pythonpath = env.get("PYTHONPATH", "")
-            pythonpath_parts = (
-                current_pythonpath.split(os.pathsep) if current_pythonpath else []
-            )
-            env["PYTHONPATH"] = os.pathsep.join([shim_dir, *pythonpath_parts])
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=env,
-            )
+        def _read_output() -> None:
+            if not process.stdout:
+                return
+            for line in process.stdout:
+                output_lines.append(line)
+                sys.stderr.write(line)
 
-            def _read_output() -> None:
-                if not process.stdout:
-                    return
-                for line in process.stdout:
-                    output_lines.append(line)
-                    sys.stderr.write(line)
+        reader = threading.Thread(target=_read_output, daemon=True)
+        reader.start()
 
-            reader = threading.Thread(target=_read_output, daemon=True)
-            reader.start()
-
-            try:
-                process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                reader.join(timeout=1)
-                return False, None, f"Timed out after {timeout} seconds"
-
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
             reader.join(timeout=1)
+            return False, None, f"Timed out after {timeout} seconds"
 
-            # A failed download is not evidence that this URL has no forum.
-            # forum-dl also catches extractor exceptions, logs their traceback,
-            # and exits zero; retain any partial output and expose that failure.
-            diagnostics = "".join(output_lines)
-            last_line = (
-                diagnostics.rstrip().splitlines()[-1] if diagnostics.strip() else ""
-            )
-            if last_line.startswith("forum_dl.exceptions.ExtractorNotFoundError:"):
-                output_file.unlink(missing_ok=True)
-                return True, "No forum found", ""
-            if (
-                process.returncode != 0
-                or "Traceback (most recent call last):" in diagnostics
-            ):
-                return (
-                    False,
-                    None,
-                    f"forum-dl extraction failed (exit {process.returncode}): {diagnostics[-4000:].strip()}",
-                )
+        reader.join(timeout=1)
 
-            # A detected board/thread is metadata, not a captured discussion.
-            # forum-dl can emit a phpBB board record for ordinary web pages.
-            if output_format == "jsonl" and output_file.is_file():
-                has_replies = False
-                with output_file.open(encoding="utf-8") as captured:
-                    for line in captured:
-                        if not line.strip():
-                            continue
-                        record = json.loads(line)
-                        item = record.get("item", {})
-                        if (
-                            record.get("type") == "post"
-                            and item.get("subpath")
-                            and (item.get("author") or item.get("content"))
-                        ):
-                            has_replies = True
-                            break
-                if not has_replies:
-                    output_file.unlink()
-                    return True, "No forum found", ""
-
-            # Check if output file was created with content
-            if output_file.exists() and output_file.stat().st_size > 0:
-                return True, str(output_file), ""
-
-            # forum-dl couldn't produce output for this URL. Don't leave an empty
-            # file behind, and report noresults rather than failed - the URL is
-            # just not a forum forum-dl can extract from.
-            if output_file.exists() and output_file.stat().st_size == 0:
-                try:
-                    output_file.unlink()
-                except OSError:
-                    pass
+        # A failed download is not evidence that this URL has no forum.
+        # forum-dl also catches extractor exceptions, logs their traceback,
+        # and exits zero; retain any partial output and expose that failure.
+        diagnostics = "".join(output_lines)
+        last_line = diagnostics.rstrip().splitlines()[-1] if diagnostics.strip() else ""
+        if last_line.startswith("forum_dl.exceptions.ExtractorNotFoundError:"):
+            output_file.unlink(missing_ok=True)
             return True, "No forum found", ""
+        if (
+            process.returncode != 0
+            or "Traceback (most recent call last):" in diagnostics
+        ):
+            return (
+                False,
+                None,
+                f"forum-dl extraction failed (exit {process.returncode}): {diagnostics[-4000:].strip()}",
+            )
+
+        # A detected board/thread is metadata, not a captured discussion.
+        # forum-dl can emit a phpBB board record for ordinary web pages.
+        if output_format == "jsonl" and output_file.is_file():
+            has_replies = False
+            with output_file.open(encoding="utf-8") as captured:
+                for line in captured:
+                    if not line.strip():
+                        continue
+                    record = json.loads(line)
+                    item = record.get("item", {})
+                    if (
+                        record.get("type") == "post"
+                        and item.get("subpath")
+                        and (item.get("author") or item.get("content"))
+                    ):
+                        has_replies = True
+                        break
+            if not has_replies:
+                output_file.unlink()
+                return True, "No forum found", ""
+
+        # Check if output file was created with content
+        if output_file.exists() and output_file.stat().st_size > 0:
+            return True, str(output_file), ""
+
+        # forum-dl couldn't produce output for this URL. Don't leave an empty
+        # file behind, and report noresults rather than failed - the URL is
+        # just not a forum forum-dl can extract from.
+        if output_file.exists() and output_file.stat().st_size == 0:
+            try:
+                output_file.unlink()
+            except OSError:
+                pass
+        return True, "No forum found", ""
 
     except subprocess.TimeoutExpired:
         return False, None, f"Timed out after {timeout} seconds"
