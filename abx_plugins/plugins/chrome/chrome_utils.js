@@ -2990,6 +2990,7 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs, signal) {
 
 /** Capture downloads initiated by this tab (including its download iframes).
  * trigger must resolve only once the provider has finished preparing its batch.
+ * expectedDownloads keeps a known batch open while later files are prepared.
  * Keep the persona's existing download directory; never claim another tab's file.
  */
 async function captureBrowserDownloads({
@@ -2998,8 +2999,11 @@ async function captureBrowserDownloads({
   downloadPath,
   timeoutMs,
   trigger,
+  expectedDownloads = 1,
 }) {
   if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
+  if (!Number.isInteger(expectedDownloads) || expectedDownloads < 1)
+    throw new Error("Expected download count must be a positive integer");
   let succeeded = false;
   let captureError = null;
   let releaseDownloadLock;
@@ -3030,7 +3034,7 @@ async function captureBrowserDownloads({
   const check = () => {
     if (
       prepared &&
-      downloads.size &&
+      downloads.size >= expectedDownloads &&
       [...downloads.values()].every((item) => item.state === "completed")
     )
       resolve([...downloads.values()]);

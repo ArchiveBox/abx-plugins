@@ -179,116 +179,84 @@ async function main() {
         submenu,
       );
     };
+    await openFileMenu();
+    const pdf = /^\/(?:design|file)\//.test(current.pathname)
+      ? await page.$('[role="menuitem"]::-p-text(Export frames to PDF)')
+      : null;
+    const exportPdf = pdf && !(await pdf.evaluate((el) =>
+      Boolean(el.closest('[aria-disabled="true"], [disabled]')),
+    ));
     phase = "Exporting native Figma document";
     downloads.push(
       ...(await captureBrowserDownloads({
         browser,
         page,
         timeoutMs: remaining(),
+        expectedDownloads: exportPdf ? 2 : 1,
         downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
         trigger: async ({ downloadStarted }) => {
-          await openFileMenu();
-          const save = await page.$(
-            '[role="menuitem"]::-p-text(Save local copy)',
+          const save = await page.$('[role="menuitem"]::-p-text(Save local copy)');
+          if (save && (await save.evaluate((el) =>
+            Boolean(el.closest('[aria-disabled="true"], [disabled]')),
+          ))) throw new ExportPrerequisiteError("Owner disabled export");
+          if (!save) throw new Error(
+            "Figma owner has restricted copying/export or Save local copy is unavailable",
           );
-          if (
-            save &&
-            (await save.evaluate((el) =>
-              Boolean(el.closest('[aria-disabled="true"], [disabled]')),
-            ))
-          )
-            throw new ExportPrerequisiteError("Owner disabled export");
-          if (!save)
-            throw new Error(
-              "Figma owner has restricted copying/export or Save local copy is unavailable",
-            );
-          await click('[role="menuitem"]::-p-text(Save local copy)');
-          // Anonymous viewers can see this command, but activating it opens
-          // Figma's actual sign-up dialog instead of starting a download.
-          phase = "Waiting for native Figma download";
-          await Promise.race([
-            downloadStarted,
-            page
-              .waitForFunction(
+          const loginCheck = new AbortController();
+          try {
+            await Promise.race([
+              (async () => {
+                await click('[role="menuitem"]::-p-text(Save local copy)');
+                if (exportPdf) {
+                  // Figma prepares native files asynchronously. Start its PDF
+                  // export while that preparation runs, in the same owned tab.
+                  await openFileMenu();
+                  const item = await page.$('[role="menuitem"]::-p-text(Export frames to PDF)');
+                  const control = await item.evaluateHandle((el) => el.closest('[role="menuitem"]'));
+                  await control.asElement().focus();
+                  await page.keyboard.press("Enter");
+                  await click('::-p-aria([name="Export"][role="button"])');
+                }
+                phase = "Waiting for Figma downloads";
+                await downloadStarted;
+              })(),
+              page.waitForFunction(
                 () => {
                   const email = document.querySelector('input[type="email"]');
-                  return (
-                    email?.getBoundingClientRect().width > 0 &&
-                    /Sign up for Figma|Log in to Figma/.test(
-                      document.body.innerText,
-                    )
-                  );
+                  return email?.getBoundingClientRect().width > 0 &&
+                    /Sign up for Figma|Log in to Figma/.test(document.body.innerText);
                 },
-                { polling: 100, timeout: remaining() },
-              )
-              .then(() => {
-                throw new ExportPrerequisiteError(
-                  "Persona must be logged in to figma.com",
-                );
+                { polling: 100, timeout: remaining(), signal: loginCheck.signal },
+              ).then(() => {
+                throw new ExportPrerequisiteError("Persona must be logged in to figma.com");
               }),
-          ]);
+            ]);
+          } finally {
+            loginCheck.abort();
+          }
         },
       })),
     );
-    phase = "Validating native Figma download";
+    phase = "Validating Figma downloads";
     for (const download of downloads) {
       const file = await fs.promises.open(download.filePath, "r");
       const { buffer, bytesRead } = await file
         .read(Buffer.alloc(200), 0, 200, 0)
         .finally(() => file.close());
       const data = buffer.subarray(0, bytesRead);
-      if (
+      if (download.suggestedFilename.endsWith(".pdf")) {
+        if (!data.subarray(0, 5).equals(Buffer.from("%PDF-")))
+          throw new Error("Invalid Figma PDF export");
+      } else if (
         !/\.(fig|jam|deck|buzz|site|make)$/i.test(download.suggestedFilename) ||
         data.length < 8 ||
         /^\s*(?:<!doctype|<html)/i.test(data.subarray(0, 200).toString())
-      )
-        throw new Error("Figma did not return a native editable document");
+      ) throw new Error("Figma did not return a native editable document");
     }
-    // Design's PDF command exports every top-level frame on the current page.
-    // Other Figma document types do not expose this command.
-    if (/^\/(?:design|file)\//.test(current.pathname)) {
-      phase = "Opening PDF export menu";
-      await openFileMenu();
-      const pdf = await page.$(
-        '[role="menuitem"]::-p-text(Export frames to PDF)',
-      );
-      if (
-        pdf &&
-        !(await pdf.evaluate((el) =>
-          Boolean(el.closest('[aria-disabled="true"], [disabled]')),
-        ))
-      ) {
-        phase = "Exporting Figma PDF";
-        const rendered = await captureBrowserDownloads({
-          browser,
-          page,
-          timeoutMs: remaining(),
-          downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
-          trigger: async () => {
-            const item = await pdf.evaluateHandle((el) =>
-              el.closest('[role="menuitem"]'),
-            );
-            await item.asElement().focus();
-            await page.keyboard.press("Enter");
-            await click('::-p-aria([name="Export"][role="button"])');
-            phase = "Waiting for Figma PDF download";
-          },
-        });
-        downloads.push(...rendered);
-        for (const download of rendered) {
-          const file = await fs.promises.open(download.filePath, "r");
-          const { buffer, bytesRead } = await file
-            .read(Buffer.alloc(5), 0, 5, 0)
-            .finally(() => file.close());
-          const signature = buffer.subarray(0, bytesRead);
-          if (
-            !download.suggestedFilename.endsWith(".pdf") ||
-            !signature.equals(Buffer.from("%PDF-"))
-          )
-            throw new Error("Invalid Figma PDF export");
-        }
-      } else await page.keyboard.press("Escape");
-    }
+    if (!downloads.some((item) => /\.(fig|jam|deck|buzz|site|make)$/i.test(item.suggestedFilename)))
+      throw new Error("Figma did not return a native editable document");
+    if (exportPdf && !downloads.some((item) => item.suggestedFilename.endsWith(".pdf")))
+      throw new Error("Figma did not return its PDF export");
     phase = "Saving Figma downloads";
     await saveDownloads(
       path.join(snapshotDir, "figma"),
