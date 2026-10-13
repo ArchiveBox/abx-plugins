@@ -228,10 +228,40 @@ async function main() {
     await click("menuitem", "Share");
     await click("button", "Download");
     await click("combobox", "File type");
-    await page.waitForSelector('[role="option"]', {
-      visible: true,
-      timeout: remaining(),
-    });
+    await page
+      .waitForSelector('[role="option"]', {
+        visible: true,
+        timeout: remaining(),
+      })
+      .catch(async (error) => {
+        try {
+          const state = await page.evaluate(() => {
+            const visible = (el) => {
+              const box = el.getBoundingClientRect();
+              return box.width > 0 && box.height > 0;
+            };
+            const control = document.querySelector(
+              '[role="combobox"][aria-label="File type"]',
+            );
+            return {
+              selectedFormat: control?.innerText.slice(0, 100),
+              expanded: control?.getAttribute("aria-expanded"),
+              visible: control ? visible(control) : false,
+              options: [...document.querySelectorAll('[role="option"]')]
+                .filter(visible)
+                .slice(0, 20)
+                .map((el) => ({
+                  label: el.innerText.slice(0, 100),
+                  disabled: el.getAttribute("aria-disabled"),
+                })),
+            };
+          });
+          console.error("Canva file-type discovery failed:", JSON.stringify(state));
+        } catch (diagnosticError) {
+          console.error("Canva menu diagnostics unavailable:", diagnosticError.message);
+        }
+        throw error;
+      });
     const native = await page.evaluate(
       () =>
         [...document.querySelectorAll('[role="option"]')]
