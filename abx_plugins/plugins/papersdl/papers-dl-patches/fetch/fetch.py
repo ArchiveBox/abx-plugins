@@ -153,7 +153,13 @@ async def fetch(session, identifier, providers) -> tuple | None:
                 # conversely a PDF content type alone does not prove a PDF.
                 if content.startswith(b"%PDF-"):
                     return content, source
-                logger.info("No PDF returned from {}", url)
+                logger.info(
+                    "No PDF returned (host={}, HTTP {}, type={!r}, bytes={})",
+                    urlsplit(source).hostname,
+                    response.status,
+                    response.headers.get("Content-Type", "")[:120],
+                    len(content),
+                )
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.error("error: {}", e)
         return None

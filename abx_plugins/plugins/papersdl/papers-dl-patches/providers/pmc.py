@@ -199,6 +199,20 @@ async def complete_pdf_download(session, url, content, headers):
     difficulty = re.search(r'const POW_DIFFICULTY = "([1-4])"', script)
     cookie = re.search(r'const POW_COOKIE_NAME = "(cloudpmc-viewer-pow)"', script)
     if not (challenge and difficulty and cookie):
+        logger.info(
+            "PMC PDF page is not a supported automatic proof "
+            "(bytes={}, title={!r}, markers={}, challenge={}, difficulty={}, cookie_marker={})",
+            len(content),
+            page.title.get_text(strip=True)[:120] if page.title else "",
+            [
+                name
+                for name in ("POW_CHALLENGE", "POW_DIFFICULTY", "POW_COOKIE_NAME")
+                if name in script
+            ],
+            bool(challenge),
+            difficulty.group(1) if difficulty else None,
+            bool(cookie),
+        )
         return None
     challenge = challenge.group(1)
     prefix = "0" * int(difficulty.group(1))
@@ -221,4 +235,17 @@ async def complete_pdf_download(session, url, content, headers):
     )
     async with session.get(url, timeout=TIMEOUT, headers=headers) as response:
         response.raise_for_status()
-        return await response.read(), str(response.url)
+        content = await response.read()
+        if not content.startswith(b"%PDF-"):
+            page = BeautifulSoup(content, "html.parser")
+            logger.info(
+                "PMC automatic proof returned non-PDF content "
+                "(HTTP {}, type={!r}, host={}, bytes={}, title={!r}, proof_page={})",
+                response.status,
+                response.headers.get("Content-Type", "")[:120],
+                response.url.host,
+                len(content),
+                page.title.get_text(strip=True)[:120] if page.title else "",
+                b"POW_CHALLENGE" in content,
+            )
+        return content, str(response.url)
