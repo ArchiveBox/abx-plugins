@@ -1946,6 +1946,9 @@ def test_concurrent_starts_attach_helpers_while_other_tabs_record(
     assert "Persona hydration failed" not in launch_log, launch_log
 
 
+# A 4s 96x64 VP9 fragmented MP4 (init segment + one moof/mdat per second),
+# made with: ffmpeg -f lavfi -i testsrc=size=96x64:rate=10 -t 4 -c:v libvpx-vp9
+# -b:v 20k -g 10 -f mp4 -movflags frag_keyframe+empty_moov+default_base_moof
 DASH_FIXTURE = Path(__file__).parent / "fixtures/media/dash_vp9_fragmented.mp4"
 
 
