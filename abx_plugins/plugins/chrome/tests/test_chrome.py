@@ -62,6 +62,7 @@ from abx_plugins.plugins.base.testing import (
     assert_isolated_snapshot_env,
     install_required_binary_from_config,
     parse_jsonl_output,
+    parse_jsonl_records,
 )
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -1369,6 +1370,7 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
         env["SNAP_DIR"] = str(snapshot_dir)
         tab_process = None
         try:
+            startup_deadline = time.monotonic() + 60
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=snapshot_chrome_dir,
                 tab_env=env,
@@ -1379,30 +1381,31 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
 
             stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
             assert tab_process.poll() is None
-            stdout_lines = [
-                line.strip()
-                for line in stdout_log.read_text(
-                    encoding="utf-8",
-                    errors="replace",
-                ).splitlines()
-                if line.strip()
-            ]
+            # Session markers precede the asynchronous target monitor and JSONL
+            # result. Wait for the result itself within the same startup budget.
             archive_results = []
-            for line in stdout_lines:
-                if not line.startswith("{"):
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if record.get("type") == "ArchiveResult":
-                    archive_results.append(record)
+            while time.monotonic() < startup_deadline:
+                archive_results = [
+                    record
+                    for record in parse_jsonl_records(
+                        stdout_log.read_text(encoding="utf-8", errors="replace"),
+                    )
+                    if record.get("type") == "ArchiveResult"
+                ]
+                if archive_results or tab_process.poll() is not None:
+                    break
+                time.sleep(0.05)
 
             assert len(archive_results) == 1, (
                 f"chrome_tab should emit exactly one ArchiveResult on successful startup, got {archive_results}\n"
                 f"Stdout log:\n{stdout_log.read_text(encoding='utf-8', errors='replace')}"
             )
             assert archive_results[0]["status"] == "succeeded", archive_results[0]
+            target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
+            assert archive_results[0]["output_str"] == (
+                f"target={target_id} port={port_from_cdp_url(_cdp_url)}"
+            )
+            assert tab_process.poll() is None
         finally:
             if tab_process is not None:
                 tab_process.send_signal(signal.SIGTERM)
