@@ -3,7 +3,7 @@
 Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
 License: MIT; see LICENSE. These Python files are copied unchanged from the
-canonical papers-dl source at `21afb55bfbae613e28f66460d834ab961df0cadd`.
+canonical papers-dl source at `b20aa49c6db49ef70f52c878eac647429d179729`.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
 PYTHONPATH. It replaces its parser/fetch/provider modules
@@ -33,3 +33,6 @@ pages. No CAPTCHA solving or rate-limit retries are added.
 
 DOI prefixes require a literal period, so archived-link timestamps do not become
 false paper identifiers. The same overlay is used for both CLI parsing and fetching.
+
+Publisher title markup/entities are decoded before naming PDFs, and path separators
+are replaced so paper titles remain filenames inside the output directory.

@@ -418,6 +418,7 @@ if __name__ == "__main__":
     ("identifier", "provider"),
     [
         ("10.1126/sciadv.1602552", "pmc"),
+        ("10.1038/sj.bjp.0705942", "pmc"),
         ("10.1016/j.cell.2024.11.027", "pmc"),
         ("10.21105/joss.01112", "unpaywall"),
         ("10.1101/833400v1.full.pdf", "biorxiv"),
@@ -456,6 +457,12 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
     assert record["output_str"] == f"papersdl/{pdfs[0].name}"
     assert pdfs[0].read_bytes().startswith(b"%PDF-")
     assert pdfs[0].stat().st_size > 10_000
+    if identifier == "10.1038/sj.bjp.0705942":
+        assert pdfs[0].name == (
+            "Intravenous anaesthetics inhibit nicotinic acetylcholine "
+            "receptor‐mediated currents and Ca2+ transients in rat "
+            "intracardiac ganglion neurons.pdf"
+        )
 
 
 def test_science_brain_sleep_article_discovers_and_downloads_cited_paper(tmp_path):

@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 
 import aiohttp
 import pdf2doi
+from bs4 import BeautifulSoup
 from loguru import logger
 
 from providers import (
@@ -234,7 +235,8 @@ def rename(out_dir, path, name=None) -> str:
             name = validation_info.get("title")
 
         if name:
-            name += ".pdf"
+            name = BeautifulSoup(name, "html.parser").get_text()
+            name = name.replace("/", "_").replace("\\", "_") + ".pdf"
             new_path = os.path.join(out_dir, name)
             os.rename(path, new_path)
             logger.info(f"File renamed to {new_path}")
