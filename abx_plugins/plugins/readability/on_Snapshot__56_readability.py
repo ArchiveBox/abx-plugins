@@ -85,12 +85,15 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
                 link = output_dir / "images" / parsed.hostname / Path(*path_parts)
                 try:
                     link.parent.mkdir(parents=True, exist_ok=True)
-                    if link.exists() and not link.is_symlink():
-                        return ""
-                    if link.is_symlink() and link.resolve() != candidate.resolve():
-                        link.unlink()
-                    if not link.exists():
-                        link.symlink_to(os.path.relpath(candidate, link.parent))
+                    target = os.path.relpath(candidate, link.parent)
+                    try:
+                        link.symlink_to(target)
+                    except FileExistsError:
+                        # Repeated images share a link. Compare its stored target
+                        # without resolving every remote filesystem component.
+                        if os.readlink(link) != target:
+                            link.unlink()
+                            link.symlink_to(target)
                 except OSError:
                     return ""
                 archived = f"./{link.relative_to(output_dir).as_posix()}"

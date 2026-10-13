@@ -174,7 +174,16 @@ def test_direct_hook_resolves_dependencies_and_extracts_article():
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create example.com HTML for readability to process
-        create_example_html(snap_dir)
+        source = create_example_html(snap_dir)
+        source.write_text(
+            source.read_text().replace(
+                "</picture>",
+                '</picture><img src="/assets/example.svg" alt="Repeated illustration">'
+                '<img src="/assets/%65xample.svg?copy=1" alt="Same archived path">'
+                '<img src="/assets/collision.svg" alt="Parent image path">'
+                '<img src="/assets/collision.svg/nested.svg" alt="Conflicting image path">',
+            ),
+        )
         archived_image = (
             snap_dir / "responses" / "image" / "example.com" / "assets" / "example.svg"
         )
@@ -184,6 +193,19 @@ def test_direct_hook_resolves_dependencies_and_extracts_article():
         wget_image.parent.mkdir(parents=True)
         wget_image.write_text(
             '<svg xmlns="http://www.w3.org/2000/svg"><text>wget</text></svg>',
+        )
+        conflicting_image = (
+            snap_dir
+            / "wget"
+            / "example.com"
+            / "assets"
+            / "collision.svg"
+            / "nested.svg"
+        )
+        conflicting_image.parent.mkdir(parents=True)
+        conflicting_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        archived_image.with_name("collision.svg").write_bytes(
+            archived_image.read_bytes(),
         )
         stale_image = snap_dir / "readability" / "images" / "stale.example" / "old.png"
         stale_image.parent.mkdir(parents=True)
@@ -276,6 +298,9 @@ def test_direct_hook_resolves_dependencies_and_extracts_article():
             in html_content
         )
         assert 'src="./images/example.com/assets/example.svg"' in html_content
+        assert html_content.count('src="./images/example.com/assets/example.svg"') == 3
+        assert 'src="./images/example.com/assets/collision.svg"' in html_content
+        assert "Conflicting image path" not in html_content
         assert "srcset=" not in html_content
         assert "data:image" not in html_content
         readability_image = (
@@ -288,6 +313,10 @@ def test_direct_hook_resolves_dependencies_and_extracts_article():
         )
         assert readability_image.is_symlink()
         assert readability_image.resolve() == archived_image.resolve()
+        assert (
+            readability_image.with_name("collision.svg").read_bytes()
+            == archived_image.read_bytes()
+        )
         assert not stale_image.is_symlink()
         assert "../responses" not in html_content
 
