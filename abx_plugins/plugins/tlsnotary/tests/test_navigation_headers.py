@@ -57,6 +57,19 @@ def verifier(tmp_path):
     ).decode()
     empty_env = tmp_path / "compose.env"
     empty_env.touch()
+    # Production disables Docker logs for private captures. These tests use
+    # public pages and need verifier/control-channel failures in CI artifacts.
+    logging_override = tmp_path / "compose.logging.json"
+    logging_override.write_text(
+        json.dumps(
+            {
+                "services": {
+                    name: {"logging": {"driver": "local"}}
+                    for name in ("verifier", "gateway")
+                },
+            },
+        ),
+    )
     compose = [
         "docker",
         "compose",
@@ -66,6 +79,8 @@ def verifier(tmp_path):
         f"tlsnotary-test-{uuid.uuid4().hex}",
         "--file",
         str(PLUGIN_DIR / "server" / "docker-compose.yml"),
+        "--file",
+        str(logging_override),
     ]
     env = {
         **os.environ,
@@ -114,6 +129,9 @@ def verifier(tmp_path):
                 capture_output=True,
                 text=True,
                 timeout=10,
+            )
+            (tmp_path / "tlsnotary-verifier.stderr.log").write_text(
+                logs.stdout + logs.stderr,
             )
             print(logs.stdout + logs.stderr)
         finally:
