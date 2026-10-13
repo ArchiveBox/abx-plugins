@@ -150,7 +150,9 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
             capture_output=True,
             text=True,
             env={**os.environ, "LC_ALL": "C"},
-            timeout=timeout * 2,  # Allow extra time for large downloads
+            # Background hooks own their lifetime: WGET_TIMEOUT is the budget,
+            # and consumers waiting on wget's files plan around it.
+            timeout=timeout,
         )
         print(result.stderr, file=sys.stderr, end="")
         for line in result.stderr.splitlines():
@@ -166,7 +168,7 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         return True, "No files downloaded", ""
 
     except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout * 2} seconds"
+        return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
 
