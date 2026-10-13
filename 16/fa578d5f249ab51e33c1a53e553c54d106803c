@@ -1,0 +1,21 @@
+abx_plugins/plugins/forumdl/forum-dl-patches/sitecustomize.py
+  s_8dbda046044e96::t_33c06cefb2102f 39-42,55
+abx_plugins/plugins/forumdl/tests/test_forumdl.py
+  s_8dbda046044e96::t_586717fbe133f6 389-397
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16fa578d5f249ab51e33c1a53e553c54d106803c",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
