@@ -107,7 +107,12 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
             timeout=remaining(deadline, 120),
             check=False,
         )
-        (run_dir / f"replay-{attempt}.log").write_text(process.stderr)
+        with (run_dir / f"replay-{attempt}.log").open(
+            "a" if request.get("delivered_ids") else "w",
+        ) as log:
+            if request.get("delivered_ids"):
+                log.write("\nContinuation validation with the returned checkpoint:\n")
+            log.write(process.stderr)
         if process.returncode:
             return None, (process.stderr or process.stdout)[-12000:]
         records = list(read_records(process.stdout.splitlines(), request))
@@ -116,12 +121,46 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
             return None, str(result.get("message", "Discovery failed."))
         if result["status"] == "succeeded" and not result.get("account", {}).get("id"):
             raise ValueError("Identify the signed-in account before returning success.")
+        if (
+            result["status"] == "succeeded"
+            and request["action"] == "import"
+            and not request.get("delivered_ids")
+        ):
+            delivered = [
+                record["id"] for record in records if record["type"] == "ImporterItem"
+            ]
+            if delivered:
+                # Discovery is read-only. Probe one continuation before accepting
+                # the batch, so cursor defects reach the existing repair loop.
+                # Only the original batch is emitted/committed by the host.
+                continuation = {
+                    **request,
+                    "checkpoint": result.get("checkpoint", {}),
+                    "delivered_ids": delivered,
+                }
+                continuation_file = run_dir / "continuation-request.json"
+                continuation_file.write_text(json.dumps(continuation))
+                continuation_file.chmod(0o600)
+                following, error = replay(
+                    workspace,
+                    continuation,
+                    {**env, "IMPORTERS_REQUEST_FILE": str(continuation_file)},
+                    run_dir,
+                    attempt,
+                    deadline,
+                )
+                if following is None:
+                    return None, error + " Continuation request: " + str(
+                        continuation_file,
+                    )
+                if following[-1]["status"] != "succeeded":
+                    return following, ""
         succeeded = result["status"] == "succeeded"
         return records, ""
     except (TypeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
         return None, f"{type(error).__name__}: {error}"
     finally:
-        if not succeeded:
+        if not succeeded and not request.get("delivered_ids"):
             capture_failure(env, run_dir, attempt)
 
 
@@ -214,7 +253,7 @@ def main():
                 run_dir,
                 error,
                 attempt,
-                deadline,
+                deadline - (120 if request["action"] == "import" else 0),
             )
             records, error = replay(workspace, request, env, run_dir, attempt, deadline)
         if records is None:

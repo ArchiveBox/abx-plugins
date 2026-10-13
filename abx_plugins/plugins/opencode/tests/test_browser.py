@@ -8,6 +8,7 @@ import struct
 import signal
 import sys
 import tempfile
+import time
 
 import pytest
 from abxpkg import BinProvider
@@ -16,6 +17,7 @@ from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 from abx_plugins.plugins.importers_browser.importer import task_tab
 from abx_plugins.plugins.importers_browser.importer import capture_failure
+from abx_plugins.plugins.importers_browser.importer import replay
 
 PLUGIN = Path(__file__).parents[1]
 
@@ -23,7 +25,7 @@ PLUGIN = Path(__file__).parents[1]
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 def test_harness_and_stagehand_share_live_capture(tmp_path, httpserver):
     httpserver.expect_request("/").respond_with_data(
-        "<title>Live persona</title>",
+        '<title>Live persona</title><a href="/one">One</a><a href="/two">Two</a><a href="/three">Three</a>',
         content_type="text/html",
     )
     httpserver.expect_request("/favicon.ico").respond_with_data("")
@@ -175,6 +177,92 @@ try {
                     check=True,
                 )
                 assert visibility.stdout.strip() == "visible"
+                # A real browser reader exercises the replay/probe boundary:
+                # discover actual links, retain a bounded cursor, then read the
+                # next batch. No agent, replacement binary or canned JSONL.
+                workspace = tmp_path / "feed-reader"
+                workspace.mkdir()
+                (workspace / "importer.py").write_text("""import os, json
+from pathlib import Path
+from abx_plugins.plugins.base.importers import emit_collection
+request = json.loads(Path(os.environ['IMPORTERS_REQUEST_FILE']).read_text())
+switch_tab(os.environ['IMPORTERS_TAB_ID'])
+goto_url(request['settings']['url'])
+wait_for_load()
+source = js('({id:location.origin,label:document.title})')
+links = js("Array.from(document.links, a => ({id:a.href,url:a.href,title:a.textContent,metadata:{}}))")
+emit_collection(request, links, message=source['label'], account=source)
+""")
+                request = {
+                    "version": 1,
+                    "action": "import",
+                    "limit": 2,
+                    "settings": {"url": httpserver.url_for("/")},
+                    "checkpoint": {},
+                }
+                request_file = tmp_path / "request.json"
+                request_file.write_text(json.dumps(request))
+                replay_env = {
+                    **importer_env,
+                    "IMPORTERS_REQUEST_FILE": str(request_file),
+                }
+                first, error = replay(
+                    workspace,
+                    request,
+                    replay_env,
+                    tmp_path,
+                    0,
+                    time.monotonic() + 120,
+                )
+                assert first is not None, error
+                assert len(first) == 3 and first[-1]["has_more"] is True
+                probe_file = tmp_path / "continuation-request.json"
+                probe = json.loads(probe_file.read_text())
+                assert probe_file.stat().st_mode & 0o777 == 0o600
+                assert probe["checkpoint"] == first[-1]["checkpoint"]
+                assert probe["delivered_ids"] == [item["id"] for item in first[:-1]]
+                assert (
+                    "Continuation validation" in (tmp_path / "replay-0.log").read_text()
+                )
+                assert json.loads(request_file.read_text()) == request
+                stale = {**request, "delivered_ids": probe["delivered_ids"]}
+                request_file.write_text(json.dumps(stale))
+                rejected, error = replay(
+                    workspace,
+                    stale,
+                    replay_env,
+                    tmp_path,
+                    0,
+                    time.monotonic() + 120,
+                )
+                assert rejected is None
+                assert "already delivered" in error
+                request = {**request, "checkpoint": first[-1]["checkpoint"]}
+                request_file.write_text(json.dumps(request))
+                second, error = replay(
+                    workspace,
+                    request,
+                    replay_env,
+                    tmp_path,
+                    1,
+                    time.monotonic() + 120,
+                )
+                assert second is not None, error
+                assert len(second) == 2 and second[-1]["has_more"] is False
+                assert second[0]["id"] not in probe["delivered_ids"]
+                request = {**request, "checkpoint": second[-1]["checkpoint"]}
+                request_file.write_text(json.dumps(request))
+                repeated, error = replay(
+                    workspace,
+                    request,
+                    replay_env,
+                    tmp_path,
+                    2,
+                    time.monotonic() + 120,
+                )
+                assert repeated is not None, error
+                assert len(repeated) == 1 and repeated[0]["has_more"] is False
+                assert not list(tmp_path.glob("learning-*.jsonl"))
             assert importer_env["IMPORTERS_TAB_ID"] not in run_harness(
                 "print(json.dumps(list_tabs()))",
             )

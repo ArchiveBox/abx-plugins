@@ -31,6 +31,12 @@ by its existing owner on completion/cancellation.
 - The agent edits the script in place; the host independently replays it and uses
   the shared JSONL validator before returning output, including checking that
   continuation advances the checkpoint. Failed runs never commit progress.
+- Each nonempty import also probes one continuation using its returned checkpoint
+  and a bounded `delivered_ids` list. Repeated IDs fail shared validation and reach
+  the existing fresh-session repair loop. The probe is read-only and its items are
+  not committed; the next normal batch reads them with the committed checkpoint.
+  Checks/previews and empty imports do not add a probe. This detects cursor defects;
+  the learner must still verify complete pagination against the real source.
 - The agent reports verified login, CAPTCHA, MFA, and account mismatches as
   `needs_login`; ordinary script failures remain repairable errors.
 - Discovery is read-only. Check/preview never commit discovery progress.

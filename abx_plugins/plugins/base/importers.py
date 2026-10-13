@@ -37,6 +37,19 @@ def read_request():
 
 def read_records(lines, request, on_progress=None):
     """Validate the same JSONL boundary for host ingestion and learned-script replay."""
+    delivered = request.get("delivered_ids", [])
+    if (
+        not isinstance(delivered, list)
+        or len(delivered) > 500
+        or any(
+            not isinstance(value, str) or not 1 <= len(value) <= 1024
+            for value in delivered
+        )
+    ):
+        raise ValueError(
+            "Delivered item IDs must be a bounded list of stable string IDs.",
+        )
+    seen = set(delivered)
     size = count = 0
     finished = False
     for line in lines:
@@ -78,6 +91,11 @@ def read_records(lines, request, on_progress=None):
                 dict,
             ):
                 raise ValueError("Importer returned invalid item metadata.")
+            if record["id"] in seen:
+                raise ValueError(
+                    "Importer re-emitted an item ID already delivered in this or the preceding batch.",
+                )
+            seen.add(record["id"])
         elif kind == "ImporterResult":
             if record.get("status") not in {"succeeded", "needs_login", "failed"}:
                 raise ValueError("Importer returned an unknown result status.")

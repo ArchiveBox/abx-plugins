@@ -7,6 +7,7 @@
 - `check`: verify account/feed, no items. `preview`: emit a sample, preserve checkpoint. `import`: emit ALL accessible history across resumable batches, including new additions and older items, without duplicates or omissions.
 - `limit` is a batch size. Keep checkpoints bounded and account-specific; retain undelivered items. Set `has_more=false` only after verifying the source is exhausted; report incomplete history honestly.
 - Replay with `browser-harness < importer.py`; helpers are pre-imported. Test the requested action against the live browser. The host independently replays your saved script.
+- For imports, test the next request with the returned checkpoint, including after completion. Previously delivered IDs must not return again. Verify the initial feed head before comparing additions; scrolling to a later viewport is not a new head. A stalled scroll alone does not prove exhaustion.
 - Stdout is JSONL: items then one result. Diagnostics go to stderr. Use objects for `account` and `checkpoint` (including failure paths); preserve the input checkpoint on failure.
 
 ```json
