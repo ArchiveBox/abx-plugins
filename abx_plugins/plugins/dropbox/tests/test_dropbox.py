@@ -3,6 +3,7 @@
 import hashlib
 import json
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, parse_qsl, urlencode
@@ -68,7 +69,20 @@ def test_public_shared_file(tmp_path, ensure_chrome_test_prereqs):
     url = URL + "&preview=SHIFT_EverybodyWork_Lockup_Horizontal_Black.png"
     with chrome_session(tmp_path, test_url=url, timeout=60) as (_, _, chrome_dir, env):
         endpoint = (chrome_dir / "cdp_url.txt").read_text().strip()
-        before = fetch_devtools_targets(endpoint)
+        # Dropbox's own page script replaces ?preview=FILE with the child file
+        # URL a few seconds after load, independent of the hook. Snapshot the
+        # tabs after that rewrite so the comparison isolates the hook's effect.
+        deadline = time.monotonic() + 30
+        while True:
+            before = fetch_devtools_targets(endpoint)
+            urls = [target["url"] for target in before if target["type"] == "page"]
+            if any(
+                "/Lockups/SHIFT_EverybodyWork_Lockup_Horizontal_Black.png" in url
+                for url in urls
+            ):
+                break
+            assert time.monotonic() < deadline, urls
+            time.sleep(0.5)
         result = subprocess.run(
             [str(HOOK), f"--url={url}"],
             cwd=chrome_dir.parent,
