@@ -44,7 +44,13 @@ def task_tab(env, run_dir):
             )
             env["IMPORTERS_TAB_ID"] = json.loads(process.stdout)
             env["BH_REQUIRE_EXISTING_DAEMON"] = "1"
-            yield
+            try:
+                yield
+            except BaseException:
+                # Cancellation and shutdown still need the last visible screen
+                # before the harness closes this run's dedicated tab.
+                capture_failure(env, run_dir)
+                raise
         finally:
             # Browser Harness owns both its daemon and dedicated tab.
             subprocess.run(

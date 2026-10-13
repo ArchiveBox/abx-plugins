@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import subprocess
 import struct
+import signal
+import sys
 import tempfile
 
 import pytest
@@ -178,6 +180,46 @@ try {
             )
             assert "still-live" in run_harness("print(js('window.agentHeap'))")
             # The official daemon shutdown command must also preserve this external browser.
+            interrupted_dir = tmp_path / "interrupted-importer"
+            interrupted_dir.mkdir()
+            interrupted = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-u",
+                    "-c",
+                    """import json, os, signal, sys
+from pathlib import Path
+from abx_plugins.plugins.importers_browser.importer import task_tab
+env = os.environ.copy()
+with task_tab(env, Path(sys.argv[1])):
+    print(json.dumps(env['IMPORTERS_TAB_ID']), flush=True)
+    signal.pause()
+""",
+                    str(interrupted_dir),
+                ],
+                env={**env, "BU_NAME": env["BU_NAME"] + "-interrupted"},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                assert interrupted.stdout is not None
+                interrupted_tab = json.loads(interrupted.stdout.readline())
+                interrupted.send_signal(signal.SIGINT)
+                _, interrupted_error = interrupted.communicate(timeout=30)
+                assert interrupted.returncode != 0, interrupted_error
+                interrupted_screen = interrupted_dir / "failure-0.png"
+                assert interrupted_screen.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+                assert interrupted_screen.stat().st_mode & 0o777 == 0o600
+                assert interrupted_tab not in run_harness(
+                    "print(json.dumps(list_tabs()))",
+                )
+                assert "still-live" in run_harness("print(js('window.agentHeap'))")
+            finally:
+                if interrupted.poll() is None:
+                    interrupted.kill()
+                    interrupted.communicate(timeout=10)
+            # The official daemon shutdown command must preserve the external browser.
             result = subprocess.run(
                 [str(harness.loaded_abspath), "--reload"],
                 env=env,
