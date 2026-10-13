@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import base64
+from html import escape as html_escape
 import struct
 import zipfile
 from pathlib import Path
@@ -32,6 +33,49 @@ def test_replay_prefers_requested_page_over_unrelated_first_page(
         fallback_url="https://x.com/theSquashSH",
     )
     assert 'data-url="https://x.com/theSquashSH"' in html
+
+
+def test_replay_prefers_latest_capture_of_requested_page_including_post(
+    tmp_path: Path,
+) -> None:
+    # A bot-check interstitial (here Cloudflare's) is recorded first as a GET of
+    # the URL; the cleared page is a later form POST back to it, which the
+    # recorder lists with a __wb_method=POST suffix. Replay the final document:
+    # the recorded 307 of that GET to itself would loop forever.
+    url = "https://www.science.org/content/article/brain?id=1"
+    cleared = f"{url}&__wb_method=POST&7f74c57f=YVIudVq5-1791806206-1.2.1.1"
+    wacz_path = tmp_path / "capture.wacz"
+    with zipfile.ZipFile(wacz_path, "w") as zf:
+        zf.writestr(
+            "pages/pages.jsonl",
+            "\n".join(
+                json.dumps(page)
+                for page in [
+                    {"format": "json-pages-1.0"},
+                    {
+                        "url": url,
+                        "ts": "2026-10-12T11:56:46.548Z",
+                        "title": "Just a moment...",
+                    },
+                    {
+                        "url": "https://www.science.org/other",
+                        "ts": "2026-10-12T11:58:00.000Z",
+                    },
+                    {
+                        "url": cleared,
+                        "ts": "2026-10-12T11:57:05.819Z",
+                        "title": "Brain | Science",
+                    },
+                ]
+            ),
+        )
+    html = presentation.render_replay_html(
+        "archivewebpage.wacz",
+        "/archivewebpage/archivewebpage.wacz",
+        wacz_path=wacz_path,
+        fallback_url=url,
+    )
+    assert f'data-url="{html_escape(cleared, quote=True)}"' in html
 
 
 def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
