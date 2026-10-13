@@ -1,3 +1,5 @@
+{% load core_tags %}
+{% snapshot_results snapshot 'gallerydl' as captures %}
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Image gallery</title>
 <style>
@@ -21,7 +23,7 @@ const formatSize = (value) => {
 (()=>{
  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';
  const root=new URL(output);const boundary=root.pathname.lastIndexOf('/gallerydl/');root.pathname=boundary>=0?root.pathname.slice(0,boundary+1):new URL('../',output).pathname;
- const files=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'gallerydl' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
+ const files=[{% for capture in captures %}{% if capture.plugin == 'gallerydl' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
  const raw=url=>{const u=new URL(url);u.searchParams.set('raw','1');return u.href};
  document.getElementById('files').href=new URL('gallerydl/?files=1',root).href;document.getElementById('download').href=raw(output);document.getElementById('raw').href=output.href+'?preview=1&raw=1';
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};

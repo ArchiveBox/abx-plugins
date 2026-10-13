@@ -1,3 +1,5 @@
+{% load core_tags %}
+{% snapshot_results snapshot 'git,dom,wget,singlefile' as captures %}
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Archived repository</title>
 <style>
@@ -21,7 +23,7 @@ const formatSize = (value) => {
  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';
  const root=new URL(output);const boundary=root.pathname.search(/\/git(?:\/|$)/);root.pathname=boundary>=0?root.pathname.slice(0,boundary+1):new URL('../',output).pathname;
  const folder=new URL('git/',root),byId=id=>document.getElementById(id),el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
- const captures=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'git' or capture.plugin == 'dom' or capture.plugin == 'wget' or capture.plugin == 'singlefile' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
+ const captures=[{% for capture in captures %}{% if capture.plugin == 'git' or capture.plugin == 'dom' or capture.plugin == 'wget' or capture.plugin == 'singlefile' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
  const relative=file=>file.root?file.path:file.plugin+'/'+file.path;
  const valid=path=>!path.startsWith('/')&&!path.split('/').some(part=>part==='..'||part==='.'||part==='');
  const fileURL=path=>new URL(path.split('/').map(encodeURIComponent).join('/'),root);

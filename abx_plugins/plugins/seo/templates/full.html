@@ -1,3 +1,5 @@
+{% load core_tags %}
+{% snapshot_results snapshot 'responses,favicon' as captures %}
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SEO</title>
 <style>
@@ -27,7 +29,7 @@
       badges.append(badge);
     }
     // Use archived images so previews also work offline and under the snapshot security policy.
-    const responseFiles = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }}},{% endfor %}{% endif %}{% endfor %}];
+    const responseFiles = [{% for capture in captures %}{% if capture.plugin == 'responses' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }}},{% endfor %}{% endif %}{% endfor %}];
     const localImage = (imageURL, alt) => {
       if (!imageURL) return null;
       try {
@@ -56,7 +58,7 @@
     const site = data['og:site_name'] || hostname(url);
     const card = el('article', null, 'social');
     const top = el('div', null, 'social-top');
-    const faviconFiles = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'favicon' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }}},{% endfor %}{% endif %}{% endfor %}];
+    const faviconFiles = [{% for capture in captures %}{% if capture.plugin == 'favicon' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }}},{% endfor %}{% endif %}{% endfor %}];
     let icon = localImage(data['og:icon'] || data.icon || data.favicon, site);
     if (!icon) {
       const favicon = faviconFiles.find(file => /\.(ico|png|svg|webp|jpe?g)$/i.test(file.path));

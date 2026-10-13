@@ -1,3 +1,5 @@
+{% load core_tags %}
+{% snapshot_results snapshot 'responses' as captures %}
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Captured responses</title>
 <style>
@@ -11,7 +13,7 @@ header{flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:2}h1{white-space:now
 (()=>{
  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';
  const root=new URL(output);const boundary=root.pathname.lastIndexOf('/responses/');root.pathname=boundary>=0?root.pathname.slice(0,boundary+1):new URL('../',output).pathname;
- const files=[{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'responses' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
+ const files=[{% for capture in captures %}{% if capture.plugin == 'responses' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:'{{ info.size|escapejs }}'},{% endfor %}{% endif %}{% endfor %}];
  let snapshotHost='';try{snapshotHost=new URL('{{ snapshot.url|escapejs }}').hostname}catch{}
  const raw=url=>{const u=new URL(url);u.searchParams.set('raw','1');return u.href};
  document.getElementById('files').href=new URL('responses/?files=1',root).href;document.getElementById('download').href=raw(output);document.getElementById('raw').href=raw(new URL('responses/index.jsonl',root));

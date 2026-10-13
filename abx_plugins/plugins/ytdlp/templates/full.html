@@ -1,3 +1,5 @@
+{% load core_tags %}
+{% snapshot_results snapshot 'ytdlp' as captures %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -56,7 +58,7 @@ const formatSize = (value) => {
     const raw = url => {const u = new URL(url); u.searchParams.set('raw', '1'); return u.href;};
     $('files').href = new URL('ytdlp/?files=1', root).href;
     $('header-download').href = raw(output);$('raw').href = raw(output);
-    const captures = [{% for capture in snapshot.archiveresult_set.all %}{% if capture.plugin == 'ytdlp' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:Number('{{ info.size|escapejs }}')},{% endfor %}{% endif %}{% endfor %}];
+    const captures = [{% for capture in captures %}{% if capture.plugin == 'ytdlp' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},mime:'{{ info.mimetype|escapejs }}',size:Number('{{ info.size|escapejs }}')},{% endfor %}{% endif %}{% endfor %}];
     const seen = new Set(), files = [];
     for (const file of captures) {
         const path = file.path.replace(/^\.\//, '');
