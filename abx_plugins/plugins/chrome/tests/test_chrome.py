@@ -26,6 +26,8 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import urlopen
@@ -3367,6 +3369,43 @@ def test_http_only_navigation_does_not_require_https_first_dialog(
         assert "Deterministic Local Fixture" in page["bodyText"]
 
 
+def test_navigation_rejects_unreachable_client_side_replacement(
+    tmp_path,
+    free_tcp_port,
+):
+    target = f"http://127.0.0.1:{free_tcp_port}/"
+    (tmp_path / "redirect.html").write_text(
+        f"<script>location.replace({json.dumps(target)})</script>",
+    )
+    handler = partial(SimpleHTTPRequestHandler, directory=str(tmp_path))
+    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_port}/redirect.html"
+            with chrome_session(tmp_path, test_url=url, navigate=False) as (
+                _,
+                _,
+                chrome,
+                env,
+            ):
+                result = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                    cwd=chrome,
+                    env=env | {"CHROME_PAGELOAD_TIMEOUT": "5"},
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                assert result.returncode == 1, result.stdout + result.stderr
+                navigation = json.loads((chrome / "navigation.json").read_text())
+                assert "unreachable error page" in navigation["error"]
+                assert navigation["status"] is None
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+
+
 @pytest.mark.parametrize("wait_until", ["domcontentloaded", "load"])
 def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
     tmp_path,
@@ -3428,11 +3467,12 @@ def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
             navigate=False,
             env_overrides={"CHROME_WAIT_FOR": wait_until},
         ) as (_process, _pid, chrome_dir, env):
-            # Exercise the standard server's directory redirect and cached 304
-            # before navigating to a different document on the same target.
-            for _ in range(2):
+            # Exercise the directory redirect, then navigate to the current
+            # canonical URL so Chrome revalidates it instead of using a fresh
+            # cache entry while following the redirect again.
+            for article_path in ("article", "article/"):
                 cached = subprocess.run(
-                    [str(CHROME_NAVIGATE_HOOK), f"--url={iframe_url}article"],
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={iframe_url}{article_path}"],
                     cwd=chrome_dir,
                     env=env,
                     capture_output=True,

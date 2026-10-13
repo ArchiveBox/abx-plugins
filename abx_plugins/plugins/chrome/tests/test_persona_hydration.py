@@ -396,6 +396,9 @@ def test_concurrent_new_tabs_survive_session_storage_hydration(tmp_path, httpser
         test_url=url,
         env_overrides={"AUTH_STORAGE_FILE": str(auth)},
     ) as (_, _, chrome_dir, env):
+        navigation = json.loads((chrome_dir / "navigation.json").read_text())
+        assert navigation["finalUrl"] == url + "?settled"
+        assert navigation["status"] == 200
         result = subprocess.run(
             [
                 env["NODE_BINARY"],

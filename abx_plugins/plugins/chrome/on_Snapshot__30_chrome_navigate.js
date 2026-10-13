@@ -85,13 +85,14 @@ async function waitForChallenge(session, deadline, waitUntil) {
   return null;
 }
 
-async function navigateMainDocument(session, page, url, timeout) {
+async function navigateMainDocument(session, page, url, timeout, mainFrameId) {
   // Puppeteer's DOMContentLoaded waiter also waits for every loading iframe.
   // The snapshot's main document can be ready while an embedded site never replies.
   await session.send("Page.enable");
   await session.send("Page.setLifecycleEventsEnabled", { enabled: true });
   const completedLoaders = new Set();
   let navigation = null;
+  let committedLoaderId = null;
   let resolveReady;
   let rejectReady;
   const ready = new Promise((resolve, reject) => {
@@ -99,9 +100,20 @@ async function navigateMainDocument(session, page, url, timeout) {
     rejectReady = reject;
   });
   const checkReady = () => {
-    if (navigation && (!navigation.loaderId || completedLoaders.has(`${navigation.frameId}:${navigation.loaderId}`))) {
+    if (navigation && (!navigation.loaderId || completedLoaders.has(`${mainFrameId}:${committedLoaderId || navigation.loaderId}`))) {
       resolveReady();
     }
+  };
+  const onFrameNavigated = ({ frame }) => {
+    if (frame.id !== mainFrameId) return;
+    if (frame.unreachableUrl) {
+      rejectReady(new Error("Navigation committed an unreachable error page"));
+      return;
+    }
+    // An inline location.replace can cancel the original loader before its
+    // DOMContentLoaded. Follow the committed replacement in the same main frame.
+    committedLoaderId = frame.loaderId;
+    checkReady();
   };
   const onLifecycle = (event) => {
     if (event.name !== "DOMContentLoaded") return;
@@ -112,6 +124,7 @@ async function navigateMainDocument(session, page, url, timeout) {
   const browser = page.browser();
   const timer = setTimeout(() => rejectReady(new Error(`Navigation timeout of ${timeout} ms exceeded`)), timeout);
   session.on("Page.lifecycleEvent", onLifecycle);
+  session.on("Page.frameNavigated", onFrameNavigated);
   page.on("close", onClosed);
   page.on("error", rejectReady);
   browser.on("disconnected", onClosed);
@@ -130,6 +143,7 @@ async function navigateMainDocument(session, page, url, timeout) {
   } finally {
     clearTimeout(timer);
     session.off("Page.lifecycleEvent", onLifecycle);
+    session.off("Page.frameNavigated", onFrameNavigated);
     page.off("close", onClosed);
     page.off("error", rejectReady);
     browser.off("disconnected", onClosed);
@@ -225,7 +239,7 @@ async function navigate(url) {
       `Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`
     );
     if (waitUntil === "domcontentloaded") {
-      await navigateMainDocument(network, page, url, timeout);
+      await navigateMainDocument(network, page, url, timeout, frameTree.frame.id);
     } else {
       await page.goto(url, { waitUntil, timeout });
     }
