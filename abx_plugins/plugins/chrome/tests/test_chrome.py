@@ -19,6 +19,7 @@ import json
 import hashlib
 import os
 import signal
+import select
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
+from urllib.request import urlopen
 
 import pytest
 from werkzeug.wrappers import Response
@@ -3365,6 +3367,132 @@ def test_http_only_navigation_does_not_require_https_first_dialog(
         assert "Deterministic Local Fixture" in page["bodyText"]
 
 
+@pytest.mark.parametrize("wait_until", ["domcontentloaded", "load"])
+def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
+    tmp_path,
+    httpserver,
+    wait_until,
+):
+    embedded_dir = tmp_path / "embedded"
+    embedded_dir.mkdir()
+    (embedded_dir / "index.html").write_text(
+        "<html><body>embedded document</body></html>",
+    )
+    (embedded_dir / "held.html").write_text(
+        "<html><body>unfinished embed</body></html>",
+    )
+    article_dir = embedded_dir / "article"
+    article_dir.mkdir()
+    (article_dir / "index.html").write_text(
+        "<!doctype html><title>Cached article</title>",
+    )
+    server = subprocess.Popen(
+        [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-u",
+            "-m",
+            "http.server",
+            "0",
+            "--bind",
+            "127.0.0.1",
+            "--directory",
+            str(embedded_dir),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        assert server.stdout is not None
+        assert select.select([server.stdout], [], [], 10)[0], (
+            "HTTP server did not start"
+        )
+        announcement = server.stdout.readline()
+        port = int(announcement.split(" port ", 1)[1].split(" ", 1)[0])
+        iframe_url = f"http://127.0.0.1:{port}/"
+        with urlopen(iframe_url, timeout=5) as response:
+            assert response.read() == b"<html><body>embedded document</body></html>"
+        httpserver.expect_request("/main").respond_with_data(
+            "<!doctype html><title>Main document ready</title>"
+            f'<p>The main document is available.</p><iframe src="{iframe_url}held.html"></iframe>',
+            content_type="text/html",
+        )
+        url = httpserver.url_for("/main")
+        with chrome_session(
+            tmp_path,
+            test_url=url,
+            navigate=False,
+            env_overrides={"CHROME_WAIT_FOR": wait_until},
+        ) as (_process, _pid, chrome_dir, env):
+            # Exercise the standard server's directory redirect and cached 304
+            # before navigating to a different document on the same target.
+            for _ in range(2):
+                cached = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={iframe_url}article"],
+                    cwd=chrome_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                assert cached.returncode == 0, cached.stdout + cached.stderr
+                saved = json.loads((chrome_dir / "navigation.json").read_text())
+                assert saved["status"] == 200
+                assert saved["finalUrl"] == f"{iframe_url}article/"
+            # Pause a real origin after readiness; its new iframe response cannot finish.
+            os.killpg(server.pid, signal.SIGSTOP)
+
+            result = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                env=env | {"CHROME_PAGELOAD_TIMEOUT": "5"},
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            navigation = json.loads((chrome_dir / "navigation.json").read_text())
+            if wait_until == "load":
+                assert result.returncode == 1
+                assert "Navigation timeout" in navigation["error"]
+                assert navigation["waitUntil"] == "load"
+                return
+            assert result.returncode == 0, result.stdout + result.stderr
+            page = _probe_current_snapshot_page(chrome_dir, env)
+            assert page["title"] == "Main document ready"
+            assert "The main document is available." in page["bodyText"]
+            assert navigation["status"] == 200
+            assert navigation["finalUrl"] == url
+            assert navigation["content_type"] == "text/html"
+            title = subprocess.run(
+                [
+                    str(
+                        CHROME_UTILS.parent.parent
+                        / "title"
+                        / "on_Snapshot__54_title.js",
+                    ),
+                    f"--url={url}",
+                ],
+                cwd=chrome_dir.parent,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            assert title.returncode == 0, title.stdout + title.stderr
+            assert (
+                chrome_dir.parent / "title" / "title.txt"
+            ).read_text().strip() == "Main document ready"
+    finally:
+        os.killpg(server.pid, signal.SIGCONT)
+        os.killpg(server.pid, signal.SIGTERM)
+        server_output, _ = server.communicate(timeout=10)
+        assert '"GET /article/ HTTP/1.1" 304' in server_output, server_output
+
+
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
     """chrome_wait should not treat stale marker files as a live CDP session."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -3638,7 +3766,8 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
-def test_tab_cleanup_on_sigterm_interrupts_inflight_navigation(httpserver):
+@pytest.mark.parametrize("wait_until", ["domcontentloaded", "load"])
+def test_tab_cleanup_on_sigterm_interrupts_inflight_navigation(httpserver, wait_until):
     """Tab cleanup must not wait for a separate navigation client's lifecycle."""
     navigation_started = threading.Event()
     navigation_release = threading.Event()
@@ -3669,7 +3798,7 @@ def test_tab_cleanup_on_sigterm_interrupts_inflight_navigation(httpserver):
             CRAWL_DIR=str(crawl_dir),
             SNAP_DIR=str(snapshot_dir),
             CHROME_HEADLESS="true",
-            CHROME_WAIT_FOR="load",
+            CHROME_WAIT_FOR=wait_until,
         )
         chrome_launch_process, _cdp_url = launch_chromium_session(
             env,

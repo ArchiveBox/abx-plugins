@@ -85,6 +85,57 @@ async function waitForChallenge(session, deadline, waitUntil) {
   return null;
 }
 
+async function navigateMainDocument(session, page, url, timeout) {
+  // Puppeteer's DOMContentLoaded waiter also waits for every loading iframe.
+  // The snapshot's main document can be ready while an embedded site never replies.
+  await session.send("Page.enable");
+  await session.send("Page.setLifecycleEventsEnabled", { enabled: true });
+  const completedLoaders = new Set();
+  let navigation = null;
+  let resolveReady;
+  let rejectReady;
+  const ready = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+  const checkReady = () => {
+    if (navigation && (!navigation.loaderId || completedLoaders.has(`${navigation.frameId}:${navigation.loaderId}`))) {
+      resolveReady();
+    }
+  };
+  const onLifecycle = (event) => {
+    if (event.name !== "DOMContentLoaded") return;
+    completedLoaders.add(`${event.frameId}:${event.loaderId}`);
+    checkReady();
+  };
+  const onClosed = () => rejectReady(new Error("Navigation target closed or disconnected"));
+  const browser = page.browser();
+  const timer = setTimeout(() => rejectReady(new Error(`Navigation timeout of ${timeout} ms exceeded`)), timeout);
+  session.on("Page.lifecycleEvent", onLifecycle);
+  page.on("close", onClosed);
+  page.on("error", rejectReady);
+  browser.on("disconnected", onClosed);
+  // Arm the listener before issuing navigation: localhost can finish before
+  // Page.navigate returns its loader ID. That ID excludes the previous document.
+  session.send("Page.navigate", { url }).then((result) => {
+    if (result.errorText || result.isDownload) {
+      rejectReady(new Error(result.errorText || "net::ERR_ABORTED"));
+      return;
+    }
+    navigation = result;
+    checkReady();
+  }, rejectReady);
+  try {
+    await ready;
+  } finally {
+    clearTimeout(timer);
+    session.off("Page.lifecycleEvent", onLifecycle);
+    page.off("close", onClosed);
+    page.off("error", rejectReady);
+    browser.off("disconnected", onClosed);
+  }
+}
+
 async function navigate(url) {
   const hookTimeoutSeconds =
     getEnvInt("CHROME_TIMEOUT") || getEnvInt("TIMEOUT", 60);
@@ -123,6 +174,7 @@ async function navigate(url) {
     if (userAgentOverride) await network.send("Emulation.setUserAgentOverride", userAgentOverride);
     const { frameTree } = await network.send("Page.getFrameTree");
     let mainRequestId = null;
+    let mainDocumentResponse = null;
     const earlyResponses = new Map();
     const rememberResponse = (requestId, status, headers, mimeType = null) => {
       if (status < 200 || status >= 300) return;
@@ -138,11 +190,15 @@ async function navigate(url) {
     network.on("Network.requestWillBeSent", (event) => {
       if (event.type !== "Document" || event.frameId !== frameTree.frame.id) return;
       mainRequestId = event.requestId;
+      mainDocumentResponse = null;
       observedResponse = earlyResponses.get(mainRequestId) || null;
       earlyResponses.clear();
     });
     network.on("Network.responseReceived", ({ requestId, response }) => {
       rememberResponse(requestId, response.status, response.headers, response.mimeType);
+      // ExtraInfo exposes wire-level 304/redirect statuses; responseReceived
+      // owns the final document's effective status and challenge headers.
+      if (requestId === mainRequestId) mainDocumentResponse = response;
     });
     // Downloads abort page navigation and may never become Puppeteer Response
     // objects. ExtraInfo still carries their actual HTTP status and headers.
@@ -168,10 +224,16 @@ async function navigate(url) {
     console.log(
       `Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`
     );
-    const response = await page.goto(url, { waitUntil, timeout });
+    if (waitUntil === "domcontentloaded") {
+      await navigateMainDocument(network, page, url, timeout);
+    } else {
+      await page.goto(url, { waitUntil, timeout });
+    }
+    const responseStatus = mainDocumentResponse?.status || null;
+    const responseHeaders = Object.fromEntries(Object.entries(mainDocumentResponse?.headers || {}).map(([name, value]) => [name.toLowerCase(), value]));
     let challenge = null;
     let cleared = null;
-    if (response?.headers()["cf-mitigated"] === "challenge") {
+    if (responseHeaders["cf-mitigated"] === "challenge") {
       const deadline = Math.min(
         Date.now() + CHALLENGE_WAIT_MS,
         navStartTime + hookBudget - 5000
@@ -189,7 +251,7 @@ async function navigate(url) {
     }
 
     const finalUrl = page.url();
-    const status = cleared?.status || (response ? response.status() : null);
+    const status = cleared?.status || responseStatus;
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
     const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));
