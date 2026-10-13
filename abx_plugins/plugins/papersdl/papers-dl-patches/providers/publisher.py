@@ -56,6 +56,15 @@ async def get_urls(session, identifier, headers=None):
                     and pdf_url not in urls
                 ):
                     urls.append(pdf_url)
+        if not urls:
+            logger.info(
+                "No publisher PDF metadata (host={}, HTTP {}, type={!r}, bytes={}, title={!r})",
+                urlsplit(page_url).hostname,
+                response.status,
+                response.headers.get("Content-Type", "")[:120],
+                len(content),
+                page.title.get_text(strip=True)[:120] if page.title else "",
+            )
         return urls
     except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as error:
         logger.info("Couldn't discover a publisher PDF: {}", error)

@@ -3,7 +3,7 @@
 Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
 License: MIT; see LICENSE. These Python files are copied unchanged from the
-canonical papers-dl source at `b20aa49c6db49ef70f52c878eac647429d179729`.
+canonical papers-dl source at `77cb3514b715dce8efaae9788ec63d7eb92c763d`.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
 PYTHONPATH. It replaces its parser/fetch/provider modules
