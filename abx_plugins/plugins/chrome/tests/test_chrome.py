@@ -26,6 +26,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from werkzeug.wrappers import Response
@@ -3333,6 +3334,35 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             if chrome_launch_process is not None:
                 chrome_launch_process.send_signal(signal.SIGTERM)
                 chrome_launch_process.wait(timeout=10)
+
+
+def test_http_only_navigation_does_not_require_https_first_dialog(
+    tmp_path,
+    chrome_test_url,
+):
+    """Explicit HTTP captures must work when the origin cannot serve HTTPS."""
+    # Chromium exempts localhost and nondefault ports from HTTPS-First warnings.
+    # Route a normal HTTP origin to the existing real server using Chrome DNS.
+    url = "http://archivebox-http.example.com/"
+    fixture_address = urlsplit(chrome_test_url).netloc
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        env_overrides={
+            "CHROME_ARGS_EXTRA": json.dumps(
+                [
+                    f"--host-resolver-rules=MAP archivebox-http.example.com {fixture_address}",
+                ],
+            ),
+        },
+    ) as (_process, _pid, chrome_dir, env):
+        navigation = json.loads((chrome_dir / "navigation.json").read_text())
+        assert navigation["status"] == 200
+        assert navigation["finalUrl"] == url
+        page = _probe_current_snapshot_page(chrome_dir, env)
+        assert page["url"] == url
+        assert page["title"] == "Example Domain"
+        assert "Deterministic Local Fixture" in page["bodyText"]
 
 
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):

@@ -90,6 +90,11 @@ as Excalidraw use their supported browser-download fallback. Native save pickers
 cannot complete unattended headless saving and do not emit browser download
 events for CDP capture. Origin-private filesystem storage remains available.
 
+The default flags disable automatic activation of HTTPS-First balanced mode.
+Its native confirmation dialog prevents unattended captures of HTTP-only sites
+when an HTTPS upgrade fails. Normal HTTPS upgrades and explicit profile security
+settings remain enabled; this does not disable TLS certificate validation.
+
 Cached extensions belonging to bundled plugins follow `PLUGINS` selection
 (including required plugin dependencies) and their `<PLUGIN>_ENABLED` setting.
 With no explicit selection, the enabled settings apply. Other user-managed

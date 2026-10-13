@@ -190,6 +190,7 @@
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-default-apps",
+        "--disable-features=HttpsFirstBalancedModeAutoEnable",
         "--disable-sync",
         "--disable-infobars",
         "--disable-blink-features=AutomationControlled,FileSystemAccessLocal",
