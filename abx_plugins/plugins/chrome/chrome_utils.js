@@ -4829,7 +4829,16 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
         })()`;
         const { identifier } = await session.send("Page.addScriptToEvaluateOnNewDocument", { source });
         scripts.set(origin, identifier);
-        await session.send("Runtime.evaluate", { expression: source });
+        try {
+          // Seed the document that existed before the script was registered.
+          await session.send("Runtime.evaluate", { expression: source });
+        } catch (error) {
+          // CDP reports this when that document is replaced or the target is
+          // closed mid-evaluate. A replacement document committed after the
+          // registration above and runs the script itself, so the tab is fully
+          // hydrated; treating it as failure closed live snapshot tabs.
+          if (!String(error?.message).includes("Inspected target navigated or closed")) throw error;
+        }
       }
     }
   }
@@ -4840,6 +4849,9 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
         await hydrate(session);
         if (!session.detached) await session.send("Runtime.runIfWaitingForDebugger");
       } catch (error) {
+        // A target that closed mid-hydration never ran without its persona:
+        // there is nothing left to close and nothing failed.
+        if (session.detached) return;
         failure = error;
         // Never allow a newly opened target to run with only half its persona.
         await root.send("Target.closeTarget", { targetId: targetInfo.targetId });

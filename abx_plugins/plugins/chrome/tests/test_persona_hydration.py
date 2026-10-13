@@ -257,3 +257,88 @@ const utils = require(process.argv[1]);
             "session": "tab-token",
             "databases": ["login-state"],
         }
+
+
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+def test_concurrent_new_tabs_survive_session_storage_hydration(tmp_path, httpserver):
+    # Snapshot tabs are opened by other CDP clients while the crawl browser's
+    # persona hydration attaches to them. A tab navigating while it is being
+    # hydrated must neither fail hydration nor be closed, and must keep its state.
+    httpserver.expect_request("/").respond_with_data(
+        # The page replaces itself once on load, so hydration's evaluate in each
+        # tab regularly overlaps a same-origin navigation, as it does in production.
+        "<title>Persona tab</title><script>if (!location.search) location.replace('/?settled')</script>",
+        content_type="text/html",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data(
+        "",
+        content_type="image/x-icon",
+    )
+    url = httpserver.url_for("/")
+    origin = url.rstrip("/")
+    auth = tmp_path / "auth.json"
+    auth.write_text(
+        json.dumps(
+            {
+                "cookies": [],
+                "origins": [
+                    {
+                        "origin": origin,
+                        # Real synced personas carry megabytes of tab state, which
+                        # keeps each tab's seeding evaluate in flight long enough
+                        # to overlap the page replacing itself.
+                        "sessionStorage": [
+                            {"name": "token", "value": "tab-token"},
+                            *(
+                                {"name": f"cache-{i}", "value": "x" * 4096}
+                                for i in range(1000)
+                            ),
+                        ],
+                    },
+                ],
+                "tabs": [],
+            },
+        ),
+    )
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        env_overrides={"AUTH_STORAGE_FILE": str(auth)},
+    ) as (_, _, chrome_dir, env):
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                r"""
+const fs = require('fs');
+const path = require('path');
+const utils = require(process.argv[1]);
+(async () => {
+  // Open tabs like the snapshot tab hook (Target.createTarget over a
+  // short-lived connection), already pointed at the page so each tab's first
+  // navigation starts as soon as any attached client resumes it, as the
+  // extensions and observers attached to production tabs do.
+  const cdpUrl = fs.readFileSync(path.join(process.argv[2], 'cdp_url.txt'), 'utf8').trim();
+  const targetIds = [];
+  for (let i = 0; i < 16; i++) targetIds.push((await utils.openTabInChromeSession({cdpUrl, puppeteer: utils.resolvePuppeteerModule(), initialUrl: process.argv[3]})).targetId);
+  const {browser} = await utils.connectToPage({chromeSessionDir:process.argv[2]});
+  try {
+    const targets = browser.targets().filter(target => targetIds.includes(target._targetId));
+    const pages = await Promise.all(targets.map(target => target.page()));
+    await Promise.all(pages.map(page => page.waitForFunction(() => location.search === '?settled' && document.readyState === 'complete')));
+    const tokens = await Promise.all(pages.map(page => page.evaluate(() => sessionStorage.getItem('token'))));
+    console.log(JSON.stringify({open: pages.length, tokens}));
+  } finally {await browser.disconnect();}
+})().catch(e=>{console.error(e);process.exit(1)});
+""",
+                str(CHROME_UTILS),
+                str(chrome_dir),
+                url,
+            ],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=90,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {"open": 16, "tokens": ["tab-token"] * 16}
