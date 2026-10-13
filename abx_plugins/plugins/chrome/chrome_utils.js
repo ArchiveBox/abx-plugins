@@ -3595,7 +3595,6 @@ async function openTabInChromeSession(options = {}) {
 }
 
 const EXPORT_PAGE_MAX_LIFETIME_MS = 60 * 60 * 1000;
-const exportPageOperations = new Set();
 const exportPageOwners = new Map();
 let exportShutdownInstalled = false;
 let exportShutdownPromise = null;
@@ -3608,7 +3607,9 @@ function installExportPageShutdown() {
     if (exportShutdownPromise) return exportShutdownPromise;
     const exitCode = process.exitCode ?? (signal === "SIGINT" ? 130 : 143);
     exportShutdownPromise = (async () => {
-      await Promise.allSettled([...exportPageOperations]);
+      // Close published targets immediately. Waiting for page attachment here
+      // delays SIGTERM by the creation timeout. The existing nonce lease lets
+      // the snapshot daemon reap a createTarget response that arrives after exit.
       for (const owner of exportPageOwners.values()) {
         try {
           await sweepExportPages({
@@ -3796,18 +3797,12 @@ async function openExportPage({
     `${path.resolve(chromeSessionDir)}:${owner.ownerTargetId}`,
     owner
   );
-  const operation = createExportPage({
+  return createExportPage({
     page,
     chromeSessionDir,
     timeoutMs,
     isolateStorage,
   });
-  exportPageOperations.add(operation);
-  try {
-    return await operation;
-  } finally {
-    exportPageOperations.delete(operation);
-  }
 }
 
 async function createExportPage({

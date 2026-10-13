@@ -297,20 +297,24 @@ def test_source_filesystem_error_is_failed(tmp_path, extension):
     # A cyclic symlink raises a real filesystem error on every supported OS,
     # including root-run containers where chmod cannot deny access.
     source.symlink_to(source.name)
-    result = subprocess.run(
-        [sys.executable, str(LITEPARSE_HOOK), "--url", TEST_URL],
-        cwd=tmp_path,
-        env={**os.environ, "SNAP_DIR": str(tmp_path)},
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    record = parse_jsonl_output(result.stdout)
-    assert result.returncode != 0, result.stdout + result.stderr
-    assert record and record["status"] == "failed", result.stdout + result.stderr
-    assert str(source) in record["output_str"]
-    assert "OSError" in record["output_str"]
-    assert not list((tmp_path / "liteparse").glob("*.txt"))
+    try:
+        result = subprocess.run(
+            [sys.executable, str(LITEPARSE_HOOK), "--url", TEST_URL],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        record = parse_jsonl_output(result.stdout)
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert record and record["status"] == "failed", result.stdout + result.stderr
+        assert str(source) in record["output_str"]
+        assert "OSError" in record["output_str"]
+        assert not list((tmp_path / "liteparse").glob("*.txt"))
+    finally:
+        # Artifact uploaders walk the test directory after pytest completes.
+        source.unlink()
 
 
 def test_hook_scripts_exist():
