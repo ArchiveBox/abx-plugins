@@ -1090,15 +1090,54 @@ def get_config(
 
 
 def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Path, ...]:
-    """Return source text artifacts shared through the staticfile output dir."""
+    """Return imported text and the captured staticfile's text response body."""
     base = Path(snap_dir or os.environ.get("SNAP_DIR") or ".").expanduser().resolve()
     staticfile_dir = base / "staticfile"
     if not staticfile_dir.is_dir():
         return ()
+    paths = set(staticfile_dir.glob("*.txt"))
+    stdout_log = staticfile_dir / "stdout.log"
+    if stdout_log.is_file():
+        for line in stdout_log.read_text(errors="replace").split("\n"):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                not isinstance(record, dict)
+                or record.get("type") != "ArchiveResult"
+                or record.get("status") != "succeeded"
+            ):
+                continue
+            content_type = (
+                str(record.get("content_type", "")).split(";", 1)[0].strip().lower()
+            )
+            output = record.get("output_str")
+            if not isinstance(output, str) or not (
+                content_type.startswith("text/")
+                or content_type
+                in {
+                    "application/json",
+                    "application/jsonl",
+                    "application/x-ndjson",
+                    "application/xml",
+                    "application/rss+xml",
+                    "application/atom+xml",
+                    "application/xhtml+xml",
+                }
+            ):
+                continue
+            # Staticfile reuses the responses-owned body when available. Its
+            # portable result path must still remain inside this snapshot.
+            path = (base / output).resolve()
+            if path.is_relative_to(base):
+                paths.add(path)
     return tuple(
         path
-        for path in sorted(staticfile_dir.glob("*.txt"))
-        if path.is_file() and path.stat().st_size > 0
+        for path in sorted(paths)
+        if path.resolve().is_relative_to(base)
+        and path.is_file()
+        and path.stat().st_size > 0
     )
 
 

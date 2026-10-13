@@ -6,7 +6,7 @@
 Parse JSONL bookmark files and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
-It reads JSONL-format bookmark exports from SNAP_DIR/staticfile/*.txt or an HTTP URL.
+It reads captured staticfile text, imported .txt files, or an HTTP URL.
 
 Usage: ./on_Snapshot__74_parse_jsonl_urls.py --url=<url>
 Output: Appends discovered URLs to SNAP_DIR/parse_jsonl_urls/urls.jsonl
@@ -206,7 +206,7 @@ def main(
     urls_found = []
     all_tags = set()
 
-    for line in content.splitlines():
+    for line in content.split("\n"):
         line = line.strip()
         if not line:
             continue
