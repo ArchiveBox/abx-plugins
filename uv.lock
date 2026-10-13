@@ -3,13 +3,13 @@ revision = 3
 requires-python = ">=3.12, <3.15"
 
 [options]
-exclude-newer = "2026-10-07T11:30:32.852295389Z"
+exclude-newer = "2026-10-08T05:22:50.816367287Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-10-12T11:30:31.852311258Z", span = "PT1S" }
+abxbus = { timestamp = "2026-10-13T05:22:49.816382164Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
@@ -57,7 +57,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abxbus", specifier = "==2.5.77" },
-    { name = "abxpkg", specifier = "==1.13.48" },
+    { name = "abxpkg", specifier = "==1.13.49" },
     { name = "httpx", marker = "extra == 'opencode'", specifier = ">=0.28.1" },
     { name = "imagesize", specifier = ">=2.0.0" },
     { name = "requests", marker = "extra == 'opencode'", specifier = ">=2.32.3" },
@@ -107,7 +107,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.13.48"
+version = "1.13.49"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
@@ -115,9 +115,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ed/58/0300e782b08f91a1adae7d8632d25bb867bbe4df1bd083abbdaad5dce8bf/abxpkg-1.13.48.tar.gz", hash = "sha256:82c7153fb96234cb0db1c47e2c46a06c4a5a6bc21c79a24e8b640789a46d0bbc", size = 247938, upload-time = "2026-10-12T11:29:51.657Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/db/e6efffdd84c2e5d3de577f32466e1212ac56a4f1400b5cf148426eed5067/abxpkg-1.13.49.tar.gz", hash = "sha256:255572175b635a0fa1ec2f7c57b8554c41118947b214d6324902fe8138fd03a7", size = 248340, upload-time = "2026-10-13T05:22:01.097Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/74/0f2225fba8a8f9e7e6432d86138337ae27eb06d870d2919d149937f4afd1/abxpkg-1.13.48-py3-none-any.whl", hash = "sha256:a2f2b735a02f2b25132f5c23093a7a7ff62056838929cbd2a1bb5b7b5febcfea", size = 259283, upload-time = "2026-10-12T11:29:53.669Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/3e/7a808971c00748e8945b4b9ccdef8fc30c27fb91c6a2765caa02b7c16439/abxpkg-1.13.49-py3-none-any.whl", hash = "sha256:97ae6b1e90e945a838e60fd5db984f53b5256967d503032479e4a11501c567dc", size = 259696, upload-time = "2026-10-13T05:22:02.716Z" },
 ]
 
 [[package]]
