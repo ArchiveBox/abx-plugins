@@ -1,0 +1,19 @@
+abx_plugins/plugins/tlsnotary/on_Snapshot__31_tlsnotary.finite.bg.js
+  s_8dbda046044e96::t_3a78c73371f413 309-317,565-574
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2358405e8236bdec1ca35dc5f18c74bb8354d78b",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
