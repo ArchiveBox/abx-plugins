@@ -17,9 +17,11 @@ import shlex
 import socket
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
+from werkzeug import Response
 
 from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
@@ -352,9 +354,9 @@ def test_handles_404_gracefully(httpserver):
         assert result_json == {
             "type": "ArchiveResult",
             "status": "failed",
-            "output_str": "wget failed (exit=8)",
+            "output_str": "wget failed (exit=8): ERROR 404: NOT FOUND",
         }, result_json
-        assert "ERROR: wget failed (exit=8)" in result.stderr
+        assert "ERROR: wget failed (exit=8): ERROR 404: NOT FOUND" in result.stderr
 
 
 @pytest.mark.parametrize("artifact_hook_name", [WGET_HOOK.stem, WGET_HOOK.name])
@@ -537,6 +539,112 @@ def test_config_timeout_honored(local_example_url):
         assert result_json["status"] == "succeeded", result_json
         assert result_json["output_str"].startswith("wget/"), result_json
         assert (tmpdir / result_json["output_str"]).is_file(), result_json
+
+
+def test_missing_page_requisite_keeps_saved_main_page(httpserver, tmp_path):
+    """wget exits 8 for any 404, but a missing stylesheet must not fail the page."""
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request("/article.html").respond_with_data(
+        '<html><head><link rel="stylesheet" href="/missing.css"></head>'
+        '<body><h1>Main article text</h1><img src="/pixel.png"></body></html>',
+        content_type="text/html",
+    )
+    httpserver.expect_request("/missing.css").respond_with_data(
+        "Not Found",
+        status=404,
+        content_type="text/plain",
+    )
+    httpserver.expect_request("/pixel.png").respond_with_data(
+        b"\x89PNG\r\n",
+        content_type="image/png",
+    )
+
+    result = subprocess.run(
+        [str(WGET_HOOK), "--url", httpserver.url_for("/article.html")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "WGET_BINARY": str(loaded.loaded_abspath),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "ERROR 404: NOT FOUND" in result.stderr, result.stderr
+    assert "WARNING: wget failed (exit=8); keeping the saved page" in result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", record
+    assert record["output_str"].endswith("/article.html"), record
+    page = tmp_path / record["output_str"]
+    assert "Main article text" in page.read_text()
+    assert (page.parent / "pixel.png").read_bytes() == b"\x89PNG\r\n"
+    assert list((tmp_path / "wget" / "warc").glob("*.warc.gz")), result.stderr
+
+
+def test_never_runs_past_wget_timeout_and_keeps_saved_main_page(httpserver, tmp_path):
+    """A stalled requisite must neither stretch wget past WGET_TIMEOUT nor discard the page.
+
+    wget's own --timeout is a per-read idle timeout, so a server trickling one
+    byte per second keeps it alive indefinitely. Consumers waiting on wget's
+    files plan around WGET_TIMEOUT (prod: a 120s budget ran for 241s and the
+    waiter gave up), so the hook itself must stop wget at that budget.
+    """
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request("/article.html").respond_with_data(
+        '<html><head><link rel="stylesheet" href="/slow.css"></head>'
+        "<body><h1>Main article text</h1></body></html>",
+        content_type="text/html",
+    )
+
+    def trickle(_request):
+        def body():
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                yield b" "
+                time.sleep(1)
+
+        return Response(
+            body(),
+            headers={"Content-Type": "text/css", "Content-Length": "1000000"},
+        )
+
+    httpserver.expect_request("/slow.css").respond_with_handler(trickle)
+    wget_timeout = 10
+    started = time.monotonic()
+    result = subprocess.run(
+        [str(WGET_HOOK), "--url", httpserver.url_for("/article.html")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "WGET_BINARY": str(loaded.loaded_abspath),
+            "WGET_TIMEOUT": str(wget_timeout),
+            "WGET_WARC_ENABLED": "False",
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+    elapsed = time.monotonic() - started
+
+    # The budget covers wget itself; allow a few seconds for interpreter startup.
+    assert elapsed < wget_timeout + 5, (elapsed, result.stderr)
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", record
+    assert record["output_str"].endswith("/article.html"), record
+    assert "Main article text" in (tmp_path / record["output_str"]).read_text()
+    assert (
+        f"WARNING: Timed out after {wget_timeout} seconds; keeping the saved page"
+        in result.stderr
+    ), result.stderr
 
 
 def test_config_user_agent(httpserver):
