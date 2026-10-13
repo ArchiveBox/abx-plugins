@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,7 @@ SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__31_tlsnotary.finite.bg.js"
 CHECK_CAPTURE = PLUGIN_DIR / "tests" / "check_capture.mjs"
 TARGET_URL = "https://docs.sweeting.me/s/cookie-dilemma"
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+pytest_plugins = ["tests.test_archivewebpage_concurrent_collections"]
 
 
 @pytest.fixture
@@ -718,6 +720,79 @@ const chrome = require(process.argv[1]);
             assert records[0]["status"] == "failed", records
             assert records[0]["output_str"] == "TLSNotary capture deadline exceeded"
             assert not (output_dir / "receipt.json").exists()
+
+
+def test_real_proof_does_not_inherit_active_archivewebpage_recorder(
+    tmp_path,
+    archivewebpage_crawl,
+    verifier,
+):
+    """Private TLS windows must not become children of the recorded snapshot."""
+    from tests.test_archivewebpage_concurrent_collections import (
+        _run_stop_hook,
+        _start_snapshot_recording,
+    )
+
+    env, crawl_chrome, tabs = archivewebpage_crawl
+    env["TLSNOTARY_ENABLED"] = "true"
+    _install_and_prepare(env, crawl_chrome)
+    url = "https://news.ycombinator.com/"
+    snapshot, env = _start_snapshot_recording(
+        tmp_path / "snapshots",
+        env,
+        tabs,
+        snapshot_id="tls-awp",
+        url=url,
+    )
+    env.update(verifier)
+    env.update(TLSNOTARY_ENABLED="true", TLSNOTARY_TIMEOUT="120")
+    output = snapshot / "tlsnotary"
+    output.mkdir()
+    result = subprocess.run(
+        [str(SNAPSHOT_HOOK), f"--url={url}"],
+        cwd=output,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=150,
+    )
+    assert result.returncode == 0, result.stderr
+    records = [
+        json.loads(line) for line in result.stdout.split("\n") if line.startswith("{")
+    ]
+    assert len(records) == 1 and records[0]["status"] == "succeeded", result.stdout
+    checked = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            str(CHECK_CAPTURE),
+            str(output),
+            verifier["TLSNOTARY_TRUSTED_KEY"],
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert checked.returncode == 0, checked.stderr
+    extension = json.loads(
+        (Path(env["CRAWL_DIR"]) / "tlsnotary/loaded-extension.json").read_text(),
+    )
+    state = _inspect_browser(
+        env,
+        (crawl_chrome / "cdp_url.txt").read_text().strip(),
+        extension["id"],
+    )
+    assert state["extensionTargets"] == 0, state
+    assert sorted(state["pageUrls"]) == ["about:blank", url], state
+    stopped = _run_stop_hook(snapshot, env, url)
+    assert stopped.returncode == 0, stopped.stderr
+    with zipfile.ZipFile(snapshot / "archivewebpage/archivewebpage.wacz") as archive:
+        pages = [
+            json.loads(line)
+            for line in archive.read("pages/pages.jsonl").decode().split("\n")
+            if line
+        ]
+        assert [page["url"] for page in pages if "url" in page] == [url], pages
 
 
 def test_background_readiness_preserves_target_before_waiting_for_proof_lock(

@@ -3536,10 +3536,11 @@ async function getBrowserCdpUrl(chromeSessionDir = "../chrome", options = {}) {
  * @param {Object} options - Tab open options
  * @param {string} options.cdpUrl - Browser CDP websocket URL
  * @param {Object} options.puppeteer - Puppeteer module
+ * @param {boolean} options.newWindow - Create without inheriting the active tab's native opener
  * @returns {Promise<{targetId: string}>}
  */
 async function openTabInChromeSession(options = {}) {
-  const { cdpUrl, puppeteer, timeoutMs = 10000, initialUrl = "about:blank", browserContextId } = options;
+  const { cdpUrl, puppeteer, timeoutMs = 10000, initialUrl = "about:blank", browserContextId, newWindow = false } = options;
   if (!cdpUrl) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
@@ -3575,7 +3576,7 @@ async function openTabInChromeSession(options = {}) {
               const created = await sendBrowserCommand(
                 browser,
                 "Target.createTarget",
-                { url: initialUrl, background: true, ...(browserContextId ? { browserContextId } : {}) }
+                { url: initialUrl, background: true, newWindow, ...(browserContextId ? { browserContextId } : {}) }
               );
               return created.targetId;
             },

@@ -31,7 +31,7 @@ const {
 } = require("./server/memory.cjs");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
-let browser, caller, server, extensionId, releaseLock;
+let browser, caller, callerTargetId, server, extensionId, releaseLock;
 let managedWindowUrl, existingTargets, existingWindowIds, managedTarget;
 let stopped = false;
 let deadlineExceeded = false;
@@ -147,6 +147,10 @@ function cleanup() {
     // and lets capture() settle through this same cleanup path.
     cleanupPromise = (async () => {
       if (caller) await caller.close().catch(() => {});
+      else if (browser && callerTargetId)
+        await chrome.sendBrowserCommand(browser, "Target.closeTarget", {
+          targetId: callerTargetId,
+        }).catch(() => {});
       if (browser && existingTargets) {
         // The extension opens a separate authenticated page. Its normal done()
         // path closes that window, but an interrupted proof leaves it behind.
@@ -305,7 +309,22 @@ async function capture() {
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  caller = await browser.newPage();
+  // Chrome gives same-window tabs the active snapshot as their opener. AWP
+  // inherits that recorder and reloads our caller mid-request. A separate
+  // window has no opener while retaining this browser's persona and extension.
+  managedWindowUrl = `http://127.0.0.1:${server.address().port}/`;
+  ({ targetId: callerTargetId } = await chrome.openTabInChromeSession({
+    cdpUrl: browser.wsEndpoint(),
+    puppeteer: chrome.resolvePuppeteerModule(),
+    initialUrl: managedWindowUrl,
+    newWindow: true,
+    timeoutMs: 10000,
+  }));
+  const callerTarget = await browser.waitForTarget(
+    target => chrome.getTargetIdFromTarget(target) === callerTargetId,
+    { timeout: 10000 },
+  );
+  caller = await callerTarget.page();
   // This private caller is outside the snapshot's consolelog target. Keep its
   // failures visible without recording page contents, request headers or queries.
   let callerFailures = 0;
@@ -315,8 +334,6 @@ async function capture() {
   caller.on("pageerror", (error) => {
     if (callerFailures++ < 8) console.error(`[tlsnotary] caller script error: ${error.name}`);
   });
-  await caller.goto(`http://127.0.0.1:${server.address().port}/`);
-  managedWindowUrl = caller.url();
   // Interval polling, not puppeteer's default requestAnimationFrame polling:
   // in a crawl-shared browser other snapshots bring their own tabs to the
   // front, hiding this page. A hidden page runs no animation frames, so if the
