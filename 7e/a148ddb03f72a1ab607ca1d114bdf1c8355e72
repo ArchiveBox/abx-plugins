@@ -1,0 +1,14 @@
+abx_plugins/plugins/iwork/tests/test_iwork.py
+  h_923c208e183a7b 19-21,26,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ea148ddb03f72a1ab607ca1d114bdf1c8355e72",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
