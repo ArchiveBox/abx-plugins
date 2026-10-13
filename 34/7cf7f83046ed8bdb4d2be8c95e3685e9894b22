@@ -1,0 +1,29 @@
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  s_a286607305588e::t_92714fe5b2bfdf 369-372,380-381
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_2b44ee96cc775e::t_fb0ee6176dd28f 280-309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "347cf7f83046ed8bdb4d2be8c95e3685e9894b22",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a286607305588e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf8bf608-099b-4dff-9e7c-f87508f3f76d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
