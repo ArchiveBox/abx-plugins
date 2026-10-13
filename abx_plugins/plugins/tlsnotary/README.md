@@ -46,8 +46,8 @@ managed auth window when finished or cancelled. It disconnects
 from the shared browser without closing it. Proof failure produces a failed plugin
 result; other archiving outputs remain available.
 
-Before loading the prover, the hook requires 2 GiB of available memory within
-the host and container limits, including usable disk-backed swap on Linux. It
+Before loading the prover, the hook requires 3.5 GiB of available RAM within
+the host and container limits. Disk swap is excluded from proof headroom. It
 cancels its own proof if that headroom falls below 512 MiB, leaving the original
 snapshot tab and shared browser open. Insufficient memory or an unavailable verifier produces `noresults` with an
 explicit warning. Unexpected protocol errors, invalid signatures and proof
@@ -163,8 +163,10 @@ code or keys supplied only by the archive you are investigating.
 
 ## Hashing and timestamping the evidence
 
-The foreground snapshot hook runs at order `92`, before `hashes` at `93` and
-optional [OpenTimestamps](../opentimestamps/README.md) at `99`. Hashes includes the
-files directly in `tlsnotary/`, so the Merkle tree covers both the signed
-receipt and authenticated response. OpenTimestamps stamps the completed manifest;
+The background snapshot hook starts at order `31` after navigation. Snapshot
+cleanup lets its proof finish within the configured deadline. The existing
+background cleanup barrier runs before `hashes` at `93` and optional
+[OpenTimestamps](../opentimestamps/README.md) at `99`. Hashes includes the files
+directly in `tlsnotary/`, so the Merkle tree covers both the signed receipt and
+authenticated response. OpenTimestamps stamps the completed manifest;
 its pending calendar proof still needs later Bitcoin upgrade and verification.

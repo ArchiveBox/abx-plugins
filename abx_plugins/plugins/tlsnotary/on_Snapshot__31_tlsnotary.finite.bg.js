@@ -243,10 +243,6 @@ async function capture() {
   const prepared = JSON.parse(
     fs.readFileSync(path.join(config.CRAWL_DIR, "tlsnotary/extension.json"))
   );
-  releaseLock = await chrome.acquireSessionLock(
-    path.join(config.CRAWL_DIR, "tlsnotary/capture.lock"),
-    config.TLSNOTARY_TIMEOUT * 1000
-  );
   const connection = await chrome.connectToPage({
     chromeSessionDir: path.join(config.SNAP_DIR, "chrome"),
     requireTargetId: true,
@@ -260,6 +256,14 @@ async function capture() {
     throw new Error("TLSNotary requires an HTTPS document");
   if (new URL(url).port)
     throw new Error("TLSNotary supports HTTPS on port 443 only");
+  // Capture the completed snapshot target before signaling readiness. A proof
+  // may wait behind another snapshot's proof while background cleanup closes
+  // its original tab. From this point it only needs the shared browser and URL.
+  console.log("tlsnotary capture started");
+  releaseLock = await chrome.acquireSessionLock(
+    path.join(config.CRAWL_DIR, "tlsnotary/capture.lock"),
+    config.TLSNOTARY_TIMEOUT * 1000
+  );
   const verifierUrl = config.TLSNOTARY_VERIFIER_URL.replace(/\/$/, "");
   const endpoint = new URL(verifierUrl);
   if (
@@ -525,9 +529,6 @@ async function capture() {
     emitArchiveResultRecord("skipped", "TLSNOTARY_ENABLED=False");
     return;
   }
-  // Readiness for the next hook: this hook only needs the completed
-  // navigation, which the foreground navigate hook already finished.
-  console.log("tlsnotary capture started");
   const timer = setTimeout(() => {
     deadlineExceeded = true;
     stopped = true;

@@ -700,3 +700,118 @@ const chrome = require(process.argv[1]);
             assert records[0]["status"] == "failed", records
             assert records[0]["output_str"] == "TLSNotary capture deadline exceeded"
             assert not (output_dir / "receipt.json").exists()
+
+
+def test_background_readiness_preserves_target_before_waiting_for_proof_lock(
+    tmp_path,
+    verifier,
+):
+    """A queued proof can outlive snapshot-tab cleanup after its ready signal."""
+    import select
+
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+        CHROME_NAVIGATE_HOOK,
+        launch_snapshot_tab,
+        run_hook,
+    )
+
+    url = "https://news.ycombinator.com/"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=45,
+        env_overrides={**verifier, "TLSNOTARY_ENABLED": "true"},
+        crawl_setup=_install_and_prepare,
+    ) as (_, _, _, env):
+        snapshot_dir = tmp_path / "contended-snapshot"
+        chrome_dir = snapshot_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+        capture_dir = snapshot_dir / "tlsnotary"
+        capture_dir.mkdir()
+        capture_env = {**env, "SNAP_DIR": str(snapshot_dir)}
+        tab = launch_snapshot_tab(
+            snapshot_chrome_dir=chrome_dir,
+            tab_env=capture_env,
+            test_url=url,
+            snapshot_id="contended-snapshot",
+            crawl_id="test-crawl",
+        )
+        lock_script = """
+const chrome = require(process.argv[1]);
+(async () => {
+  const release = await chrome.acquireSessionLock(process.argv[2], 30000);
+  console.log('locked');
+  process.stdin.once('data', async () => {await release(); process.exit(0);});
+})().catch(error => {console.error(error);process.exit(1)});
+"""
+        lock = None
+        hook = None
+        try:
+            code, _, stderr = run_hook(
+                CHROME_NAVIGATE_HOOK,
+                url,
+                "contended-snapshot",
+                cwd=chrome_dir,
+                env=capture_env,
+            )
+            assert code == 0, stderr
+            lock = subprocess.Popen(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    lock_script,
+                    str(CHROME_UTILS),
+                    str(Path(env["CRAWL_DIR"]) / "tlsnotary/capture.lock"),
+                ],
+                env=env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            assert lock.stdout is not None
+            assert select.select([lock.stdout], [], [], 15)[0]
+            assert lock.stdout.readline().strip() == "locked"
+            hook = subprocess.Popen(
+                [env["NODE_BINARY"], str(SNAPSHOT_HOOK), f"--url={url}"],
+                cwd=capture_dir,
+                env=capture_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            assert hook.stdout is not None
+            assert select.select([hook.stdout], [], [], 15)[0]
+            assert hook.stdout.readline().strip() == "tlsnotary capture started"
+            # The real snapshot daemon closes its tab when the runner signals
+            # all backgrounds. The proof must already be independent of it.
+            tab.send_signal(signal.SIGTERM)
+            assert tab.wait(timeout=10) == 0
+            hook.send_signal(signal.SIGTERM)
+            lock.communicate("release\n", timeout=10)
+            assert lock.returncode == 0
+            stdout, stderr = hook.communicate(timeout=180)
+            assert hook.returncode == 0, (stdout, stderr)
+            records = [json.loads(line) for line in stdout.splitlines()]
+            assert len(records) == 1 and records[0]["status"] == "succeeded", (
+                stdout,
+                stderr,
+            )
+            checked = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    str(CHECK_CAPTURE),
+                    str(capture_dir),
+                    verifier["TLSNOTARY_TRUSTED_KEY"],
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert checked.returncode == 0, checked.stderr
+        finally:
+            for process in (hook, lock, tab):
+                if process is not None and process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=10)
