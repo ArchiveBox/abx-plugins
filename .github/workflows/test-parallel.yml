@@ -583,14 +583,20 @@ jobs:
           test -f "$TEST_PATH"
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
             --basetemp="$RUNNER_TEMP/provider-pytest" \
+            --junitxml="$RUNNER_TEMP/provider-pytest/results.xml" \
             -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
       - name: Save failed public export evidence
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: provider-exports-${{ strategy.job-index }}
-          # Only the public fixture exports; never upload personas or cookies.
+          # Public fixture exports and test diagnostics; never upload personas or cookies.
           path: |
+            ${{ runner.temp }}/provider-pytest/results.xml
+            ${{ runner.temp }}/provider-pytest/**/crawl/test-crawl/chrome/*.stdout.log
+            ${{ runner.temp }}/provider-pytest/**/crawl/test-crawl/chrome/*.stderr.log
+            ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/chrome/*.stdout.log
+            ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/chrome/*.stderr.log
             ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/*/downloads.json
             ${{ runner.temp }}/provider-pytest/**/snap/test-snapshot/*/files/*
             ${{ runner.temp }}/provider-pytest/**/exported-frame-*.jpg
