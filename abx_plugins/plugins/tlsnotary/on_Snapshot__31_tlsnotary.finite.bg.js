@@ -306,6 +306,15 @@ async function capture() {
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   caller = await browser.newPage();
+  // This private caller is outside the snapshot's consolelog target. Keep its
+  // failures visible without recording page contents, request headers or queries.
+  let callerFailures = 0;
+  caller.on("requestfailed", (request) => {
+    if (callerFailures++ < 8) console.error(`[tlsnotary] caller request failed: ${request.url().split(/[?#]/, 1)[0].slice(0, 300)} ${request.failure()?.errorText}`);
+  });
+  caller.on("pageerror", (error) => {
+    if (callerFailures++ < 8) console.error(`[tlsnotary] caller script error: ${error.name}`);
+  });
   await caller.goto(`http://127.0.0.1:${server.address().port}/`);
   managedWindowUrl = caller.url();
   // Interval polling, not puppeteer's default requestAnimationFrame polling:
@@ -553,6 +562,16 @@ async function capture() {
     const expectedAbsence = expectedMessage !== null;
     const message = expectedMessage || "TLSNotary extension capture failed; see hook log";
     console.error(`[tlsnotary] ${expectedAbsence ? "WARNING: " + message : error.message}`);
+    if (!expectedAbsence && caller) {
+      console.error(`[tlsnotary] caller state ${JSON.stringify({
+        closed: caller.isClosed(),
+        url: caller.url().split(/[?#]/, 1)[0].slice(0, 300),
+        browserConnected: browser?.connected,
+        extensionTargets: browser?.targets().filter(target =>
+          target.url().startsWith(`chrome-extension://${extensionId}/`)
+        ).map(target => ({type: target.type(), path: target.url().split(/[?#]/, 1)[0].slice(0, 300)})).slice(0, 8),
+      })}`);
+    }
     // Puppeteer and fetch keep the underlying protocol/network failure on
     // error.cause; "see hook log" must actually lead to it.
     for (let cause = error.cause; cause; cause = cause.cause) {
