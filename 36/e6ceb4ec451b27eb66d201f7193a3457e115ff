@@ -1,0 +1,24 @@
+abx_plugins/plugins/chrome/tests/test_chrome_tab_emulation.py
+  s_2b44ee96cc775e::t_3080b22b9c488a 1-120
+  s_2b44ee96cc775e::t_0f363395d1b5a5 121-122
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_2b44ee96cc775e::t_d227a5abec6e36 4693-4755,4836,4838,4840-4850,4922
+abx_plugins/plugins/mobilesize/tests/test_mobilesize.py
+  s_2b44ee96cc775e::t_1e87691b5fb9b5 22,35-36,39,108-113,205-210,263-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "36e6ceb4ec451b27eb66d201f7193a3457e115ff",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
