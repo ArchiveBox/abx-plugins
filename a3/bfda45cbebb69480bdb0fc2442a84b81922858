@@ -1,0 +1,19 @@
+abx_plugins/plugins/dropbox/tests/test_dropbox.py
+  s_2b44ee96cc775e::t_477e8c7d680d10 6,72-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3bfda45cbebb69480bdb0fc2442a84b81922858",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "unknown"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
