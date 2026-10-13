@@ -1,0 +1,21 @@
+abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py
+  s_fc592191f5c2e8::t_ddfcffa69735e7 201-203,217-219
+abx_plugins/plugins/favicon/tests/test_favicon.py
+  s_fc592191f5c2e8::t_ce6411a5c02d5a 139-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7b0798a375a897ae3bdcd126bd17a4940830921",
+  "prompts": {},
+  "sessions": {
+    "s_fc592191f5c2e8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133c8-4002-7303-9eb8-9ac868c98d1f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
