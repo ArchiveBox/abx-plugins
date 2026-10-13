@@ -1,0 +1,23 @@
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_8dbda046044e96::t_b17c306e6c112d 183-184,198-202,317
+  s_8dbda046044e96::t_ab02e43afb8498 177-182,185-186,197
+  s_8dbda046044e96::t_e89be23a9a6f68 203-209,301-303,316,318-319
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  s_8dbda046044e96::t_83ea616b983ef0 88-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fe3b84b9a28e705e06ef10d24dc21c5ca9506edf",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
