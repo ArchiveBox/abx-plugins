@@ -16,14 +16,12 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_iwork.js"
 
 def test_public_keynote_pdf(tmp_path, ensure_chrome_test_prereqs):
     assert HOOK.is_file(), "iWork hook is missing"
-    # The hook reaches the PDF export click in under 10s; Apple then renders
-    # this 61-slide deck server-side (Chrome sits idle) for ~55s from a home
-    # connection and 90-120s+ from GitHub-hosted runners, which overran 120s.
+    # Exercise the documented production budget for the complete 61-slide PDF.
     with chrome_session(
         tmp_path,
         test_url=URL,
         timeout=60,
-        env_overrides={"IWORK_TIMEOUT": "240"},
+        env_overrides={"IWORK_TIMEOUT": "120"},
     ) as (_, _, chrome, env):
         result = subprocess.run(
             [str(HOOK), f"--url={URL}"],
@@ -31,7 +29,7 @@ def test_public_keynote_pdf(tmp_path, ensure_chrome_test_prereqs):
             env=env,
             capture_output=True,
             text=True,
-            timeout=270,
+            timeout=150,
         )
         assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
