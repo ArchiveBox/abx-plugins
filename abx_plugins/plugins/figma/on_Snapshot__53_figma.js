@@ -78,7 +78,9 @@ async function main() {
     const blocked = await page.evaluate(() => {
       const text = document.body.innerText;
       if (/403 ERROR|Request blocked/.test(text)) return "403";
-      if (document.title === "Human Verification" && text.includes("Let's confirm you are human"))
+      if (document.title === "Human Verification" && (
+        text.includes("Let's confirm you are human") || document.querySelector("#captcha-container")
+      ))
         return "human-verification";
       return null;
     });
