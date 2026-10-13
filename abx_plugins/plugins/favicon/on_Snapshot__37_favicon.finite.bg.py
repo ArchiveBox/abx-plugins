@@ -60,7 +60,7 @@ class HttpDeadlineExceeded(TimeoutError):
     pass
 
 
-def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
+def http_get(url: str, headers: dict[str, str], timeout: float) -> tuple[int, bytes]:
     # urllib's socket timeout does not bound total response time after a peer
     # accepts the connection. Fork the already-loaded hook process so the
     # parent can enforce a wall-clock deadline without paying for another
@@ -141,6 +141,14 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     """
 
     timeout = int(CONFIG.FAVICON_TIMEOUT)
+    # FAVICON_TIMEOUT bounds the whole hook, not each request: with up to
+    # five sequential fetches (page, link hrefs, defaults, provider) a
+    # per-request budget let one snapshot's favicon run 242s against 120s.
+    hook_deadline = time.monotonic() + timeout
+
+    def remaining() -> float:
+        return hook_deadline - time.monotonic()
+
     library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
     user_agent = (
         f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
@@ -163,7 +171,7 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     # Try to extract favicon URL from HTML link tags
     try:
-        status_code, body = http_get(url, headers=headers, timeout=timeout)
+        status_code, body = http_get(url, headers=headers, timeout=remaining())
         if 200 <= status_code < 300 and body:
             html = body.decode("utf-8", errors="replace")
             # Look for <link rel="icon" href="...">
@@ -186,8 +194,12 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     # Try each URL until we find one that works
     for favicon_url in favicon_urls:
+        if remaining() <= 0:
+            break
         try:
-            status_code, body = http_get(favicon_url, headers=headers, timeout=timeout)
+            status_code, body = http_get(
+                favicon_url, headers=headers, timeout=remaining()
+            )
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""
         except HttpDeadlineExceeded:
@@ -197,9 +209,11 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     # Try configured provider as final fallback.
     provider_url = build_provider_url(provider_template, domain)
-    if provider_url:
+    if provider_url and remaining() > 0:
         try:
-            status_code, body = http_get(provider_url, headers=headers, timeout=timeout)
+            status_code, body = http_get(
+                provider_url, headers=headers, timeout=remaining()
+            )
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""
         except Exception:

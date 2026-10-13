@@ -129,6 +129,48 @@ def test_config_timeout_honored(httpserver):
         assert result_json["output_str"] == "No favicon found"
 
 
+def test_timeout_bounds_whole_hook_across_sequential_requests(httpserver):
+    """FAVICON_TIMEOUT is one budget for every request the hook makes."""
+    release = threading.Event()
+
+    def slow_page(_request):
+        release.wait(3)
+        return Response(
+            "<html><head></head><body></body></html>", content_type="text/html"
+        )
+
+    def stalled(_request):
+        release.wait()
+        return Response("too late", status=200, content_type="image/x-icon")
+
+    httpserver.expect_request("/").respond_with_handler(slow_page)
+    httpserver.expect_request("/favicon.ico").respond_with_handler(stalled)
+    httpserver.expect_request("/provider/example").respond_with_handler(stalled)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env["FAVICON_TIMEOUT"] = "5"
+        env["SNAP_DIR"] = str(tmpdir)
+        env["FAVICON_PROVIDER"] = httpserver.url_for("/provider/example")
+
+        start = time.monotonic()
+        try:
+            result = _run_favicon_hook(tmpdir, httpserver.url_for("/"), env)
+        finally:
+            release.set()
+        elapsed = time.monotonic() - start
+
+        assert result.returncode == 0, result.stderr
+        # A per-request budget took 3s (page) + 5s (favicon.ico) + 5s (provider).
+        assert elapsed < 7, (
+            f"FAVICON_TIMEOUT must bound the whole hook, took {elapsed:.1f}s"
+        )
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None
+        assert result_json["status"] == "noresults", result_json
+
+
 def test_handles_noresults_for_missing_favicon(httpserver):
     """Test that missing favicons report noresults with an exact ArchiveResult."""
     httpserver.expect_request("/").respond_with_data(
