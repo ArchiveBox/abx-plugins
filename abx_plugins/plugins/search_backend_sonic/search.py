@@ -34,7 +34,8 @@ def search(
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     search_client_cls: Any = sonic.SearchClient
 
-    config = load_config(CONFIG_PATH, environ=environ)
+    # Network clients need connection settings, not local Sonic server discovery.
+    config = load_config(CONFIG_PATH, environ=environ, hydrate_binaries=False)
 
     with search_client_cls(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,
@@ -62,7 +63,8 @@ def flush(
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     ingest_client_cls: Any = sonic.IngestClient
 
-    config = load_config(CONFIG_PATH, environ=environ)
+    # The server may be remote; resolving its local executable adds work per call.
+    config = load_config(CONFIG_PATH, environ=environ, hydrate_binaries=False)
 
     with ingest_client_cls(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,

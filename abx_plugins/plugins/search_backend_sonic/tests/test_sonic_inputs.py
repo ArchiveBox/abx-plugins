@@ -12,7 +12,7 @@ from abx_plugins.plugins.search_backend_sonic.daemon import (
     get_sonic_supervisord_worker,
     is_port_listening,
 )
-from abx_plugins.plugins.search_backend_sonic.search import search
+from abx_plugins.plugins.search_backend_sonic.search import flush, search
 
 
 def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Path):
@@ -144,6 +144,9 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert search("Lotto889", environ=env) == ["explicit-sonic-id"]
             assert search(tail_term, environ=env) == ["explicit-sonic-id"]
             assert "buffer overflow" not in (tmp_path / "sonic-test.log").read_text()
+            flush(["explicit-sonic-id"], environ=env)
+            assert search("Lotto889", environ=env) == []
+            assert search(tail_term, environ=env) == []
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)
