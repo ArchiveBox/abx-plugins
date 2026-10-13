@@ -1,0 +1,19 @@
+abx_plugins/plugins/iwork/tests/test_iwork.py
+  s_8dbda046044e96::t_a76e7e5340fb5e 19,24,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b1a43bbbdde99962e12aed02ae2a39c81c0c0ce8",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
