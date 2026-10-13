@@ -1,0 +1,31 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_20f72622e178fb::t_4b5c20d0cf6c86 3539,3543,3579
+abx_plugins/plugins/tlsnotary/on_Snapshot__31_tlsnotary.finite.bg.js
+  s_20f72622e178fb::t_b979797873a454 34,150-153,312-327
+abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py
+  s_8dbda046044e96::t_4c106c614fbc15 17,38,725-797
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "42f170156ccfb85d56a12516366423c47f121dd6",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
