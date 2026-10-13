@@ -154,7 +154,7 @@ Lifecycle:
 - Extension setup hooks can publish `CRAWL_DIR/chrome/extensions/<name>.extension.json` with `name`, matching installed `version`, and a prepared `unpacked_path`. Chrome uses that copy only when the installed extension is selected and enabled; setup must leave the shared package cache unchanged.
 - Plugins whose snapshot hook owns the extension lifecycle may set `x-chrome-extension-load: on-demand` in `config.json`. Chrome keeps the installed extension available and enables CDP extension loading, but the hook loads and unloads it around each capture.
 - `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
-- Papers download starts after DOM capture and overlaps article parsing; PDF parsers consume the files available when they start.
+- Papers download starts after DOM capture and overlaps article parsing.
 - Final-file consumers may declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
 
 State:
