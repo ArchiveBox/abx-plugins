@@ -277,6 +277,36 @@ def test_fetches_non_ascii_article_url(tmp_path, httpserver):
     ]
 
 
+def test_reports_cited_papers_that_could_not_be_downloaded(tmp_path, httpserver):
+    """A cited paper with no downloadable PDF is not 'No papers found'."""
+    doi = "10.5555/abx-papersdl-undownloadable"
+    httpserver.expect_request("/news/article").respond_with_data(
+        f'<html><body><p>A study <a href="https://doi.org/{doi}">reported today</a>.</p></body></html>',
+        content_type="text/html; charset=utf-8",
+    )
+    result = subprocess.run(
+        [str(PAPERSDL_HOOK), "--url", httpserver.url_for("/news/article")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PAPERSDL_BINARY": require_papersdl_binary(),
+            "PAPERSDL_TIMEOUT": "120",
+            "SNAP_DIR": str(tmp_path),
+        },
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"Downloading paper: {doi}" in result.stderr, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": f"Found 1 paper, none downloadable: {doi}",
+    }, result.stdout + result.stderr
+    assert not list((tmp_path / "papersdl").glob("*.pdf"))
+
+
 @pytest.mark.parametrize("saved_html", [False, True])
 def test_download_paper_linked_from_article(tmp_path, saved_html):
     """Download the paper linked by a real page whose own URL has no identifier."""

@@ -366,6 +366,10 @@ def main(url: str):
             # Success - emit ArchiveResult
             pdfs = sorted(path.name for path in OUTPUT_DIR.glob("*.pdf"))
             status = "noresults" if downloaded_count == 0 else "succeeded"
+            # Cited papers whose PDF no provider could supply are not absent.
+            cited = ", ".join(identifiers[:3]) + (
+                ", ..." if len(identifiers) > 3 else ""
+            )
             emit_archive_result_record(
                 status,
                 (
@@ -373,6 +377,8 @@ def main(url: str):
                     if len(pdfs) == 1
                     else f"{downloaded_count} PDFs downloaded"
                     if downloaded_count
+                    else f"Found {len(identifiers)} paper{'' if len(identifiers) == 1 else 's'}, none downloadable: {cited}"
+                    if identifiers
                     else "No papers found"
                 ),
             )
