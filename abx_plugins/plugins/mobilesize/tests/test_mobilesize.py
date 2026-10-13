@@ -19,7 +19,7 @@ PLUGIN_DIR = Path(__file__).parent.parent
 HOOK = PLUGIN_DIR / "on_Snapshot__60_mobilesize.js"
 
 
-def inspect_page(env, chrome_dir, prepare=False, width=1280, height=800, stall=False):
+def inspect_page(env, chrome_dir, prepare=False, stall=False):
     result = subprocess.run(
         [
             env["NODE_BINARY"],
@@ -32,10 +32,11 @@ const {connectToPage} = require(process.argv[1]);
   });
   try {
     if (process.argv[3] === 'true') {
-      await page.setViewport({width:Number(process.argv[4]), height:Number(process.argv[5]), deviceScaleFactor:1});
+      // The tab's size is the persona's CHROME_RESOLUTION. A viewport set by
+      // this short-lived client would end with its session, like any hook's.
       await page.evaluate(() => window.scrollTo({top:700, behavior:'instant'}));
     }
-    if (process.argv[6] === 'true') {
+    if (process.argv[4] === 'true') {
       // A real busy renderer, not a mocked CDP timeout. Schedule after returning
       // so this client can disconnect while the hook encounters the stall.
       await page.evaluate(() => setTimeout(() => {
@@ -56,8 +57,6 @@ const {connectToPage} = require(process.argv[1]);
             str(CHROME_PLUGIN_DIR / "chrome_utils.js"),
             str(chrome_dir),
             str(prepare).lower(),
-            str(width),
-            str(height),
             str(stall).lower(),
         ],
         env=env,
@@ -106,7 +105,12 @@ def test_mobile_assets_load_without_reloading_and_desktop_state_is_restored(
             content_type="image/svg+xml",
         )
     url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
-    with chrome_session(tmp_path, test_url=url, timeout=45) as (_, _, chrome_dir, env):
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=45,
+        env_overrides={"CHROME_RESOLUTION": "1280,800"},
+    ) as (_, _, chrome_dir, env):
         env = env | {
             "MOBILESIZE_WIDTH": str(width),
             "MOBILESIZE_HEIGHT": str(height),
@@ -198,8 +202,12 @@ def test_height_breakpoint_at_phone_width(httpserver, tmp_path, original_width):
         content_type="image/svg+xml",
     )
     url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
-    with chrome_session(tmp_path, test_url=url) as (_, _, chrome_dir, env):
-        before = inspect_page(env, chrome_dir, prepare=True, width=original_width)
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        env_overrides={"CHROME_RESOLUTION": f"{original_width},800"},
+    ) as (_, _, chrome_dir, env):
+        before = inspect_page(env, chrome_dir, prepare=True)
         assert url + "short.svg" not in before["resources"]
         result = subprocess.run(
             [str(HOOK), f"--url={url}"],
@@ -252,7 +260,11 @@ def test_timeout_bounds_a_stalled_renderer(httpserver, tmp_path):
         content_type="text/html",
     )
     url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
-    with chrome_session(tmp_path, test_url=url) as (_, _, chrome_dir, env):
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        env_overrides={"CHROME_RESOLUTION": "1280,800"},
+    ) as (_, _, chrome_dir, env):
         before = inspect_page(env, chrome_dir, prepare=True)
         inspect_page(env, chrome_dir, stall=True)
         started = time.monotonic()

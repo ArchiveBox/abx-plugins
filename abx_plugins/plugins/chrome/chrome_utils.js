@@ -4690,6 +4690,69 @@ function personaImportState(outputDir, cdpUrl, cookiesFile, config) {
   return { imported, save: () => writeFileAtomic(filename, digest) };
 }
 
+// Chrome has ONE device-emulation size and ONE focus-emulation flag per tab,
+// not one per CDP session. When any session that set a viewport or focus
+// override ends (explicit detach or its client disconnecting), Chrome resets
+// that slot for the whole tab: the view returns to its unemulated window size
+// and focus emulation can turn off, even though this persona session still
+// holds its own override. Hidden tabs defer that resize, which used to mask it.
+// The persona session therefore owns the tab's baseline for its lifetime:
+// it keeps web tabs visible and focused (hidden tabs defer <video>/MediaSource
+// loading, so recorders miss media) and re-applies the persona viewport
+// whenever another client's override has ended. Hooks' own temporary sizes
+// are left alone: only Chrome's unemulated fallback size triggers a restore.
+// Extension and browser UI pages (e.g. recorder helper popups) stay
+// unfocused background tools.
+async function holdBaselineEmulation(session, metrics, unemulated, focus) {
+  let restoring = false;
+  let resizedAgain = false;
+  const restore = async () => {
+    // A reset during an in-flight check must be checked again afterwards.
+    if (restoring) {
+      resizedAgain = true;
+      return;
+    }
+    restoring = true;
+    do {
+      resizedAgain = false;
+      try {
+        const { cssLayoutViewport: viewport } = await session.send(
+          "Page.getLayoutMetrics",
+        );
+        if (
+          viewport.clientWidth === unemulated.clientWidth &&
+          viewport.clientHeight === unemulated.clientHeight &&
+          (viewport.clientWidth !== metrics.width ||
+            viewport.clientHeight !== metrics.height)
+        ) {
+          // This session still believes its override is active, so setting
+          // the same metrics again would only resize the view and leave
+          // Chrome's device emulation (e.g. deviceScaleFactor) disabled.
+          await session.send("Emulation.clearDeviceMetricsOverride");
+          await session.send("Emulation.setDeviceMetricsOverride", metrics);
+        }
+        // Chrome applies this flag to the tab on every call, even when this
+        // session already enabled it, so it also repairs another client's reset.
+        if (focus) {
+          await session.send("Emulation.setFocusEmulationEnabled", {
+            enabled: true,
+          });
+        }
+      } catch (error) {
+        if (!session.detached)
+          console.error(`Baseline emulation restore failed: ${error.message}`);
+      }
+    } while (resizedAgain && !session.detached);
+    restoring = false;
+  };
+  if (focus) {
+    await session.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+  }
+  // The reset resizes the main frame, which Page reports to every session.
+  session.on("Page.frameResized", restore);
+  await session.send("Page.enable");
+}
+
 async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir } = {}) {
   // This connection belongs to the launch daemon. Keep emulation sessions alive:
   // disconnecting them clears CDP overrides, including for other CDP clients.
@@ -4770,11 +4833,21 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   const pending = new Set();
   let startup = true;
   let failure = null;
-  async function hydrate(session) {
+  async function hydrate(session, { type: targetType, url: targetUrl }) {
     const { width, height } = parseResolution(config.CHROME_RESOLUTION || config.RESOLUTION || "1440,2000");
-    await session.send("Emulation.setDeviceMetricsOverride", {
+    const metrics = {
       width, height, deviceScaleFactor: Number(config.BROWSER_DEVICE_SCALE_FACTOR || 1), mobile: false,
-    });
+    };
+    // Tabs keep the size Chrome reverts to when emulation ends: read it while
+    // this target is still paused, before any client has emulated a size.
+    const unemulated = targetType === "page"
+      ? (await session.send("Page.getLayoutMetrics")).cssLayoutViewport
+      : null;
+    await session.send("Emulation.setDeviceMetricsOverride", metrics);
+    if (unemulated) {
+      const webContent = !/^(chrome|chrome-extension|chrome-untrusted|devtools):/.test(targetUrl);
+      await holdBaselineEmulation(session, metrics, unemulated, webContent);
+    }
     if (userAgentOverride) await session.send("Emulation.setUserAgentOverride", userAgentOverride);
     // Blink holds locale and timezone overrides per renderer process, owned by
     // the first DevTools session that set them. Targets sharing a process (all
@@ -4846,7 +4919,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     const session = root.connection().session(sessionId);
     const work = (async () => {
       try {
-        await hydrate(session);
+        await hydrate(session, targetInfo);
         if (!session.detached) await session.send("Runtime.runIfWaitingForDebugger");
       } catch (error) {
         // A target that closed mid-hydration never ran without its persona:
