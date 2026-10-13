@@ -237,6 +237,7 @@ emit_collection(request, links, message=source['label'], account=source)
                 )
                 assert rejected is None
                 assert "already delivered" in error
+                assert "already delivered" in (tmp_path / "replay-0.log").read_text()
                 request = {**request, "checkpoint": first[-1]["checkpoint"]}
                 request_file.write_text(json.dumps(request))
                 second, error = replay(
@@ -263,6 +264,17 @@ emit_collection(request, links, message=source['label'], account=source)
                 assert repeated is not None, error
                 assert len(repeated) == 1 and repeated[0]["has_more"] is False
                 assert not list(tmp_path.glob("learning-*.jsonl"))
+                request_file.unlink()
+                rejected, error = replay(
+                    workspace,
+                    request,
+                    replay_env,
+                    tmp_path,
+                    0,
+                    time.monotonic() + 120,
+                )
+                assert rejected is None and error
+                assert "Replay rejected:" in (tmp_path / "replay-0.log").read_text()
             assert importer_env["IMPORTERS_TAB_ID"] not in run_harness(
                 "print(json.dumps(list_tabs()))",
             )

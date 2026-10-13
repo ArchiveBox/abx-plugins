@@ -114,11 +114,11 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
                 log.write("\nContinuation validation with the returned checkpoint:\n")
             log.write(process.stderr)
         if process.returncode:
-            return None, (process.stderr or process.stdout)[-12000:]
+            raise ValueError((process.stderr or process.stdout)[-12000:])
         records = list(read_records(process.stdout.splitlines(), request))
         result = records[-1]
         if result["status"] == "failed":
-            return None, str(result.get("message", "Discovery failed."))
+            raise ValueError(str(result.get("message", "Discovery failed.")))
         if result["status"] == "succeeded" and not result.get("account", {}).get("id"):
             raise ValueError("Identify the signed-in account before returning success.")
         if (
@@ -158,7 +158,13 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
         succeeded = result["status"] == "succeeded"
         return records, ""
     except (TypeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
-        return None, f"{type(error).__name__}: {error}"
+        message = f"{type(error).__name__}: {error}"
+        try:
+            with (run_dir / f"replay-{attempt}.log").open("a") as log:
+                log.write("\nReplay rejected: " + message + "\n")
+        except OSError:
+            pass  # Preserve the actual replay error if evidence cannot be saved.
+        return None, message
     finally:
         if not succeeded and not request.get("delivered_ids"):
             capture_failure(env, run_dir, attempt)
