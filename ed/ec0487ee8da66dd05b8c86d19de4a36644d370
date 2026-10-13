@@ -1,0 +1,19 @@
+abx_plugins/plugins/wetransfer/on_Snapshot__53_wetransfer.js
+  s_8dbda046044e96::t_598da79d230d6a 125-130,132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "edec0487ee8da66dd05b8c86d19de4a36644d370",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
