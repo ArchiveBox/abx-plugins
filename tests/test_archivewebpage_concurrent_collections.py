@@ -1944,3 +1944,181 @@ def test_concurrent_starts_attach_helpers_while_other_tabs_record(
     assert len(collection_ids) == len(snapshot_ids)
     launch_log = (crawl_chrome_dir / "chrome_launch.stderr.log").read_text()
     assert "Persona hydration failed" not in launch_log, launch_log
+
+
+DASH_FIXTURE = Path(__file__).parent / "fixtures/media/dash_vp9_fragmented.mp4"
+
+
+def _mp4_boxes(data: bytes) -> list[tuple[str, int, int]]:
+    boxes, offset = [], 0
+    while offset < len(data):
+        size = int.from_bytes(data[offset : offset + 4], "big")
+        boxes.append((data[offset + 4 : offset + 8].decode("ascii"), offset, size))
+        offset += size
+    return boxes
+
+
+def _read_dash_player_state(snapshot_chrome_dir: Path, env: dict[str, str]) -> dict:
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+(async () => {
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir: process.argv[2], requireTargetId: true,
+    puppeteer: chromeUtils.resolvePuppeteerModule(), timeoutMs: 10000,
+  });
+  try {
+    // Poll with Node timers: a hidden page's own timers may be throttled.
+    let state = null;
+    for (let attempt = 0; attempt < 60; attempt++) {
+      state = await page.evaluate(() => ({
+        ...window.__dashPlayer,
+        visibility: document.visibilityState,
+        currentTime: document.querySelector('video').currentTime,
+      }));
+      if (state.status !== 'pending' && state.currentTime > 1) break;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    process.stdout.write(JSON.stringify(state));
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    result = subprocess.run(
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(snapshot_chrome_dir)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_background_snapshot_tab_still_records_range_as_query_dash_video(
+    archivewebpage_crawl,
+    httpserver_ipv4,
+    tmp_path,
+):
+    """A snapshot tab that is not the selected tab must still play and record video.
+
+    WHY: Facebook post snapshots replayed "Sorry, we're having trouble playing
+    this video". Snapshot tabs are created in the background, and other hooks
+    and concurrent snapshots select their own tabs. Chrome defers media loading
+    in a hidden tab, so the player never opened its MediaSource or requested
+    its ``bytestart``/``byteend`` segments, and Facebook aborted in-flight
+    segment fetches when the tab was hidden. ArchiveWeb.page records
+    range-as-query media (``video*.fbcdn.net``) by fetching the whole file only
+    once the page requests a segment, so the WACZ had no video to replay.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    clip = DASH_FIXTURE.read_bytes()
+    boxes = _mp4_boxes(clip)
+    init_end = boxes[1][1] + boxes[1][2] - 1
+    segments = [
+        [offset, next_offset + next_size - 1]
+        for (kind, offset, _size), (_next_kind, next_offset, next_size) in zip(
+            boxes, boxes[1:]
+        )
+        if kind == "moof"
+    ]
+    assert len(segments) >= 3, boxes
+    clip_path = "/video.fbcdn.net/o1/clip.mp4"
+
+    def clip_response(request):
+        from werkzeug.wrappers import Response
+
+        # Facebook's CDN serves DASH segments as query-string byte ranges.
+        if "bytestart" in request.args:
+            start = int(request.args["bytestart"])
+            end = int(request.args["byteend"])
+            return Response(clip[start : end + 1], content_type="video/mp4")
+        return Response(clip, content_type="video/mp4")
+
+    httpserver_ipv4.expect_request(clip_path).respond_with_handler(clip_response)
+    httpserver_ipv4.expect_request("/favicon.ico").respond_with_data("", status=404)
+    httpserver_ipv4.expect_request("/other").respond_with_data(
+        "<!doctype html><title>Other snapshot</title>",
+        content_type="text/html",
+    )
+    httpserver_ipv4.expect_request("/player").respond_with_data(
+        f"""<!doctype html><title>DASH player</title>
+<video muted autoplay playsinline></video>
+<script>
+window.__dashPlayer = {{status: 'pending', segments: 0}};
+const video = document.querySelector('video');
+const source = new MediaSource();
+video.src = URL.createObjectURL(source);
+source.addEventListener('sourceopen', async () => {{
+  const buffer = source.addSourceBuffer('video/mp4; codecs="vp09.00.10.08"');
+  const append = data => new Promise((resolve, reject) => {{
+    buffer.addEventListener('updateend', resolve, {{once: true}});
+    buffer.addEventListener('error', reject, {{once: true}});
+    buffer.appendBuffer(data);
+  }});
+  try {{
+    for (const [start, end] of {json.dumps([[0, init_end], *segments])}) {{
+      const response = await fetch(`{clip_path}?oh=sig&bytestart=${{start}}&byteend=${{end}}`);
+      if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+      await append(await response.arrayBuffer());
+      window.__dashPlayer.segments++;
+    }}
+    source.endOfStream();
+    window.__dashPlayer.status = 'loaded';
+  }} catch (error) {{
+    window.__dashPlayer.status = `error: ${{error}}`;
+  }}
+}});
+</script>""",
+        content_type="text/html",
+    )
+    url = httpserver_ipv4.url_for("/player")
+    snapshot = tmp_path / "background-player"
+    (snapshot / "chrome").mkdir(parents=True)
+    snapshot_env = env | {"SNAP_DIR": str(snapshot)}
+    tab_processes.append(
+        launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot / "chrome",
+            tab_env=snapshot_env,
+            test_url=url,
+            snapshot_id="background-player",
+            crawl_id="test-archivewebpage-lifecycle",
+        ),
+    )
+    start = _run_start_hook(snapshot, snapshot_env, url)
+    assert start.returncode == 0, (start.stdout, start.stderr)
+    # A concurrent snapshot in the same crawl selects its own tab, exactly as
+    # crawls with several URLs do while this snapshot is still navigating.
+    other_dir, other_env = _start_snapshot_recording(
+        tmp_path,
+        env,
+        tab_processes,
+        snapshot_id="selected-snapshot",
+        url=httpserver_ipv4.url_for("/other"),
+    )
+    navigate = _run_navigate_hook(snapshot, snapshot_env, url)
+    assert navigate.returncode == 0, (navigate.stdout, navigate.stderr)
+
+    player = _read_dash_player_state(snapshot / "chrome", snapshot_env)
+    assert player["visibility"] == "visible", player
+    assert player["status"] == "loaded", player
+    assert player["segments"] == len(segments) + 1, player
+    assert player["currentTime"] > 1, player
+
+    stop = _run_stop_hook(snapshot, snapshot_env, url)
+    assert stop.returncode == 0, (stop.stdout, stop.stderr)
+    other_stop = _run_stop_hook(other_dir, other_env, httpserver_ipv4.url_for("/other"))
+    assert other_stop.returncode == 0, (other_stop.stdout, other_stop.stderr)
+
+    full_clip_url = httpserver_ipv4.url_for(f"{clip_path}?oh=sig")
+    with zipfile.ZipFile(snapshot / "archivewebpage/archivewebpage.wacz") as archive:
+        rows = [
+            json.loads(line.split(" ", 2)[2])
+            for line in archive.read("indexes/index.cdx").decode().splitlines()
+        ]
+        clip_rows = [row for row in rows if row["url"] == full_clip_url]
+        assert clip_rows, [row["url"] for row in rows]
+        compressed = archive.read("archive/" + clip_rows[0]["filename"])
+        offset, length = int(clip_rows[0]["offset"]), int(clip_rows[0]["length"])
+        record = gzip.decompress(compressed[offset : offset + length])
+    # Replay slices bytestart/byteend requests out of this one full response.
+    assert clip_rows[0]["status"] == 200, clip_rows
+    assert record.rstrip(b"\r\n").endswith(clip), "WACZ lacks the full video file"

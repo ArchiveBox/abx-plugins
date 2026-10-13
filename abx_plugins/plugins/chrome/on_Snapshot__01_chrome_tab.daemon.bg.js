@@ -210,6 +210,18 @@ async function startTargetMonitor() {
   });
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
+  // Snapshot tabs are opened in the background, and later hooks open their own
+  // foreground tabs (extension helpers, export pages, other snapshots in the
+  // crawl). Chrome defers <video>/<audio> loading, including MediaSource
+  // players, in a hidden tab, and sites such as Facebook pause the player and
+  // abort its segment fetches on visibilitychange. ArchiveWeb.page then never
+  // sees that media, so the WACZ replays "trouble playing this video". Focus
+  // emulation keeps this exact tab visible and focused without selecting it.
+  // The override belongs to this CDP session, which lives as long as the tab.
+  const focusSession = await monitorPage.createCDPSession();
+  await focusSession.send("Emulation.setFocusEmulationEnabled", {
+    enabled: true,
+  });
   monitorPage.once("error", async (error) => {
     if (shuttingDown || targetId !== expectedTargetId) return;
     const crashedPage = monitorPage;
