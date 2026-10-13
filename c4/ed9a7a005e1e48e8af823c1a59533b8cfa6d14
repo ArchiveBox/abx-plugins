@@ -1,0 +1,24 @@
+abx_plugins/plugins/favicon/tests/test_favicon.py
+  s_2b44ee96cc775e::t_f2abfab05e70bc 153
+  s_2b44ee96cc775e::t_5781f57faeda69 132-152,154-169
+  s_2b44ee96cc775e::t_e893d3911e5128 170-173
+abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py
+  s_2b44ee96cc775e::t_ec3e51a5e6c86c 63,144-151,174,197-198,200-202,212
+  s_2b44ee96cc775e::t_bee8e6020f35ba 214-216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4ed9a7a005e1e48e8af823c1a59533b8cfa6d14",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
