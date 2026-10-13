@@ -37,6 +37,7 @@ import os
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import tempfile
 import threading
@@ -183,24 +184,11 @@ def find_document_sources(
     archive_bytes = 0
     warned_limit = False
 
-    def readable_file(match: Path) -> bool:
-        # Path.is_file()/stat() only swallow "missing" errors. An I/O error on
-        # one file (e.g. EIO from a network-backed archive mount) must skip that
-        # file, not fail OCR for every other saved source.
-        try:
-            return match.is_file()
-        except OSError as error:
-            print(f"[liteparse] Skipping unreadable {match}: {error}", file=sys.stderr)
-            return False
-
     def consider(match: Path) -> None:
-        try:
-            consider_readable(match)
-        except OSError as error:
-            print(f"[liteparse] Skipping unreadable {match}: {error}", file=sys.stderr)
-
-    def consider_readable(match: Path) -> None:
-        if not match.is_file() or match.stat().st_size == 0:
+        # is_file() suppresses filesystem errors on Python 3.14. A failed
+        # source read is a failed capture, not evidence that no source exists.
+        source_stat = match.stat()
+        if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
             return
         resolved = str(match.resolve())
         if resolved in seen_paths:
@@ -210,10 +198,7 @@ def find_document_sources(
             return
         if suffix in IMAGE_EXTENSIONS and _image_is_too_small(match, min_image_dim):
             return
-        try:
-            digest = _content_digest(match)
-        except OSError:
-            return
+        digest = _content_digest(match)
         if digest in seen_digests:
             return
         seen_digests[digest] = match
@@ -235,7 +220,6 @@ def find_document_sources(
                     if not (
                         include_images
                         and archive_dir
-                        and readable_file(match)
                         and suffix
                         in {
                             ".zip",
@@ -250,6 +234,7 @@ def find_document_sources(
                             ".odp",
                             ".epub",
                         }
+                        and stat.S_ISREG(match.stat().st_mode)
                     ):
                         continue
                     resolved = match.resolve()
@@ -296,7 +281,6 @@ def find_document_sources(
                                 except (
                                     zipfile.BadZipFile,
                                     RuntimeError,
-                                    OSError,
                                     ValueError,
                                 ) as error:
                                     image.unlink(missing_ok=True)
@@ -310,7 +294,6 @@ def find_document_sources(
                     except (
                         zipfile.BadZipFile,
                         RuntimeError,
-                        OSError,
                         ValueError,
                     ) as error:
                         print(
