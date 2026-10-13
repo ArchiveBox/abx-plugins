@@ -76,12 +76,20 @@ const formatSize = (value) => {
         try {return {file, data:JSON.parse(await read(file)) || {}};} catch {return {file, data:{},failed:true};}
     }));
     const media = files.filter(isMedia);
-    const entries = media.map(file => ({file, info:infos.find(info => stem(info.file.path) === stem(file.path))}));
+    const entries = media.map(file => {
+        const base = stem(file.path);
+        // yt-dlp --trim-filenames drops one empty suffix component in a title
+        // ending with a dot, but .info.json retains it. Prefer exact matches,
+        // including other media files, before pairing this native sidecar shape.
+        const info = infos.find(info => stem(info.file.path) === base) || infos.find(info =>
+            stem(info.file.path) === base + '.' && !media.some(other => stem(other.path) === stem(info.file.path)));
+        return {file, info};
+    });
     // Keep metadata-only captures visible when a download was unavailable.
     for (const info of infos) if (!entries.some(entry => entry.info === info) && !['playlist','multi_video'].includes(info.data._type)) entries.push({info});
     const related = entry => {
-        const base = stem(entry.info ? entry.info.file.path : entry.file.path);
-        return files.filter(file => file.path.startsWith(base + '.') && !entries.some(other => other !== entry && stem(other.info ? other.info.file.path : other.file.path).length > base.length && file.path.startsWith(stem(other.info ? other.info.file.path : other.file.path) + '.')));
+        const base = stem(entry.file ? entry.file.path : entry.info.file.path);
+        return files.filter(file => file.path.startsWith(base + '.') && !entries.some(other => other !== entry && stem(other.file ? other.file.path : other.info.file.path).length > base.length && file.path.startsWith(stem(other.file ? other.file.path : other.info.file.path) + '.')));
     };
     const artwork = entry => related(entry).find(f => /\.(jpe?g|png|webp|avif)$/i.test(f.path));
     const name = entry => entry.info?.data.title || entry.file?.path.split('/').pop() || stem(entry.info.file.path).split('/').pop();
@@ -198,7 +206,7 @@ const formatSize = (value) => {
         for (const chapter of Array.isArray(data.chapters) ? data.chapters : []) {if (!Number.isFinite(chapter.start_time)) continue;const button = el('button',time(chapter.start_time) + ' ' + (chapter.title || 'Chapter'));button.disabled = !player;button.onclick = () => seek(chapter.start_time);$('chapters').append(button);}
         const subs = related(entry).filter(f => /\.(vtt|srt|ass|lrc)$/i.test(f.path));
         $('language').replaceChildren();$('language').hidden = !subs.length;
-        for (const [i,file] of subs.entries()) {const option = el('option',file.path.slice(stem(entry.info ? entry.info.file.path : entry.file.path).length+1));option.value = i;$('language').append(option);}
+        for (const [i,file] of subs.entries()) {const option = el('option',file.path.slice(stem(entry.file ? entry.file.path : entry.info.file.path).length+1));option.value = i;$('language').append(option);}
         $('language').onchange = () => subtitles(subs[Number($('language').value)],current);
         subtitles(subs[0],current);
         const descriptionFile = related(entry).find(f => /\.description$/i.test(f.path));
