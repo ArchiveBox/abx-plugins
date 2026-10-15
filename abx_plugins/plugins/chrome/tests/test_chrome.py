@@ -3425,6 +3425,21 @@ def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
     (article_dir / "index.html").write_text(
         "<!doctype html><title>Cached article</title>",
     )
+    # Require revalidation instead of depending on Chrome's heuristic freshness
+    # for http.server's Last-Modified response. The real static-file handler
+    # still evaluates If-Modified-Since and serves the file/304 itself.
+    server_script = """
+import http.server
+import functools
+import sys
+
+class RevalidatedFiles(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
+
+http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.argv[1]), port=0, bind='127.0.0.1')
+"""
     server = subprocess.Popen(
         [
             "uv",
@@ -3432,12 +3447,8 @@ def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
             "--no-project",
             "python",
             "-u",
-            "-m",
-            "http.server",
-            "0",
-            "--bind",
-            "127.0.0.1",
-            "--directory",
+            "-c",
+            server_script,
             str(embedded_dir),
         ],
         stdout=subprocess.PIPE,
