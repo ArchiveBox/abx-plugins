@@ -317,6 +317,49 @@ if __name__ == '__main__':
                 assert repeated is not None, error
                 assert len(repeated) == 1 and repeated[0]["has_more"] is False
                 assert not list(tmp_path.glob("learning-*.jsonl"))
+                # Keep an opaque account pin exact. A reader can change its ID
+                # convention while still reading the same real DOM; reject at
+                # replay so the existing repair path sees the prior identity.
+                pinned = {
+                    **request,
+                    "action": "check",
+                    "expected_account": first[-1]["account"],
+                }
+                request_file.write_text(json.dumps(pinned))
+                checked, error = replay(
+                    workspace,
+                    pinned,
+                    replay_env,
+                    tmp_path,
+                    0,
+                    time.monotonic() + 120,
+                )
+                assert checked is not None, error
+                assert checked[-1]["account"] == pinned["expected_account"]
+                changed_pin = {
+                    **pinned,
+                    "expected_account": {
+                        **pinned["expected_account"],
+                        "id": pinned["expected_account"]["id"].upper(),
+                    },
+                }
+                assert (
+                    changed_pin["expected_account"]["id"]
+                    != pinned["expected_account"]["id"]
+                )
+                request_file.write_text(json.dumps(changed_pin))
+                rejected, error = replay(
+                    workspace,
+                    changed_pin,
+                    replay_env,
+                    tmp_path,
+                    0,
+                    time.monotonic() + 120,
+                )
+                assert rejected is None
+                assert "expected_account" in error
+                assert "expected_account" in (tmp_path / "replay-0.log").read_text()
+                assert not list(tmp_path.glob("learning-*.jsonl"))
                 request_file.unlink()
                 rejected, error = replay(
                     workspace,

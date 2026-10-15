@@ -47,6 +47,11 @@ by its existing owner on completion/cancellation.
 - The agent reports verified login, CAPTCHA, MFA, and account mismatches as
   `needs_login`; ordinary script failures remain repairable errors.
 - Discovery is read-only. Check/preview never commit discovery progress.
+- A host may include `expected_account` with a previously detected account. Detect
+  the current session independently and retain the exact pinned ID for that
+  account; do not echo a pin as identity evidence. Successful mismatches fail
+  shared validation during replay and reach normal repair. A verified different
+  session still requires account recovery; the host's final identity gate remains.
 - An empty successful preview cannot claim that more history remains. Genuine
   empty-source previews remain valid when they report no more history.
 - A host may include `preview_count` from its latest matching successful preview.

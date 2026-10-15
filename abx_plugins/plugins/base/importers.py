@@ -37,6 +37,17 @@ def read_request():
 
 def read_records(lines, request, on_progress=None):
     """Validate the same JSONL boundary for host ingestion and learned-script replay."""
+    expected_account = request.get("expected_account", {})
+    if not isinstance(expected_account, dict) or (
+        expected_account
+        and (
+            not isinstance(expected_account.get("id"), str)
+            or not 1 <= len(expected_account["id"]) <= 1024
+        )
+    ):
+        raise ValueError(
+            "expected_account must be an object with a bounded stable string ID.",
+        )
     preview_count = request.get("preview_count", 0)
     if type(preview_count) is not int or not 0 <= preview_count <= 500:
         raise ValueError("Preview item count must be an integer between 0 and 500.")
@@ -115,6 +126,15 @@ def read_records(lines, request, on_progress=None):
                 dict,
             ):
                 raise ValueError("Importer checkpoint and account must be objects.")
+            if (
+                record["status"] == "succeeded"
+                and expected_account
+                and record.get("account", {}).get("id") != expected_account["id"]
+            ):
+                raise ValueError(
+                    "The importer changed expected_account.id. Verify the signed-in session "
+                    "and preserve its pinned stable ID; progress was not advanced.",
+                )
             if (
                 record["status"] == "succeeded"
                 and request["action"] == "preview"
