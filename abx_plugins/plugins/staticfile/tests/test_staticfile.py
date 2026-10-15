@@ -501,8 +501,11 @@ const chrome = require(process.argv[1]);
         assert (snapshot_chrome_dir.parent / expected_output).exists(), (
             f"Expected responses artifact at {expected_output}"
         )
-        assert not any(path.is_file() for path in staticfile_dir.iterdir()), (
+        assert list(staticfile_dir.iterdir()) == [staticfile_dir / "result.json"], (
             "Staticfile should not duplicate files when responses saved the main response"
+        )
+        assert (
+            json.loads((staticfile_dir / "result.json").read_text()) == archive_result
         )
         responses_output = snapshot_chrome_dir.parent / expected_output
         output_bytes = responses_output.read_bytes()
@@ -552,8 +555,11 @@ const chrome = require(process.argv[1]);
         assert (snapshot_chrome_dir.parent / expected_output).exists(), (
             f"Expected responses artifact at {expected_output}"
         )
-        assert not any(path.is_file() for path in staticfile_dir.iterdir()), (
+        assert list(staticfile_dir.iterdir()) == [staticfile_dir / "result.json"], (
             "Staticfile should not duplicate redirected main-response files"
+        )
+        assert (
+            json.loads((staticfile_dir / "result.json").read_text()) == archive_result
         )
 
     def test_staticfile_handles_redirected_html_pages_as_noresults(

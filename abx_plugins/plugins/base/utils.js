@@ -685,6 +685,22 @@ function isNonHtmlDocument(navigationPath = "../chrome/navigation.json") {
 
 function hasStaticFileOutput(staticfileDir = "../staticfile") {
   if (!fs.existsSync(staticfileDir)) return false;
+  const resultPath = path.join(staticfileDir, "result.json");
+  if (fs.existsSync(resultPath)) {
+    try {
+      const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+      if (result?.type !== "ArchiveResult" || result.status !== "succeeded" ||
+          typeof result.output_str !== "string" || path.isAbsolute(result.output_str)) return false;
+      const snapshot = fs.realpathSync(path.resolve(staticfileDir, ".."));
+      const output = fs.realpathSync(path.resolve(snapshot, result.output_str));
+      const relative = path.relative(snapshot, output);
+      if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return false;
+      const stat = fs.statSync(output);
+      return stat.isFile() && stat.size > 0;
+    } catch (_) {
+      return false;
+    }
+  }
   const stdoutPath = path.join(staticfileDir, "stdout.log");
   if (!fs.existsSync(stdoutPath)) return false;
   const stdout = fs.readFileSync(stdoutPath, "utf8");

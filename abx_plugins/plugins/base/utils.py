@@ -1727,10 +1727,31 @@ def is_non_html_document(navigation_path: str = "../chrome/navigation.json") -> 
 
 
 def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
+    """Read portable completion metadata, or legacy logs from older captures."""
     sf_dir = Path(staticfile_dir)
     if not sf_dir.exists():
         return False
+    result_path = sf_dir / "result.json"
+    if result_path.exists():
+        try:
+            result = json.loads(result_path.read_text())
+            if (
+                not isinstance(result, dict)
+                or result.get("type") != "ArchiveResult"
+                or result.get("status") != "succeeded"
+                or not isinstance(result.get("output_str"), str)
+                or Path(result["output_str"]).is_absolute()
+            ):
+                return False
+            snapshot = sf_dir.parent.resolve()
+            output = (snapshot / result["output_str"]).resolve()
+            return (
+                output.is_relative_to(snapshot)
+                and output.is_file()
+                and output.stat().st_size > 0
+            )
+        except (ValueError, OSError):
+            return False
     stdout_log = sf_dir / "stdout.log"
     if not stdout_log.exists():
         return False

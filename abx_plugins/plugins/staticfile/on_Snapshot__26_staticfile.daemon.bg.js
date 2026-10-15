@@ -10,7 +10,9 @@
  * saving its own copy when that artifact is unavailable.
  *
  * Usage: on_Snapshot__26_staticfile.daemon.bg.js --url=<url>
- * Output: Emits the saved main-response path
+ * Output: Emits the saved main-response path. A successful result is also saved
+ * as result.json for sibling hooks, independently of the host's log layout.
+ * The next capture removes this record before accepting a new response.
  */
 
 
@@ -31,6 +33,7 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -52,6 +55,7 @@ const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 const RESPONSES_INDEX_PATH = path.join(SNAP_DIR, "responses", "index.jsonl");
 const PRENAV_MARKER_PATH = path.join(OUTPUT_DIR, "prenav.json");
+const RESULT_PATH = path.join(OUTPUT_DIR, "result.json");
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
@@ -639,6 +643,10 @@ async function setupStaticFileListener() {
 }
 
 function emitResult(result) {
+  // Consumers must not depend on the host's per-attempt stdout log layout.
+  if (result.status === "succeeded") {
+    writeFileAtomic(RESULT_PATH, JSON.stringify(result));
+  }
   emitArchiveResultRecord(result.status, result.output_str, {
     plugin: result.plugin,
     content_type: result.content_type,
@@ -673,6 +681,7 @@ async function main() {
   }
 
   originalUrl = url;
+  fs.rmSync(RESULT_PATH, {force: true});
   writePrenavMarker("starting");
 
   if (!getEnvBool("STATICFILE_ENABLED", true)) {
