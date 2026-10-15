@@ -69,6 +69,15 @@ const utils = require(process.argv[1]);
       }
       return {url: location.href, readyState: document.readyState,
         viewport: [innerWidth, innerHeight], text: document.body.innerText.slice(0, 1200),
+        title: document.title, htmlLength: document.documentElement.outerHTML.length,
+        navigation: performance.getEntriesByType('navigation').map(entry => ({
+          status: entry.responseStatus, bytes: entry.decodedBodySize, duration: entry.duration,
+        })),
+        resources: performance.getEntriesByType('resource').map(entry => ({
+          path: new URL(entry.name).origin + new URL(entry.name).pathname,
+          type: entry.initiatorType, status: entry.responseStatus,
+          bytes: entry.decodedBodySize, duration: entry.duration,
+        })),
         indexes: [...(root?.querySelectorAll('[data-index]') || [])].map(node => node.dataset.index),
         scrollContainers: ancestors};
     }).catch(diagnosticError => ({error: diagnosticError.message}))));
