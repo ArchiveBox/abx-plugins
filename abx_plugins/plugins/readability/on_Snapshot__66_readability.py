@@ -17,6 +17,8 @@ Environment variables:
 
 Note: Requires readability-extractor from https://github.com/ArchiveBox/readability-extractor
       This extractor looks for HTML source from other extractors (wget, singlefile, dom)
+      Runs after live browser hooks and background cleanup so archived image
+      bodies exist before the article decides which images it can preserve.
 """
 
 import sys
