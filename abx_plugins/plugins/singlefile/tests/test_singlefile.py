@@ -534,13 +534,21 @@ function collectTargets(browser, extensionId) {
         assert payload["selectedTargetUrl"] == preferred_target_url, payload
 
 
-def test_singlefile_disabled_skips(tmp_path):
+def test_singlefile_disabled_skips(tmp_path, singlefile_install_state):
     """Test that SINGLEFILE_ENABLED=False exits with skipped JSONL."""
     tmpdir = tmp_path / "singlefile-disabled"
     tmpdir.mkdir()
 
     env = get_test_env()
     env["SINGLEFILE_ENABLED"] = "False"
+    # Use the same real provider installation as the other cases. Pointing this
+    # case at the unrelated shared runtime cache installs the extension twice.
+    env["ABXPKG_CHROMEWEBSTORE_ROOT"] = str(
+        singlefile_install_state["extensions_dir"].parent,
+    )
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(
+        singlefile_install_state["extensions_dir"],
+    )
 
     result = subprocess.run(
         [

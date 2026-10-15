@@ -8,6 +8,7 @@ from email.parser import BytesParser
 from pathlib import Path
 
 import pytest
+from jinja2 import Environment
 from playwright.sync_api import sync_playwright
 from pytest_httpserver import HTTPServer
 
@@ -85,7 +86,14 @@ def test_mhtml_preview_templates_live_with_mhtml_plugins(plugin_name):
     assert card_template.exists()
     assert full_template.exists()
     assert "chrome-mhtml-thumbnail" in card_template.read_text()
-    assert "?preview=1" in card_template.read_text()
+    card = (
+        Environment(autoescape=True)
+        .from_string(card_template.read_text())
+        .render(
+            output_path="/chrome_mhtml/snapshot.mhtml",
+        )
+    )
+    assert 'src="/chrome_mhtml/snapshot.mhtml?preview=1"' in card
     assert "full-page-iframe" in full_template.read_text()
     assert (
         "renderMhtmlToHtml" in full_template.read_text()
@@ -145,12 +153,11 @@ def test_mhtml_preview_selects_main_document(
             query_string="preview=1",
         ).respond_with_data(viewer, content_type="text/html")
         card = (
-            (PLUGIN_DIR / "templates/card.html")
-            .read_text()
-            .replace(
-                "{{ output_path }}",
-                output_path,
+            Environment(autoescape=True)
+            .from_string(
+                (PLUGIN_DIR / "templates/card.html").read_text(),
             )
+            .render(output_path=output_path)
         )
         httpserver.expect_request("/card.html").respond_with_data(
             card,
