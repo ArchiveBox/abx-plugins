@@ -5416,12 +5416,17 @@ async function waitForVisibleImages(page, timeoutMs) {
       try {
         const state = await element.evaluate((el) => {
           const rect = el.getBoundingClientRect();
+          // A completed 204/205 iframe navigation deliberately keeps its old
+          // document (often about:blank). It will never become a nonblank page.
+          const response = performance.getEntriesByName(el.src).at(-1);
+          const noContent = response?.initiatorType === "iframe"
+            && response.responseEnd > 0 && [204, 205].includes(response.responseStatus);
           return {
             visible: rect.width > 0 && rect.height > 0 && rect.bottom > 0
               && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth
               && el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}),
             waitForDocument: !el.hasAttribute("srcdoc") && Boolean(el.getAttribute("src"))
-              && el.src !== "about:blank",
+              && el.src !== "about:blank" && !noContent,
           };
         });
         if (!state.visible) return;

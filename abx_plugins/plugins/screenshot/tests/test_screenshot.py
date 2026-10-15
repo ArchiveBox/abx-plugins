@@ -232,6 +232,73 @@ def test_waits_for_text_in_delayed_child_frame(chrome_test_urls):
             assert (screenshot_dir / "screenshot.png").is_file()
 
 
+@pytest.mark.parametrize("status", [204, 205])
+def test_screenshot_accepts_completed_no_content_frame(tmp_path, httpserver, status):
+    httpserver.expect_request("/").respond_with_data(
+        '<!doctype html><body style="background:rgb(20,180,70)"><h1>Empty frame response</h1>'
+        '<iframe src="/empty" width="300" height="200"></iframe>',
+        content_type="text/html",
+    )
+    httpserver.expect_request("/empty").respond_with_data("", status=status)
+    with chrome_session(tmp_path, test_url=httpserver.url_for("/"), timeout=30) as (
+        _,
+        _,
+        chrome,
+        env,
+    ):
+        result = subprocess.run(
+            [str(SCREENSHOT_HOOK), f"--url={httpserver.url_for('/')}"],
+            cwd=chrome.parent,
+            env=env | {"SCREENSHOT_TIMEOUT": "5"},
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "succeeded"
+        png = chrome.parent / "screenshot" / "screenshot.png"
+        pixel_script = r"""
+const fs = require("fs");
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<img src="data:image/png;base64,${fs.readFileSync(process.argv[3]).toString("base64")}">`);
+    const pixel = await page.evaluate(async () => {
+      const image = document.querySelector("img");
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      return [...context.getImageData(5, 5, 1, 1).data];
+    });
+    console.log(JSON.stringify(pixel));
+    await page.close();
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        pixels = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                pixel_script,
+                str(CHROME_PLUGIN_DIR / "chrome_utils.js"),
+                str(chrome),
+                str(png),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert pixels.returncode == 0, pixels.stderr
+        assert json.loads(pixels.stdout) == [20, 180, 70, 255]
+
+
 def test_screenshot_waits_for_lazy_image_in_visible_child_frame(
     chrome_test_urls,
     httpserver_ipv4,
