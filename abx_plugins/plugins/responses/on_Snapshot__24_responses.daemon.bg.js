@@ -39,6 +39,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  captureOriginalPdfResponses,
   resolvePuppeteerModule,
   waitForNavigationComplete,
 } = require("../chrome/chrome_utils.js");
@@ -57,6 +58,7 @@ const CHROME_SESSION_DIR = "../chrome";
 
 let browser = null;
 let page = null;
+let originalPdfResponses = null;
 let responseCount = 0;
 let captureFailureCount = 0;
 let firstCaptureError = "";
@@ -177,6 +179,7 @@ async function setupListener() {
   });
 
   const indexPath = path.join(OUTPUT_DIR, "index.jsonl");
+  originalPdfResponses = await captureOriginalPdfResponses(page);
   writeFileAtomic(indexPath, "");
 
   async function captureResponse(response) {
@@ -197,9 +200,10 @@ async function setupListener() {
       }
 
       // Get response body
-      let bodyBuffer = null;
+      let bodyBuffer = await originalPdfResponses.read(response);
+      if (bodyBuffer === null) return;
       try {
-        bodyBuffer = await response.buffer();
+        bodyBuffer ??= await response.buffer();
       } catch (e) {
         return;
       }
@@ -383,6 +387,7 @@ async function handleShutdown(signal) {
     page.off("requestfinished", responseListener);
   }
   await pendingResponseWork;
+  await originalPdfResponses?.close();
   if (captureFailureCount) {
     await emitResult("failed", `${captureFailureCount} response capture error(s), ${responseCount} saved: ${firstCaptureError}`);
   } else {

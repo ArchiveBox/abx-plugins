@@ -40,6 +40,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  captureOriginalPdfResponses,
   acquireSessionLock,
   getBrowserConnection,
   resolvePuppeteerModule,
@@ -383,6 +384,8 @@ async function setupStaticFileListener() {
   });
   browser = connection.browser;
   page = connection.page;
+  const originalPdfResponses = getEnvBool("RESPONSES_ENABLED", true)
+    ? null : await captureOriginalPdfResponses(page);
 
   // Chrome handles Content-Disposition attachments as downloads, so their
   // response bodies are unavailable to response.buffer(). Keep the existing
@@ -575,7 +578,12 @@ async function setupStaticFileListener() {
       const maxSize = getEnvInt("STATICFILE_MAX_SIZE", 1024 * 1024 * 1024); // 1GB default
       let buffer;
       try {
-        buffer = await response.buffer();
+        if (detectedContentType === "application/pdf") {
+          buffer = await originalPdfResponses?.read(response);
+          if (!buffer) throw new Error("Original PDF response was not captured");
+        } else {
+          buffer = await response.buffer();
+        }
       } catch (bodyError) {
         try {
           savedOutputPath = await saveBrowserDownload(
@@ -639,7 +647,7 @@ async function setupStaticFileListener() {
   });
 
   writePrenavMarker("ready");
-  return { browser, page, mainResponseHandled };
+  return { browser, page, mainResponseHandled, originalPdfResponses };
 }
 
 function emitResult(result) {
@@ -704,6 +712,7 @@ async function main() {
     console.log("staticfile listener attached");
     console.error("waiting for initial response...");
     const result = await connection.mainResponseHandled;
+    await connection.originalPdfResponses?.close();
     finalized = true;
     removePrenavMarker();
     await emitResult(result);
