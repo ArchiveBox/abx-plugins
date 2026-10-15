@@ -10,6 +10,7 @@ Tests verify:
 6. Handles missing sources gracefully
 """
 
+import hashlib
 import json
 import os
 import queue
@@ -533,8 +534,12 @@ def test_extract_multiple_pdfs():
 
 
 LINE_ART_PDF_URL = (
-    "https://www.cs.umd.edu/~nakul/assets/papers/litefoot_sensys2024_nakul.pdf"
+    "https://raw.githubusercontent.com/Nakul22/website/"
+    "2169e127854ab55ea4346a5be38e44ed9208e77f/"
+    "assets/papers/litefoot_sensys2024_nakul.pdf"
 )
+# Author-hosted immutable copy, byte-identical to the original UMD regression PDF.
+LINE_ART_PDF_SHA256 = "4d77dc41448f7092e9b45809e156cf49a4722b05e351b33fd731bfeb1f801ee3"
 # The demo container's JVM ergonomics: 25% of its 10 GiB memory limit.
 PRODUCTION_HEAP_ENV = {"JAVA_TOOL_OPTIONS": "-Xmx2560m"}
 
@@ -543,6 +548,7 @@ def _download_line_art_pdf() -> bytes:
     response = requests.get(LINE_ART_PDF_URL, timeout=60)
     response.raise_for_status()
     assert response.content.startswith(b"%PDF-"), response.content[:8]
+    assert hashlib.sha256(response.content).hexdigest() == LINE_ART_PDF_SHA256
     return response.content
 
 
