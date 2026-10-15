@@ -66,6 +66,23 @@ def test_delivered_ids_reject_real_rss_reemission(tmp_path):
         }
         completed = list(read_records(discover(repeat), repeat))
         assert len(completed) == 1 and completed[0]["has_more"] is False
+
+        preview_request = {**request, "action": "preview"}
+        preview = list(read_records(discover(preview_request), preview_request))
+        assert len(preview[:-1]) == 2
+        # A real source can change between preview and import. Its previous
+        # nonempty observation must not silently become an empty first import.
+        (tmp_path / "feed.xml").write_text(
+            '<rss version="2.0"><channel><title>Cursor validation</title></channel></rss>',
+        )
+        empty_request = {**request, "preview_count": len(preview[:-1])}
+        with pytest.raises(ValueError, match="nonempty preview"):
+            list(read_records(discover(empty_request), empty_request))
+        fresh_preview = list(read_records(discover(preview_request), preview_request))
+        assert len(fresh_preview) == 1 and fresh_preview[0]["has_more"] is False
+        empty_request["preview_count"] = 0
+        empty = list(read_records(discover(empty_request), empty_request))
+        assert len(empty) == 1 and empty[0]["has_more"] is False
     finally:
         server.shutdown()
         server.server_close()

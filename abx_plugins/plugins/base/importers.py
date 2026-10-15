@@ -37,6 +37,9 @@ def read_request():
 
 def read_records(lines, request, on_progress=None):
     """Validate the same JSONL boundary for host ingestion and learned-script replay."""
+    preview_count = request.get("preview_count", 0)
+    if type(preview_count) is not int or not 0 <= preview_count <= 500:
+        raise ValueError("Preview item count must be an integer between 0 and 500.")
     delivered = request.get("delivered_ids", [])
     if (
         not isinstance(delivered, list)
@@ -112,6 +115,17 @@ def read_records(lines, request, on_progress=None):
                 dict,
             ):
                 raise ValueError("Importer checkpoint and account must be objects.")
+            if (
+                record["status"] == "succeeded"
+                and request["action"] == "import"
+                and not request.get("checkpoint", {})
+                and preview_count
+                and not count
+            ):
+                raise ValueError(
+                    "The initial import returned no items after a nonempty preview. "
+                    "Recheck the source; progress was not advanced.",
+                )
             if (
                 record["status"] == "succeeded"
                 and request["action"] == "import"

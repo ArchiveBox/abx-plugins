@@ -45,6 +45,11 @@ by its existing owner on completion/cancellation.
 - The agent reports verified login, CAPTCHA, MFA, and account mismatches as
   `needs_login`; ordinary script failures remain repairable errors.
 - Discovery is read-only. Check/preview never commit discovery progress.
+- A host may include `preview_count` from its latest matching successful preview.
+  A nonempty preview cannot become an empty successful initial import. Shared
+  validation rejects that contradiction and browser replay reaches normal repair.
+  Continuations and repeat-zero imports remain valid. If a source really became
+  empty, run a fresh preview before its first import.
 
 The natural-language contract requires complete pagination, including new items
 at the head and unfinished older history. `limit` is only a batch size. The host
