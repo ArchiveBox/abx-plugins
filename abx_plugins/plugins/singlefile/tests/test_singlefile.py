@@ -203,7 +203,11 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
         after_state = json.loads(after.stdout)
         downloads = after_state.pop("downloads")
         download_directory = Path(after_state.pop("downloadDirectory"))
-        assert downloads, "SingleFile must complete a real browser download"
+        assert downloads, (
+            "SingleFile must complete a real browser download\n"
+            f"Hook exit code: {result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
         assert all(
             Path(item["filename"]).parent == download_directory for item in downloads
         ), downloads
