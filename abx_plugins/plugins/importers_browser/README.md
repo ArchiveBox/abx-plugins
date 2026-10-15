@@ -26,6 +26,8 @@ by its existing owner on completion/cancellation.
 
 - Every source has its own private `state/current/importer.py` and harness workspace.
 - A saved script replays without an agent. Failures trigger up to two live repairs.
+- Replay executes the saved file as a Python main script with Harness helpers
+  available, including normal `__file__` and `if __name__ == "__main__"` behavior.
 - Every repair starts a fresh OpenCode session with the current task and replay
   error. Only scripts and Browser Harness domain knowledge persist.
 - A learning timeout is fatal: the host records the failure screen and stops

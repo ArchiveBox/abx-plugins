@@ -219,7 +219,10 @@ try {
                 # next batch. No agent, replacement binary or canned JSONL.
                 workspace = tmp_path / "feed-reader"
                 workspace.mkdir()
-                (workspace / "importer.py").write_text("""import os, json
+                (
+                    workspace / "importer.py"
+                ).write_text("""from __future__ import annotations
+import os, json
 from pathlib import Path
 from abx_plugins.plugins.base.importers import emit_collection
 request = json.loads(Path(os.environ['IMPORTERS_REQUEST_FILE']).read_text())
@@ -228,7 +231,12 @@ goto_url(request['settings']['url'])
 wait_for_load()
 source = js('({id:location.origin,label:document.title})')
 links = js("Array.from(document.links, a => ({id:a.href,url:a.href,title:a.textContent,metadata:{}}))")
-emit_collection(request, links, message=source['label'], account=source)
+def main():
+    assert Path(__file__).resolve() == Path.cwd() / 'importer.py'
+    emit_collection(request, links, message=source['label'], account=source)
+
+if __name__ == '__main__':
+    main()
 """)
                 request = {
                     "version": 1,
@@ -327,13 +335,13 @@ emit_collection(request, links, message=source['label'], account=source)
             standalone_workspace.mkdir(parents=True)
             reader = (workspace / "importer.py").read_text()
             reader = reader.replace(
-                "emit_collection(request, links,",
-                """import subprocess
-agent = subprocess.run([os.environ['OPENCODE_BINARY'], 'debug', 'agent', 'build'], capture_output=True, text=True, check=True, timeout=30)
-skills_enabled = json.loads(agent.stdout)['tools'].get('skill', False)
-for link in links:
-    link['metadata']['host_skills_enabled'] = skills_enabled
-emit_collection(request, links,""",
+                "    emit_collection(request, links,",
+                """    import subprocess
+    agent = subprocess.run([os.environ['OPENCODE_BINARY'], 'debug', 'agent', 'build'], capture_output=True, text=True, check=True, timeout=30)
+    skills_enabled = json.loads(agent.stdout)['tools'].get('skill', False)
+    for link in links:
+        link['metadata']['host_skills_enabled'] = skills_enabled
+    emit_collection(request, links,""",
             )
             (standalone_workspace / "importer.py").write_text(reader)
             standalone = subprocess.run(

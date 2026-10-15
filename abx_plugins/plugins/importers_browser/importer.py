@@ -101,7 +101,10 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
     try:
         process = subprocess.run(
             ["browser-harness"],
-            input=script.read_text(),
+            input=(
+                "import runpy\n"
+                f"runpy.run_path({str(script.resolve())!r}, init_globals=globals(), run_name='__main__')\n"
+            ),
             cwd=workspace,
             env=env,
             text=True,
