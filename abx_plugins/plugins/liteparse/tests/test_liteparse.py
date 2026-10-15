@@ -963,7 +963,8 @@ def test_parser_failure_is_failed_and_preserves_completed_files(
     assert not list((tmp_path / "liteparse").glob(".batch_*"))
 
 
-def test_parser_timeout_preserves_completed_files(tmp_path):
+@pytest.mark.parametrize("configured_tmp", [False, True])
+def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
     """Pause the real parser after an output and exercise the hook's deadline."""
     import signal
     import time
@@ -987,6 +988,9 @@ def test_parser_timeout_preserves_completed_files(tmp_path):
         "LITEPARSE_BATCH_SIZE": "100",
         "LITEPARSE_PARALLEL_WORKERS": "1",
     }
+    runtime_tmp = tmp_path.parent / f"runtime-{tmp_path.name}"
+    runtime_tmp.mkdir()
+    env["TMP_DIR"] = str(runtime_tmp) if configured_tmp else ""
     with (
         (tmp_path / "stdout.log").open("w") as stdout,
         (tmp_path / "stderr.log").open("w") as stderr,
@@ -1000,6 +1004,7 @@ def test_parser_timeout_preserves_completed_files(tmp_path):
             start_new_session=True,
         )
         parser = None
+        batch_scratch = None
         try:
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline and hook.poll() is None:
@@ -1007,19 +1012,38 @@ def test_parser_timeout_preserves_completed_files(tmp_path):
                     for child in psutil.Process(hook.pid).children(recursive=True):
                         try:
                             args = child.cmdline()
-                            if "batch-parse" in args and any(
-                                str(tmp_path / "liteparse/.batch_") in arg
-                                for arg in args
-                            ):
-                                parser = child
-                                break
+                            if "batch-parse" in args:
+                                batch_input = Path(args[args.index("batch-parse") + 1])
+                                if batch_input.is_dir() and any(
+                                    link.resolve().is_relative_to(sources.resolve())
+                                    for link in batch_input.iterdir()
+                                ):
+                                    parser = child
+                                    batch_scratch = batch_input.parent
+                                    break
                         except psutil.NoSuchProcess:
                             continue
-                completed = list((tmp_path / "liteparse").glob(".batch_*/text/*.txt"))
+                completed = (
+                    list((batch_scratch / "text").glob("*.txt"))
+                    if batch_scratch is not None
+                    else []
+                )
                 if parser is not None and any(
                     "Dummy PDF file" in path.read_text() for path in completed
                 ):
                     parser.send_signal(signal.SIGSTOP)
+                    assert batch_scratch is not None
+                    assert not batch_scratch.resolve().is_relative_to(
+                        tmp_path.resolve(),
+                    )
+                    if configured_tmp:
+                        assert batch_scratch.resolve().is_relative_to(
+                            runtime_tmp.resolve(),
+                        )
+                    else:
+                        assert batch_scratch.resolve().is_relative_to(
+                            Path(tempfile.gettempdir()).resolve(),
+                        )
                     break
                 time.sleep(0.001)
             else:
@@ -1039,4 +1063,7 @@ def test_parser_timeout_preserves_completed_files(tmp_path):
     retained = list((tmp_path / "liteparse").glob("document-*.pdf.txt"))
     assert retained, (output, (tmp_path / "stderr.log").read_text())
     assert all("Dummy PDF file" in path.read_text() for path in retained)
+    assert batch_scratch is not None
+    assert not batch_scratch.exists()
+    assert not list(runtime_tmp.iterdir())
     assert not list((tmp_path / "liteparse").glob(".batch_*"))

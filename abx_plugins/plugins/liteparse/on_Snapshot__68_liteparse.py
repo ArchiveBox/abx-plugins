@@ -21,6 +21,10 @@ source documents. Feeding them back into LiteParse duplicates existing HTML
 text extraction and makes all-plugin crawls spend minutes parsing generated
 PDFs for ordinary webpages.
 
+Disposable batch outputs, OCR rasters, and embedded-image staging use local
+``TMP_DIR`` (or the host temporary directory). Only completed extracted outputs
+are written to the snapshot archive. Each invocation and batch is isolated.
+
 Tiny images (favicons, sprite thumbnails, etc.) are filtered out by
 ``LITEPARSE_MIN_IMAGE_DIMENSION`` so we don't waste OCR time on them.
 
@@ -481,6 +485,7 @@ def _process_batch(
     timeout: int,
     args: list[str],
     env: dict[str, str],
+    scratch_dir: Path,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
     """Run ``lit batch-parse`` once per requested format over one batch.
 
@@ -491,13 +496,10 @@ def _process_batch(
     """
     results: list[tuple[int, Path, str, str]] = []
     errors: list[str] = []
-    # Scratch dir lives under the plugin output dir so all working state is
-    # visible in the snapshot tree; ``TemporaryDirectory.__exit__`` deletes
-    # it once the batch returns (success or exception). We also point
-    # ``TMPDIR`` at this dir so lit's tesseract-rs internal scratch files
-    # (it writes fixed-name ``page_<n>_ocr.png`` to $TMPDIR) land here too —
-    # otherwise two concurrent batches collide on the system $TMPDIR.
-    with tempfile.TemporaryDirectory(dir=str(OUTPUT_DIR), prefix=".batch_") as tmpdir:
+    # Disposable parser output and OCR rasterization belong on local runtime
+    # storage, not the snapshot's potentially remote archive filesystem.
+    # Each batch has its own TMPDIR because lit uses fixed page_<n>_ocr names.
+    with tempfile.TemporaryDirectory(dir=scratch_dir, prefix=".batch_") as tmpdir:
         tmp = Path(tmpdir)
         input_dir = tmp / "in"
         text_out = tmp / "text"
@@ -560,7 +562,7 @@ def _process_batch(
     return results, errors
 
 
-def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, str]:
+def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
     """Run lit on every document found in the snapshot dir.
 
     Returns: (status, output_str)
@@ -573,6 +575,8 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     if not formats:
         return "failed", "LITEPARSE_FORMATS must contain at least one of: text, json"
 
+    archive_dir = scratch_dir / "images"
+    archive_dir.mkdir()
     min_image_dim = int(config.LITEPARSE_MIN_IMAGE_DIMENSION or 0)
     sources = find_document_sources(
         min_image_dim=min_image_dim,
@@ -634,20 +638,18 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     output_dir = Path(OUTPUT_DIR)
 
     def _wipe_batch_scratch() -> None:
-        """Remove every ``.batch_*`` scratch dir under OUTPUT_DIR.
+        """Remove only this invocation's local batch scratch directories.
 
-        Called at hook entry (cleans leftovers from a prior killed run),
-        on SIGTERM/SIGINT (cleans the in-flight batch dirs before the
+        Called on SIGTERM/SIGINT (cleans the in-flight batch dirs before the
         orchestrator escalates to SIGKILL), and via ``atexit`` (covers
         normal exit + uncaught exceptions). Each lit batch creates its
         own ``TemporaryDirectory`` whose ``__exit__`` *also* cleans, so
         these belt-and-suspenders runs are usually no-ops.
         """
-        for stale in output_dir.glob(".batch_*"):
+        for stale in scratch_dir.glob(".batch_*"):
             if stale.is_dir():
                 shutil.rmtree(stale, ignore_errors=True)
 
-    _wipe_batch_scratch()
     atexit.register(_wipe_batch_scratch)
 
     def _on_signal(signum, _frame):
@@ -735,6 +737,7 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
                 batch_timeout,
                 base_args,
                 env,
+                scratch_dir,
             ): batch
             for batch in batches
         }
@@ -798,11 +801,14 @@ def main(url: str):
             sys.exit(0)
 
         print("LiteParse extraction started", flush=True)
+        runtime_tmp = Path(config.TMP_DIR).expanduser() if config.TMP_DIR else None
+        if runtime_tmp is not None:
+            runtime_tmp.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=".images_",
-            dir=OUTPUT_DIR,
-        ) as archive_dir:
-            status, output = extract_liteparse(url, Path(archive_dir))
+            prefix="abx-liteparse-",
+            dir=runtime_tmp,
+        ) as scratch_dir:
+            status, output = extract_liteparse(url, Path(scratch_dir))
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
         emit_archive_result_record(status, output)
