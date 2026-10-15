@@ -1,0 +1,79 @@
+abx_plugins/plugins/accessibility/templates/card.html
+  s_20f72622e178fb::t_44ef649384913e 5
+abx_plugins/plugins/chrome/templates/card.html
+  s_20f72622e178fb::t_114ff64a1ac761 5
+abx_plugins/plugins/chrome_mhtml/templates/card.html
+  s_20f72622e178fb::t_a72e566b9ed4c9 3
+abx_plugins/plugins/consolelog/templates/card.html
+  s_20f72622e178fb::t_a345665dbff808 5
+abx_plugins/plugins/defuddle/templates/card.html
+  s_20f72622e178fb::t_28d3c31c78958c 5
+abx_plugins/plugins/defuddle/templates/full.html
+  s_20f72622e178fb::t_2b1fe0d89fa284 11,13
+abx_plugins/plugins/dns/templates/card.html
+  s_20f72622e178fb::t_3620f398e4a6d9 5
+abx_plugins/plugins/forumdl/templates/card.html
+  s_20f72622e178fb::t_2af2d2d3640da5 5
+abx_plugins/plugins/hashes/templates/card.html
+  s_20f72622e178fb::t_cb8313541b792d 5
+abx_plugins/plugins/headers/templates/card.html
+  s_20f72622e178fb::t_13cea85b80075e 5
+abx_plugins/plugins/htmltotext/templates/card.html
+  s_20f72622e178fb::t_0fb25418be6d3a 5
+abx_plugins/plugins/mercury/templates/card.html
+  s_20f72622e178fb::t_4245f14489983e 5
+abx_plugins/plugins/mercury/templates/full.html
+  s_20f72622e178fb::t_2159be11530448 11,13
+abx_plugins/plugins/parse_dom_outlinks/templates/card.html
+  s_20f72622e178fb::t_c89f679dce071e 5
+abx_plugins/plugins/parse_html_urls/templates/card.html
+  s_20f72622e178fb::t_2fff564fca08fa 5
+abx_plugins/plugins/parse_jsonl_urls/templates/card.html
+  s_20f72622e178fb::t_e7ba7bfa4bb934 5
+abx_plugins/plugins/parse_netscape_urls/templates/card.html
+  s_20f72622e178fb::t_b67e95983f6b41 5
+abx_plugins/plugins/parse_rss_urls/templates/card.html
+  s_20f72622e178fb::t_e30b9ebd9af0cb 5
+abx_plugins/plugins/parse_txt_urls/templates/card.html
+  s_20f72622e178fb::t_eccb8fa4283d33 5
+abx_plugins/plugins/readability/templates/card.html
+  s_20f72622e178fb::t_8dd91b85b7f0bd 5
+abx_plugins/plugins/readability/templates/full.html
+  s_20f72622e178fb::t_357fec0a1ec250 11,13
+abx_plugins/plugins/redirects/templates/card.html
+  s_20f72622e178fb::t_39b2272335c8ff 5
+abx_plugins/plugins/seo/templates/card.html
+  s_20f72622e178fb::t_70c482397f55fe 5
+abx_plugins/plugins/sslcerts/templates/card.html
+  s_20f72622e178fb::t_f760ec4c2e09c2 5
+abx_plugins/plugins/title/templates/card.html
+  s_20f72622e178fb::t_a9a2403839b947 5
+abx_plugins/plugins/trafilatura/templates/card.html
+  s_20f72622e178fb::t_a69f0b09a1b21c 5
+tests/test_card_query_urls.py
+  s_10bc94d001be49::t_d198b2451f8eb4 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9041a2480ac13766638ea8ab413fe66818ac8b24",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
