@@ -95,7 +95,8 @@ def test_delivered_ids_reject_real_rss_reemission(tmp_path):
         ("import", "succeeded", True, {"cursor": "page-1"}, True),
         ("import", "succeeded", True, {"cursor": "page-2"}, False),
         ("import", "succeeded", False, {"cursor": "page-1"}, False),
-        ("preview", "succeeded", True, {"cursor": "page-1"}, False),
+        ("preview", "succeeded", True, {"cursor": "page-1"}, True),
+        ("preview", "succeeded", False, {"cursor": "page-1"}, False),
         ("import", "failed", True, {"cursor": "page-1"}, False),
         ("import", "needs_login", True, {"cursor": "page-1"}, False),
     ],
@@ -124,7 +125,12 @@ def test_continuation_requires_progress_at_the_shared_jsonl_boundary(
     emit(result)
     lines = capsys.readouterr().out.splitlines()
     if rejected:
-        with pytest.raises(ValueError, match="without advancing its checkpoint"):
+        message = (
+            "preview returned no items"
+            if action == "preview"
+            else "without advancing its checkpoint"
+        )
+        with pytest.raises(ValueError, match=message):
             list(read_records(lines, request))
     else:
         assert list(read_records(lines, request)) == [result]

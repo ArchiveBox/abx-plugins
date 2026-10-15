@@ -35,6 +35,14 @@ def test_harness_and_stagehand_share_live_capture(tmp_path, httpserver):
         '<title>Later failure</title><body style="background:#b00020;color:white">Later failure screen</body>',
         content_type="text/html",
     )
+    httpserver.expect_request("/paged-preview").respond_with_data(
+        '<title>Next page available</title><a rel="next" href="/">Next</a>',
+        content_type="text/html",
+    )
+    httpserver.expect_request("/empty-preview").respond_with_data(
+        "<title>Empty source</title><main></main>",
+        content_type="text/html",
+    )
     with chrome_session(
         tmp_path,
         test_url=httpserver.url_for("/"),
@@ -381,6 +389,51 @@ if __name__ == '__main__':
                 for item in standalone_records[:-1]
             )
             assert not list(standalone_dir.glob("learning-*.jsonl"))
+            # A reader that stops at an empty page despite a real next-page
+            # link has not provided a preview. A genuinely empty source is valid.
+            preview_dir = tmp_path / "paged-preview"
+            preview_dir.mkdir()
+            preview_workspace = preview_dir / "workspace"
+            preview_workspace.mkdir()
+            (preview_workspace / "importer.py").write_text("""import json, os
+from pathlib import Path
+from abx_plugins.plugins.base.importers import emit
+request = json.loads(Path(os.environ['IMPORTERS_REQUEST_FILE']).read_text())
+switch_tab(os.environ['IMPORTERS_TAB_ID'])
+goto_url(request['settings']['url'])
+wait_for_load()
+source = js('({id:location.origin,label:document.title})')
+links = js("Array.from(document.querySelectorAll('article a'), a => ({type:'ImporterItem',id:a.href,url:a.href,title:a.textContent}))")
+for link in links:
+    emit(link)
+emit({'type':'ImporterResult','status':'succeeded','account':source,'checkpoint':request['checkpoint'],'has_more':bool(js("document.querySelector('a[rel=next]')?.href"))})
+""")
+            preview_env = {**env, "BU_NAME": env["BU_NAME"] + "-preview"}
+            preview_file = preview_dir / "request.json"
+            preview_env["IMPORTERS_REQUEST_FILE"] = str(preview_file)
+            with task_tab(preview_env, preview_dir):
+                for path in ("/paged-preview", "/empty-preview"):
+                    preview_request = {
+                        **request,
+                        "action": "preview",
+                        "settings": {"url": httpserver.url_for(path)},
+                    }
+                    preview_file.write_text(json.dumps(preview_request))
+                    records, error = replay(
+                        preview_workspace,
+                        preview_request,
+                        preview_env,
+                        preview_dir,
+                        0,
+                        time.monotonic() + 120,
+                    )
+                    if path == "/paged-preview":
+                        assert records is None
+                        assert error and "preview returned no items" in error
+                    else:
+                        assert records is not None, error
+                        assert len(records) == 1 and records[0]["has_more"] is False
+            assert "still-live" in run_harness("print(js('window.agentHeap'))")
             # A real OpenCode client exceeding its learning budget must abort
             # discovery, even if an adapter file already exists to replay.
             # Load the process owner before measuring the client wait budget.

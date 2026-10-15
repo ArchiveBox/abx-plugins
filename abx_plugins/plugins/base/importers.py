@@ -117,6 +117,16 @@ def read_records(lines, request, on_progress=None):
                 raise ValueError("Importer checkpoint and account must be objects.")
             if (
                 record["status"] == "succeeded"
+                and request["action"] == "preview"
+                and record.get("has_more") is True
+                and not count
+            ):
+                raise ValueError(
+                    "The preview returned no items while reporting more history. "
+                    "Discover a sample before reporting success.",
+                )
+            if (
+                record["status"] == "succeeded"
                 and request["action"] == "import"
                 and not request.get("checkpoint", {})
                 and preview_count
