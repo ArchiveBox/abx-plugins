@@ -64,9 +64,11 @@ def task_tab(env, run_dir):
 
 
 def capture_failure(env, run_dir, attempt=0):
-    """Keep the failing viewport private before learning or tab cleanup changes it."""
+    """Keep each attempt's first failing viewport private through tab cleanup."""
     path = run_dir / f"failure-{attempt}.png"
     try:
+        if path.exists():
+            return
         subprocess.run(
             ["browser-harness"],
             input=f"capture_screenshot(path={str(path)!r})\n",

@@ -31,6 +31,10 @@ def test_harness_and_stagehand_share_live_capture(tmp_path, httpserver):
         content_type="text/html",
     )
     httpserver.expect_request("/favicon.ico").respond_with_data("")
+    httpserver.expect_request("/after-failure").respond_with_data(
+        '<title>Later failure</title><body style="background:#b00020;color:white">Later failure screen</body>',
+        content_type="text/html",
+    )
     with chrome_session(
         tmp_path,
         test_url=httpserver.url_for("/"),
@@ -108,6 +112,37 @@ print(json.dumps(js("window.agentHeap = 'still-live'; sessionStorage.setItem('ag
             failure_screenshot = tmp_path / "failure-0.png"
             assert failure_screenshot.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
             assert failure_screenshot.stat().st_mode & 0o777 == 0o600
+            assert "still-live" in run_harness("print(js('window.agentHeap'))")
+            # Cleanup after a later failure must retain the earlier viewport.
+            evidence_dir = tmp_path / "failure-retention"
+            evidence_dir.mkdir()
+            evidence_env = {**env, "BU_NAME": env["BU_NAME"] + "-evidence"}
+            screens = {}
+            with pytest.raises(RuntimeError, match="Later discovery failure"):
+                with task_tab(evidence_env, evidence_dir):
+                    for attempt, url in enumerate(
+                        (httpserver.url_for("/"), httpserver.url_for("/after-failure")),
+                    ):
+                        navigation = subprocess.run(
+                            [str(harness.loaded_abspath)],
+                            input=f"goto_url({url!r}); wait_for_load(); print(js('document.title'))\n",
+                            env=evidence_env,
+                            capture_output=True,
+                            text=True,
+                            timeout=15,
+                        )
+                        assert navigation.returncode == 0, navigation.stderr
+                        assert ("Live persona", "Later failure")[
+                            attempt
+                        ] in navigation.stdout
+                        capture_failure(evidence_env, evidence_dir, attempt)
+                        screens[attempt] = (
+                            evidence_dir / f"failure-{attempt}.png"
+                        ).read_bytes()
+                    assert screens[0] != screens[1]
+                    raise RuntimeError("Later discovery failure")
+            assert (evidence_dir / "failure-0.png").read_bytes() == screens[0]
+            assert (evidence_dir / "failure-1.png").read_bytes() == screens[1]
             assert "still-live" in run_harness("print(js('window.agentHeap'))")
             task = tmp_path / "stagehand.mts"
             task.write_text("""const {StagehandClient} = await import(process.env.ARCHIVEBOX_STAGEHAND_MODULE);
