@@ -232,11 +232,47 @@ def test_waits_for_text_in_delayed_child_frame(chrome_test_urls):
             assert (screenshot_dir / "screenshot.png").is_file()
 
 
+@pytest.fixture
+def screenshot_httpserver():
+    # Cross-origin frames use separate connections. A single-threaded server
+    # can block them behind Chrome's idle preconnected socket.
+    server = HTTPServer(host="127.0.0.1", threaded=True)
+    server.start()
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
 @pytest.mark.parametrize("status", [204, 205])
-def test_screenshot_accepts_completed_no_content_frame(tmp_path, httpserver, status):
+@pytest.mark.parametrize("cross_origin", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+def test_screenshot_accepts_completed_no_content_frame(
+    tmp_path,
+    screenshot_httpserver,
+    status,
+    cross_origin,
+    nested,
+):
+    httpserver = screenshot_httpserver
+    empty_url = httpserver.url_for("/empty")
+    if cross_origin:
+        empty_url = (
+            empty_url.replace("localhost", "127.0.0.1")
+            if "localhost" in empty_url
+            else empty_url.replace("127.0.0.1", "localhost")
+        )
+        assert empty_url != httpserver.url_for("/empty")
+    iframe_url = empty_url
+    if nested:
+        iframe_url = httpserver.url_for("/child").replace("127.0.0.1", "localhost")
+        httpserver.expect_request("/child").respond_with_data(
+            f'<iframe src="{empty_url}" width="200" height="100"></iframe>',
+            content_type="text/html",
+        )
     httpserver.expect_request("/").respond_with_data(
         '<!doctype html><body style="background:rgb(20,180,70)"><h1>Empty frame response</h1>'
-        '<iframe src="/empty" width="300" height="200"></iframe>',
+        f'<iframe src="{iframe_url}" width="300" height="200"></iframe>',
         content_type="text/html",
     )
     httpserver.expect_request("/empty").respond_with_data("", status=status)
@@ -299,14 +335,113 @@ const utils = require(process.argv[1]);
         assert json.loads(pixels.stdout) == [20, 180, 70, 255]
 
 
+@pytest.mark.parametrize("finish_navigation", [False, True])
+def test_screenshot_rechecks_loading_after_blank_frame_navigation(
+    tmp_path,
+    screenshot_httpserver,
+    finish_navigation,
+):
+    """A stopped blank frame must become pending again when its src changes."""
+    server = screenshot_httpserver
+    pending_url = server.url_for("/pending").replace("127.0.0.1", "localhost")
+    requested = threading.Event()
+    release = threading.Event()
+
+    def pending(_request):
+        requested.set()
+        release.wait(timeout=30)
+        return Response("", status=204)
+
+    server.expect_request("/pending").respond_with_handler(pending)
+    server.expect_request("/empty").respond_with_data("", status=204)
+    server.expect_request("/").respond_with_data(
+        '<iframe src="/empty" width="300" height="200"></iframe>',
+        content_type="text/html",
+    )
+    with chrome_session(tmp_path, test_url=server.url_for("/"), timeout=30) as (
+        _,
+        _,
+        chrome,
+        env,
+    ):
+        before = json.loads((chrome / "frame_loads.json").read_text())
+        script = """
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  try { await page.$eval('iframe', (el, url) => { el.src = url; }, process.argv[3]); }
+  finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        timer = None
+        try:
+            changed = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    script,
+                    str(CHROME_PLUGIN_DIR / "chrome_utils.js"),
+                    str(chrome),
+                    pending_url,
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            assert changed.returncode == 0, changed.stderr
+            assert requested.wait(timeout=5)
+            current = json.loads((chrome / "frame_loads.json").read_text())
+            pending_ids = {
+                key for key, value in current["frames"].items() if value == "loading"
+            }
+            assert len(pending_ids) == 1
+            assert all(before["frames"][key] == "stopped" for key in pending_ids)
+            if finish_navigation:
+                timer = threading.Timer(2, release.set)
+                timer.start()
+            result = subprocess.run(
+                [str(SCREENSHOT_HOOK), f"--url={server.url_for('/')}"],
+                cwd=chrome.parent,
+                env=env | {"SCREENSHOT_TIMEOUT": "5"},
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            record = parse_jsonl_output(result.stdout)
+            assert record, result.stdout + result.stderr
+            if finish_navigation:
+                assert result.returncode == 0, result.stderr
+                assert record["status"] == "succeeded"
+                assert (chrome.parent / "screenshot/screenshot.png").stat().st_size > 0
+            else:
+                assert result.returncode == 1, result.stdout
+                assert record["status"] == "failed"
+                assert (
+                    "Timed out waiting for visible screenshot images" in result.stderr
+                )
+                assert not (chrome.parent / "screenshot/screenshot.png").exists()
+        finally:
+            release.set()
+            if timer:
+                timer.cancel()
+                timer.join()
+
+
+@pytest.mark.parametrize("cross_origin", [False, True])
 def test_screenshot_waits_for_lazy_image_in_visible_child_frame(
-    chrome_test_urls,
-    httpserver_ipv4,
+    screenshot_httpserver,
+    cross_origin,
 ):
     """The real screenshot must include a visible lazy image inside a card frame."""
     image_path = Path(__file__).parents[4] / "docs/assets/plugins/singlefile.png"
     image_bytes = image_path.read_bytes()
-    origin = chrome_test_urls["origin"]
+    httpserver_ipv4 = screenshot_httpserver
+    origin = httpserver_ipv4.url_for("/").rstrip("/")
+    child_url = f"{origin}/screenshot-lazy-child"
+    if cross_origin:
+        child_url = child_url.replace("127.0.0.1", "localhost")
+        assert child_url != f"{origin}/screenshot-lazy-child"
     image_requested = threading.Event()
     release_image_response = threading.Event()
 
@@ -320,9 +455,9 @@ def test_screenshot_waits_for_lazy_image_in_visible_child_frame(
         delayed_image_response,
     )
     httpserver_ipv4.expect_request("/screenshot-lazy-frame").respond_with_data(
-        """<!doctype html>
+        f"""<!doctype html>
 <html><body style="margin:0">
-  <iframe title="saved page preview" src="/screenshot-lazy-child"
+  <iframe title="saved page preview" src="{child_url}"
     style="position:absolute;left:40px;top:40px;width:128px;height:128px;border:0"></iframe>
 </body></html>""",
         content_type="text/html; charset=utf-8",

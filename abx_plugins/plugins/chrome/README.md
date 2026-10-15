@@ -259,6 +259,7 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 | `target_id.txt`   | Authoritative page-target marker for the snapshot. |
 | `url.txt`         | Requested URL used for snapshot reuse checks.      |
 | `navigation.json` | Structured navigation result, including errors and the browser's `document.contentType` as `content_type` on success. |
+| `frame_loads.json` | Tab daemon's target-scoped frame loading states from Chrome lifecycle events, including cross-origin renderers. Screenshots use these to distinguish pending blank frames from completed navigations that retain `about:blank`. |
 
 ### Readiness rules
 

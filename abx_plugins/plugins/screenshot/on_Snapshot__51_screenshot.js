@@ -181,7 +181,7 @@ async function takeScreenshot(url) {
       captureTimeoutMs
     );
     console.error(`[screenshot] waiting for visible images (${Date.now() - captureStartedAt}ms)`);
-    await waitForVisibleImages(page, captureTimeoutMs);
+    await waitForVisibleImages(page, captureTimeoutMs, CHROME_SESSION_DIR);
     // Focus emulation alone does not activate the headless compositor. Select
     // this target before requesting pixels, or captureScreenshot can stall.
     console.error(`[screenshot] selecting target for pixels (${Date.now() - captureStartedAt}ms)`);

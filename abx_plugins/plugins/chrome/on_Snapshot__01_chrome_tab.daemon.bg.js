@@ -101,6 +101,7 @@ const SNAPSHOT_ARTIFACT_FILES = [
   "target_id.txt",
   "url.txt",
   "navigation.json",
+  "frame_loads.json",
 ];
 
 function getPortFromCdpUrl(cdpUrl) {
@@ -194,6 +195,8 @@ async function stopTargetMonitor() {
     try {
       monitorPage.removeAllListeners("close");
       monitorPage.removeAllListeners("error");
+      monitorPage.removeAllListeners("frameattached");
+      monitorPage.removeAllListeners("framenavigated");
     } catch (error) {}
     monitorPage = null;
   }
@@ -221,6 +224,42 @@ async function startTargetMonitor() {
   });
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
+  // Observe before navigation starts. A completed iframe navigation can retain
+  // about:blank (204/205, canceled navigation); its URL alone is not readiness.
+  // Keep this separate from the main-document navigation marker, which the
+  // foreground navigation hook owns.
+  const frames = {};
+  const publishFrames = () => {
+    if (shuttingDown || targetId !== expectedTargetId) return;
+    writeFileAtomic(path.join(OUTPUT_DIR, "frame_loads.json"), JSON.stringify({
+      targetId: expectedTargetId, frames,
+    }));
+  };
+  publishFrames();
+  const watched = new WeakSet();
+  const observeFrame = (frame) => {
+    // Cross-origin frames can live in another renderer/CDP session. Puppeteer
+    // enables Page events there before resuming that renderer.
+    const client = frame.client;
+    if (watched.has(client)) return;
+    watched.add(client);
+    client.on("Page.frameStartedLoading", ({frameId}) => {
+      frames[frameId] = "loading";
+      publishFrames();
+    });
+    client.on("Page.frameStoppedLoading", ({frameId}) => {
+      frames[frameId] = "stopped";
+      publishFrames();
+    });
+    client.on("Page.frameDetached", ({frameId, reason}) => {
+      if (reason === "swap") return;
+      delete frames[frameId];
+      publishFrames();
+    });
+  };
+  monitorPage.on("frameattached", observeFrame);
+  monitorPage.on("framenavigated", observeFrame);
+  for (const frame of monitorPage.frames()) observeFrame(frame);
   monitorPage.once("error", async (error) => {
     if (shuttingDown || targetId !== expectedTargetId) return;
     const crashedPage = monitorPage;
@@ -253,7 +292,7 @@ async function startTargetMonitor() {
       await closeOwnedExportPages(expectedTargetId);
       markersCleaned = await cleanupOwnedSnapshotPageMarkers(
         expectedTargetId,
-        `target ${expectedTargetId} disappeared`
+        `target ${expectedTargetId} closed`
       );
     } catch (error) {
       console.error(

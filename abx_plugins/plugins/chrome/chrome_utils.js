@@ -5370,7 +5370,7 @@ async function getCookiesViaCdp(port, options = {}) {
   );
 }
 
-async function waitForVisibleImages(page, timeoutMs) {
+async function waitForVisibleImages(page, timeoutMs, chromeSessionDir) {
   // A navigation marker (even `load`) does not include lazy images in nested
   // frames. Wait for the pixels we are actually about to capture, not all
   // network traffic: hidden alternatives, tracking images and offscreen lazy
@@ -5382,7 +5382,18 @@ async function waitForVisibleImages(page, timeoutMs) {
     if (ms <= 0) throw new Error("Timed out waiting for visible screenshot images");
     return ms;
   };
-  const visit = async (frame, waitForDocument) => {
+  const targetId = getTargetIdFromPage(page);
+  const frameStoppedLoading = (frameId) => {
+    if (!chromeSessionDir || !frameId) return false;
+    try {
+      const state = JSON.parse(fs.readFileSync(path.join(chromeSessionDir, "frame_loads.json"), "utf8"));
+      return state.targetId === targetId && state.frames[frameId] === "stopped";
+    } catch (error) {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    }
+  };
+  const visit = async (frame, waitForDocument, frameId) => {
     // Log before the wait: the runner's hook deadline can expire before this
     // helper's timeout, otherwise leaving no evidence of the blocking frame.
     const state = await frame.evaluate(() => {
@@ -5402,8 +5413,14 @@ async function waitForVisibleImages(page, timeoutMs) {
     }).catch(() => ({readyState: "unavailable during frame navigation"}));
     const kind = frame === page.mainFrame() ? "main" : "child";
     console.error(`[screenshot] ${kind} frame readiness ${JSON.stringify(state)}`);
-    await frame.waitForFunction(async (needsDocument) => {
-      if (needsDocument && location.href === "about:blank") return false;
+    // Poll the lifecycle evidence as well as the document: a pending request
+    // may finish with no document after this visit begins. Never infer that
+    // outcome from the parent's readyState or from missing resource timings.
+    while (waitForDocument && await frame.evaluate(() => location.href === "about:blank")) {
+      if (frameStoppedLoading(frameId)) break;
+      await new Promise(resolve => setTimeout(resolve, Math.min(50, remaining())));
+    }
+    await frame.waitForFunction(async () => {
       if (document.readyState === "loading") return false;
       const images = [...document.images].filter((img) => {
         const rect = img.getBoundingClientRect();
@@ -5419,7 +5436,7 @@ async function waitForVisibleImages(page, timeoutMs) {
       // target, decode() can remain pending despite valid natural dimensions.
       await Promise.all(images.filter((img) => img.naturalWidth > 0).map((img) => img.decode()));
       return true;
-    }, {timeout: remaining()}, waitForDocument);
+    }, {timeout: remaining()});
     console.error(`[screenshot] ${kind} frame images ready ${JSON.stringify(state.url || "")}`);
 
     // Inspect each child only after its parent document exists. This includes
@@ -5444,7 +5461,12 @@ async function waitForVisibleImages(page, timeoutMs) {
         });
         if (!state.visible) return;
         const child = await element.contentFrame();
-        if (child) await visit(child, state.waitForDocument);
+        if (child) {
+          const {node} = await element.client.send("DOM.describeNode", {
+            backendNodeId: await element.backendNodeId(),
+          });
+          await visit(child, state.waitForDocument, node.frameId);
+        }
       } finally {
         await element.dispose();
       }
