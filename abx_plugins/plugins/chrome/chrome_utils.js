@@ -3910,6 +3910,8 @@ async function createExportPage({
       timeoutMs: remaining(),
       initialUrl: lease.initialUrl,
       browserContextId: lease.ephemeralContextId || targetInfo.browserContextId,
+      // A fresh isolated context has no window in which Chrome can add a tab.
+      newWindow: Boolean(lease.ephemeralContextId),
     });
     lease.targetId = opened.targetId;
     checkLease();
