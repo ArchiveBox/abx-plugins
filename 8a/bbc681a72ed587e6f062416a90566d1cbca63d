@@ -1,0 +1,21 @@
+abx_plugins/plugins/parse_netscape_urls/tests/test_parse_netscape_urls.py
+  s_10bc94d001be49::t_1d73589a046222 18-74
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  s_10bc94d001be49::t_cd5d7c127c2e7c 60-61,234-235,251-254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8abbc681a72ed587e6f062416a90566d1cbca63d",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
