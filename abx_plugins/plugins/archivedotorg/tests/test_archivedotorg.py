@@ -22,7 +22,7 @@ _ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_archivedotorg.*"), No
 if _ARCHIVEDOTORG_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 ARCHIVEDOTORG_HOOK = _ARCHIVEDOTORG_HOOK
-TEST_URL = "https://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 
 @pytest.mark.parametrize(

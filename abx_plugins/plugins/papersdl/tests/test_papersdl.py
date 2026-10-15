@@ -28,7 +28,7 @@ _PAPERSDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_papersdl.*"), None)
 if _PAPERSDL_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 PAPERSDL_HOOK = _PAPERSDL_HOOK
-TEST_URL = "https://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 # Module-level cache for binary path
 _papersdl_binary_path = None
@@ -136,7 +136,7 @@ def test_handles_non_paper_url():
             [
                 str(PAPERSDL_HOOK),
                 "--url",
-                "https://example.com",
+                "https://archivebox.io/tests/",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -207,7 +207,7 @@ def test_config_timeout():
             [
                 str(PAPERSDL_HOOK),
                 "--url",
-                "https://example.com",
+                "https://archivebox.io/tests/",
             ],
             cwd=tmpdir,
             capture_output=True,

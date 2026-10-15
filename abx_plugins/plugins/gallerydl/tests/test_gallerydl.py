@@ -32,7 +32,7 @@ _GALLERYDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_gallerydl.*"), None)
 if _GALLERYDL_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 GALLERYDL_HOOK = _GALLERYDL_HOOK
-TEST_URL = "https://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 # Module-level cache for binary path
 _gallerydl_binary_path = None
@@ -91,7 +91,7 @@ def test_handles_non_gallery_url():
             [
                 str(GALLERYDL_HOOK),
                 "--url",
-                "https://example.com",
+                "https://archivebox.io/tests/",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -168,7 +168,7 @@ def test_config_timeout():
             [
                 str(GALLERYDL_HOOK),
                 "--url",
-                "https://example.com",
+                "https://archivebox.io/tests/",
             ],
             cwd=tmpdir,
             capture_output=True,
