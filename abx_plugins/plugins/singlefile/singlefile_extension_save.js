@@ -155,6 +155,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   const helperPage = await page.browser().newPage();
   let releaseDownloadLock;
   let downloadedPath;
+  let originalProfileOptions;
   try {
     // Download behavior belongs to the live CDP connection. The launch
     // connection has already disconnected, so relying on it sends extension
@@ -169,6 +170,25 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
     );
+    // A snapshot is replayed at other viewport sizes. SingleFile's default
+    // optimizations discard currently hidden images and alternate media rules.
+    // Use its normal configuration API, restoring the persona's preferences
+    // after this capture while still holding the browser download lock.
+    originalProfileOptions = await helperPage.evaluate(async (tabId) => {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: async () => chrome.runtime.sendMessage({ method: "bootstrap.init" }),
+      });
+      const { options } = result.result;
+      const profile = {};
+      const captureProfile = {};
+      for (const key of ["removeHiddenElements", "removeUnusedStyles", "removeAlternativeMedias", "removeAlternativeImages"]) {
+        profile[key] = options[key];
+        captureProfile[key] = false;
+      }
+      await chrome.runtime.sendMessage({ method: "config.updateProfile", profileName: options.profileName, profile: captureProfile });
+      return { profileName: options.profileName, profile };
+    }, tab.id);
     // Use Chrome's actual toolbar action. Importing SingleFile's source modules
     // bypasses its bundled entrypoint and breaks bare imports in current releases.
     // Register download listeners first; a small page can finish immediately.
@@ -306,13 +326,21 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     }
     return outputPath;
   } finally {
-    if (releaseDownloadLock) {
-      await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
-        behavior: "allow", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
-      }).catch(() => {});
-      releaseDownloadLock();
+    try {
+      if (originalProfileOptions) {
+        await helperPage.evaluate(options => chrome.runtime.sendMessage({
+          method: "config.updateProfile", ...options,
+        }), originalProfileOptions);
+      }
+    } finally {
+      if (releaseDownloadLock) {
+        await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
+          behavior: "allow", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
+        }).catch(() => {});
+        releaseDownloadLock();
+      }
+      await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }
-    await helperPage.close({ runBeforeUnload: false }).catch(() => {});
   }
 }
 
