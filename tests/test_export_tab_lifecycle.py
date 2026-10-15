@@ -24,6 +24,48 @@ HOOK = (
 )
 
 
+def test_open_tab_after_last_window_closes(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    httpserver,
+):
+    httpserver.expect_request("/").respond_with_data(
+        "<title>Reopened capture</title><p>Browser remains reusable</p>",
+        content_type="text/html",
+    )
+    url = httpserver.url_for("/")
+    with chrome_session(tmp_path, test_url=url, timeout=90) as (_, _, chrome, env):
+        script = f"""
+const {{connectToPage,openTabInChromeSession,getTargetIdFromTarget,resolvePuppeteerModule}} = require({json.dumps(str(CHROME_UTILS))});
+(async () => {{
+  const {{browser}} = await connectToPage({{chromeSessionDir:process.argv[1],timeoutMs:30000,waitForNavigationComplete:true}});
+  try {{
+    for (const page of await browser.pages()) await page.close();
+    const before = (await browser.pages()).length;
+    const {{targetId}} = await openTabInChromeSession({{cdpUrl:browser.wsEndpoint(),puppeteer:resolvePuppeteerModule(),timeoutMs:10000}});
+    const target = await browser.waitForTarget(t => getTargetIdFromTarget(t) === targetId, {{timeout:10000}});
+    const page = await target.page();
+    await page.goto(process.argv[2], {{waitUntil:'domcontentloaded',timeout:10000}});
+    console.log(JSON.stringify({{before,title:await page.title(),text:await page.evaluate(() => document.body.innerText)}}));
+    await page.close();
+  }} finally {{ await browser.disconnect(); }}
+}})().catch(error => {{ console.error(error);process.exitCode=1; }});
+"""
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(chrome), url],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=45,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {
+            "before": 0,
+            "title": "Reopened capture",
+            "text": "Browser remains reusable",
+        }
+
+
 @pytest.mark.parametrize(
     "cleanup",
     [

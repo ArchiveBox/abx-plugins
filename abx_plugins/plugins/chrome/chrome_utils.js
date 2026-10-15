@@ -3573,10 +3573,20 @@ async function openTabInChromeSession(options = {}) {
         try {
           targetId = await withTimeout(
             async () => {
+              let needsWindow = newWindow;
+              if (!needsWindow) {
+                const { targetInfos } = await sendBrowserCommand(browser, "Target.getTargets");
+                // Chrome can outlive its last window. A tab needs a window
+                // in the requested context before it can reuse one.
+                needsWindow = !targetInfos.some(target =>
+                  target.type === "page" &&
+                  (!browserContextId || target.browserContextId === browserContextId)
+                );
+              }
               const created = await sendBrowserCommand(
                 browser,
                 "Target.createTarget",
-                { url: initialUrl, background: true, newWindow, ...(browserContextId ? { browserContextId } : {}) }
+                { url: initialUrl, background: true, newWindow: needsWindow, ...(browserContextId ? { browserContextId } : {}) }
               );
               return created.targetId;
             },
