@@ -57,6 +57,8 @@ ATTR_PATTERN = re.compile(
     r"""([^\s=<>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?""",
     re.UNICODE | re.IGNORECASE | re.DOTALL,
 )
+ANCHOR_START_PATTERN = re.compile(r"<[aA](?=[\s>/])")
+ANCHOR_END_PATTERN = re.compile(r"</[aA](?=[\s>/])")
 
 
 def looks_like_netscape_bookmarks(content: str) -> bool:
@@ -229,23 +231,12 @@ def find_tag_end(content: str, start: int) -> int:
 
 def find_next_anchor_start(content: str, start: int) -> int:
     """Find the next <a tag start without treating words like <article as anchors."""
-    lowered = content.lower()
-    pos = start
-    while True:
-        pos = lowered.find("<a", pos)
-        if pos == -1:
-            return -1
-        next_char_index = pos + 2
-        if next_char_index >= len(content):
-            return -1
-        if content[next_char_index].isspace() or content[next_char_index] in {">", "/"}:
-            return pos
-        pos += 2
+    match = ANCHOR_START_PATTERN.search(content, start)
+    return match.start() if match else -1
 
 
 def iter_bookmarks(content: str):
     """Yield loose Netscape bookmark anchors from the full file content."""
-    lowered = content.lower()
     pos = 0
     while True:
         anchor_start = find_next_anchor_start(content, pos)
@@ -257,7 +248,10 @@ def iter_bookmarks(content: str):
             return
 
         attrs_text = content[anchor_start + 2 : open_end]
-        close_start = lowered.find("</a", open_end + 1)
+        # Search the original text: lowercasing the full file per anchor is
+        # quadratic, and Unicode case conversion can change string offsets.
+        close_match = ANCHOR_END_PATTERN.search(content, open_end + 1)
+        close_start = close_match.start() if close_match else -1
         if close_start == -1:
             title_text = ""
             pos = open_end + 1

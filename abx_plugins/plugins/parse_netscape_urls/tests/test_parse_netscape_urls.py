@@ -15,6 +15,63 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_netscape_urls.*"), None
 class TestParseNetscapeUrls:
     """Test the parse_netscape_urls extractor CLI."""
 
+    def test_large_bookmark_export_preserves_every_entry(self, tmp_path):
+        """Scanning each anchor must not repeatedly copy the entire export."""
+        count = 20000
+        title = "Bookmark " + "x" * 512
+        input_file = tmp_path / "bookmarks.html"
+        input_file.write_text(
+            "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<DL>\n"
+            + "".join(
+                f'<DT><A HREF="https://archivebox.io/tests/?bookmark={i}">{title} {i}</A>\n'
+                for i in range(count)
+            )
+            + "</DL>\n",
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", input_file.as_uri()],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{") and json.loads(line).get("type") == "Snapshot"
+        ]
+        assert len(records) == count
+        for i, record in enumerate(records):
+            assert record["url"] == f"https://archivebox.io/tests/?bookmark={i}"
+            assert record["title"] == f"{title} {i}"
+
+    def test_unicode_before_anchors_preserves_offsets(self, tmp_path):
+        """Unicode lowercasing can change string length before HTML tags."""
+        input_file = tmp_path / "bookmarks.html"
+        input_file.write_text(
+            "<!DOCTYPE NETSCAPE-Bookmark-file-1><H1>İ bookmarks</H1>"
+            '<DL><DT><A HREF="https://archivebox.io/tests/">İ title</A>'
+            '<DT><a href="https://archivebox.io/tests/?second">Second</a></DL>',
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", input_file.as_uri()],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{") and json.loads(line).get("type") == "Snapshot"
+        ]
+        assert [(r["url"], r["title"]) for r in records] == [
+            ("https://archivebox.io/tests/", "İ title"),
+            ("https://archivebox.io/tests/?second", "Second"),
+        ]
+
     def test_extracts_urls_from_netscape_bookmarks(self, tmp_path):
         """Test extracting URLs from Netscape bookmark HTML format."""
         input_file = tmp_path / "bookmarks.html"
