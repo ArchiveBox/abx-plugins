@@ -39,6 +39,8 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
   // Network.getResponseBody applies MIME-driven text decoding, corrupting
   // binary downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
+  // Ordinary documents retain Network's text handling: Fetch body reads hold
+  // navigation until EOF, preventing streamed HTML from rendering as it arrives.
   const session = await page.createCDPSession();
   const bodies = new Map();
   const streams = new Map();
@@ -82,19 +84,19 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
       )?.value || "";
       try {
         const isPdf = header("content-type").split(";")[0].trim() === "application/pdf";
-        if (event.resourceType === "Document" && (resourceTypes || isPdf) &&
+        if (event.resourceType === "Document" && isPdf &&
             !/\battachment\b/i.test(header("content-disposition")) &&
             event.responseStatusCode >= 200 && event.responseStatusCode < 300) {
           if (isPdf) pdfUrls.add(event.request.url);
-          // Document streaming waits for navigation commit, which cannot occur
-          // while these headers are paused. Fetch can read the raw body here.
+          // Inline PDFs become synthetic viewer documents after commit, so
+          // preserve the original body before Chrome substitutes that viewer.
           const result = await session.send("Fetch.getResponseBody", { requestId: event.requestId });
           // Keep only paths while the ordinary response writer drains its queue.
           directory ||= fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "pdf-responses-"));
           const filename = path.join(await directory, crypto.randomUUID());
           await fs.promises.writeFile(filename, Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8"));
           bodies.set(event.networkId, filename);
-        } else if (resourceTypes && event.networkId &&
+        } else if (resourceTypes && event.resourceType !== "Document" && event.networkId &&
                    (!resourceTypes.length || resourceTypes.includes(event.resourceType.toLowerCase())) &&
                    event.responseStatusCode >= 200 && event.responseStatusCode < 300 &&
                    !/\battachment\b/i.test(header("content-disposition"))) {

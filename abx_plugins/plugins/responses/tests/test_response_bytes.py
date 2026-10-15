@@ -187,8 +187,8 @@ def test_open_stream_does_not_block_completed_responses_or_shutdown(tmp_path):
                     assert started.wait(2)
                     assert not release.is_set()
                     assert any(
-                        p.stat().st_size > 0
-                        for d in scratch.glob("*-responses-*")
+                        p.read_bytes() == b"Unfinished response\n" * 4096
+                        for d in scratch.glob("response-bodies-*")
                         for p in d.iterdir()
                     )
                 finally:
@@ -203,3 +203,67 @@ def test_open_stream_does_not_block_completed_responses_or_shutdown(tmp_path):
                 assert not list(scratch.glob("response-bodies-*"))
         finally:
             release.set()
+
+
+def test_streamed_document_renders_before_response_finishes(tmp_path):
+    from pytest_httpserver import HTTPServer
+    from werkzeug.wrappers import Response
+
+    rendered = threading.Event()
+    release = threading.Event()
+    prefix = b'<!doctype html><body><h1>Streaming document</h1><script>fetch("/rendered")</script>'
+    suffix = b"<p>Document complete</p></body>"
+
+    def chunks():
+        yield prefix
+        release.wait(15)
+        yield suffix
+
+    def observe_render(request):
+        rendered.set()
+        return Response("Observed")
+
+    with HTTPServer(threaded=True) as server:
+        server.expect_request("/").respond_with_response(
+            Response(chunks(), content_type="text/html"),
+        )
+        server.expect_request("/rendered").respond_with_handler(observe_render)
+        url = server.url_for("/")
+        with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
+            _,
+            _,
+            chrome_dir,
+            env,
+        ):
+            output = chrome_dir.parent / "responses"
+            output.mkdir()
+            index = output / "index.jsonl"
+            process = start_process_and_wait_for_file(
+                [str(RESPONSES_HOOK), f"--url={url}"],
+                index,
+                cwd=output,
+                env=env,
+            )
+            navigation = subprocess.Popen(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                assert rendered.wait(5), (
+                    "Response capture blocked HTML parsing until the entire document arrived"
+                )
+                assert not release.is_set()
+            finally:
+                release.set()
+                stdout, stderr = navigation.communicate(timeout=30)
+                process.terminate()
+                hook_stdout, hook_stderr = process.communicate(timeout=5)
+            assert navigation.returncode == 0, (stdout, stderr)
+            assert process.returncode == 0, (hook_stdout, hook_stderr)
+            records = [json.loads(line) for line in index.read_text().splitlines()]
+            document = next(r for r in records if r["url"] == url)
+            assert (output / document["path"]).read_bytes() == prefix + suffix
