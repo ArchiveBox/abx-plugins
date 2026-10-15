@@ -1,0 +1,24 @@
+abx_plugins/plugins/importers_browser/importer.py
+  s_20f72622e178fb::t_6f316f84af2be2 197
+abx_plugins/plugins/importers_browser/README.md
+  s_20f72622e178fb::t_6f316f84af2be2 31-32
+abx_plugins/plugins/opencode/tests/test_browser.py
+  s_20f72622e178fb::t_14f1b3749e7d32 4,343-344,364
+  s_20f72622e178fb::t_a3693ff1399a44 22,341-342,345-363,365-369
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ee516872a628042b6c99b4d28882cdc38bd8d19d",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
