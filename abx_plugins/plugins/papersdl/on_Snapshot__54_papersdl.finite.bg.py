@@ -240,7 +240,7 @@ def find_paper_identifiers(url: str, binary: str, deadline: float) -> list[str]:
 
 
 def new_pdf_files(output_dir: Path, files_before: set[Path]) -> list[Path]:
-    """Return newly created non-empty PDFs, including partially timed-out downloads."""
+    """Find new PDF files; their presence alone does not prove a complete download."""
     return sorted(
         (
             path
@@ -305,9 +305,8 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
             process.kill()
             process.wait()
             reader.join(timeout=1)
-            downloaded_files = new_pdf_files(output_dir, files_before)
-            if downloaded_files:
-                return True, len(downloaded_files), ""
+            # Keep any bytes for inspection, but a killed writer may have left
+            # only the beginning of a PDF. Never promote that to success.
             return False, 0, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
@@ -315,6 +314,14 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
         downloaded_files = new_pdf_files(output_dir, files_before)
 
         if downloaded_files:
+            if process.returncode:
+                return (
+                    False,
+                    0,
+                    f"papers-dl exited with code {process.returncode}; "
+                    f"retained {len(downloaded_files)} incomplete or unverified PDF file(s): "
+                    f"{combined_output[-300:]}",
+                )
             return True, len(downloaded_files), ""
         else:
             stderr = combined_output
