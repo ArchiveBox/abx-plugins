@@ -15,30 +15,40 @@ URL = "https://notion.notion.site/Notion-Cookie-Tables-c38abeb47f8e420a94ade9ac0
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_notion.js"
 
 
+@pytest.fixture(scope="module")
+def public_notion_page(tmp_path_factory, ensure_chrome_test_prereqs):
+    # All three cases exercise the same public document, not navigation. Reuse
+    # its real loaded page instead of downloading Notion's application again.
+    with chrome_session(
+        tmp_path_factory.mktemp("notion-public-page"),
+        test_url=URL,
+        timeout=60,
+        env_overrides={"CHROME_RESOLUTION": "1440,600"},
+    ) as (_, _, chrome, env):
+        yield chrome, env
+
+
 @pytest.mark.parametrize(
     ("pnpm_converter", "scrolled"),
     [(False, False), (True, False), (False, True)],
     ids=["default", "configured-pnpm", "scrolled-page"],
 )
 def test_public_page_html_and_markdown(
-    tmp_path,
-    ensure_chrome_test_prereqs,
+    public_notion_page,
     pnpm_converter,
     scrolled,
 ):
     assert HOOK.is_file(), "Notion capture hook is missing"
-    with chrome_session(
-        tmp_path,
-        test_url=URL,
-        timeout=60,
-        env_overrides={"CHROME_RESOLUTION": "1440,600"} if scrolled else None,
-    ) as (_, _, chrome, env):
-        if scrolled:
-            scroll = subprocess.run(
-                [
-                    env["NODE_BINARY"],
-                    "-e",
-                    r"""
+    chrome, page_env = public_notion_page
+    env = page_env.copy()
+    output = chrome.parent / "notion"
+    assert not output.exists(), "Each case must produce fresh artifacts"
+    if scrolled:
+        scroll = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                r"""
 const utils = require(process.argv[1]);
 (async () => {
   const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
@@ -85,96 +95,97 @@ const utils = require(process.argv[1]);
   } finally { await browser.disconnect(); }
 })().catch(error => { console.error(error); process.exit(1); });
 """,
-                    str(HOOK.parent.parent / "chrome/chrome_utils.js"),
-                    str(chrome),
-                ],
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=40,
-            )
-            assert scroll.returncode == 0, scroll.stderr
-        if pnpm_converter:
-            # ArchiveBox supplies the actual installed .bin launcher as an
-            # explicit binary override, rather than just its command name.
-            converter = subprocess.run(
-                [
-                    "abxpkg",
-                    "env",
-                    "--install",
-                    "--json",
-                    "--binproviders=pnpm",
-                    f"--deps-from={HOOK.parent.parent / 'defuddle/config.json'}:required_binaries",
-                ],
-                env={**env, "DEFUDDLE_BINARY": "defuddle"},
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            assert converter.returncode == 0, converter.stderr
-            installed = json.loads(converter.stdout)
-            launcher = Path(installed["PNPM_HOME"]) / "defuddle"
-            assert launcher.is_file()
-            assert ".pnpm/defuddle@0.14.0" in launcher.read_text()
-            env = {**env, "DEFUDDLE_BINARY": str(launcher)}
-        result = subprocess.run(
-            [str(HOOK), f"--url={URL}"],
-            cwd=chrome.parent,
+                str(HOOK.parent.parent / "chrome/chrome_utils.js"),
+                str(chrome),
+            ],
             env=env,
             capture_output=True,
             text=True,
-            timeout=150,
+            timeout=40,
         )
-        assert result.returncode == 0, result.stderr
-        record = parse_jsonl_output(result.stdout)
-        assert record and record["status"] == "succeeded", result.stdout
-        output = chrome.parent / "notion"
-        manifest = json.loads((output / "downloads.json").read_text())
-        assert manifest["title"] == "Notion Cookie Tables"
-        files = {item["format"]: output / item["path"] for item in manifest["files"]}
-        assert set(files) == {"html", "md"}
-        for item in manifest["files"]:
-            data = (output / item["path"]).read_bytes()
-            assert len(data) == item["size"] > 10000
-            assert hashlib.sha256(data).hexdigest() == item["sha256"]
-        html = files["html"].read_text()
-        markdown = files["md"].read_text()
-        for text in (html, markdown):
-            assert "Notion Cookie Tables" in text
-            assert "These Cookie Tables provide additional information" in text
-            assert "Strictly Necessary Cookies" in text
-            assert "Marketing" in text
-            assert "Authenticates your login." in text
-            assert "Cloudflare" in text
-            assert "Podscribe" in text
-            assert "MNTN Connected TV" in text
-            assert (
-                "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html"
-                in text
-            )
-        assert "<table" in html
-        assert "| Cookie Name |" in markdown
-        html_tables = re.findall(r"<table\b.*?</table>", html, re.DOTALL)
-        markdown_tables = re.findall(
-            r"^\| Cookie Name \|[^\n]+\n\| --- \|[^\n]+\n(?:\|[^\n]+\n)+",
-            markdown,
-            re.MULTILINE,
+        assert scroll.returncode == 0, scroll.stderr
+    if pnpm_converter:
+        # ArchiveBox supplies the actual installed .bin launcher as an
+        # explicit binary override, rather than just its command name.
+        converter = subprocess.run(
+            [
+                "abxpkg",
+                "env",
+                "--install",
+                "--json",
+                "--binproviders=pnpm",
+                f"--deps-from={HOOK.parent.parent / 'defuddle/config.json'}:required_binaries",
+            ],
+            env={**env, "DEFUDDLE_BINARY": "defuddle"},
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
-        assert len(html_tables) == len(markdown_tables) == 4
-        for html_table, markdown_table in zip(
-            html_tables,
-            markdown_tables,
-            strict=True,
-        ):
-            rows = len(re.findall(r"<tr\b", html_table))
-            # Header, separator, and every body row must remain contiguous.
-            assert len(markdown_table.splitlines()) == rows + 1
-        assert "|\n\n|" not in markdown
-        assert "### Strictly Necessary Cookies" in markdown
+        assert converter.returncode == 0, converter.stderr
+        installed = json.loads(converter.stdout)
+        launcher = Path(installed["PNPM_HOME"]) / "defuddle"
+        assert launcher.is_file()
+        assert ".pnpm/defuddle@0.14.0" in launcher.read_text()
+        env = {**env, "DEFUDDLE_BINARY": str(launcher)}
+    result = subprocess.run(
+        [str(HOOK), f"--url={URL}"],
+        cwd=chrome.parent,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=150,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    output = chrome.parent / "notion"
+    manifest = json.loads((output / "downloads.json").read_text())
+    assert manifest["title"] == "Notion Cookie Tables"
+    files = {item["format"]: output / item["path"] for item in manifest["files"]}
+    assert set(files) == {"html", "md"}
+    for item in manifest["files"]:
+        data = (output / item["path"]).read_bytes()
+        assert len(data) == item["size"] > 10000
+        assert hashlib.sha256(data).hexdigest() == item["sha256"]
+    html = files["html"].read_text()
+    markdown = files["md"].read_text()
+    for text in (html, markdown):
+        assert "Notion Cookie Tables" in text
+        assert "These Cookie Tables provide additional information" in text
+        assert "Strictly Necessary Cookies" in text
+        assert "Marketing" in text
+        assert "Authenticates your login." in text
+        assert "Cloudflare" in text
+        assert "Podscribe" in text
+        assert "MNTN Connected TV" in text
         assert (
-            "](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html)"
-            in markdown
+            "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html"
+            in text
         )
+    assert "<table" in html
+    assert "| Cookie Name |" in markdown
+    html_tables = re.findall(r"<table\b.*?</table>", html, re.DOTALL)
+    markdown_tables = re.findall(
+        r"^\| Cookie Name \|[^\n]+\n\| --- \|[^\n]+\n(?:\|[^\n]+\n)+",
+        markdown,
+        re.MULTILINE,
+    )
+    assert len(html_tables) == len(markdown_tables) == 4
+    for html_table, markdown_table in zip(
+        html_tables,
+        markdown_tables,
+        strict=True,
+    ):
+        rows = len(re.findall(r"<tr\b", html_table))
+        # Header, separator, and every body row must remain contiguous.
+        assert len(markdown_table.splitlines()) == rows + 1
+    assert "|\n\n|" not in markdown
+    assert "### Strictly Necessary Cookies" in markdown
+    assert (
+        "](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html)"
+        in markdown
+    )
+    output.rename(chrome.parent / f"notion-{pnpm_converter}-{scrolled}")
 
 
 def test_unrelated_url_with_browser(tmp_path, ensure_chrome_test_prereqs):
