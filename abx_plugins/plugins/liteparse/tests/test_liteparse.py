@@ -938,3 +938,105 @@ print(json.dumps([hook._content_digest(path) for path, digest in found]))
         hashlib.md5(second).hexdigest(),
     }
     assert "Cannot read embedded image" in result.stderr
+
+
+@pytest.mark.parametrize("include_valid_pdf", [False, True])
+def test_parser_failure_is_failed_and_preserves_completed_files(
+    tmp_path,
+    include_valid_pdf,
+):
+    """The actual parser's nonzero exit must not become noresults or success."""
+    sources = tmp_path / "responses"
+    sources.mkdir()
+    (sources / "broken.pdf").write_bytes(b"%PDF-1.7\ntruncated PDF document\n")
+    if include_valid_pdf:
+        (sources / "valid.pdf").write_bytes(_download_pdf(PDF_URL_A))
+    result = _run_hook(tmp_path, PDF_URL_A, {"LITEPARSE_OCR_ENABLED": "false"})
+    assert result.returncode == 1, (result.stdout, result.stderr)
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", (record, result.stderr)
+    assert "exited with code 1" in record["output_str"], record
+    assert "error parsing" in result.stderr, result.stderr
+    if include_valid_pdf:
+        assert "Dummy PDF file" in (tmp_path / "liteparse/valid.pdf.txt").read_text()
+    assert not (tmp_path / "liteparse/broken.pdf.txt").exists()
+    assert not list((tmp_path / "liteparse").glob(".batch_*"))
+
+
+def test_parser_timeout_preserves_completed_files(tmp_path):
+    """Pause the real parser after an output and exercise the hook's deadline."""
+    import signal
+    import time
+
+    import psutil
+
+    sources = tmp_path / "responses"
+    sources.mkdir()
+    pdf = _download_pdf(PDF_URL_A)
+    for index in range(100):
+        # Valid trailing PDF comments make each real input distinct for dedup.
+        (sources / f"document-{index:03}.pdf").write_bytes(
+            pdf + f"\n% document {index:03}\n".encode(),
+        )
+    env = {
+        **os.environ,
+        "SNAP_DIR": str(tmp_path),
+        "LITEPARSE_BINARY": require_liteparse_binary(),
+        "LITEPARSE_OCR_ENABLED": "false",
+        "LITEPARSE_TIMEOUT": "10",
+        "LITEPARSE_BATCH_SIZE": "100",
+        "LITEPARSE_PARALLEL_WORKERS": "1",
+    }
+    with (
+        (tmp_path / "stdout.log").open("w") as stdout,
+        (tmp_path / "stderr.log").open("w") as stderr,
+    ):
+        hook = subprocess.Popen(
+            [str(LITEPARSE_HOOK), "--url", PDF_URL_A],
+            cwd=tmp_path.parent,
+            env=env,
+            stdout=stdout,
+            stderr=stderr,
+            start_new_session=True,
+        )
+        parser = None
+        try:
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline and hook.poll() is None:
+                if parser is None:
+                    for child in psutil.Process(hook.pid).children(recursive=True):
+                        try:
+                            args = child.cmdline()
+                            if "batch-parse" in args and any(
+                                str(tmp_path / "liteparse/.batch_") in arg
+                                for arg in args
+                            ):
+                                parser = child
+                                break
+                        except psutil.NoSuchProcess:
+                            continue
+                completed = list((tmp_path / "liteparse").glob(".batch_*/text/*.txt"))
+                if parser is not None and any(
+                    "Dummy PDF file" in path.read_text() for path in completed
+                ):
+                    parser.send_signal(signal.SIGSTOP)
+                    break
+                time.sleep(0.001)
+            else:
+                pytest.fail("Did not observe the real parser's first completed PDF")
+            assert hook.wait(timeout=20) == 1
+        finally:
+            # Only this test's process group; also cleans a stopped child on failure.
+            try:
+                os.killpg(hook.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            hook.wait(timeout=10)
+    output = (tmp_path / "stdout.log").read_text()
+    record = parse_jsonl_output(output)
+    assert record and record["status"] == "failed", output
+    assert "timed out" in record["output_str"], record
+    retained = list((tmp_path / "liteparse").glob("document-*.pdf.txt"))
+    assert retained, (output, (tmp_path / "stderr.log").read_text())
+    assert all("Dummy PDF file" in path.read_text() for path in retained)
+    assert not list((tmp_path / "liteparse").glob(".batch_*"))

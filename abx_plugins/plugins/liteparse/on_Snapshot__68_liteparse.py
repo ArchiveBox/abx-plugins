@@ -481,14 +481,16 @@ def _process_batch(
     timeout: int,
     args: list[str],
     env: dict[str, str],
-) -> list[tuple[int, Path, str, str]]:
+) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
     """Run ``lit batch-parse`` once per requested format over one batch.
 
     Symlinks the batch's sources into a temp input dir, runs lit, then reads
     each per-source output by stem. Returns ``(idx, src, text, json_text)``
-    per source.
+    per source, plus parser failures. Read outputs before deleting scratch even
+    when a later document fails or times out, so completed work is retained.
     """
     results: list[tuple[int, Path, str, str]] = []
+    errors: list[str] = []
     # Scratch dir lives under the plugin output dir so all working state is
     # visible in the snapshot tree; ``TemporaryDirectory.__exit__`` deletes
     # it once the batch returns (success or exception). We also point
@@ -522,15 +524,28 @@ def _process_batch(
                 fmt,
                 *args,
             ]
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                timeout=timeout,
-                text=True,
-                env=batch_env,
-            )
-            if result.stderr.strip():
-                print(result.stderr, file=sys.stderr, end="")
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    timeout=timeout,
+                    text=True,
+                    env=batch_env,
+                )
+                if result.stderr.strip():
+                    print(result.stderr, file=sys.stderr, end="")
+                if result.returncode:
+                    errors.append(f"{fmt} parser exited with code {result.returncode}")
+            except subprocess.TimeoutExpired as exc:
+                if exc.stderr:
+                    stderr = (
+                        exc.stderr.decode(errors="replace")
+                        if isinstance(exc.stderr, bytes)
+                        else exc.stderr
+                    )
+                    print(stderr, file=sys.stderr, end="")
+                errors.append(f"{fmt} parser timed out after {timeout}s")
+                break
 
         for (idx, src, _digest), link_name in zip(batch, link_names, strict=True):
             stem = Path(link_name).stem
@@ -542,7 +557,7 @@ def _process_batch(
             )
             results.append((idx, src, text, json_text))
 
-    return results
+    return results, errors
 
 
 def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, str]:
@@ -665,7 +680,7 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     largest_text_output: dict[int, str] = {}
     sources_completed: set[int] = set()
     write_lock = threading.Lock()
-    binary_failed = False
+    batch_errors: list[str] = []
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
     batch_waves = max(1, (len(batches) + workers - 1) // workers)
@@ -727,30 +742,34 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
             batch = future_to_batch[future]
             first_name = batch[0][1].name if batch else "<empty>"
             try:
-                results = future.result()
-            except subprocess.TimeoutExpired:
-                print(
-                    f"[liteparse] Batch starting at {first_name} timed out after {batch_timeout}s",
-                    file=sys.stderr,
-                )
-                continue
+                results, errors = future.result()
             except (FileNotFoundError, PermissionError, OSError) as e:
                 print(
                     f"[liteparse] Binary execution failed: {type(e).__name__}: {e}",
                     file=sys.stderr,
                 )
-                binary_failed = True
+                batch_errors.append(f"Binary execution failed: {type(e).__name__}: {e}")
                 continue
             except Exception as e:
+                batch_errors.append(f"{type(e).__name__}: {e}")
                 print(
                     f"[liteparse] Batch starting at {first_name}: {type(e).__name__}: {e}",
                     file=sys.stderr,
                 )
                 continue
             _absorb_batch_results(results)
+            for error in errors:
+                batch_errors.append(error)
+                print(
+                    f"[liteparse] Batch starting at {first_name}: {error}",
+                    file=sys.stderr,
+                )
 
-    if binary_failed and not sources_completed:
-        return "failed", f"Binary '{binary}' could not be executed"
+    if batch_errors:
+        return "failed", (
+            f"{len(batch_errors)} batch error(s), {len(sources_completed)} sources retained: "
+            f"{batch_errors[0]}"
+        )
 
     if not sources_completed:
         return "noresults", "No content extracted from sources"
