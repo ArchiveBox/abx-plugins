@@ -115,6 +115,7 @@ async function main() {
     page.on("request", started);
     page.on("requestfinished", finished);
     page.on("requestfailed", finished);
+    let renderedItems = null;
     try {
       await page.waitForFunction(
         () => document.querySelector(".notion-page-content")?.innerText.trim(),
@@ -122,23 +123,70 @@ async function main() {
         // hidden capture tabs can suspend its default animation-frame poller.
         { timeout: remaining(), polling: 100 },
       );
-      lastActivity = Date.now();
-      while (pending.size || Date.now() - lastActivity < 500) {
-        remaining();
-        await new Promise((resolve) => setTimeout(resolve, 100));
+      const waitForPageData = async () => {
+        lastActivity = Date.now();
+        while (pending.size || Date.now() - lastActivity < 500) {
+          remaining();
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      };
+      await waitForPageData();
+      if (await page.$(".notion-page-content [data-virtual-item-slot]")) {
+        // Public pages virtualize their DOM: neither network idle nor one
+        // final DOM clone includes blocks removed above/below the viewport.
+        // Visit the actual scroll container and retain the rendered HTML,
+        // replacing earlier copies as partially loaded blocks fill in.
+        const scroller = await page.evaluateHandle(() => {
+          let element = document.querySelector(".notion-page-content").parentElement;
+          while (element && !(element.scrollHeight > element.clientHeight &&
+            ["auto", "scroll"].includes(getComputedStyle(element).overflowY))) element = element.parentElement;
+          return element || document.scrollingElement;
+        });
+        const originalTop = await scroller.evaluate(element => element.scrollTop);
+        const items = new Map();
+        try {
+          await page.bringToFront();
+          await scroller.evaluate(element => { element.scrollTop = 0; });
+          while (true) {
+            await waitForPageData();
+            for (const [index, html] of await page.evaluate(() =>
+              [...document.querySelectorAll(".notion-page-content [data-virtual-item-slot] > [data-index]")]
+                .map(element => [Number(element.dataset.index), element.outerHTML]))) items.set(index, html);
+            const atEnd = await scroller.evaluate(element => {
+              if (element.scrollTop + element.clientHeight >= element.scrollHeight - 1) return true;
+              element.scrollTop += Math.max(1, Math.floor(element.clientHeight * 0.8));
+              return false;
+            });
+            if (atEnd) break;
+          }
+          const ordered = [...items].sort(([a], [b]) => a - b);
+          if (!ordered.length || ordered.some(([index], position) => index !== position))
+            throw new Error("Notion virtual page has missing rendered sections");
+          renderedItems = ordered.map(([, html]) => html);
+        } finally {
+          await scroller.evaluate((element, top) => { element.scrollTop = top; }, originalTop);
+          await scroller.dispose();
+        }
       }
     } finally {
       page.off("request", started);
       page.off("requestfinished", finished);
       page.off("requestfailed", finished);
     }
-    const saved = await page.evaluate(() => {
+    const saved = await page.evaluate((renderedItems) => {
       const root = document.querySelector(".notion-page-content");
       const title =
         document
           .querySelector('[role="heading"][aria-level="1"]')
           ?.textContent.trim() || document.title;
       const content = root.cloneNode(true);
+      if (renderedItems) {
+        // Drop virtual scroll spacers and absolute-positioned viewport wrappers.
+        // The actual rendered sections remain in document order and normal flow.
+        const template = document.createElement("template");
+        template.innerHTML = renderedItems.join("");
+        content.replaceChildren(template.content);
+      }
       // Preserve actual rendered content, with standard semantic HTML for the
       // existing converter. No private Notion records or block reconstruction.
       for (const heading of content.querySelectorAll(
@@ -177,7 +225,7 @@ async function main() {
       body.append(article);
       wrapper.append(head, body);
       return { title, html: "<!doctype html>\n" + wrapper.outerHTML };
-    });
+    }, renderedItems);
     const outputDir = path.join(snapshotDir, "notion");
     await fs.promises.mkdir(outputDir, { recursive: true });
     staging = await fs.promises.mkdtemp(path.join(outputDir, ".capture-"));

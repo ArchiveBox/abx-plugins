@@ -9,6 +9,10 @@ or a published `notion.site` subdomain root with the actual page-content marker.
 Ordinary Notion product, help, pricing, and home pages return `noresults`.
 
 These are saved public-page artifacts, not Notion's native workspace export.
+For virtualized pages, the hook walks the page's real scroll container and retains
+rendered sections in document order, then restores its original scroll position.
+It removes virtual scroll spacers from the saved HTML and fails if the collected
+section indexes have gaps. This uses public rendered HTML, not private page data.
 The current public page is captured; linked subpages, hidden toggle content,
 database views not loaded in the browser, and remote media are not recursively
 downloaded. No private API, account creation, or untested authenticated export

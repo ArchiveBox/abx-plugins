@@ -16,17 +16,56 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_notion.js"
 
 
 @pytest.mark.parametrize(
-    "pnpm_converter",
-    [False, True],
-    ids=["default", "configured-pnpm"],
+    ("pnpm_converter", "scrolled"),
+    [(False, False), (True, False), (False, True)],
+    ids=["default", "configured-pnpm", "scrolled-page"],
 )
 def test_public_page_html_and_markdown(
     tmp_path,
     ensure_chrome_test_prereqs,
     pnpm_converter,
+    scrolled,
 ):
     assert HOOK.is_file(), "Notion capture hook is missing"
-    with chrome_session(tmp_path, test_url=URL, timeout=60) as (_, _, chrome, env):
+    with chrome_session(
+        tmp_path,
+        test_url=URL,
+        timeout=60,
+        env_overrides={"CHROME_RESOLUTION": "1440,600"} if scrolled else None,
+    ) as (_, _, chrome, env):
+        if scrolled:
+            scroll = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    r"""
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    await page.bringToFront();
+    await page.waitForFunction(() => document.querySelector('.notion-page-content')?.innerText.includes('These Cookie Tables provide additional information'), {polling:100});
+    await page.evaluate(() => {
+      let scroller = document.querySelector('.notion-page-content').parentElement;
+      while (scroller && !(scroller.scrollHeight > scroller.clientHeight &&
+        ['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement;
+      if (!scroller) throw new Error('Notion page has no scroll container');
+      scroller.scrollTop = scroller.scrollHeight;
+    });
+    // Confirm the live public site's virtualizer actually removed earlier content.
+    await page.waitForFunction(() => !document.querySelector('.notion-page-content [data-index="0"]'), {polling:100});
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+                    str(HOOK.parent.parent / "chrome/chrome_utils.js"),
+                    str(chrome),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=40,
+            )
+            assert scroll.returncode == 0, scroll.stderr
         if pnpm_converter:
             # ArchiveBox supplies the actual installed .bin launcher as an
             # explicit binary override, rather than just its command name.
@@ -74,6 +113,7 @@ def test_public_page_html_and_markdown(
         markdown = files["md"].read_text()
         for text in (html, markdown):
             assert "Notion Cookie Tables" in text
+            assert "These Cookie Tables provide additional information" in text
             assert "Strictly Necessary Cookies" in text
             assert "Marketing" in text
             assert "Authenticates your login." in text
