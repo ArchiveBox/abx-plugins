@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CAD/3D Downloader",
+  "description": "Download linked and embedded CAD, 3D, and geospatial assets without processing them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "model/",
+    "application/octet-stream",
+    "application/geo+json",
+    "application/vnd.google-earth.kml+xml"
+  ],
+  "properties": {
+    "CADDL_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": [
+        "SAVE_CADDL",
+        "SAVE_CAD",
+        "SAVE_3D"
+      ],
+      "description": "Enable CAD, 3D, and geospatial asset downloads"
+    },
+    "CADDL_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Maximum total download time in seconds"
+    },
+    "CADDL_MAX_ASSETS": {
+      "type": "integer",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 500,
+      "description": "Maximum number of matching assets to download"
+    },
+    "CADDL_MAX_SIZE": {
+      "type": "string",
+      "default": "750m",
+      "pattern": "^\\d+[kmgKMG]?$",
+      "description": "Maximum size of each downloaded asset"
+    }
+  },
+  "category": "media",
+  "display_order": 45
+}
