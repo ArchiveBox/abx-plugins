@@ -292,8 +292,8 @@ def test_config_timeout_honored(title_test_urls):
 
 
 def test_handles_https_urls():
-    """Test HTTPS title extraction against a real live URL."""
-    test_url = "https://example.com/"
+    """Test HTTPS title extraction against our published stable test page."""
+    test_url = "https://archivebox.io/tests/"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -324,7 +324,7 @@ def test_handles_https_urls():
         assert nav_result.returncode == 0, (
             f"HTTPS navigation failed: {nav_result.stderr}"
         )
-        assert_title_succeeded(result, title_dir, "Example Domain")
+        assert_title_succeeded(result, title_dir, "ArchiveBox Test Page")
 
 
 def test_handles_404_gracefully(title_test_urls):
