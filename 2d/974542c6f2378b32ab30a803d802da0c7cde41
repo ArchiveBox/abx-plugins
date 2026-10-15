@@ -1,0 +1,35 @@
+abx_plugins/plugins/box/tests/test_box.py
+  s_10bc94d001be49::t_c8744d64efccec 71
+abx_plugins/plugins/calendar/tests/test_calendar.py
+  s_10bc94d001be49::t_942070b3ef2384 167
+abx_plugins/plugins/dns/tests/test_dns.py
+  s_10bc94d001be49::t_df9fa294ef4990 33,158
+abx_plugins/plugins/hashes/tests/test_hashes.py
+  s_10bc94d001be49::t_e9b79d168c7206 38-42
+abx_plugins/plugins/notion/tests/test_notion.py
+  s_10bc94d001be49::t_9f0f8e67b304be 113-117,124
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_10bc94d001be49::t_c85ab7f2121c4b 358
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_10bc94d001be49::t_c98d62c766a353 31-35,48-52,79-84,146,163-167,193
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_10bc94d001be49::t_eb2b70270dcd0b 44,105,287-289,351-352
+abx_plugins/plugins/sslcerts/tests/test_sslcerts.py
+  s_10bc94d001be49::t_0281c582991152 126-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2d974542c6f2378b32ab30a803d802da0c7cde41",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
