@@ -35,35 +35,86 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalPdfResponses(page) {
-  // Chromium replaces inline PDF response bodies with its viewer HTML before
-  // Network.getResponseBody (and Puppeteer's response.buffer()) can read them.
-  // Preserve the original network body before continuing the same response.
+async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}) {
+  // Network.getResponseBody applies MIME-driven text decoding, corrupting
+  // binary downloads mislabeled as text. Inline PDFs become viewer HTML too.
+  // Preserve raw bytes from the original request without refetching resources.
   const session = await page.createCDPSession();
   const bodies = new Map();
+  const streams = new Map();
+  // Spool raw chunks to local scratch instead of retaining concurrent bodies
+  // or decoding them according to potentially incorrect server MIME headers.
+  session.on("Network.dataReceived", (event) => {
+    const stream = streams.get(event.requestId);
+    if (!stream || stream.error || !event.data) return;
+    try {
+      fs.appendFileSync(stream.filename, Buffer.from(event.data, "base64"));
+    } catch (error) {
+      stream.error = error;
+    }
+  });
+  session.on("Network.loadingFinished", ({ requestId }) => streams.get(requestId)?.finish());
+  session.on("Network.loadingFailed", ({ requestId, errorText }) => {
+    const stream = streams.get(requestId);
+    if (stream) {
+      stream.error = new Error(errorText);
+      stream.finish();
+    }
+  });
+  const onClosed = () => {
+    for (const stream of streams.values()) {
+      if (stream.complete) continue;
+      stream.error ||= new Error("Chrome disconnected before response capture completed");
+      stream.finish();
+    }
+  };
+  page.once("close", onClosed);
+  page.browser().once("disconnected", onClosed);
   const pdfUrls = new Set();
   const wireDocuments = new Set();
   const pending = new Set();
   let directory;
   session.on("Fetch.requestPaused", (event) => {
-    wireDocuments.add(event.networkId);
+    if (event.resourceType === "Document") wireDocuments.add(event.networkId);
     const work = (async () => {
       const header = (name) => event.responseHeaders?.find(
         (item) => item.name.toLowerCase() === name
       )?.value || "";
       try {
-        if (header("content-type").split(";")[0].trim() === "application/pdf" &&
+        const isPdf = header("content-type").split(";")[0].trim() === "application/pdf";
+        if (event.resourceType === "Document" && (resourceTypes || isPdf) &&
             !/\battachment\b/i.test(header("content-disposition")) &&
             event.responseStatusCode >= 200 && event.responseStatusCode < 300) {
-          pdfUrls.add(event.request.url);
+          if (isPdf) pdfUrls.add(event.request.url);
+          // Document streaming waits for navigation commit, which cannot occur
+          // while these headers are paused. Fetch can read the raw body here.
           const result = await session.send("Fetch.getResponseBody", { requestId: event.requestId });
           // Keep only paths while the ordinary response writer drains its queue.
           directory ||= fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "pdf-responses-"));
           const filename = path.join(await directory, crypto.randomUUID());
           await fs.promises.writeFile(filename, Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8"));
           bodies.set(event.networkId, filename);
+        } else if (resourceTypes && event.networkId &&
+                   (!resourceTypes.length || resourceTypes.includes(event.resourceType.toLowerCase())) &&
+                   event.responseStatusCode >= 200 && event.responseStatusCode < 300 &&
+                   !/\battachment\b/i.test(header("content-disposition"))) {
+          directory ||= fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "response-bodies-"));
+          const filename = path.join(await directory, crypto.randomUUID());
+          const stream = { filename };
+          stream.done = new Promise((resolve) => { stream.finish = () => { stream.complete = true; resolve(); }; });
+          streams.set(event.networkId, stream);
+          fs.writeFileSync(filename, "");
+          // Enable while headers are paused: responseReceived alone races fast
+          // downloads. Continue immediately after setup, not after body arrival.
+          const { bufferedData } = await session.send("Network.streamResourceContent", { requestId: event.networkId });
+          fs.appendFileSync(filename, Buffer.from(bufferedData, "base64"));
         }
       } catch (error) {
+        const stream = streams.get(event.networkId);
+        if (stream) {
+          stream.error = error;
+          stream.finish();
+        }
         bodies.set(event.networkId, error);
       } finally {
         await session.send("Fetch.continueResponse", { requestId: event.requestId });
@@ -72,24 +123,37 @@ async function captureOriginalPdfResponses(page) {
     pending.add(work);
     work.catch((error) => bodies.set(event.networkId, error)).finally(() => pending.delete(work));
   });
-  await session.send("Fetch.enable", { patterns: [{ resourceType: "Document", requestStage: "Response" }] });
+  if (resourceTypes) await session.send("Network.enable");
+  await session.send("Fetch.enable", { patterns: [resourceTypes
+    ? { requestStage: "Response" }
+    : { resourceType: "Document", requestStage: "Response" }] });
   return {
     async read(response) {
       const id = response.request().id;
+      const stream = streams.get(id);
+      if (stream) {
+        await stream.done;
+        streams.delete(id);
+        if (stream.error) throw stream.error;
+        const body = await fs.promises.readFile(stream.filename);
+        await fs.promises.unlink(stream.filename);
+        return body;
+      }
+      if (bodies.get(id) instanceof Error) throw bodies.get(id);
       if (response.request().isNavigationRequest() && pdfUrls.has(response.url()) &&
           !wireDocuments.has(id)) return null;
-      if (!response.request().isNavigationRequest() ||
-          response.headers()["content-type"]?.split(";")[0].trim() !== "application/pdf") return undefined;
       const filename = bodies.get(id);
       bodies.delete(id);
       if (filename instanceof Error) throw filename;
       // Chrome's synthetic viewer documents have no intercepted wire response.
-      if (!filename) return null;
+      if (!filename) return response.request().isNavigationRequest() && pdfUrls.has(response.url()) ? null : undefined;
       const body = await fs.promises.readFile(filename);
       await fs.promises.unlink(filename);
       return body;
     },
     async close() {
+      page.off("close", onClosed);
+      page.browser().off("disconnected", onClosed);
       await Promise.allSettled(pending);
       try {
         if (!session.detached) await session.detach();
@@ -5572,7 +5636,7 @@ async function waitForVisibleImages(page, timeoutMs, chromeSessionDir) {
 
 // Export all functions
 module.exports = {
-  captureOriginalPdfResponses,
+  captureOriginalResponseBodies,
   captureBrowserDownloads,
   withTimeout,
   // Environment helpers

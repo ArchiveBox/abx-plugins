@@ -40,7 +40,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
-  captureOriginalPdfResponses,
+  captureOriginalResponseBodies,
   acquireSessionLock,
   getBrowserConnection,
   resolvePuppeteerModule,
@@ -385,7 +385,7 @@ async function setupStaticFileListener() {
   browser = connection.browser;
   page = connection.page;
   const originalPdfResponses = getEnvBool("RESPONSES_ENABLED", true)
-    ? null : await captureOriginalPdfResponses(page);
+    ? null : await captureOriginalResponseBodies(page);
 
   // Chrome handles Content-Disposition attachments as downloads, so their
   // response bodies are unavailable to response.buffer(). Keep the existing

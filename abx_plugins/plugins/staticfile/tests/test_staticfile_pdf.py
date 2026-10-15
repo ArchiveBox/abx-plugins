@@ -38,7 +38,7 @@ const chrome = require(process.argv[1]);
 (async () => {
   const {browser, page} = await chrome.connectToPage({chromeSessionDir: process.argv[2]});
   try {
-    const capture = await chrome.captureOriginalPdfResponses(page);
+    const capture = await chrome.captureOriginalResponseBodies(page);
     await page.close();
     await capture.close();
   } finally { await browser.disconnect(); }
