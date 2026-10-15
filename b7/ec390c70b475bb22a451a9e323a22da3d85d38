@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/tests/test_chrome_bootstrap_timeout.py
+  s_20f72622e178fb::t_919a2159d78b3f 16,24,53-54,78-79
+tests/test_ci_chrome_sandbox.py
+  s_20f72622e178fb::t_5029c4905b15ab 3,16-17,27,32-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7ec390c70b475bb22a451a9e323a22da3d85d38",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
