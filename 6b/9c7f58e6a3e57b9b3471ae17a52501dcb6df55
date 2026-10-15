@@ -1,0 +1,19 @@
+abx_plugins/plugins/notion/tests/test_notion.py
+  s_10bc94d001be49::t_c8267556fa41c3 18-30,37,42-51,98-100,104,106-122,124-160,162-163,165-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6b9c7f58e6a3e57b9b3471ae17a52501dcb6df55",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
