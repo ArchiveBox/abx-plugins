@@ -52,8 +52,27 @@ const utils = require(process.argv[1]);
       if (!scroller) throw new Error('Notion page has no scroll container');
       scroller.scrollTop = scroller.scrollHeight;
     });
+    // The first jump mounts the last table, whose loaded rows increase the
+    // scroll height. Scroll to its actual final row rather than the old height.
+    const lastRow = await page.waitForSelector('::-p-text(MNTN Connected TV)');
+    await lastRow.scrollIntoView();
+    await lastRow.dispose();
     // Confirm the live public site's virtualizer actually removed earlier content.
     await page.waitForFunction(() => !document.querySelector('.notion-page-content [data-index="0"]'), {polling:100});
+  } catch (error) {
+    console.error('Notion scroll setup state', JSON.stringify(await page.evaluate(() => {
+      const root = document.querySelector('.notion-page-content');
+      const ancestors = [];
+      for (let node = root; node; node = node.parentElement) {
+        if (['auto', 'scroll'].includes(getComputedStyle(node).overflowY))
+          ancestors.push({height: node.clientHeight, scrollHeight: node.scrollHeight, scrollTop: node.scrollTop});
+      }
+      return {url: location.href, readyState: document.readyState,
+        viewport: [innerWidth, innerHeight], text: document.body.innerText.slice(0, 1200),
+        indexes: [...(root?.querySelectorAll('[data-index]') || [])].map(node => node.dataset.index),
+        scrollContainers: ancestors};
+    }).catch(diagnosticError => ({error: diagnosticError.message}))));
+    throw error;
   } finally { await browser.disconnect(); }
 })().catch(error => { console.error(error); process.exit(1); });
 """,
