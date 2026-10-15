@@ -714,6 +714,21 @@ const extensionJson = process.argv[3];
       require('fs').statSync(`${runtimePath}/manifest.json`).ino,
       manifestInode,
     );
+    await chromeUtils.sendBrowserCommand(browser, 'Extensions.uninstall', {
+      id: extensions[0].id,
+    });
+    const missingStarted = Date.now();
+    let missingError = '';
+    try {
+      await chromeUtils.waitForExtensionTargetHandle(
+        browser, extensions[0].id, 5000, preferredTargetUrl, { wakePath },
+      );
+    } catch (error) {
+      missingError = error.message;
+    }
+    const missingElapsed = Date.now() - missingStarted;
+    require('assert')(missingElapsed < 1000, `Unavailable extension waited ${missingElapsed}ms: ${missingError}`);
+    require('assert')(missingError.includes('ERR_BLOCKED_BY_CLIENT'), missingError);
     process.stdout.write(JSON.stringify({
       cdpUrl: result.cdpUrl,
       extension: extensions[0],

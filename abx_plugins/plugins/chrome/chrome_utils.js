@@ -1636,7 +1636,7 @@ async function waitForExtensionTargetHandle(
           await wakePage.close();
         } catch (closeError) {}
       }
-      return null;
+      throw error;
     }
   }
 
@@ -1644,12 +1644,19 @@ async function waitForExtensionTargetHandle(
     target.type() === "service_worker" &&
     getExtensionIdFromUrl(target.url()) === extensionId &&
     (!preferredTargetUrl || target.url() === preferredTargetUrl);
-  const targetPromise = browser.waitForTarget(matchesExtensionTarget, { timeout });
+  const controller = new AbortController();
+  const targetPromise = browser.waitForTarget(matchesExtensionTarget, {
+    timeout, signal: controller.signal,
+  });
   const wakePagePromise = wakeExtension();
   try {
-    return await targetPromise;
+    // A rejected extension navigation is terminal, not a sleeping MV3 worker.
+    // Preserve that error even if Chrome still exposes an obsolete target.
+    const [target] = await Promise.all([targetPromise, wakePagePromise]);
+    return target;
   } finally {
-    const wakePage = await wakePagePromise;
+    controller.abort();
+    const wakePage = await wakePagePromise.catch(() => null);
     if (wakePage) {
       await wakePage.close().catch(() => {});
     }
