@@ -43,17 +43,23 @@ The Chrome plugin publishes those details behind a shared `chrome/` session dire
 
 Defined in [config.json](./config.json).
 
-The browser dependency declares its Playwright and Puppeteer providers in
-`config.json`. abxpkg installs and caches a managed Chromium automatically;
+The browser dependency pins an official stable Chrome for Testing release in
+`config.json`. abxpkg installs and caches it through Puppeteer, including Linux
+system dependencies. Both version bounds match the pin so an existing newer
+development build cannot satisfy the dependency. Update the pin only after
+checking the official Chrome for Testing stable-channel manifest; the runtime
+test verifies the actual executable version and a real browser session.
 CI and users do not need a browser-provider setting. An explicit `CHROME_BINARY`
 path selects an existing browser, and `CHROME_CDP_URL` adopts a running browser.
+The Playwright install arguments remain available for explicitly selected
+provider configurations; it is not an automatic fallback to a development build.
 
 ### Core session options
 
 | Variable           | Default    | Meaning                                                                                                                                         |
 | ------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CHROME_ENABLED`   | `true`     | Enable browser-backed archiving.                                                                                                                |
-| `CHROME_BINARY`    | `chromium` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser.                                    |
+| `CHROME_BINARY`    | `chromium` | Managed stable Chrome for Testing, or an explicitly configured local browser path.                                                              |
 | `CHROME_CDP_URL`   | `""`       | Adopt an already-running browser instead of launching a local one. Accepts WS or HTTP CDP endpoints.                                            |
 | `CHROME_IS_LOCAL`  | `true`     | Whether the owned browser process is local and should publish `chrome.pid`. If `CHROME_CDP_URL` is set, runtime behavior is external/non-local. |
 | `CHROME_KEEPALIVE` | `false`    | Leave the browser running after cleanup. The owning launch daemon stays alive to reap owned export tabs.                                      |

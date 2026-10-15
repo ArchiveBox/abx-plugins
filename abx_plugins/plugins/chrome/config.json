@@ -56,11 +56,18 @@
     },
     {
       "name": "{CHROME_BINARY}",
-      "binproviders": "playwright,puppeteer",
-      "min_version": "153.0.8010.36",
+      "binproviders": "puppeteer",
+      "min_version": "155.0.8059.79",
+      "max_version": "155.0.8059.79",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
+        "puppeteer": {
+          "install_args": [
+            "chrome@155.0.8059.79",
+            "--install-deps"
+          ]
+        },
         "playwright": {
           "install_args": [
             "--with-deps",

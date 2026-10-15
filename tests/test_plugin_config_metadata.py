@@ -325,12 +325,13 @@ def test_required_binary_configs_prefer_hosts_or_declared_managed_runtimes() -> 
                     managed_package = True
                     break
             managed_browser = (
-                providers == ["playwright", "puppeteer"]
+                providers == ["puppeteer"]
                 and bool(item.get("min_version"))
+                and item.get("min_version") == item.get("max_version")
                 and item.get("postinstall_scripts") is True
                 and isinstance(overrides, dict)
-                and overrides.get("playwright", {}).get("install_args")
-                == ["--with-deps", "chromium", "--no-shell"]
+                and overrides.get("puppeteer", {}).get("install_args")
+                == [f"chrome@{item['min_version']}", "--install-deps"]
             )
             if (not providers or providers[0] != "env") and not (
                 managed_package or managed_browser
