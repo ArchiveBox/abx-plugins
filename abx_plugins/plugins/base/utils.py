@@ -1179,6 +1179,53 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
     )
 
 
+def has_failed_source_navigation(url: str, snap_dir: Path) -> bool:
+    """Whether this source already failed transport without an HTTP response."""
+    try:
+        navigation = json.loads((snap_dir / "chrome/navigation.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return (
+        isinstance(navigation, dict)
+        and navigation.get("url") == url
+        and navigation.get("status") is None
+        and "net::ERR_" in str(navigation.get("error", ""))
+    )
+
+
+def read_snapshot_source_text(
+    url: str,
+    *,
+    snap_dir: Path,
+    timeout: float,
+    user_agent: str,
+) -> str:
+    """Read captured/imported source, with HTTP fallback for standalone parsers.
+
+    A completed transport failure with no HTTP response leaves no input to
+    parse. Do not turn every postprocessor into another network retry. Saved
+    bodies still take precedence, and a failure for another URL is unrelated.
+    """
+    source_paths = iter_staticfile_text_inputs(snap_dir)
+    if source_paths:
+        return "\n".join(
+            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
+        )
+    file_content = read_file_url_text(url)
+    if file_content is not None:
+        return file_content
+    if not url.startswith(("http://", "https://")):
+        return ""
+    if has_failed_source_navigation(url, snap_dir):
+        return ""
+
+    import urllib.request
+
+    request = build_request(url, headers={"User-Agent": user_agent})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
 # RFC 3986 reserved delimiters plus "%" so existing escapes are not re-encoded.
 _URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
 # Inside a userinfo component ":" and "@" are data, not delimiters.

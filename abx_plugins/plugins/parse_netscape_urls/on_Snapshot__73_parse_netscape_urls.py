@@ -26,10 +26,8 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     emit_tag_record,
-    build_request,
-    iter_staticfile_text_inputs,
     load_config,
-    read_file_url_text,
+    read_snapshot_source_text,
     write_text_atomic,
 )
 
@@ -181,29 +179,6 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     return best_dt
 
 
-def fetch_content(url: str) -> str:
-    """Fetch content from snapshot source artifacts or an HTTP URL."""
-    source_paths = iter_staticfile_text_inputs(SNAP_DIR)
-    if source_paths:
-        return "\n".join(
-            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
-        )
-    file_content = read_file_url_text(url)
-    if file_content is not None:
-        return file_content
-    if not url.startswith(("http://", "https://")):
-        return ""
-    timeout = CONFIG.TIMEOUT
-    user_agent = CONFIG.USER_AGENT
-
-    import urllib.request
-
-    # IRIs (/über) and URL credentials need the shared request builder.
-    req = build_request(url, headers={"User-Agent": user_agent})
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        return response.read().decode("utf-8", errors="replace")
-
-
 def normalize_bookmark_url(bookmark_url: str, root_url: str) -> str:
     """Resolve relative bookmark URLs against the source page URL."""
     cleaned = sanitize_extracted_url(bookmark_url)
@@ -335,7 +310,12 @@ def main(
     """Parse Netscape bookmark HTML and extract URLs."""
     print("parsing 1 files for urls...")
     try:
-        content = fetch_content(url)
+        content = read_snapshot_source_text(
+            url,
+            snap_dir=SNAP_DIR,
+            timeout=CONFIG.TIMEOUT,
+            user_agent=CONFIG.USER_AGENT,
+        )
     except Exception as e:
         if url.startswith(("http://", "https://")):
             # Snapshot URL fetching is only a fallback when no staticfile import
