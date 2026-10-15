@@ -8,9 +8,9 @@ html,body{height:100%}body{display:flex;flex-direction:column}header{flex:none}.
 <iframe id="reader" class="reader" title="Readability reader view" name="preview" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
 <script>
 (() => {
-  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';const folder=new URL('./',output);
+  const output=new URL('{{ output_path|escapejs }}',location.href);output.searchParams.delete('preview');output.searchParams.delete('titlebar');output.hash='';const folder=new URL('./',output);
   const rawBytes=url=>{const value=new URL(url);value.searchParams.set('raw','1');return value};
-  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=rawBytes(output).href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
+  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=rawBytes(output).href;const raw=rawBytes(output);raw.searchParams.set('preview','1');document.getElementById('raw').href=raw.href;
   const reader=document.getElementById('reader');reader.addEventListener('load',()=>{const doc=reader.contentDocument;if(!doc?.head)return;for(const link of doc.querySelectorAll('a[href]')){try{const url=new URL(link.href);if(['http:','https:'].includes(url.protocol)&&url.origin!==location.origin){link.target='_blank';link.rel='noopener noreferrer'}}catch{}}for(const img of doc.querySelectorAll('img,svg')){const maxWidth=img.style.maxWidth;img.style.maxWidth=maxWidth&&maxWidth!=='none'?'min(100%, '+maxWidth+')':'100%';for(const dimension of ['width','height']){const value=img.getAttribute(dimension);if(value&&!img.style[dimension])img.style[dimension]=/^\d+(?:\.\d+)?$/.test(value)?value+'px':value}
     // Preserve the saved box ratio when max-width shrinks a large image.
     const width=img.style.width,height=img.style.height;

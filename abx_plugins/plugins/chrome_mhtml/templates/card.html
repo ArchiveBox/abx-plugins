@@ -1,6 +1,6 @@
 <!-- Chrome MHTML thumbnail - scaled down iframe preview of captured browser MHTML -->
 <div class="extractor-thumbnail chrome-mhtml-thumbnail" style="width: 100%; height: 100%; overflow: hidden; background: #fff;">
-    <iframe src="{{ output_path }}?preview=1"
+    <iframe src="{{ output_path }}{% if "?" in output_path %}&amp;{% else %}?{% endif %}preview=1"
             style="width: 400%; height: 400%; transform: scale(0.25); transform-origin: top left; pointer-events: none; border: none;"
             loading="lazy"
             fetchpriority="low"
