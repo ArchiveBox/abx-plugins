@@ -134,19 +134,25 @@ function emitResponseProgress(force = false) {
   emitProgress(line);
 }
 
+const symlinkDirectories = new Set();
+
 async function createSymlink(target, linkPath) {
   try {
     const dir = path.dirname(linkPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    if (fs.existsSync(linkPath)) {
-      fs.unlinkSync(linkPath);
+    if (!symlinkDirectories.has(dir)) {
+      await fs.promises.mkdir(dir, { recursive: true });
+      symlinkDirectories.add(dir);
     }
 
     const relativePath = path.relative(dir, target);
-    fs.symlinkSync(relativePath, linkPath);
+    try {
+      await fs.promises.symlink(relativePath, linkPath);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      // Replace dangling links too; existsSync follows their missing target.
+      await fs.promises.unlink(linkPath);
+      await fs.promises.symlink(relativePath, linkPath);
+    }
   } catch (e) {
     // Ignore symlink errors
   }
@@ -278,12 +284,15 @@ async function setupListener() {
             dirPath
           );
           const symlinkPath = path.join(symlinkDir, filename);
-          await createSymlink(uniquePath, symlinkPath);
-
           // Also create a site-style symlink without resource type for easy browsing
           const siteDir = path.join(OUTPUT_DIR, hostname, dirPath);
           const sitePath = path.join(siteDir, filename);
-          await createSymlink(uniquePath, sitePath);
+          // These two independent aliases can overlap their filesystem waits.
+          // The response queue still retains only one body at a time.
+          await Promise.all([
+            createSymlink(uniquePath, symlinkPath),
+            createSymlink(uniquePath, sitePath),
+          ]);
           candidateMainOutputPath = path.posix.join(
             PLUGIN_DIR,
             hostname,

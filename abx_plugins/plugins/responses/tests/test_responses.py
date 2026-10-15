@@ -135,6 +135,77 @@ class TestResponsesWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+    @pytest.mark.parametrize("previous_exists", [False, True])
+    def test_capture_replaces_both_existing_url_aliases(
+        self,
+        httpserver,
+        previous_exists,
+    ):
+        body = (
+            b"<html><body>Current response body, preserved byte for byte.</body></html>"
+        )
+        httpserver.expect_request("/article/index.html").respond_with_data(
+            body,
+            content_type="text/html",
+        )
+        url = httpserver.url_for("/article/index.html")
+        with chrome_session(
+            self.temp_dir,
+            test_url=url,
+            navigate=False,
+            timeout=30,
+        ) as (_, _, chrome_dir, env):
+            output = chrome_dir.parent / "responses"
+            output.mkdir()
+            previous = output / "previous.html"
+            if previous_exists:
+                previous.write_bytes(b"Previous response must remain intact.")
+            hostname = urlparse(url).hostname
+            assert hostname
+            aliases = [
+                output / prefix / hostname / "article/index.html"
+                for prefix in ("document", "")
+            ]
+            for alias in aliases:
+                alias.parent.mkdir(parents=True, exist_ok=True)
+                alias.symlink_to(os.path.relpath(previous, alias.parent))
+            index = output / "index.jsonl"
+            process = start_process_and_wait_for_file(
+                [str(RESPONSES_HOOK), f"--url={url}"],
+                index,
+                cwd=output,
+                env=env,
+            )
+            try:
+                navigation = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                    cwd=chrome_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                assert navigation.returncode == 0, navigation.stderr
+                wait_for_file(
+                    index,
+                    process=process,
+                    ready=lambda p: url in p.read_text(),
+                )
+            finally:
+                process.terminate()
+                stdout, stderr = process.communicate(timeout=30)
+            assert process.returncode == 0, (stdout, stderr)
+            records = [json.loads(line) for line in index.read_text().splitlines()]
+            current = next(record for record in records if record["url"] == url)
+            saved = output / current["path"]
+            assert saved.read_bytes() == body
+            for alias in aliases:
+                assert alias.is_symlink()
+                assert alias.resolve(strict=True) == saved.resolve(strict=True)
+                assert alias.read_bytes() == body
+            if previous_exists:
+                assert previous.read_bytes() == b"Previous response must remain intact."
+
     def test_data_url_body_is_saved_without_url_shaped_directories(self, httpserver):
         """Inline image bytes must survive without creating oversized B2 keys."""
         svg = (
