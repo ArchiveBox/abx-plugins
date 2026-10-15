@@ -148,7 +148,8 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   await fs.promises.mkdir(CHROME_DOWNLOADS_DIR, { recursive: true });
 
   const timeoutMs = options.timeoutMs || getSinglefileDownloadWaitTimeoutMs();
-  const deadline = Date.now() + timeoutMs;
+  const saveStartedAt = Date.now();
+  const deadline = saveStartedAt + timeoutMs;
   console.error(
     `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
@@ -161,9 +162,12 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // connection has already disconnected, so relying on it sends extension
     // downloads into the user's default Downloads folder. Share the existing
     // browser-download lock and use GUID names to avoid same-title collisions.
+    const lockStartedAt = Date.now();
+    console.error("[singlefile] phase=download-lock waiting");
     releaseDownloadLock = await chromeUtils.acquireSessionLock(
       path.join(CHROME_DOWNLOADS_DIR, ".download.lock"), timeoutMs
     );
+    console.error(`[singlefile] phase=download-lock elapsed_ms=${Date.now() - lockStartedAt}`);
     await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
       behavior: "allowAndName", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
     });
@@ -205,6 +209,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       // Chrome actions target the selected tab. Select the exact saved CDP page;
       // opening the observer page above otherwise leaves that helper selected.
       await page.bringToFront();
+      console.error(`[singlefile] phase=capture started elapsed_ms=${Date.now() - saveStartedAt}`);
       await page.triggerExtensionAction(installed);
     });
     const downloadTimeoutMs = deadline - Date.now();
@@ -317,6 +322,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       },
       { exactTab: tab, extensionId: extension.id, timeoutMs: downloadTimeoutMs }
     );
+    console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
     const stat = await fs.promises.stat(downloadedPath);
     if (stat.size <= 0) {
       throw new Error(`SingleFile download is empty: ${downloadedPath}`);
@@ -324,6 +330,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
       await moveAcrossMounts(downloadedPath, outputPath);
     }
+    console.error(`[singlefile] phase=file-saved elapsed_ms=${Date.now() - saveStartedAt}`);
     return outputPath;
   } finally {
     try {
@@ -345,6 +352,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
 }
 
 async function main() {
+  const startedAt = Date.now();
   const args = parseArgs();
   const url = args.url;
   const outputPath =
@@ -364,6 +372,7 @@ async function main() {
       waitForNavigationComplete: true,
     });
     browser = connection.browser;
+    console.error(`[singlefile] phase=connect elapsed_ms=${Date.now() - startedAt}`);
 
     const sessionEntry = chromeUtils.findExtensionMetadataByName(
       connection.extensions || [],
@@ -387,6 +396,7 @@ async function main() {
       { wakePath: SERVICE_WORKER_WAKE_PATH }
     );
     await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);
+    console.error(`[singlefile] phase=extension elapsed_ms=${Date.now() - startedAt}`);
 
     const savedPath = await saveSinglefileWithExtension(
       connection.page,
