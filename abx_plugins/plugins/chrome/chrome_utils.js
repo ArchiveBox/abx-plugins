@@ -2385,14 +2385,32 @@ async function connectToBrowserEndpoint(
   return puppeteer.connect(options);
 }
 
-async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
+async function withTimeout(
+  promiseFactory,
+  timeoutMs,
+  timeoutMessage,
+  disposeLateResult
+) {
   let timeoutHandle = null;
+  let timedOut = false;
   try {
     return await Promise.race([
-      promiseFactory(),
+      Promise.resolve()
+        .then(promiseFactory)
+        .then(async (result) => {
+          // A timeout does not cancel the operation. Retain ownership of any
+          // resource that arrives after the caller has stopped waiting for it.
+          if (timedOut && disposeLateResult) {
+            await disposeLateResult(result);
+          }
+          return result;
+        }),
       new Promise((_, reject) => {
         timeoutHandle = setTimeout(
-          () => reject(new Error(timeoutMessage)),
+          () => {
+            timedOut = true;
+            reject(new Error(timeoutMessage));
+          },
           timeoutMs
         );
       }),
@@ -2413,7 +2431,8 @@ async function canConnectToChromeBrowser(cdpUrl, options = {}) {
       () =>
         connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null }),
       timeoutMs,
-      `Timed out connecting to browser at ${cdpUrl}`
+      `Timed out connecting to browser at ${cdpUrl}`,
+      (lateBrowser) => lateBrowser.disconnect()
     );
     return true;
   } catch (error) {
@@ -2512,7 +2531,8 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
             defaultViewport: null,
           }),
         probeTimeoutMs,
-        `Timed out connecting to browser at ${state.cdpUrl}`
+        `Timed out connecting to browser at ${state.cdpUrl}`,
+        (lateBrowser) => lateBrowser.disconnect()
       );
       const page = await resolvePageByTargetId(
         browser,
@@ -4229,7 +4249,8 @@ async function connectToPage(options = {}) {
           protocolTimeout: remainingMs,
         }),
       operationTimeoutMs,
-      `Timed out connecting to page browser at ${state.cdpUrl}`
+      `Timed out connecting to page browser at ${state.cdpUrl}`,
+      (lateBrowser) => lateBrowser.disconnect()
     ).catch((error) => {
       lastError = error instanceof Error ? error : new Error(String(error));
       return null;
@@ -4652,12 +4673,18 @@ async function closeBrowserInChromeSession(options = {}) {
   if (cdpUrl) {
     let browser = null;
     try {
-      await withTimeout(
-        async () => {
-          browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
+      browser = await withTimeout(
+        () =>
+          connectToBrowserEndpoint(puppeteer, cdpUrl, {
             defaultViewport: null,
             protocolTimeout: Math.max(1, remainingCdpMs()),
-          });
+          }),
+        Math.max(1, remainingCdpMs()),
+        `Timed out connecting to browser at ${cdpUrl}`,
+        (lateBrowser) => lateBrowser.disconnect()
+      );
+      await withTimeout(
+        async () => {
           browserEndpoint = browser.wsEndpoint();
           await sendBrowserCommand(browser, "Browser.close");
         },
