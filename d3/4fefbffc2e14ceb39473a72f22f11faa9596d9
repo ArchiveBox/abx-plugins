@@ -1,0 +1,19 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_10bc94d001be49::t_19ec930a07111a 3913-3914
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d34fefbffc2e14ceb39473a72f22f11faa9596d9",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "unknown"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
