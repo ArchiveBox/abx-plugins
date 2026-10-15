@@ -102,9 +102,16 @@ async function main() {
       /^\s*(?:text\/(?:calendar|x-vcalendar)|application\/(?:ics|icalendar))(?:;|$)/i.test(
         navigation.content_type || "",
       );
-    const candidates = new Set(calendarUrls(url, isCalendarMime));
-    for (const value of calendarUrls(page.url(), isCalendarMime))
-      candidates.add(value);
+    const candidates = new Map();
+    function addCandidates(value, explicit = false, textHint = false) {
+      for (const candidate of calendarUrls(value, explicit))
+        candidates.set(candidate, true);
+      if (textHint)
+        for (const candidate of calendarUrls(value, true))
+          if (!candidates.has(candidate)) candidates.set(candidate, false);
+    }
+    addCandidates(url, isCalendarMime);
+    addCandidates(page.url(), isCalendarMime);
     const discovered = await page.evaluate(() => {
       const plain = /^(text\/plain|text\/calendar)/.test(document.contentType);
       return {
@@ -120,16 +127,15 @@ async function main() {
           url: el.href || el.src,
           explicit:
             /^text\/calendar(?:;|$)/i.test(el.getAttribute("type") || "") ||
-            /\.ics$/i.test(el.getAttribute("download") || "") ||
-            /\b(?:iCalendar|ICS)\b/i.test(el.textContent || ""),
+            /\.ics$/i.test(el.getAttribute("download") || ""),
+          textHint: /\b(?:iCalendar|ICS)\b/i.test(el.textContent || ""),
         })),
       };
     });
     if (discovered.calendarText)
-      for (const value of calendarUrls(page.url(), true)) candidates.add(value);
+      addCandidates(page.url(), true);
     for (const link of discovered.links)
-      for (const value of calendarUrls(link.url, link.explicit))
-        candidates.add(value);
+      addCandidates(link.url, link.explicit, link.textHint);
     if (!candidates.size)
       return result("noresults", "No calendar feed or ICS invitation");
     temporary = await fs.promises.mkdtemp(
@@ -138,10 +144,11 @@ async function main() {
     const downloads = [],
       events = [],
       names = [];
-    for (const [index, candidate] of [...candidates].entries()) {
+    for (const [index, [candidate, explicit]] of [...candidates].entries()) {
       const filePath = path.join(temporary, `${index}.ics`);
+      let response;
       try {
-        await downloadBrowserResource({
+        response = await downloadBrowserResource({
           cdpSession,
           url: candidate,
           outputPath: filePath,
@@ -156,8 +163,19 @@ async function main() {
         throw error;
       }
       const data = await fs.promises.readFile(filePath, "utf8");
-      if (!/^\s*BEGIN:VCALENDAR\b/.test(data))
+      if (!/^\s*BEGIN:VCALENDAR\b/.test(data)) {
+        const contentType = Object.entries(response.headers).find(
+          ([name]) => name.toLowerCase() === "content-type",
+        )?.[1];
+        // Link text alone is ambiguous (e.g. Industrial Control Systems).
+        // Still download real text-only calendar links, but ignore HTML pages.
+        if (
+          !explicit &&
+          /^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(contentType || "")
+        )
+          continue;
         throw Error("Calendar URL did not return an ICS calendar");
+      }
       const component = new ICAL.Component(
         ICAL.parse(data.replace(/^\uFEFF/, "")),
       );
@@ -201,6 +219,8 @@ async function main() {
             .slice(0, 120) + ".ics",
       });
     }
+    if (!downloads.length)
+      return result("noresults", "No calendar feed or ICS invitation");
     const output = path.join(snapshot, "calendar");
     const title =
       names.length === 1 ? names[0] : discovered.title || "Saved calendars";

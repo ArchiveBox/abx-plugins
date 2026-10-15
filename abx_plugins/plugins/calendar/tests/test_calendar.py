@@ -201,3 +201,96 @@ def test_unrelated_page_preserves_target(tmp_path, ensure_chrome_test_prereqs):
             for t in fetch_devtools_targets(endpoint)
             if t["type"] == "page"
         } == before
+
+
+@pytest.mark.parametrize(
+    ("links", "feed", "expected"),
+    [
+        ('<a href="/industrial">ICS</a>', False, "noresults"),
+        ('<a href="/subscription">ICS</a>', True, "succeeded"),
+        (
+            '<a href="/industrial">ICS</a><a href="/subscription">iCalendar</a>',
+            True,
+            "succeeded",
+        ),
+        ('<a href="/industrial" type="text/calendar">ICS</a>', False, "failed"),
+        ('<a href="/industrial" download="events.ics">ICS</a>', False, "failed"),
+        ('<a href="/events.ics">ICS</a>', False, "failed"),
+        (
+            '<a href="/industrial">ICS</a><a href="/industrial" type="text/calendar">Feed</a>',
+            False,
+            "failed",
+        ),
+    ],
+)
+def test_calendar_link_evidence(
+    tmp_path,
+    httpserver,
+    ensure_chrome_test_prereqs,
+    links,
+    feed,
+    expected,
+):
+    calendar = (
+        b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//ArchiveBox//Calendar test//EN\r\n"
+        b"BEGIN:VEVENT\r\nUID:owned-test@archivebox.io\r\nDTSTAMP:20261015T000000Z\r\n"
+        b"DTSTART:20261016T120000Z\r\nDTEND:20261016T130000Z\r\n"
+        b"SUMMARY:ArchiveBox calendar capture\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+    httpserver.expect_request("/").respond_with_data(links, content_type="text/html")
+    for endpoint in ("/industrial", "/events.ics"):
+        httpserver.expect_request(endpoint).respond_with_data(
+            "<html><h1>Industrial Control Systems</h1></html>",
+            content_type="text/html",
+        )
+    httpserver.expect_request("/subscription").respond_with_data(
+        calendar,
+        content_type="text/calendar",
+    )
+    url = httpserver.url_for("/")
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=60,
+        env_overrides={"AUTH_STORAGE_FILE": ""},
+    ) as (_, _, chrome, env):
+        endpoint = (chrome / "cdp_url.txt").read_text().strip()
+        before = {
+            t["id"]: t["url"]
+            for t in fetch_devtools_targets(endpoint)
+            if t["type"] == "page"
+        }
+        result = subprocess.run(
+            [str(HOOK), f"--url={url}"],
+            cwd=chrome.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == (1 if expected == "failed" else 0), result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == expected, result.stdout + result.stderr
+        output = chrome.parent / "calendar"
+        if feed:
+            manifest = json.loads((output / "downloads.json").read_text())
+            assert len(manifest["files"]) == 1
+            item = manifest["files"][0]
+            assert (output / item["path"]).read_bytes() == calendar
+            assert item["sha256"] == hashlib.sha256(calendar).hexdigest()
+            assert item["size"] == len(calendar)
+            assert manifest["event_count"] == 1
+            assert manifest["events"][0]["summary"] == "ArchiveBox calendar capture"
+        else:
+            assert not output.exists()
+        if expected == "failed":
+            assert "Calendar URL did not return an ICS calendar" in result.stderr
+        assert {
+            t["id"]: t["url"]
+            for t in fetch_devtools_targets(endpoint)
+            if t["type"] == "page"
+        } == before
+        assert any(
+            request.path in {"/industrial", "/events.ics", "/subscription"}
+            for request, _ in httpserver.log
+        )
