@@ -1,6 +1,6 @@
 # ci-runner: hosted-linux
 # Chrome's setuid sandbox is a Linux executable, used by the hosted CI jobs.
-"""Resolve the sandbox from each provider's real installed browser."""
+"""Resolve the sandbox from both aliases of the configured stable browser."""
 
 import json
 import os
@@ -13,8 +13,8 @@ import pytest
 from abx_plugins.plugins.base.utils import load_required_binary
 
 
-@pytest.mark.parametrize("provider", ["playwright", "puppeteer"])
-def test_sandbox_matches_installed_browser(tmp_path, provider):
+@pytest.mark.parametrize("binary", ["chrome", "chromium"])
+def test_sandbox_matches_installed_browser(tmp_path, binary):
     root = Path(__file__).resolve().parents[1]
     config = json.loads((root / "abx_plugins/plugins/chrome/config.json").read_text())
     record = next(
@@ -24,12 +24,13 @@ def test_sandbox_matches_installed_browser(tmp_path, provider):
     )
     lib = str(tmp_path / "lib")
     installed = load_required_binary(
-        {**record, "name": "chromium", "binproviders": provider},
+        {**record, "name": binary},
         config={"ABXPKG_LIB_DIR": lib},
         environ={**os.environ, "ABXPKG_LIB_DIR": lib},
         install=True,
     )
-    assert installed.loaded_binprovider.name == provider
+    assert installed.loaded_binprovider.name in record["binproviders"].split(",")
+    assert str(installed.loaded_version) == record["min_version"].rsplit(".", 1)[0]
     browser = Path(installed.loaded_abspath)
     resolve = runpy.run_path(str(root / ".github/ci_chrome_sandbox.py"))[
         "sandbox_for_browser"

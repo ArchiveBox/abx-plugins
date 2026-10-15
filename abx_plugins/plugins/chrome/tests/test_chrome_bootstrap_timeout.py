@@ -13,7 +13,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 )
 
 
-def test_chrome_bootstrap_timeout_reaps_real_playwright_installer(
+def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
     tmp_path,
     ensure_chrome_test_prereqs,
 ):
@@ -21,7 +21,7 @@ def test_chrome_bootstrap_timeout_reaps_real_playwright_installer(
     env.update(
         {
             "CHROME_BINARY": "chromium",
-            "ABXPKG_PLAYWRIGHT_ROOT": str(tmp_path / "playwright"),
+            "ABXPKG_PUPPETEER_ROOT": str(tmp_path / "puppeteer"),
         },
     )
     finished = threading.Event()
@@ -50,8 +50,8 @@ def test_chrome_bootstrap_timeout_reaps_real_playwright_installer(
                         if (
                             process.name() == "node"
                             and "install" in command
-                            and "chromium" in command
-                            and any("playwright" in arg for arg in command)
+                            and any(arg.startswith("chrome@") for arg in command)
+                            and any("puppeteer" in arg for arg in command)
                         ):
                             installers.extend(
                                 [process, *process.children(recursive=True)],
@@ -75,8 +75,8 @@ def test_chrome_bootstrap_timeout_reaps_real_playwright_installer(
             result = _run_chrome_required_binary_env(env, timeout=20)
             pytest.fail(f"Installer returned {result.returncode}: {result.stderr}")
         assert not monitor_errors, monitor_errors
-        assert stopped.is_set(), "The real Playwright installer did not start"
-        assert "Installing chromium via playwright" in str(timeout.value.stderr)
+        assert stopped.is_set(), "The real Puppeteer installer did not start"
+        assert "Installing chromium via puppeteer" in str(timeout.value.stderr)
         assert installers
         _, alive = psutil.wait_procs(installers, timeout=5)
         assert not alive, (
