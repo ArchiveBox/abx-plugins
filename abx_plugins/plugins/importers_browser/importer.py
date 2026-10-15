@@ -194,10 +194,7 @@ def learn(binary, task, env, workspace, run_dir, error, attempt, deadline):
         try:
             if process.wait(timeout=remaining(deadline - 120, 300)):
                 raise RuntimeError("OpenCode failed; see the private learning log.")
-        except subprocess.TimeoutExpired:
-            # Replay whatever the agent saved before its budget expired.
-            pass
-        except (OSError, RuntimeError, TimeoutError):
+        except (OSError, RuntimeError, TimeoutError, subprocess.TimeoutExpired):
             capture_failure(env, run_dir, attempt)
             raise
         finally:

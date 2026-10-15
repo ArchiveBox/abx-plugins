@@ -1,6 +1,7 @@
 """Use the actual agent clients against a Chrome hook's live capture tab."""
 
 import hashlib
+import importlib
 import json
 from pathlib import Path
 import subprocess
@@ -18,6 +19,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 from abx_plugins.plugins.importers_browser.importer import task_tab
 from abx_plugins.plugins.importers_browser.importer import capture_failure
 from abx_plugins.plugins.importers_browser.importer import replay
+from abx_plugins.plugins.importers_browser.importer import learn
 
 PLUGIN = Path(__file__).parents[1]
 
@@ -336,6 +338,35 @@ emit_collection(request, links,""",
                 for item in standalone_records[:-1]
             )
             assert not list(standalone_dir.glob("learning-*.jsonl"))
+            # A real OpenCode client exceeding its learning budget must abort
+            # discovery, even if an adapter file already exists to replay.
+            # Load the process owner before measuring the client wait budget.
+            importlib.import_module("abx_plugins.plugins.opencode.runtime")
+            with pytest.raises(subprocess.TimeoutExpired):
+                learn(
+                    str(opencode.loaded_abspath),
+                    "Inspect the supplied browser session.",
+                    {
+                        **env,
+                        "IMPORTERS_REQUEST_FILE": str(standalone_dir / "request.json"),
+                        "OPENCODE_CONFIG_CONTENT": json.dumps(
+                            {
+                                "model": "openai/gpt-6-luna",
+                                "small_model": "openai/gpt-6-luna",
+                                "permission": {"skill": "deny"},
+                            },
+                        ),
+                    },
+                    standalone_workspace,
+                    tmp_path,
+                    "",
+                    99,
+                    time.monotonic() + 120.1,
+                )
+            timeout_screen = tmp_path / "failure-99.png"
+            assert timeout_screen.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+            assert timeout_screen.stat().st_mode & 0o777 == 0o600
+            assert "still-live" in run_harness("print(js('window.agentHeap'))")
             # The official daemon shutdown command must also preserve this external browser.
             interrupted_dir = tmp_path / "interrupted-importer"
             interrupted_dir.mkdir()

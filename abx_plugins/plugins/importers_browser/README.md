@@ -28,6 +28,8 @@ by its existing owner on completion/cancellation.
 - A saved script replays without an agent. Failures trigger up to two live repairs.
 - Every repair starts a fresh OpenCode session with the current task and replay
   error. Only scripts and Browser Harness domain knowledge persist.
+- A learning timeout is fatal: the host records the failure screen and stops
+  discovery instead of replaying a file saved by an unfinished session.
 - Importer sessions hide host-wide OpenCode skills, which may assume a collection
   working directory or a different browser lifecycle. They use the supplied
   connection, installed Harness API, and Harness domain knowledge instead.
