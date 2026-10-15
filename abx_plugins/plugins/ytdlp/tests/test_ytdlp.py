@@ -629,6 +629,42 @@ def test_http_failure_remains_failed(tmp_path, httpserver, ytdlp_runtime_env, st
     assert not list((tmp_path / "ytdlp").iterdir())
 
 
+@pytest.mark.parametrize("status", [403, 404])
+def test_failed_media_download_is_not_successful_metadata(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+    status,
+):
+    """A real HTML5 media download can write metadata before its HTTP failure."""
+    httpserver.expect_request("/article").respond_with_data(
+        "<!doctype html><title>Unavailable clip</title>"
+        '<video controls src="/missing.mp4"></video>',
+        content_type="text/html",
+    )
+    httpserver.expect_request("/missing.mp4").respond_with_data(
+        "Unavailable",
+        status=status,
+        content_type="text/plain",
+    )
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", httpserver.url_for("/article")],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    saved_metadata = list((tmp_path / "ytdlp").glob("*.info.json"))
+    assert len(saved_metadata) == 1, (result.stdout, result.stderr)
+    assert json.loads(saved_metadata[0].read_text())["title"] == "Unavailable clip (1)"
+    assert not list((tmp_path / "ytdlp").glob("*.mp4"))
+    assert result.returncode == 1, (result.stdout, result.stderr)
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", result.stdout
+    assert record["output_str"] == {403: "403 Forbidden", 404: "404 Not Found"}[status]
+
+
 def test_config_ytdlp_enabled_false_skips(ytdlp_runtime_env):
     """Test that YTDLP_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:

@@ -291,9 +291,10 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
         ACTIVE_PROCESS = None
         combined_output = "".join(OUTPUT_LINES)
 
-        # Check if any media files were downloaded
+        # Metadata and thumbnails can be written before a media download fails.
+        # Preserve those files, but do not let them hide the downloader's error.
         output = selected_output(downloaded_files(output_dir))
-        if output:
+        if output and process.returncode == 0:
             return True, output, ""
         else:
             stderr = combined_output
