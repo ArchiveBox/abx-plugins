@@ -58,6 +58,8 @@ const CHROME_SESSION_DIR = "../chrome";
 let browser = null;
 let page = null;
 let responseCount = 0;
+let captureFailureCount = 0;
+let firstCaptureError = "";
 let shuttingDown = false;
 let mainOutputPath = "";
 let preferredOutputPath = "";
@@ -328,8 +330,13 @@ async function setupListener() {
       fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + "\n");
       responseCount += 1;
       emitResponseProgress();
-    } catch (e) {
-      // Ignore errors
+    } catch (error) {
+      // A body/index write failure is not an empty successful capture. Retain
+      // other completed responses and surface the storage failure at shutdown.
+      captureFailureCount += 1;
+      const message = `${error.name}: ${error.message}`;
+      if (!firstCaptureError) firstCaptureError = message;
+      console.error(`ERROR: Cannot save response: ${message}`);
     }
   }
 
@@ -367,13 +374,17 @@ async function handleShutdown(signal) {
     page.off("requestfinished", responseListener);
   }
   await pendingResponseWork;
-  await emitResult(responseCount > 0 ? "succeeded" : "noresults");
+  if (captureFailureCount) {
+    await emitResult("failed", `${captureFailureCount} response capture error(s), ${responseCount} saved: ${firstCaptureError}`);
+  } else {
+    await emitResult(responseCount > 0 ? "succeeded" : "noresults");
+  }
   if (browser) {
     try {
       browser.disconnect();
     } catch (e) {}
   }
-  process.exit(0);
+  process.exit(captureFailureCount ? 1 : 0);
 }
 
 async function main() {

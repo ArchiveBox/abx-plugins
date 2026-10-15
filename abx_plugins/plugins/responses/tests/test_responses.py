@@ -349,3 +349,57 @@ class TestResponsesWithChrome:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("broken_path", ["all", "index.jsonl"])
+def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_path):
+    """Real filesystem failures must not silently discard a completed response."""
+    body = b"<!doctype html><title>ArchiveBox response storage</title><p>Preserve these bytes</p>"
+    httpserver.expect_request("/document").respond_with_data(
+        body,
+        content_type="text/html",
+    )
+    url = httpserver.url_for("/document")
+    with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
+        _,
+        _,
+        chrome_dir,
+        env,
+    ):
+        output = chrome_dir.parent / "responses"
+        output.mkdir()
+        index = output / "index.jsonl"
+        process = start_process_and_wait_for_file(
+            [str(RESPONSES_HOOK), f"--url={url}"],
+            index,
+            cwd=output,
+            env=env,
+        )
+        try:
+            if broken_path == "all":
+                (output / "all").rmdir()
+                (output / "all").write_text("existing non-directory archive entry")
+            else:
+                index.unlink()
+                index.mkdir()
+            navigation = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=60,
+            )
+            assert navigation.returncode == 0, navigation.stderr
+        finally:
+            process.terminate()
+            stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == 1, (stdout, stderr)
+        results = [
+            json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+        ]
+        record = next(row for row in results if row.get("type") == "ArchiveResult")
+        assert record["status"] == "failed", record
+        assert "ENOTDIR" in stderr or "EISDIR" in stderr, stderr
+        if broken_path == "index.jsonl":
+            assert body in [path.read_bytes() for path in (output / "all").iterdir()]
