@@ -171,6 +171,17 @@ async function cleanupOwnedSnapshotPageMarkers(expectedTargetId, reason) {
     if (getPublishedTargetId() !== expectedTargetId) {
       return false;
     }
+    const navigationFile = path.join(OUTPUT_DIR, "navigation.json");
+    if (!shuttingDown && !fs.existsSync(navigationFile)) {
+      // A target can die before chrome_navigate ever runs. Preserve that
+      // terminal outcome before removing its markers, otherwise every later
+      // hook mistakes the missing target for startup still in progress.
+      writeFileAtomic(navigationFile, JSON.stringify({
+        error: `Chrome target ${expectedTargetId}: ${reason}`,
+        targetId: expectedTargetId,
+        timestamp: new Date().toISOString(),
+      }));
+    }
     cleanupSnapshotPageMarkers(reason);
     return true;
   } finally {

@@ -4160,8 +4160,8 @@ async function connectToPage(options = {}) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
   getPuppeteerConnectOptionsForCdpUrl(initialInspection.state.cdpUrl);
+  const sessionPaths = getChromeSessionPaths(chromeSessionDir);
   if (!initialInspection.state?.targetId) {
-    const sessionPaths = getChromeSessionPaths(chromeSessionDir);
     const hasLaterSnapshotMarkers = [
       sessionPaths.urlFile,
       sessionPaths.navigationFile,
@@ -4191,6 +4191,12 @@ async function connectToPage(options = {}) {
   );
 
   while (Date.now() < deadline) {
+    // The tab monitor may invalidate a crashed target while attachment is
+    // already waiting. A completed/failed navigation distinguishes it from
+    // a target that has not been published yet during normal startup.
+    if (!readSessionTextFile(sessionPaths.targetIdFile) && fs.existsSync(sessionPaths.navigationFile)) {
+      throw new Error("No target_id.txt found");
+    }
     const remainingMs = Math.max(deadline - Date.now(), 0);
     const state = await waitForChromeSessionState(chromeSessionDir, {
       timeoutMs: Math.min(remainingMs, 500),
@@ -5239,7 +5245,7 @@ async function ensureChromeSession(options = {}) {
  * Wait for the snapshot navigation hook to publish a successful navigation result.
  *
  * This does not perform navigation by itself. It only watches the
- * `navigation.json` artifact emitted by `chrome_navigate` and optionally waits
+ * `navigation.json` emitted by `chrome_navigate` (or a terminal tab failure) and optionally waits
  * a bit longer for late network work that should remain within the same
  * snapshot lifecycle.
  *

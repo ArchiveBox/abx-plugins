@@ -4151,9 +4151,18 @@ def test_tab_teardown_preserves_completed_navigation_result(chrome_test_url):
                 proc.wait(timeout=10)
 
 
-def test_renderer_crash_invalidates_owned_target_before_later_hooks(tmp_path):
+@pytest.mark.parametrize(
+    "navigate",
+    [False, True],
+    ids=["before-navigation", "after-navigation"],
+)
+def test_renderer_crash_invalidates_owned_target_before_later_hooks(tmp_path, navigate):
     """A crashed renderer must not leave later hooks attaching to a dead page."""
-    with chrome_session(tmp_path, test_url="https://archivebox.io/tests/") as (
+    with chrome_session(
+        tmp_path,
+        test_url="https://archivebox.io/tests/",
+        navigate=navigate,
+    ) as (
         _,
         chrome_pid,
         chrome_dir,
@@ -4166,6 +4175,8 @@ const assert = require('node:assert/strict');
 const utils = require(process.argv[1]);
 (async () => {
   const dir = process.argv[2];
+  const navigationFile = path.join(dir, 'navigation.json');
+  const navigationBefore = fs.existsSync(navigationFile) ? fs.readFileSync(navigationFile, 'utf8') : null;
   const {browser, page, targetId} = await utils.connectToPage({chromeSessionDir: dir});
   const other = await browser.newPage();
   const otherTargetId = utils.getTargetIdFromPage(other);
@@ -4186,6 +4197,16 @@ const utils = require(process.argv[1]);
     const started = Date.now();
     await assert.rejects(utils.connectToPage({chromeSessionDir: dir, timeoutMs: 60000}), /No target_id.txt/);
     assert.ok(Date.now() - started < 1000, 'missing target must fail before connecting');
+    if (navigationBefore !== null) {
+      assert.equal(fs.readFileSync(navigationFile, 'utf8'), navigationBefore, 'completed navigation changed');
+    } else {
+      const outcome = JSON.parse(fs.readFileSync(navigationFile, 'utf8'));
+      assert.equal(outcome.targetId, targetId);
+      assert.match(outcome.error, /renderer crashed/);
+      const waiting = Date.now();
+      await assert.rejects(utils.waitForNavigationComplete(dir, 60000), /renderer crashed/);
+      assert.ok(Date.now() - waiting < 1000, 'navigation waiter ignored terminal crash');
+    }
     await destroyed;
     const {targetInfos} = await utils.sendBrowserCommand(browser, 'Target.getTargets');
     assert.ok(targetInfos.some(target => target.targetId === otherTargetId), 'unrelated tab was closed');
