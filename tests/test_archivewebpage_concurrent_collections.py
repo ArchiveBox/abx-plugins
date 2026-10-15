@@ -976,7 +976,7 @@ const path = require("node:path");
 def test_export_failure_releases_download_lock(archivewebpage_crawl, tmp_path, failure):
     """A real lock timeout or filesystem publication error must allow the next export."""
     env, _chrome_dir, tabs = archivewebpage_crawl
-    url = "https://example.com/"
+    url = "https://archivebox.io/tests/"
     snapshot_dir, env = _start_snapshot_recording(
         tmp_path / "export-recovery",
         env,

@@ -31,7 +31,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
 )
 
-TEST_URL = "https://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 
 def _project_python_command() -> list[str]:

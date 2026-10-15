@@ -30,7 +30,7 @@ _FORUMDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_forumdl.*"), None)
 if _FORUMDL_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 FORUMDL_HOOK = _FORUMDL_HOOK
-TEST_URL = "http://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 # Module-level cache for binary path
 _forumdl_binary_path = None

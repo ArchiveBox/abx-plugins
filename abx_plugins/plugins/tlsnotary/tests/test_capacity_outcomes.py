@@ -138,7 +138,7 @@ def test_real_hook_reports_expected_verifier_absence(
     unavailable_gateway,
     reason,
 ):
-    url = "https://example.com/"
+    url = "https://archivebox.io/tests/"
     with chrome_session(
         tmp_path,
         test_url=url,
@@ -265,7 +265,7 @@ def test_real_hook_reports_explicit_transcript_size_limit(
 
 def test_real_hook_rejects_a_receipt_signed_by_an_untrusted_key(tmp_path, verifier):
     """Service availability does not relax cryptographic acceptance of a proof."""
-    url = "https://example.com/"
+    url = "https://archivebox.io/tests/"
     with chrome_session(
         tmp_path,
         test_url=url,
@@ -431,7 +431,7 @@ def test_real_proof_succeeds_while_another_snapshot_tab_is_in_front(
     page this hook opens for the extension's ``window.tlsn`` API, and on a busy
     host that API is injected only after the page has loaded.
     """
-    url = "https://example.com/"
+    url = "https://archivebox.io/tests/"
     with chrome_session(
         tmp_path,
         test_url=url,

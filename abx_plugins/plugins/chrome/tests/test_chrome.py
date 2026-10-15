@@ -4142,7 +4142,7 @@ def test_tab_teardown_preserves_completed_navigation_result(chrome_test_url):
 
 def test_renderer_crash_invalidates_owned_target_before_later_hooks(tmp_path):
     """A crashed renderer must not leave later hooks attaching to a dead page."""
-    with chrome_session(tmp_path, test_url="https://example.com") as (
+    with chrome_session(tmp_path, test_url="https://archivebox.io/tests/") as (
         _,
         chrome_pid,
         chrome_dir,
