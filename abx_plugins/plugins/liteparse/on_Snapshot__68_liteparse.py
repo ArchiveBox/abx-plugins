@@ -45,6 +45,7 @@ import stat
 import subprocess
 import tempfile
 import threading
+import time
 import zipfile
 from pathlib import Path
 
@@ -97,6 +98,7 @@ IMAGE_EXTENSIONS = {
     ".tiff",
     ".tif",
     ".webp",
+    ".avif",
 }
 SUPPORTED_EXTENSIONS = PDF_EXTENSIONS | OFFICE_EXTENSIONS | IMAGE_EXTENSIONS
 
@@ -486,6 +488,7 @@ def _process_batch(
     args: list[str],
     env: dict[str, str],
     scratch_dir: Path,
+    imagemagick_binary: str,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
     """Run ``lit batch-parse`` once per requested format over one batch.
 
@@ -496,6 +499,7 @@ def _process_batch(
     """
     results: list[tuple[int, Path, str, str]] = []
     errors: list[str] = []
+    deadline = time.monotonic() + timeout
     # Disposable parser output and OCR rasterization belong on local runtime
     # storage, not the snapshot's potentially remote archive filesystem.
     # Each batch has its own TMPDIR because lit uses fixed page_<n>_ocr names.
@@ -511,12 +515,46 @@ def _process_batch(
         link_names: list[str] = []
         for idx, src, digest in batch:
             link_name = _safe_link_name(idx, src, digest)
-            (input_dir / link_name).symlink_to(src.resolve())
+            # Servers commonly return AVIF bytes behind a .jpg URL. LiteParse's
+            # native decoder rejects those bytes even with the correct suffix.
+            # Normalize only the disposable OCR input, preserving the archive.
+            with src.open("rb") as source:
+                header = source.read(32)
+            if header[4:8] == b"ftyp" and b"avif" in header[8:]:
+                link_name = str(Path(link_name).with_suffix(".png"))
+                converted_dir = tmp / f"convert_{idx}"
+                converted_dir.mkdir()
+                converted = converted_dir / link_name
+                try:
+                    conversion = subprocess.run(
+                        [imagemagick_binary, str(src.resolve()), str(converted)],
+                        capture_output=True,
+                        text=True,
+                        env=batch_env,
+                        timeout=max(0.001, deadline - time.monotonic()),
+                    )
+                    # Multi-frame conversions produce numbered files. Never
+                    # silently OCR only one frame and claim complete extraction.
+                    if conversion.returncode or not converted.is_file():
+                        errors.append(
+                            f"{src.name}: AVIF conversion failed or produced multiple frames: "
+                            f"{conversion.stderr.strip()}",
+                        )
+                    else:
+                        converted.rename(input_dir / link_name)
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    errors.append(f"{src.name}: AVIF conversion failed: {exc}")
+            else:
+                (input_dir / link_name).symlink_to(src.resolve())
             link_names.append(link_name)
 
         for fmt, out_dir in (("text", text_out), ("json", json_out)):
             if fmt not in formats:
                 continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                errors.append(f"batch timed out after {timeout}s")
+                break
             cmd = [
                 binary,
                 "batch-parse",
@@ -530,7 +568,7 @@ def _process_batch(
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
-                    timeout=timeout,
+                    timeout=remaining,
                     text=True,
                     env=batch_env,
                 )
@@ -738,6 +776,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
                 base_args,
                 env,
                 scratch_dir,
+                str(config.LITEPARSE_IMAGEMAGICK_BINARY),
             ): batch
             for batch in batches
         }

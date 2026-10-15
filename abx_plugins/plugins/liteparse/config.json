@@ -84,7 +84,7 @@
     "LITEPARSE_IMAGEMAGICK_BINARY": {
       "type": "string",
       "default": "convert",
-      "description": "Path to an ImageMagick binary used by LiteParse for image conversion. Auto-installed by the plugin via brew/apt; not invoked directly by this hook."
+      "description": "Path to ImageMagick, used to normalize AVIF OCR inputs to temporary PNG files without changing archived originals. Auto-installed via brew/apt."
     },
     "LITEPARSE_TIMEOUT": {
       "type": "integer",

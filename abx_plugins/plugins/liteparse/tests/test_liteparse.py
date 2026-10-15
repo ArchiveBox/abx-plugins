@@ -1021,7 +1021,11 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
                                     parser = child
                                     batch_scratch = batch_input.parent
                                     break
-                        except psutil.NoSuchProcess:
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            # macOS can deny KERN_PROCARGS2 while a child is
+                            # starting/exiting. Require an observable real
+                            # parser and completed output within the same
+                            # deadline below; an unreadable PID is not proof.
                             continue
                 completed = (
                     list((batch_scratch / "text").glob("*.txt"))
