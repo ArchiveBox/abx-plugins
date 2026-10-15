@@ -92,7 +92,10 @@ async function closeOwnedExportPages(ownerTargetId) {
   await sweepExportPages({ chromeSessionDir: OUTPUT_DIR, cdpUrl: currentCdpUrl,
     ownerTargetId, puppeteer, closeAll: true });
 }
-const SNAPSHOT_PAGE_MARKER_FILES = ["target_id.txt", "url.txt"];
+// Removing the target marker publishes completed page invalidation to other
+// processes. Remove its dependent URL first so they cannot observe a stale URL
+// after observing that the target is gone.
+const SNAPSHOT_PAGE_MARKER_FILES = ["url.txt", "target_id.txt"];
 // The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
 // `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
 // snapshot isolation, and are still needed by the browser-owning launch hook to
