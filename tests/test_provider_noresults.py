@@ -155,9 +155,8 @@ def test_provider_rules_out_navigated_url_without_connecting(
     result = run_provider_without_browser(provider, url, snapshot, env)
     record = parse_jsonl_output(result.stdout)
     assert record is not None, result.stdout + result.stderr
-    if json.loads(navigation_json).get("error"):
-        # A failed navigation records no settled URL: hooks must fall back to
-        # inspecting the live page, which needs the Chrome session.
+    if provider == "nextcloud" and url.endswith("/s/shared-file"):
+        # A share-looking path still needs the live page to identify its server.
         assert result.returncode == 1, result.stdout
         assert record["status"] == "failed", result.stdout
         assert "No Chrome session found" in record["output_str"], result.stdout

@@ -168,6 +168,7 @@ async function navigate(url) {
   const waitUntil = getWaitCondition();
 
   let browser = null;
+  let page = null;
   let observedResponse = null;
   const navStartTime = Date.now();
 
@@ -179,7 +180,7 @@ async function navigate(url) {
       puppeteer,
     });
     browser = conn.browser;
-    const page = conn.page;
+    page = conn.page;
     const network = await page.createCDPSession();
     // Chrome takes navigator.platform for each new document from the newest
     // DevTools session, which is this one: carry the persona identity that
@@ -298,11 +299,13 @@ async function navigate(url) {
 
     return { success: true, finalUrl, status, waitUntil, elapsed, challenge };
   } catch (e) {
+    const pageUrl = page && !page.isClosed() ? page.url() : null;
     if (browser) browser.disconnect();
     const elapsed = Date.now() - navStartTime;
     return {
       success: false,
       error: `${e.name}: ${e.message}`,
+      pageUrl,
       status: observedResponse?.status || null,
       contentType: observedResponse?.contentType || null,
       waitUntil,
@@ -344,6 +347,7 @@ async function main() {
       elapsed: result.elapsed,
       url,
       error: result.error,
+      pageUrl: result.pageUrl,
       status: result.status,
       content_type: result.contentType,
       timestamp: new Date().toISOString(),

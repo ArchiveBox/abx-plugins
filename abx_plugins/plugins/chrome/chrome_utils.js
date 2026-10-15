@@ -5416,15 +5416,17 @@ async function waitForNavigationComplete(
  *
  * @param {string} chromeSessionDir - Path to the snapshot chrome session directory
  * @returns {string[]|null} - `[url, finalUrl]`, or null when navigation.json is
- *   missing, malformed, or records a failed navigation; callers must then
+ *   missing, malformed, or lacks an observed page URL; callers must then
  *   inspect the live page as before.
  */
 function readNavigatedUrls(chromeSessionDir) {
   try {
     const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
     const navigation = JSON.parse(fs.readFileSync(navigationFile, "utf8"));
-    const urls = [navigation?.url, navigation?.finalUrl];
-    if (navigation.error || !urls.every((value) => URL.canParse(value)))
+    // Failed navigation can still leave a known page (including about:blank).
+    // This is the same cached page.url() provider hooks otherwise connect to read.
+    const urls = [navigation?.url, navigation?.finalUrl || navigation?.pageUrl];
+    if (!urls.every((value) => URL.canParse(value)))
       return null;
     return urls;
   } catch {
