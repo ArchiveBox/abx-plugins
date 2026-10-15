@@ -77,7 +77,11 @@ const {{connectToPage,openTabInChromeSession,getTargetIdFromTarget,resolvePuppet
     ],
 )
 def test_provider_export_tab_lifecycle(tmp_path, ensure_chrome_test_prereqs, cleanup):
-    with chrome_session(tmp_path, test_url="https://example.com", timeout=90) as (
+    with chrome_session(
+        tmp_path,
+        test_url="https://archivebox.io/tests/",
+        timeout=90,
+    ) as (
         _,
         _,
         first_chrome,
@@ -129,7 +133,7 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
   try {{
     if (process.argv[2] === 'start') {{
       const unrelated = await browser.newPage();
-      await unrelated.goto('https://example.com', {{waitUntil:'domcontentloaded',timeout:30000}});
+      await unrelated.goto('https://archivebox.io/tests/', {{waitUntil:'domcontentloaded',timeout:30000}});
     }}
     const targets = browser.targets().filter(target => target.type() === 'page').map(target => ({{id:getTargetIdFromTarget(target),url:target.url()}}));
     console.log(JSON.stringify({{url:page.url(),text:await page.evaluate(() => document.body.innerText),targets}}));
@@ -150,13 +154,13 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
                 return json.loads(result.stdout)
 
             before = inspect_browser("start")
-            assert "This domain is for use in documentation examples" in before["text"]
+            assert "ArchiveBox capture fixture v1" in before["text"]
             assert (
                 len(
                     [
                         target
                         for target in before["targets"]
-                        if target["url"] == "https://example.com/"
+                        if target["url"] == "https://archivebox.io/tests/"
                     ],
                 )
                 >= 2

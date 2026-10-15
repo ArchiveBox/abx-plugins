@@ -352,14 +352,14 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 tmpdir,
                 crawl_id="twocaptcha-noresults",
                 snapshot_id="twocaptcha-noresults-snap",
-                test_url="https://example.com",
+                test_url="https://archivebox.io/tests/",
                 navigate=False,
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
                 env_overrides={"TWOCAPTCHA_API_KEY": str(self.api_key)},
                 crawl_setup=lambda env, chrome_dir: configure_twocaptcha(
                     env,
                     chrome_dir,
-                    url="https://example.com",
+                    url="https://archivebox.io/tests/",
                     snapshot_id="twocaptcha-noresults-snap",
                 ),
             ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
@@ -369,7 +369,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 hook_process = subprocess.Popen(
                     [
                         str(SNAPSHOT_HOOK),
-                        "--url=https://example.com",
+                        "--url=https://archivebox.io/tests/",
                         "--snapshot-id=twocaptcha-noresults-snap",
                     ],
                     cwd=str(hook_dir),
@@ -388,7 +388,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     navigate = subprocess.run(
                         [
                             str(NAVIGATE_HOOK),
-                            "--url=https://example.com",
+                            "--url=https://archivebox.io/tests/",
                             "--snapshot-id=twocaptcha-noresults-snap",
                         ],
                         cwd=str(snapshot_chrome_dir),
