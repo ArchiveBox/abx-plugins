@@ -229,7 +229,11 @@ def _extract_single_pdf(
         )
 
 
-def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
+def extract_opendataloader(
+    url: str,
+    binary: str,
+    sources: list[Path],
+) -> tuple[str, str]:
     """
     Extract text from all PDFs found using opendataloader-pdf.
 
@@ -259,12 +263,6 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
             has_url = any(a.startswith("--hybrid-url") for a in extra_args)
             if not has_url:
                 extra_args.extend(["--hybrid-url", hybrid_url])
-
-    # Find all PDF sources from sibling plugins
-    print("finding PDFs to extract...")
-    sources = find_pdf_sources()
-    if not sources:
-        return "noresults", "No PDF sources found"
 
     print(f"extracting content from {len(sources)} PDFs...")
 
@@ -398,9 +396,13 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     semaphore_timeout=1,
     semaphore_lax=False,
 )
-async def extract_opendataloader_serialized(url: str, binary: str) -> tuple[str, str]:
+async def extract_opendataloader_serialized(
+    url: str,
+    binary: str,
+    sources: list[Path],
+) -> tuple[str, str]:
     print("[opendataloader] acquired abxbus multiprocess semaphore", file=sys.stderr)
-    return extract_opendataloader(url, binary)
+    return extract_opendataloader(url, binary, sources)
 
 
 @click.command(
@@ -426,7 +428,16 @@ def main(url: str):
 
         # Run extraction
         print("OpenDataLoader extraction started", flush=True)
-        status, output = asyncio.run(extract_opendataloader_serialized(url, binary))
+        # Only actual conversion needs the shared memory slot. Empty HTML
+        # captures must not fail merely because another snapshot has PDFs.
+        print("finding PDFs to extract...")
+        sources = find_pdf_sources()
+        if sources:
+            status, output = asyncio.run(
+                extract_opendataloader_serialized(url, binary, sources),
+            )
+        else:
+            status, output = "noresults", "No PDF sources found"
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
         emit_archive_result_record(status, output)

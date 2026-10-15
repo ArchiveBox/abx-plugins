@@ -331,6 +331,69 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
+def test_no_sources_does_not_wait_for_another_pdf_extraction(tmp_path):
+    """An HTML-only snapshot must not compete for the converter's memory slot."""
+    binary = require_opendataloader_binary()
+    java = require_java_binary()
+    source = tmp_path / "busy" / "wget" / "document.pdf"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(_download_test_pdf())
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    env = os.environ | {
+        "SNAP_DIR": str(source.parents[1]),
+        "OPENDATALOADER_BINARY": binary,
+        "JAVA_BINARY": java,
+        "OPENDATALOADER_ENABLED": "True",
+        "ABXBUS_MULTIPROCESS_SEMAPHORE_DIR": str(tmp_path / "semaphores"),
+    }
+    with subprocess.Popen(
+        [str(OPENDATALOADER_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    ) as busy:
+        acquired: queue.Queue[bool] = queue.Queue(maxsize=1)
+
+        def pause_after_acquisition():
+            assert busy.stderr is not None
+            for line in busy.stderr:
+                if "acquired abxbus multiprocess semaphore" in line:
+                    os.kill(busy.pid, signal.SIGSTOP)
+                    acquired.put(True)
+                    return
+            acquired.put(False)
+
+        reader = threading.Thread(target=pause_after_acquisition, daemon=True)
+        reader.start()
+        try:
+            assert acquired.get(timeout=30), "Real PDF hook never acquired its slot"
+            result = subprocess.run(
+                [str(OPENDATALOADER_HOOK), "--url", TEST_URL],
+                cwd=tmp_path,
+                env=env | {"SNAP_DIR": str(empty)},
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        finally:
+            os.kill(busy.pid, signal.SIGCONT)
+            stdout, stderr = busy.communicate(timeout=60)
+            reader.join(timeout=1)
+        assert busy.returncode == 0, stderr
+        busy_record = parse_jsonl_output(stdout)
+        assert busy_record and busy_record["status"] == "succeeded", busy_record
+        assert (source.parents[1] / "opendataloader" / "content.txt").stat().st_size
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "noresults", record
+        assert record["output_str"] == "No PDF sources found"
+        assert "acquired abxbus multiprocess semaphore" not in result.stderr
+
+
 @pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl"])
 @pytest.mark.parametrize(
     "html_response",
