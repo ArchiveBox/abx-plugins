@@ -28,7 +28,11 @@ def run_hook(
         },
     )
     return subprocess.run(
-        [str(HOOK), "--url=https://example.com", f"--snapshot-id={snapshot_id}"],
+        [
+            str(HOOK),
+            "--url=https://archivebox.io/tests/",
+            f"--snapshot-id={snapshot_id}",
+        ],
         cwd=str(output_dir),
         env=env,
         capture_output=True,
@@ -41,7 +45,11 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
     tmp_path: Path,
     real_html_snapshot,
 ) -> None:
-    snapshot_dir = real_html_snapshot(tmp_path, "https://example.com", "snap-001")
+    snapshot_dir = real_html_snapshot(
+        tmp_path,
+        "https://archivebox.io/tests/",
+        "snap-001",
+    )
     result = run_hook(snapshot_dir)
 
     assert result.returncode == 0, result.stderr
@@ -68,8 +76,12 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
         conn.close()
 
     assert row is not None
-    assert row[:3] == ("snap-001", "https://example.com", "Example Domain")
-    assert "Example Domain" in row[3]
+    assert row[:3] == (
+        "snap-001",
+        "https://archivebox.io/tests/",
+        "ArchiveBox Test Page",
+    )
+    assert "ArchiveBox Test Page" in row[3]
 
 
 def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
@@ -131,7 +143,7 @@ def test_hook_cold_start_avoids_typed_schema_imports(
     """The per-snapshot hot path must not rebuild Jambo/Pydantic models."""
     snapshot_dir = real_html_snapshot(
         tmp_path,
-        "https://example.com",
+        "https://archivebox.io/tests/",
         "snap-cold-start",
     )
     (snapshot_dir / "search_backend_sqlite").mkdir(parents=True)
@@ -148,7 +160,11 @@ def test_hook_cold_start_avoids_typed_schema_imports(
     )
     env["PYTHONPROFILEIMPORTTIME"] = "1"
     result = subprocess.run(
-        [str(HOOK), "--url=https://example.com", "--snapshot-id=snap-cold-start"],
+        [
+            str(HOOK),
+            "--url=https://archivebox.io/tests/",
+            "--snapshot-id=snap-cold-start",
+        ],
         cwd=str(snapshot_dir / "search_backend_sqlite"),
         env=env,
         capture_output=True,
@@ -174,4 +190,4 @@ def test_hook_cold_start_avoids_typed_schema_imports(
     finally:
         conn.close()
     assert row is not None and row[0] == "snap-cold-start"
-    assert "Example Domain" in row[1]
+    assert "ArchiveBox Test Page" in row[1]

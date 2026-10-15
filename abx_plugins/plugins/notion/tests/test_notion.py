@@ -110,14 +110,18 @@ def test_public_page_html_and_markdown(
 
 
 def test_unrelated_url_with_browser(tmp_path, ensure_chrome_test_prereqs):
-    with chrome_session(tmp_path, test_url="https://example.com", timeout=60) as (
+    with chrome_session(
+        tmp_path,
+        test_url="https://archivebox.io/tests/",
+        timeout=60,
+    ) as (
         _,
         _,
         chrome,
         env,
     ):
         result = subprocess.run(
-            [str(HOOK), "--url=https://example.com"],
+            [str(HOOK), "--url=https://archivebox.io/tests/"],
             cwd=chrome.parent,
             env=env,
             capture_output=True,

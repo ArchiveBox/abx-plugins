@@ -35,7 +35,11 @@ class TestHashesPlugin:
         real_html_snapshot,
     ):
         """Hashes hook should index outputs produced by real capture hooks."""
-        snap_dir = real_html_snapshot(tmp_path, "https://example.com", "hashes")
+        snap_dir = real_html_snapshot(
+            tmp_path,
+            "https://archivebox.io/tests/",
+            "hashes",
+        )
         output_dir = snap_dir / "hashes"
         output_dir.mkdir()
         env = os.environ.copy()

@@ -41,7 +41,7 @@ SNAPSHOT_HOOK = _SNAPSHOT_HOOK
 SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
-TEST_URL = "https://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 
 def test_snapshot_hook_exists():
@@ -102,7 +102,7 @@ def test_verify_deps_with_abxpkg(tmp_path, singlefile_install_state):
 @pytest.mark.parametrize(
     ("test_url", "expected_text"),
     [
-        (TEST_URL, "Example Domain"),
+        (TEST_URL, "ArchiveBox Test Page"),
         ("https://docs.sweeting.me/s/cookie-dilemma", "Scraping-With-Cookies"),
     ],
 )
@@ -284,7 +284,9 @@ def test_singlefile_with_chrome_session(tmp_path, singlefile_install_state):
         )
         html_content = output_file.read_text()
         assert len(html_content) > 500, "Output file too small"
-        assert "Example Domain" in html_content, "Should contain example.com content"
+        assert "ArchiveBox Test Page" in html_content, (
+            "Should contain owned test page content"
+        )
 
 
 def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
@@ -346,8 +348,8 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
             f"singlefile.html not created. stdout: {result.stdout}, stderr: {result.stderr}"
         )
         html_content = output_file.read_text(errors="ignore")
-        assert "Example Domain" in html_content, (
-            "Output should contain example.com content"
+        assert "ArchiveBox Test Page" in html_content, (
+            "Output should contain owned test page content"
         )
 
         assert list(singlefile_output_dir.glob("*.html")) == [output_file]

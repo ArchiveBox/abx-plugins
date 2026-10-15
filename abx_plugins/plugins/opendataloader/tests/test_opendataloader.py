@@ -355,7 +355,7 @@ def test_extract_single_pdf(source_dir, html_response):
             # A response named .pdf can contain HTML (e.g. Chrome's PDF viewer),
             # while wget saved the actual PDF. Use real HTML bytes alongside the
             # live PDF, and require that only the PDF reaches the converter.
-            html = requests.get("https://example.com", timeout=30)
+            html = requests.get("https://archivebox.io/tests/", timeout=30)
             html.raise_for_status()
             assert "text/html" in html.headers["Content-Type"]
             responses_dir = snap_dir / "responses" / "all"

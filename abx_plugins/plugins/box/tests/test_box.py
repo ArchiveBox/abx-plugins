@@ -68,7 +68,7 @@ def test_public_logo_folder(tmp_path, ensure_chrome_test_prereqs):
 
 
 def test_unrelated_page(tmp_path, ensure_chrome_test_prereqs):
-    url = "https://example.com"
+    url = "https://archivebox.io/tests/"
     with chrome_session(tmp_path, test_url=url, timeout=60) as (_, _, chrome, env):
         result = subprocess.run(
             [str(HOOK), f"--url={url}"],

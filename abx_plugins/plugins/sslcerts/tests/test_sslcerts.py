@@ -123,7 +123,9 @@ class TestSSLWithChrome:
         use_public_url,
     ):
         """SSL hook should extract certificate info from a real HTTPS URL."""
-        test_url = "https://example.com" if use_public_url else chrome_test_https_url
+        test_url = (
+            "https://archivebox.io/tests/" if use_public_url else chrome_test_https_url
+        )
         snapshot_id = "test-ssl-snapshot"
 
         with chrome_session(

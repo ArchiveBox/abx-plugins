@@ -164,7 +164,7 @@ def test_public_calendar(tmp_path, ensure_chrome_test_prereqs, url, files):
 
 
 def test_unrelated_page_preserves_target(tmp_path, ensure_chrome_test_prereqs):
-    url = "https://example.com/"
+    url = "https://archivebox.io/tests/"
     with chrome_session(
         tmp_path,
         test_url=url,

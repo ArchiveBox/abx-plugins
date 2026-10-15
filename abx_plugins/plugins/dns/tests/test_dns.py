@@ -30,7 +30,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 # Get the path to the DNS hook
 PLUGIN_DIR = get_plugin_dir(__file__)
 DNS_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_dns.*")
-TEST_URL = "https://example.com"
+TEST_URL = "https://archivebox.io/tests/"
 
 
 def get_system_nameservers():
@@ -155,7 +155,7 @@ class TestDNSWithChrome:
 
             expected_ip = None
             for record in records:
-                if record.get("hostname") == "example.com" and record.get("ip"):
+                if record.get("hostname") == "archivebox.io" and record.get("ip"):
                     expected_ip = record["ip"]
                     break
             expected_ip = expected_ip or next(
