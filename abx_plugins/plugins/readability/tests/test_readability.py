@@ -408,6 +408,33 @@ def test_omits_unarchived_images():
         assert not (snap_dir / "readability" / "images").exists()
 
 
+def test_node_heap_exhaustion_is_failed_not_noresults(tmp_path):
+    binary_path = require_readability_binary()
+    snap_dir = tmp_path / "snap"
+    snap_dir.mkdir()
+    create_example_html(snap_dir)
+    env = {
+        **os.environ,
+        "SNAP_DIR": str(snap_dir),
+        "READABILITY_BINARY": binary_path,
+        "NODE_OPTIONS": "--max-old-space-size=16",
+    }
+    result = subprocess.run(
+        [str(READABILITY_HOOK), "--url", "https://archivebox.io/tests/"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert "heap out of memory" in result.stderr
+    assert result.returncode == 1
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed"
+    assert "signal" in record["output_str"]
+    assert not (snap_dir / "readability" / "article.json").exists()
+
+
 def test_fails_gracefully_without_html_source():
     """Test that extraction returns noresults when no HTML source is available."""
     binary_path = require_readability_binary()

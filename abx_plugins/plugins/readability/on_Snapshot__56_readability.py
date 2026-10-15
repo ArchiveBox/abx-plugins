@@ -190,6 +190,11 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
             sys.stderr.write(result.stdout)
             sys.stderr.flush()
 
+        if result.returncode < 0:
+            return (
+                "failed",
+                f"Readability extractor terminated by signal {-result.returncode}",
+            )
         if result.returncode != 0:
             return "noresults", "No content extracted"
 
