@@ -11,6 +11,7 @@ Tests verify:
 7. Handles non-paper URLs gracefully
 """
 
+import json
 import os
 import subprocess
 import tempfile
@@ -34,6 +35,82 @@ TEST_URL = "https://archivebox.io/tests/"
 _papersdl_binary_path = None
 _papersdl_install_error = None
 _papersdl_lib_root = None
+
+
+def test_papersdl_does_not_refetch_failed_document(
+    tmp_path,
+    httpserver,
+    ensure_chrome_test_prereqs,
+):
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+        CHROME_NAVIGATE_HOOK,
+        chrome_session,
+    )
+
+    binary = require_papersdl_binary()
+    url = httpserver.url_for("/article")
+    with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
+        _,
+        _,
+        chrome,
+        env,
+    ):
+        httpserver.stop()
+        try:
+            navigation = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=45,
+            )
+        finally:
+            httpserver.start()
+        assert navigation.returncode != 0, navigation.stdout
+        recorded = json.loads((chrome / "navigation.json").read_text())
+        assert "ERR_CONNECTION_REFUSED" in recorded["error"], recorded
+        assert recorded["status"] is None, recorded
+        assert recorded["url"] == url
+        assert httpserver.url_for("/article") == url
+        body = "<html><body><article>No paper citations in this article.</article></body></html>"
+        httpserver.expect_request("/article").respond_with_data(
+            body,
+            content_type="text/html",
+        )
+        httpserver.expect_request("/other").respond_with_data(
+            body,
+            content_type="text/html",
+        )
+
+        def run(source_url):
+            result = subprocess.run(
+                [str(PAPERSDL_HOOK), f"--url={source_url}"],
+                cwd=chrome.parent,
+                env={**env, "PAPERSDL_BINARY": binary},
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            assert result.returncode == 0, result.stderr
+            assert parse_jsonl_output(result.stdout) == {
+                "type": "ArchiveResult",
+                "status": "noresults",
+                "output_str": "No papers found",
+            }
+
+        run(url)
+        assert not httpserver.log, "Paper discovery retried the failed capture"
+        # A failed capture of another URL does not suppress standalone discovery.
+        run(httpserver.url_for("/other"))
+        assert len(httpserver.log) == 1
+        assert httpserver.log[0][0].path == "/other"
+        # Saved source still wins over the failed browser navigation.
+        source = chrome.parent / "dom/output.html"
+        source.parent.mkdir(exist_ok=True)
+        source.write_text(body)
+        run(url)
+        assert len(httpserver.log) == 1
 
 
 def require_papersdl_binary() -> str:

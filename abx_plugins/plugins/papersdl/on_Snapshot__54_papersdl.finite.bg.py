@@ -52,6 +52,7 @@ from urllib.request import urlopen
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     find_article_html_source,
+    has_failed_source_navigation,
     build_request,
     is_non_html_document,
     load_config,
@@ -185,7 +186,7 @@ def find_paper_identifiers(url: str, binary: str, deadline: float) -> list[str]:
     source = find_article_html_source()
     if source:
         content = Path(source).read_text(encoding="utf-8", errors="replace")
-    elif is_non_html_document():
+    elif is_non_html_document() or has_failed_source_navigation(url, SNAP_DIR):
         return []
     else:
         # IRIs (/über) and URL credentials need the shared request builder.
