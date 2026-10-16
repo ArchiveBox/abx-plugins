@@ -187,11 +187,19 @@ def test_failed_navigation_remains_failure(tmp_path, ensure_chrome_test_prereqs)
         state = json.loads((chrome / "navigation.json").read_text())
         assert "ERR_CONNECTION_REFUSED" in state["error"], state
         endpoint = (chrome / "cdp_url.txt").read_text().strip()
-        before = {
-            t["id"]: t["url"]
-            for t in fetch_devtools_targets(endpoint)
-            if t["type"] == "page"
-        }
+        # goto rejects before Chrome commits its error document. Establish
+        # that real navigation's final URL before measuring hook isolation.
+        deadline = time.monotonic() + 5
+        while True:
+            before = {
+                t["id"]: t["url"]
+                for t in fetch_devtools_targets(endpoint)
+                if t["type"] == "page"
+            }
+            if url in before.values():
+                break
+            assert time.monotonic() < deadline, before
+            time.sleep(0.01)
         started = time.monotonic()
         result = subprocess.run(
             [str(HOOK), f"--url={url}"],
