@@ -247,7 +247,15 @@ def rename(out_dir, path, name=None, identifier=None) -> str:
 
         if name:
             name = BeautifulSoup(name, "html.parser").get_text()
-            name = name.replace("/", "_").replace("\\", "_") + ".pdf"
+            name = name.replace("/", "_").replace("\\", "_")
+            encoded_name = name.encode("utf-8")
+            suffix = ".pdf"
+            if len(encoded_name) + len(suffix) > 255:
+                # Object stores may accept names that a local VFS cache cannot.
+                # Keep complete UTF-8 characters and distinguish shared prefixes.
+                suffix = f"-{hashlib.sha256(encoded_name).hexdigest()[:12]}.pdf"
+                name = encoded_name[:255 - len(suffix)].decode("utf-8", errors="ignore")
+            name += suffix
             new_path = os.path.join(out_dir, name)
             os.rename(path, new_path)
             logger.info(f"File renamed to {new_path}")
