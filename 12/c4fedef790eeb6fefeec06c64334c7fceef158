@@ -1,0 +1,24 @@
+abx_plugins/plugins/parse_html_urls/tests/test_parse_html_urls.py
+  s_10bc94d001be49::t_0228eccd9ab223 26,48-72,92-93,95-98
+  s_10bc94d001be49::t_f7dd75fb5006c8 18-25,27-47,73
+  s_10bc94d001be49::t_a0d23a54a4d46a 74-91,94
+abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py
+  s_10bc94d001be49::t_f35f1a0b4f3a62 76-100
+  s_10bc94d001be49::t_ff411f810090fc 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12c4fedef790eeb6fefeec06c64334c7fceef158",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
