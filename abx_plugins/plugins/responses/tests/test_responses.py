@@ -463,6 +463,9 @@ def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_pa
                 index.mkdir()
             else:
                 alias.mkdir(parents=True)
+                # A URL may legitimately have child resources. Obstruct its
+                # index body too, so this remains an actual storage failure.
+                (alias / "index.html").mkdir()
                 (alias / "existing.txt").write_bytes(b"Preserve existing archive data")
             navigation = subprocess.run(
                 [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
@@ -500,3 +503,104 @@ def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_pa
             other_alias = output / other_prefix / hostname / "document"
             assert other_alias.is_symlink()
             assert other_alias.read_bytes() == body
+
+
+@pytest.mark.parametrize(
+    "trailing_slash,child_first",
+    [(True, False), (False, False), (False, True)],
+)
+def test_response_parent_and_child_urls_keep_both_bodies(
+    tmp_path,
+    httpserver,
+    trailing_slash,
+    child_first,
+):
+    import hashlib
+
+    parent_path = "/article/" if trailing_slash else "/article"
+    image = b'<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="red"/></svg>'
+    body = b'<!doctype html><title>Nested response paths</title><img src="/article/image.svg">'
+    httpserver.expect_request(parent_path).respond_with_data(
+        body,
+        content_type="text/html",
+    )
+    httpserver.expect_request("/article/image.svg").respond_with_data(
+        image,
+        content_type="image/svg+xml",
+    )
+    if child_first:
+        httpserver.expect_request("/start").respond_with_data(
+            '<script>fetch("/article/image.svg").then(r=>r.text()).then(()=>fetch("/article"))</script>',
+            content_type="text/html",
+        )
+    url = httpserver.url_for("/start" if child_first else parent_path)
+    expected = {
+        httpserver.url_for(parent_path): body,
+        httpserver.url_for("/article/image.svg"): image,
+    }
+    with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
+        _,
+        _,
+        chrome_dir,
+        env,
+    ):
+        output = chrome_dir.parent / "responses"
+        output.mkdir()
+        index = output / "index.jsonl"
+        process = start_process_and_wait_for_file(
+            [str(RESPONSES_HOOK), f"--url={url}"],
+            index,
+            cwd=output,
+            env=env,
+        )
+        try:
+            navigation = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert navigation.returncode == 0, navigation.stderr
+            wait_for_file(
+                index,
+                process=process,
+                ready=lambda p: (
+                    set(expected)
+                    <= {json.loads(line)["url"] for line in p.read_text().splitlines()}
+                ),
+            )
+        finally:
+            process.terminate()
+            stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == 0, (stdout, stderr)
+        records = [json.loads(line) for line in index.read_text().splitlines()]
+        for original_url, original_bytes in expected.items():
+            record = next(row for row in records if row["url"] == original_url)
+            assert (output / record["path"]).read_bytes() == original_bytes
+            assert (
+                record["responseSha256"] == hashlib.sha256(original_bytes).hexdigest()
+            )
+            suffix = (
+                "article/index.html"
+                if original_url.endswith(parent_path)
+                else "article/image.svg"
+            )
+            for prefix in ("", record["resourceType"]):
+                alias = output / prefix / urlparse(url).hostname / suffix
+                if prefix and not trailing_slash and original_url.endswith(parent_path):
+                    alias = alias.parent
+                    if alias.is_dir():
+                        alias = alias / "index.html"
+                assert alias.is_symlink(), alias
+                assert alias.read_bytes() == original_bytes
+        results = [
+            json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+        ]
+        result = next(row for row in results if row.get("type") == "ArchiveResult")
+        assert result["status"] == "succeeded"
+        if not child_first:
+            expected_main = output / urlparse(url).hostname / "article/index.html"
+            assert (output.parent / result["output_str"]) == expected_main
+            assert expected_main.read_bytes() == body

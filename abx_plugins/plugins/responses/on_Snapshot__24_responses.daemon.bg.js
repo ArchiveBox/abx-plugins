@@ -138,22 +138,55 @@ function emitResponseProgress(force = false) {
 
 const symlinkDirectories = new Set();
 
-async function createSymlink(target, linkPath) {
-  const dir = path.dirname(linkPath);
-  if (!symlinkDirectories.has(dir)) {
+async function ensureAliasDirectory(dir) {
+  if (symlinkDirectories.has(dir)) return;
+  try {
     await fs.promises.mkdir(dir, { recursive: true });
-    symlinkDirectories.add(dir);
+  } catch (error) {
+    if (!["EEXIST", "ENOTDIR"].includes(error.code)) throw error;
+    const parent = path.dirname(dir);
+    if (parent === dir) throw error;
+    await ensureAliasDirectory(parent);
+    try {
+      await fs.promises.mkdir(dir);
+    } catch (blocked) {
+      if (blocked.code !== "EEXIST") throw blocked;
+      const stat = await fs.promises.lstat(dir);
+      if (!stat.isSymbolicLink()) throw blocked;
+      const saved = path.resolve(parent, await fs.promises.readlink(dir));
+      // Only promote our response aliases; never move unrelated saved files.
+      if (path.dirname(saved) !== path.join(OUTPUT_DIR, "all")) throw blocked;
+      const indexPath = path.join(dir, "index" + path.extname(saved));
+      await fs.promises.unlink(dir);
+      await fs.promises.mkdir(dir);
+      await fs.promises.symlink(path.relative(dir, saved), indexPath);
+      const oldOutput = path.posix.join(PLUGIN_DIR, path.relative(OUTPUT_DIR, dir).split(path.sep).join("/"));
+      if (mainOutputPath === oldOutput) {
+        mainOutputPath = path.posix.join(oldOutput, path.basename(indexPath));
+      }
+    }
   }
+  symlinkDirectories.add(dir);
+}
 
+async function createSymlink(target, linkPath, isIndex = false) {
+  const dir = path.dirname(linkPath);
+  await ensureAliasDirectory(dir);
   const relativePath = path.relative(dir, target);
   try {
     await fs.promises.symlink(relativePath, linkPath);
   } catch (error) {
     if (error.code !== "EEXIST") throw error;
+    if ((await fs.promises.lstat(linkPath)).isDirectory()) {
+      const indexName = "index" + path.extname(target);
+      if (isIndex) throw error;
+      return createSymlink(target, path.join(linkPath, indexName), true);
+    }
     // Replace dangling links too; existsSync follows their missing target.
     await fs.promises.unlink(linkPath);
     await fs.promises.symlink(relativePath, linkPath);
   }
+  return linkPath;
 }
 
 async function setupListener() {
@@ -270,10 +303,10 @@ async function setupListener() {
         if (canMirrorUrl) {
           const hostname = urlObj.hostname;
           const pathname = urlObj.pathname || "/";
-          const filename =
-            path.basename(pathname) ||
-            "index" + (extension ? "." + extension : "");
-          const dirPathRaw = path.dirname(pathname);
+          const filename = pathname.endsWith("/")
+            ? "index" + (extension ? "." + extension : "")
+            : path.basename(pathname);
+          const dirPathRaw = pathname.endsWith("/") ? pathname : path.dirname(pathname);
           const dirPath =
             dirPathRaw === "." ? "" : dirPathRaw.replace(/^\/+/, "");
 
@@ -304,9 +337,7 @@ async function setupListener() {
           if (aliases[1].status === "fulfilled") {
             candidateMainOutputPath = path.posix.join(
               PLUGIN_DIR,
-              hostname,
-              dirPath.split(path.sep).join("/"),
-              filename
+              path.relative(OUTPUT_DIR, aliases[1].value).split(path.sep).join("/")
             );
           }
         }
