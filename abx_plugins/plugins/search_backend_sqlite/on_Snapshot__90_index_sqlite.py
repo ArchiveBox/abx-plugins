@@ -28,7 +28,11 @@ from pathlib import Path
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
 )
-from abx_plugins.plugins.search_backend_sqlite.search import load_sqlite_config
+from abx_plugins.plugins.search_backend_sqlite.search import (
+    delete_snapshot,
+    ensure_snapshot_lookup,
+    load_sqlite_config,
+)
 
 
 # Extractor metadata
@@ -193,6 +197,7 @@ def ensure_index_schema(conn: sqlite3.Connection, tokenizers: str) -> None:
     existing_columns = [row[1] for row in rows]
     if existing_columns and existing_columns != expected_columns:
         conn.execute("DROP TABLE IF EXISTS search_index")
+        conn.execute("DROP TABLE IF EXISTS search_index_lookup")
 
     conn.execute(f"""
         CREATE VIRTUAL TABLE IF NOT EXISTS search_index
@@ -204,19 +209,25 @@ def index_in_sqlite(snapshot_id: str, url: str, title: str, texts: list[str]) ->
     """Index texts in SQLite FTS5."""
     db_path = get_db_path()
     tokenizers = CONFIG.SEARCH_BACKEND_SQLITE_TOKENIZERS
+    content = "\n\n".join(texts)
     conn = sqlite3.connect(str(db_path))
 
     try:
+        conn.execute("BEGIN IMMEDIATE")
         ensure_index_schema(conn, tokenizers)
+        ensure_snapshot_lookup(conn)
 
         # Remove existing entries
-        conn.execute("DELETE FROM search_index WHERE snapshot_id = ?", (snapshot_id,))
+        delete_snapshot(conn, snapshot_id)
 
         # Insert new content
-        content = "\n\n".join(texts)
-        conn.execute(
+        inserted = conn.execute(
             "INSERT INTO search_index (snapshot_id, url, title, content) VALUES (?, ?, ?, ?)",
             (snapshot_id, url, title, content),
+        )
+        conn.execute(
+            "INSERT INTO search_index_lookup(document_rowid,snapshot_id) VALUES (?,?)",
+            (inserted.lastrowid, snapshot_id),
         )
         conn.commit()
     finally:

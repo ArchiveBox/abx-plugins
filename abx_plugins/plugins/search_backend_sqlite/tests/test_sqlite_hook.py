@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from abx_plugins.plugins.search_backend_sqlite.search import flush
+
 
 HOOK = Path(__file__).parent.parent / "on_Snapshot__90_index_sqlite.py"
 
@@ -92,6 +94,62 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
     assert '"status": "noresults"' in result.stdout
     assert '"output_str": "No indexable content"' in result.stdout
     assert not (tmp_path / "search.sqlite3").exists()
+
+
+def test_hook_upgrades_existing_index_and_replaces_exact_snapshot(
+    tmp_path: Path,
+) -> None:
+    """Replacement/flush use a B-tree, including IDs with no searchable tokens."""
+    source = tmp_path / "title" / "title.txt"
+    source.parent.mkdir()
+    source.write_text("Preserved article title")
+    db_path = tmp_path / "search.sqlite3"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id,url,title,content)",
+        )
+        conn.executemany(
+            "INSERT INTO search_index VALUES (?,?,?,?)",
+            [
+                (sid, "https://archivebox.io/tests/", "old", body)
+                for sid, body in [
+                    ("---", "old duplicate one"),
+                    ("---", "old duplicate two"),
+                    ("snap-001", "untouched sentinel"),
+                    ("SNAP 001", "another sentinel"),
+                ]
+            ],
+        )
+    for text in ("first replacement", "second replacement"):
+        source.write_text(text)
+        result = run_hook(tmp_path, snapshot_id="---")
+        assert result.returncode == 0, result.stderr
+        with sqlite3.connect(db_path) as conn:
+            assert conn.execute(
+                "SELECT title FROM search_index WHERE snapshot_id='---'",
+            ).fetchall() == [(text,)]
+            assert conn.execute(
+                "SELECT count(*) FROM search_index_lookup",
+            ).fetchone() == (3,)
+            plan = conn.execute(
+                "EXPLAIN QUERY PLAN SELECT document_rowid FROM search_index_lookup WHERE snapshot_id=?",
+                ("---",),
+            ).fetchall()
+            assert any("SEARCH" in row[3] and "INDEX" in row[3] for row in plan), plan
+    flush(["---"], environ={"DATA_DIR": str(tmp_path)})
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute(
+            "SELECT snapshot_id,content FROM search_index ORDER BY snapshot_id",
+        ).fetchall() == [
+            ("SNAP 001", "another sentinel"),
+            ("snap-001", "untouched sentinel"),
+        ]
+        assert conn.execute(
+            "SELECT snapshot_id FROM search_index_lookup ORDER BY snapshot_id",
+        ).fetchall() == [
+            ("SNAP 001",),
+            ("snap-001",),
+        ]
 
 
 @pytest.mark.parametrize("component", ["a" * 120, "界" * 50])

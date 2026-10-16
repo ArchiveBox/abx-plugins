@@ -66,6 +66,43 @@ def get_db_path(environ: Mapping[str, str] | None = None) -> Path:
     return data_dir / config.SEARCH_BACKEND_SQLITE_DB
 
 
+def ensure_snapshot_lookup(conn: sqlite3.Connection) -> None:
+    """Backfill exact identities once, within the caller's write transaction.
+
+    FTS5 equality predicates scan stored document bodies. A separate B-tree
+    avoids that scan without depending on how the configured tokenizer treats
+    snapshot IDs (including punctuation-only IDs).
+    """
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name='search_index_lookup'",
+    ).fetchone():
+        return
+    conn.execute(
+        "CREATE TABLE search_index_lookup (document_rowid INTEGER PRIMARY KEY, snapshot_id TEXT NOT NULL)",
+    )
+    conn.execute(
+        "CREATE INDEX search_index_lookup_snapshot_id ON search_index_lookup(snapshot_id)",
+    )
+    conn.execute(
+        # This plugin creates a normal FTS5 table with snapshot_id first.
+        # Reading its documented content columns avoids FTS5 materializing
+        # every full document just to backfill the identity lookup.
+        "INSERT INTO search_index_lookup SELECT id,c0 FROM search_index_content",
+    )
+
+
+def delete_snapshot(conn: sqlite3.Connection, snapshot_id: str) -> None:
+    conn.execute(
+        "DELETE FROM search_index WHERE rowid IN "
+        "(SELECT document_rowid FROM search_index_lookup WHERE snapshot_id=?)",
+        (snapshot_id,),
+    )
+    conn.execute(
+        "DELETE FROM search_index_lookup WHERE snapshot_id=?",
+        (snapshot_id,),
+    )
+
+
 def search(
     query: str,
     search_mode: str = "contents",
@@ -103,11 +140,10 @@ def flush(
 
     conn = sqlite3.connect(str(db_path))
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        ensure_snapshot_lookup(conn)
         for snapshot_id in snapshot_ids:
-            conn.execute(
-                "DELETE FROM search_index WHERE snapshot_id = ?",
-                (snapshot_id,),
-            )
+            delete_snapshot(conn, snapshot_id)
         conn.commit()
     except sqlite3.OperationalError:
         pass
