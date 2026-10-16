@@ -703,8 +703,12 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
     indexed: list[tuple[int, Path, str]] = [
         (idx, path, digest) for idx, (path, digest) in enumerate(sources)
     ]
+    batch_count = (len(indexed) + batch_size - 1) // batch_size
+    # Spread the size-sorted inputs across batches instead of concentrating
+    # every large document in the first batch's fixed time budget. Keep the
+    # same batch count, worker count, per-batch deadline, and source indexes.
     batches: list[list[tuple[int, Path, str]]] = [
-        indexed[i : i + batch_size] for i in range(0, len(indexed), batch_size)
+        indexed[i::batch_count] for i in range(batch_count)
     ]
 
     # Pre-compute the per-source output basename for every source. The

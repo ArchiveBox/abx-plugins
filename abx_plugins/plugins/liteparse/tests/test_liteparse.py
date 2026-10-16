@@ -510,6 +510,43 @@ def test_extract_multiple_pdfs():
         assert "consectetuer adipiscing elit" in document_text, document_text[:500]
 
 
+def test_multiple_batches_preserve_source_mapping(tmp_path):
+    """Uneven batches retain every source's text, JSON, and original bytes."""
+    pdfs = (_download_pdf(PDF_URL_A), _download_pdf(PDF_URL_B))
+    sources = tmp_path / "responses"
+    sources.mkdir()
+    originals = {}
+    for index in range(17):
+        name = f"document-{index:02}.pdf"
+        # Valid trailing comments distinguish the real PDFs for content dedup.
+        content = pdfs[index % 2] + b"\n% " + b"x" * (index + 1) + b"\n"
+        (sources / name).write_bytes(content)
+        originals[name] = content
+
+    result = _run_hook(
+        tmp_path,
+        "https://archivebox.io/tests/",
+        {
+            "LITEPARSE_FORMATS": '["text","json"]',
+            "LITEPARSE_BATCH_SIZE": "8",
+            "LITEPARSE_PARALLEL_WORKERS": "2",
+            "LITEPARSE_OCR_ENABLED": "false",
+        },
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", record
+    output = tmp_path / "liteparse"
+    assert len(list(output.glob("*.txt"))) == len(originals)
+    assert len(list(output.glob("*.json"))) == len(originals)
+    for index, (name, content) in enumerate(originals.items()):
+        expected = "Dummy PDF file" if index % 2 == 0 else "This is a simple PDF file"
+        assert expected in (output / f"{name}.txt").read_text()
+        parsed = json.loads((output / f"{name}.json").read_text())
+        assert parsed["pages"] and parsed["pages"][0]["text_items"], parsed
+        assert (sources / name).read_bytes() == content
+
+
 def test_extract_scanned_pdf_via_ocr():
     """End-to-end OCR on a real scanned PDF (no native text layer).
 
