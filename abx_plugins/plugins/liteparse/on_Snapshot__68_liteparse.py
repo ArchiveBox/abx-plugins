@@ -527,7 +527,15 @@ def _process_batch(
                 converted = converted_dir / link_name
                 try:
                     conversion = subprocess.run(
-                        [imagemagick_binary, str(src.resolve()), str(converted)],
+                        [
+                            imagemagick_binary,
+                            str(src.resolve()),
+                            # These lossless PNGs are disposable OCR inputs.
+                            # Avoid spending the parsing deadline compressing them.
+                            "-define",
+                            "png:compression-level=1",
+                            str(converted),
+                        ],
                         capture_output=True,
                         text=True,
                         env=batch_env,
