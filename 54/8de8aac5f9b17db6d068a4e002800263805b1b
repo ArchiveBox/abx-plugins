@@ -1,0 +1,21 @@
+abx_plugins/plugins/papersdl/papers-dl-patches/README.md
+  s_20f72622e178fb::t_37059809c21f9f 6,43-45
+abx_plugins/plugins/papersdl/papers-dl-patches/fetch/fetch.py
+  s_20f72622e178fb::t_aaf1efe559d2ca 250-258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "548de8aac5f9b17db6d068a4e002800263805b1b",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
