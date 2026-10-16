@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import pytest
+from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -161,6 +162,56 @@ def test_public_calendar(tmp_path, ensure_chrome_test_prereqs, url, files):
                 assert event["start"] == "2026-06-24T12:00:00"
                 assert event["end"] == "2026-06-24T13:00:00"
                 assert event["all_day"] is False
+
+
+def test_failed_navigation_remains_failure(tmp_path, ensure_chrome_test_prereqs):
+    # Stop a dedicated real server, leaving the shared HTTP fixture untouched.
+    with HTTPServer(host="127.0.0.1") as unavailable:
+        url = unavailable.url_for("/unavailable")
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=False,
+        timeout=60,
+        env_overrides={"AUTH_STORAGE_FILE": ""},
+    ) as (_, _, chrome, env):
+        navigation = subprocess.run(
+            [str(CHROME_NAVIGATE_HOOK), f"--url={url}", "--snapshot-id=test-snapshot"],
+            cwd=chrome,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert navigation.returncode != 0, navigation.stdout + navigation.stderr
+        state = json.loads((chrome / "navigation.json").read_text())
+        assert "ERR_CONNECTION_REFUSED" in state["error"], state
+        endpoint = (chrome / "cdp_url.txt").read_text().strip()
+        before = {
+            t["id"]: t["url"]
+            for t in fetch_devtools_targets(endpoint)
+            if t["type"] == "page"
+        }
+        started = time.monotonic()
+        result = subprocess.run(
+            [str(HOOK), f"--url={url}"],
+            cwd=chrome.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert time.monotonic() - started < 5
+        record = parse_jsonl_output(result.stdout)
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert record and record["status"] == "failed", result.stdout
+        assert state["error"] in result.stderr
+        assert not (chrome.parent / "calendar").exists()
+        assert {
+            t["id"]: t["url"]
+            for t in fetch_devtools_targets(endpoint)
+            if t["type"] == "page"
+        } == before
 
 
 def test_unrelated_page_preserves_target(tmp_path, ensure_chrome_test_prereqs):

@@ -89,15 +89,19 @@ async function main() {
   };
   const snapshot = path.resolve(config.SNAP_DIR || ".");
   const chrome = path.join(snapshot, "chrome");
+  const navigation = JSON.parse(
+    fs.readFileSync(path.join(chrome, "navigation.json"), "utf8"),
+  );
+  // Attachment downloads abort navigation normally. Other navigation errors
+  // mean there was no source page to inspect, not that it had no calendars.
+  if (navigation.error && !/\bnet::ERR_ABORTED\b/.test(navigation.error))
+    throw Error(navigation.error);
   const { browser, page, cdpSession } = await connectToPage({
     chromeSessionDir: chrome,
     timeoutMs,
   });
   let temporary;
   try {
-    const navigation = JSON.parse(
-      fs.readFileSync(path.join(chrome, "navigation.json"), "utf8"),
-    );
     const isCalendarMime =
       /^\s*(?:text\/(?:calendar|x-vcalendar)|application\/(?:ics|icalendar))(?:;|$)/i.test(
         navigation.content_type || "",
