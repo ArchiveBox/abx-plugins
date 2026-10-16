@@ -1023,6 +1023,8 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
             )
             assert failed.returncode != 0, failed.stdout
             assert "Timeout acquiring lock" in failed.stderr, failed.stderr
+            assert "export_step=download-lock-wait" in failed.stderr
+            assert "export_step=download-lock-acquired" not in failed.stderr
             assert lock.exists(), "Waiter removed the other process's lock"
         finally:
             _, stderr = owner.communicate("release", timeout=5)
@@ -1033,6 +1035,8 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
         failed = _run_stop_hook(snapshot_dir, env, url)
         assert failed.returncode != 0, failed.stdout
         assert "EISDIR" in failed.stderr, failed.stderr
+        assert "export_step=move-started" in failed.stderr
+        assert "export_step=move-completed" not in failed.stderr
         assert output.is_dir()
         output.rmdir()
     assert not lock.exists()
@@ -1048,6 +1052,29 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
     output = snapshot_dir / "archivewebpage/archivewebpage.wacz"
     recovered = _run_stop_hook(snapshot_dir, env, url)
     assert recovered.returncode == 0, recovered.stderr
+    steps = dict(
+        re.findall(r"export_step=([a-z-]+) elapsed_ms=(\d+)", recovered.stderr),
+    )
+    assert set(steps) == {
+        "download-lock-wait",
+        "download-lock-acquired",
+        "navigation-started",
+        "navigation-returned",
+        "browser-completed",
+        "file-published",
+        "move-started",
+        "move-completed",
+    }, recovered.stderr
+    assert (
+        int(steps["download-lock-wait"])
+        <= int(steps["download-lock-acquired"])
+        <= int(steps["navigation-started"])
+    )
+    assert int(steps["move-started"]) >= max(
+        int(steps[name])
+        for name in ("navigation-returned", "browser-completed", "file-published")
+    )
+    assert int(steps["move-completed"]) >= int(steps["move-started"])
     assert not lock.exists()
     with zipfile.ZipFile(output) as archive:
         assert "datapackage.json" in archive.namelist()

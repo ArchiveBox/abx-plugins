@@ -198,12 +198,18 @@ async function downloadExactWacz(
   let downloadSession = null;
   let releaseDownloadLock;
   const abortDownload = new AbortController();
+  const exportStartedAt = Date.now();
+  const reportExport = (step) => console.error(
+    `[archivewebpage] export_step=${step} elapsed_ms=${Date.now() - exportStartedAt}`
+  );
 
   try {
+    reportExport("download-lock-wait");
     releaseDownloadLock = await chromeUtils.acquireSessionLock(
       path.join(downloadDir, ".download.lock"),
       timeoutMs
     );
+    reportExport("download-lock-acquired");
     await chromeUtils.sendBrowserCommand(
       browser,
       "Browser.setDownloadBehavior",
@@ -225,13 +231,18 @@ async function downloadExactWacz(
       timeoutMs,
       abortDownload.signal
     );
-    const completed = Promise.all([downloadCompleted, publishedFile.promise]);
+    const completed = Promise.all([
+      downloadCompleted.then(() => reportExport("browser-completed")),
+      publishedFile.promise.then(() => reportExport("file-published")),
+    ]);
     // A navigation failure must cancel these observers without leaving an
     // unhandled rejection or a timer keeping the hook alive until timeout.
     completed.catch(() => {});
+    reportExport("navigation-started");
     const navigation = await downloadSession.send("Page.navigate", {
       url: dlUrl,
     });
+    reportExport("navigation-returned");
     if (navigation.errorText && !navigation.isDownload) {
       throw new Error(`WACZ export navigation failed: ${navigation.errorText}`);
     }
@@ -240,10 +251,13 @@ async function downloadExactWacz(
     // browser completion and the exact filesystem publication event before we
     // take ownership of the WACZ.
     await completed;
+    reportExport("move-started");
     if (path.resolve(downloadedPath) !== path.resolve(destPath)) {
       await moveAcrossMounts(downloadedPath, destPath);
     }
-    return (await fs.promises.stat(destPath)).size;
+    const size = (await fs.promises.stat(destPath)).size;
+    reportExport("move-completed");
+    return size;
   } finally {
     abortDownload.abort();
     releaseDownloadLock?.();
