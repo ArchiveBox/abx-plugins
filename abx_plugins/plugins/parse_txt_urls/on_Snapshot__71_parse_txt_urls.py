@@ -231,7 +231,6 @@ def main(
                                 urls_found=urls_found,
                             )
                 except (
-                    OSError,
                     ValueError,
                     csv.Error,
                     zipfile.BadZipFile,
@@ -261,7 +260,7 @@ def main(
             with reader:
                 extract_urls_from_reader(reader, source_url=url, urls_found=urls_found)
     except Exception as e:
-        if url.startswith(("http://", "https://")):
+        if not source_paths and url.startswith(("http://", "https://")):
             # Snapshot URL fetching is only a fallback when no saved text or
             # document exists. Normal webpages, blocked requests, or transient
             # network errors should not make this parser hook look broken.

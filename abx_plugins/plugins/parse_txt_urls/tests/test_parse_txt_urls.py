@@ -15,6 +15,39 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_txt_urls.*"), None)
 class TestParseTxtUrls:
     """Test the parse_txt_urls extractor CLI."""
 
+    def test_saved_source_read_failure_preserves_existing_urls(self, tmp_path):
+        source = tmp_path / "readability/content.txt"
+        source.parent.mkdir(parents=True)
+        source.write_text("https://archivebox.io/tests/new")
+        saved = tmp_path / "parse_txt_urls/urls.jsonl"
+        saved.parent.mkdir()
+        original = b'{"type":"Snapshot","url":"https://archivebox.io/tests/saved"}\n'
+        saved.write_bytes(original)
+        source.chmod(0)
+        try:
+            with pytest.raises(PermissionError):
+                source.read_bytes()
+            result = subprocess.run(
+                [str(SCRIPT_PATH), "--url", "https://archivebox.io/tests/"],
+                cwd=tmp_path,
+                env={**os.environ, "SNAP_DIR": str(tmp_path)},
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        finally:
+            source.chmod(0o600)
+        assert result.returncode == 1, result.stdout + result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        status = next(row for row in records if row["type"] == "ArchiveResult")
+        assert status["status"] == "failed"
+        assert "Permission denied" in result.stderr
+        assert saved.read_bytes() == original
+
     @pytest.mark.parametrize(
         "padding",
         [0, 262144 - 8192 - 1, 262144 - 8192 - 20, 262144 - 20],

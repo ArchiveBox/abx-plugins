@@ -458,7 +458,7 @@ def main(
         else:
             pass
     except Exception as e:
-        if url.startswith(("http://", "https://")):
+        if not source_paths and url.startswith(("http://", "https://")):
             # Snapshot URL fetching is only a fallback when no staticfile import
             # artifact exists. Normal webpages, blocked requests, or transient
             # network errors should not make this parser hook look broken.
