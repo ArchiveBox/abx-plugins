@@ -47,15 +47,44 @@ def test_public_folder_zip(tmp_path, ensure_chrome_test_prereqs, custom_user_age
     ) as (_, _, chrome_dir, env):
         endpoint = (chrome_dir / "cdp_url.txt").read_text().strip()
         before = fetch_devtools_targets(endpoint)
-        result = subprocess.run(
-            [str(HOOK), f"--url={URL}"],
-            cwd=chrome_dir.parent,
-            env={**env, "GOOGLEDRIVE_TIMEOUT": "120"},
-            capture_output=True,
-            text=True,
-            timeout=150,
+        observations = tmp_path / "drive-download-observations.log"
+        with observations.open("w") as log:
+            observer = subprocess.Popen(
+                [
+                    env["NODE_BINARY"],
+                    str(Path(__file__).with_name("observe_download.js")),
+                    str(HOOK.parent.parent / "chrome/chrome_utils.js"),
+                    endpoint,
+                ],
+                env=env,
+                stdout=log,
+                stderr=log,
+                text=True,
+            )
+            try:
+                result = subprocess.run(
+                    [str(HOOK), f"--url={URL}"],
+                    cwd=chrome_dir.parent,
+                    env={**env, "GOOGLEDRIVE_TIMEOUT": "120"},
+                    capture_output=True,
+                    text=True,
+                    timeout=150,
+                )
+            finally:
+                observer.terminate()
+                try:
+                    observer.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    observer.kill()
+                    observer.wait(timeout=2)
+        assert result.returncode == 0, (
+            result.stderr
+            + "\nRead-only Drive observations:\n"
+            + observations.read_text()
         )
-        assert result.returncode == 0, result.stderr
+        observed = [json.loads(line) for line in observations.read_text().splitlines()]
+        assert any(item.get("phase") == "zip_ui" for item in observed), observed
+        assert any(item.get("phase") == "response" for item in observed), observed
         result_record = parse_jsonl_output(result.stdout)
         assert result_record is not None, result.stdout
         assert result_record["status"] == "succeeded"
