@@ -221,6 +221,69 @@ def test_twitter_post_without_video_reports_noresults(tmp_path, ytdlp_runtime_en
     assert not list((tmp_path / "ytdlp").iterdir())
 
 
+def test_twitter_link_preview_follows_link_without_inventing_video(
+    tmp_path,
+    ytdlp_runtime_env,
+):
+    """A real large-image summary card links to a Gist, not a broken video."""
+    result = subprocess.run(
+        [
+            str(YTDLP_HOOK),
+            "--url=https://x.com/ArchiveBoxApp/status/1877264551613190437",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "noresults", result.stdout
+    assert record["output_str"] == "No media found", record
+    assert "gist.github.com/pirate/c89b7d42be148e9180d8c7cf81e734c8" in result.stderr
+    assert "No video formats found" not in result.stderr
+    assert not list((tmp_path / "ytdlp").iterdir())
+
+
+def test_twitter_video_survives_summary_card_override(tmp_path, ytdlp_runtime_env):
+    """The real upstream short-video fixture still downloads and decodes."""
+    result = subprocess.run(
+        [
+            str(YTDLP_HOOK),
+            "--url=https://twitter.com/captainamerica/status/719944021058060289",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    videos = list((tmp_path / "ytdlp").glob("*.mp4"))
+    assert len(videos) == 1, list((tmp_path / "ytdlp").iterdir())
+    assert videos[0].stat().st_size > 1000
+    decoded = subprocess.run(
+        [
+            ytdlp_runtime_env["FFMPEG_BINARY"],
+            "-v",
+            "error",
+            "-i",
+            str(videos[0]),
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert decoded.returncode == 0, decoded.stderr
+    assert not decoded.stderr, decoded.stderr
+
+
 @pytest.mark.parametrize(
     "post_id,fixture_name,sha256",
     [
