@@ -54,7 +54,7 @@ def read_closed_count(process: subprocess.Popen[str]) -> int:
     return int(token)
 
 
-def _modal_page_url(httpserver, *, download_active=False) -> str:
+def _modal_page_url(httpserver, *, download_active=False, modal_kind="css") -> str:
     """Serve a deterministic page with a visible non-cookie modal."""
     html = """<!doctype html>
 <html>
@@ -70,6 +70,13 @@ def _modal_page_url(httpserver, *, download_active=False) -> str:
 </body>
 </html>
 """
+    if modal_kind != "css":
+        html = html.replace(
+            'class="modal-overlay overlay-visible"',
+            'class="capture-dialog" role="dialog" aria-modal="true"',
+        )
+    if modal_kind == "radix":
+        html = html.replace('aria-modal="true"', 'aria-modal="true" data-state="open"')
     if download_active:
         html = html.replace("<html>", '<html data-abx-download-active="true">')
     httpserver.expect_request("/modal").respond_with_data(
@@ -496,15 +503,20 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 terminate_hook_process(modalcloser_process)
 
 
+@pytest.mark.parametrize("modal_kind", ["css", "aria", "radix"])
 @pytest.mark.parametrize("download_active", [False, True])
-def test_default_poll_cycle_closes_modal(httpserver, download_active):
+def test_default_poll_cycle_closes_modal(httpserver, download_active, modal_kind):
     """Test that the production polling cycle closes a visible modal."""
     with tempfile.TemporaryDirectory() as tmpdir:
         chrome_launch_process = None
         chrome_pid = None
         modalcloser_process = None
         try:
-            test_url = _modal_page_url(httpserver, download_active=download_active)
+            test_url = _modal_page_url(
+                httpserver,
+                download_active=download_active,
+                modal_kind=modal_kind,
+            )
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-poll",
@@ -564,6 +576,37 @@ const {connectToPage} = require(process.argv[1]);
                     assert inspect.returncode == 0, inspect.stderr
                 assert read_closed_count(modalcloser_process) > 0
 
+                # A reported dismissal must uncover the real page, even when
+                # an ARIA modal has no Escape handler. Observe more than one
+                # polling cycle to catch repeated false-success reports.
+                inspect = subprocess.run(
+                    [
+                        env["NODE_BINARY"],
+                        "-e",
+                        r"""
+const {connectToPage} = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    await page.waitForFunction(() => !document.querySelector('#blocking-modal').checkVisibility(), {timeout: 5000, polling: 100});
+    for (let cycle = 0; cycle < 6; cycle++) {
+      if (!await page.$eval('main', el => el.checkVisibility())) throw new Error('Article was hidden');
+      if (await page.$eval('#blocking-modal', el => el.checkVisibility())) throw new Error('Modal remains visible');
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+  } finally {await browser.disconnect();}
+})().catch(error => {console.error(error); process.exitCode = 1;});
+""",
+                        str(PLUGIN_DIR.parent / "chrome/chrome_utils.js"),
+                        str(snapshot_chrome_dir),
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                assert inspect.returncode == 0, inspect.stderr
+
                 # Clean exit
                 stdout, stderr = terminate_hook_process(modalcloser_process)
                 returncode = modalcloser_process.returncode
@@ -587,11 +630,7 @@ const {connectToPage} = require(process.argv[1]);
                 assert result_json["status"] == "succeeded", (
                     f"Should succeed: {result_json}"
                 )
-                output_str = result_json.get("output_str", "").lower()
-                assert (
-                    output_str.endswith("modals closed")
-                    and output_str.split()[0].isdigit()
-                ), f"Should report closing modals/dialogs: {result_json}"
+                assert result_json["output_str"] == "1 modals closed", result_json
 
         finally:
             if modalcloser_process is not None:

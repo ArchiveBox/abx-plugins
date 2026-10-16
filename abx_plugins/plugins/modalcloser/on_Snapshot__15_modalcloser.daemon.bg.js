@@ -140,7 +140,7 @@ async function closeModals(page) {
               cancelable: true,
             })
           );
-          closed++;
+          if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) closed++;
         } catch (e) {}
       });
 
@@ -168,7 +168,10 @@ async function closeModals(page) {
               cancelable: true,
             })
           );
-          closed++;
+          // Escape is only a request: generic ARIA dialogs need not handle it.
+          // Count the dismissal only if it actually became hidden; otherwise
+          // the existing CSS dismissal below handles the remaining overlay.
+          if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) closed++;
         } catch (e) {}
       });
 
@@ -288,6 +291,8 @@ async function closeModals(page) {
       '[class*="consent"][class*="popup"]',
       '[class*="gdpr"]',
       '[class*="privacy"][class*="banner"]',
+      // ARIA modal dialogs that did not respond to Escape above.
+      '[role="dialog"][aria-modal="true"]',
       // Modal overlays and backdrops
       '.modal-overlay:not([style*="display: none"])',
       '.modal-backdrop:not([style*="display: none"])',
@@ -316,14 +321,13 @@ async function closeModals(page) {
           // Page roots carry modal state classes too; hiding them erases the page.
           if (el === document.body || el === document.documentElement) return;
           // Skip if already hidden
-          const style = window.getComputedStyle(el);
-          if (style.display === "none" || style.visibility === "hidden") return;
+          if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return;
 
           el.style.display = "none";
           el.style.visibility = "hidden";
           el.style.opacity = "0";
           el.style.pointerEvents = "none";
-          closed++;
+          if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) closed++;
         });
       } catch (e) {}
     });
