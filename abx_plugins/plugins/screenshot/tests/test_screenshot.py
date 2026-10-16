@@ -392,10 +392,19 @@ const utils = require(process.argv[1]);
             assert changed.returncode == 0, changed.stderr
             assert requested.wait(timeout=5)
             current = json.loads((chrome / "frame_loads.json").read_text())
+            # Keep the exact observed states in the existing CI log artifact.
+            # HTTP arrival and the Chrome monitor run in separate processes;
+            # a failure needs both states, not just an empty set of frame IDs.
+            (chrome / "frame-loading-observation.log").write_text(
+                json.dumps(
+                    {"before": before, "after_request": current},
+                    indent=2,
+                ),
+            )
             pending_ids = {
                 key for key, value in current["frames"].items() if value == "loading"
             }
-            assert len(pending_ids) == 1
+            assert len(pending_ids) == 1, {"before": before, "after_request": current}
             assert all(before["frames"][key] == "stopped" for key in pending_ids)
             if finish_navigation:
                 timer = threading.Timer(2, release.set)
