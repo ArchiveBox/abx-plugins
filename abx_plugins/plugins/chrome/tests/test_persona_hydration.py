@@ -217,6 +217,16 @@ const {captureOriginStorage} = require(require('path').join(require('path').dirn
     # A synced site database that IndexedDB rejects must only skip that
     # database; it must never abort Chrome launch or the other databases.
     saved = json.loads(auth.read_text())
+    exported = saved["origins"][0]["indexedDB"][0]
+    assert exported["name"] == "login-state"
+    assert (
+        next(
+            store["keyPath"]
+            for store in exported["stores"]
+            if store["name"] == "accountData"
+        )
+        == account_keypath
+    ), exported
     rejected = dict(saved["origins"][0]["indexedDB"][0], name="rejected-db")
     saved["origins"][0]["indexedDB"][0:0] = [None, {"name": "malformed-db"}, rejected]
     auth.write_text(json.dumps(saved))
@@ -332,7 +342,16 @@ const utils = require(process.argv[1]);
                 timeout=45,
             )
             assert result.returncode == 0, result.stderr
-            assert json.loads(result.stdout) == {
+            actual = json.loads(result.stdout)
+            # Retain the native export and observed schema in hosted failure
+            # artifacts, so capture and restore failures can be distinguished.
+            (tmp_path / f"indexeddb-restore-{attempt}.log").write_text(
+                json.dumps(
+                    {"attempt": attempt, "exported": exported, "restored": actual},
+                    indent=2,
+                ),
+            )
+            assert actual == {
                 "version": 3,
                 "keyPath": "id",
                 "autoIncrement": True,
