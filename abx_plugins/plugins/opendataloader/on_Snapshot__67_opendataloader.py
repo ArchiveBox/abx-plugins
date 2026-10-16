@@ -103,16 +103,16 @@ def find_pdf_sources() -> list[Path]:
     """
     search_patterns = [
         # Responses plugin output (PDFs served directly by the URL)
-        "responses/**/*.pdf",
-        "*_responses/**/*.pdf",
+        "responses/**/*.[pP][dD][fF]",
+        "*_responses/**/*.[pP][dD][fF]",
         # Staticfile plugin output
-        "staticfile/**/*.pdf",
-        "*_staticfile/**/*.pdf",
+        "staticfile/**/*.[pP][dD][fF]",
+        "*_staticfile/**/*.[pP][dD][fF]",
         # Wget plugin output (original response bytes)
-        "wget/**/*.pdf",
-        "*_wget/**/*.pdf",
+        "wget/**/*.[pP][dD][fF]",
+        "*_wget/**/*.[pP][dD][fF]",
         # Scientific papers downloaded by papersdl
-        "papersdl/**/*.pdf",
+        "papersdl/**/*.[pP][dD][fF]",
     ]
 
     found: list[Path] = []

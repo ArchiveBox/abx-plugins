@@ -396,12 +396,13 @@ def test_no_sources_does_not_wait_for_another_pdf_extraction(tmp_path):
 
 
 @pytest.mark.parametrize("source_dir", ["wget/example.com", "papersdl"])
+@pytest.mark.parametrize("extension", ["pdf", "PDF", "PdF"])
 @pytest.mark.parametrize(
     "html_response",
     [False, True],
     ids=["pdf-only", "with-html-response"],
 )
-def test_extract_single_pdf(source_dir, html_response):
+def test_extract_single_pdf(source_dir, extension, html_response):
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
     java_binary = require_java_binary()
@@ -414,7 +415,8 @@ def test_extract_single_pdf(source_dir, html_response):
         # Place a real PDF in an upstream downloader output directory.
         wget_dir = snap_dir / source_dir
         wget_dir.mkdir(parents=True, exist_ok=True)
-        (wget_dir / "output.pdf").write_bytes(pdf_content)
+        source_name = f"output.{extension}"
+        (wget_dir / source_name).write_bytes(pdf_content)
         if html_response:
             # A response named .pdf can contain HTML (e.g. Chrome's PDF viewer),
             # while wget saved the actual PDF. Use real HTML bytes alongside the
@@ -424,7 +426,7 @@ def test_extract_single_pdf(source_dir, html_response):
             assert "text/html" in html.headers["Content-Type"]
             responses_dir = snap_dir / "responses" / "all"
             responses_dir.mkdir(parents=True)
-            (responses_dir / "document.pdf").write_bytes(html.content)
+            (responses_dir / f"document.{extension}").write_bytes(html.content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -465,7 +467,7 @@ def test_extract_single_pdf(source_dir, html_response):
 
         metadata = json.loads((output_dir / "metadata.json").read_text())
         assert metadata["sources_processed"] == 1
-        assert metadata["files"][0]["source_file"] == "output.pdf"
+        assert metadata["files"][0]["source_file"] == source_name
 
 
 def test_extract_multiple_pdfs():
