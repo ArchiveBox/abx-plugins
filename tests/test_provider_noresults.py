@@ -97,10 +97,18 @@ def test_provider_noresults(provider, unrelated_page):
         )
     finally:
         print(f"{provider}: {time.monotonic() - started:.3f}s")
-    assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record is not None, result.stdout
-    assert record["status"] == "noresults", result.stdout
+    navigation = json.loads((snapshot / "chrome/navigation.json").read_text())
+    if provider == "calendar" and navigation.get("error"):
+        # Calendar discovery applies to every page, unlike URL-scoped
+        # providers. A failed navigation cannot establish absence of a feed.
+        assert result.returncode == 1, result.stdout
+        assert record["status"] == "failed", result.stdout
+        assert record["output_str"] == navigation["error"]
+    else:
+        assert result.returncode == 0, result.stderr
+        assert record["status"] == "noresults", result.stdout
     assert result.stderr.strip() == record["output_str"]
     assert "\n" not in record["output_str"] and len(record["output_str"]) <= 70
     assert not output.exists(), f"{provider}: irrelevant page created output"
