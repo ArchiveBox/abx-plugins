@@ -15,6 +15,87 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_html_urls.*"), None)
 class TestParseHtmlUrls:
     """Test the parse_html_urls extractor CLI."""
 
+    @pytest.mark.parametrize("tag", ["style", "script"])
+    def test_streams_large_raw_text_without_reparsing_previous_chunks(
+        self,
+        tmp_path,
+        tag,
+    ):
+        source_dir = tmp_path / "singlefile"
+        source_dir.mkdir()
+        source = source_dir / "singlefile.html"
+        root_url = "https://archivebox.io/tests/streaming-html/"
+        with source.open("w") as stream:
+            stream.write(
+                f'<{tag}>/* <a href="/not-an-anchor"> https://archivebox.io/tests/raw */',
+            )
+            for _ in range(256):
+                stream.write("A" * 1024 * 1024)
+            # Split the closing tag across parser reads, including its whitespace.
+            stream.write(" " * ((262144 - 3 - stream.tell()) % 262144))
+            stream.write(f'</{tag.upper()} \n><a href="../after">After</a>')
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", root_url],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        expected = {
+            "https://archivebox.io/tests/raw",
+            "https://archivebox.io/tests/after",
+        }
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        assert {row["url"] for row in records if row["type"] == "Snapshot"} == expected
+        assert [row for row in records if row["type"] == "ArchiveResult"] == [
+            {
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": "2 URLs parsed",
+            },
+        ]
+        saved = tmp_path / "parse_html_urls" / "urls.jsonl"
+        assert {
+            json.loads(line)["url"] for line in saved.read_text().splitlines()
+        } == expected
+
+    @pytest.mark.parametrize("tag", ["style", "script"])
+    @pytest.mark.parametrize("split", range(1, 11))
+    def test_preserves_raw_text_closing_tag_across_reads(self, tmp_path, tag, split):
+        source_dir = tmp_path / "singlefile"
+        source_dir.mkdir()
+        prefix = f'<{tag}>/* </{tag}x><a href="/not-an-anchor"> */'
+        closing = f"</{tag.upper()} \n>"
+        source_dir.joinpath("singlefile.html").write_text(
+            prefix
+            + " " * (262144 - split - len(prefix))
+            + closing
+            + '<a href="/tests/after">After</a>',
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", "https://archivebox.io/tests/"],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        assert {row["url"] for row in records if row["type"] == "Snapshot"} == {
+            "https://archivebox.io/tests/after",
+        }
+
     @pytest.mark.parametrize(
         "padding",
         [0, 262144 - 8192 - len("<a href='"), 262144 - 8192 - 20, 262144 - 20],

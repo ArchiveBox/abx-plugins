@@ -73,6 +73,32 @@ class HrefParser(HTMLParser):
         self.urls_found = urls_found
         self.raw_tail = ""
 
+    def feed(self, data: str) -> None:
+        super().feed(data)
+        if self.cdata_elem not in ("script", "style") or not self.rawdata:
+            return
+        # HTMLParser buffers raw text until its closing tag, copying and
+        # rescanning it on every feed. We don't consume handle_data; absolute
+        # URLs are scanned separately from every original chunk below. Keep
+        # only a possible closing-tag prefix for the next feed.
+        consumed = len(self.rawdata)
+        opening = self.rawdata.rfind("<")
+        if opening >= 0:
+            tail = self.rawdata[opening:]
+            if tail == "<":
+                consumed = opening
+            elif tail.startswith("</"):
+                name = tail[2:].lstrip().lower()
+                tag = self.cdata_elem
+                if tag.startswith(name) or (
+                    name.startswith(tag)
+                    and name[len(tag) : len(tag) + 1]
+                    in (" ", "\t", "\r", "\n", "\f", "/", ">")
+                ):
+                    consumed = opening
+        self.updatepos(0, consumed)
+        self.rawdata = self.rawdata[consumed:]
+
     def _add_url(self, url: str) -> None:
         normalized = normalize_url(url, root_url=self.root_url)
         lowered = normalized.lower()
