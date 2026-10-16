@@ -40,19 +40,31 @@ def _detect_phpbb(session, url, options):
     # root URL. Non-forum pages can pass its loose HTML check, then fail during
     # construction before a post-construction check could reject them.
     # Upstream reuses this cached response without making another request.
-    probe = session.try_get(
+    with session.try_get(
         urljoin(
             normalize_url(url, remove_suffixes=["viewforum.php", "viewtopic.php"]),
             "viewforum.php",
         ),
         should_cache=True,
         should_retry=False,
-    )
-    if not urlparse(probe.url).path.endswith("/viewforum.php"):
-        return None
-    if "ucp.php" not in probe.text:
-        return None
-    return _upstream_phpbb_detect(session, url, options)
+        stream=True,
+    ) as probe:
+        if not urlparse(probe.url).path.endswith("/viewforum.php"):
+            return None
+        # This is a document-discovery probe, not an attachment download.
+        # Reject explicit binary types before requests expands compressed bodies
+        # and guesses their text encoding. Missing/text MIME types retain the
+        # existing HTML checks, including legacy text/plain forum pages.
+        content_type = (
+            probe.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        )
+        if content_type and not (
+            content_type.startswith("text/") or content_type == "application/xhtml+xml"
+        ):
+            return None
+        if "ucp.php" not in probe.text:
+            return None
+        return _upstream_phpbb_detect(session, url, options)
 
 
 PhpbbExtractor._detect = staticmethod(_detect_phpbb)

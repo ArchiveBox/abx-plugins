@@ -386,6 +386,45 @@ def test_redirected_phpbb_probe_is_noresults(httpserver, tmp_path):
     assert not (tmp_path / "forumdl" / "forum.jsonl").exists()
 
 
+def test_binary_phpbb_probe_is_not_decoded(httpserver, tmp_path):
+    """A compressed binary at the probe URL is not a forum document."""
+    import gzip
+
+    payload = tmp_path / "binary.gz"
+    with gzip.GzipFile(filename=payload, mode="wb") as compressed:
+        for _ in range(512):
+            compressed.write(bytes(1024 * 1024))
+    httpserver.expect_request("/viewforum.php").respond_with_data(
+        payload.read_bytes(),
+        content_type="application/octet-stream",
+        headers={"Content-Encoding": "gzip"},
+    )
+    httpserver.expect_request(re.compile(".*")).respond_with_data(
+        "<!doctype html><html><body>A page, not a forum.</body></html>",
+        content_type="text/html",
+    )
+    result = subprocess.run(
+        [str(FORUMDL_HOOK), f"--url={httpserver.url_for('/')}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "FORUMDL_BINARY": require_forumdl_binary(),
+            "FORUMDL_TIMEOUT": "10",
+            "SNAP_DIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No forum found",
+    }
+    assert not (tmp_path / "forumdl" / "forum.jsonl").exists()
+
+
 @pytest.mark.parametrize(
     "url",
     [
