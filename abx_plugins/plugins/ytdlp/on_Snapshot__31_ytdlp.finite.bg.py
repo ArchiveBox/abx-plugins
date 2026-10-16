@@ -282,9 +282,7 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
         except subprocess.TimeoutExpired:
             stop_active_process()
             reader.join(timeout=1)
-            output = selected_output(downloaded_files(output_dir))
-            if output:
-                return True, output, ""
+            # Retain partial files and metadata without claiming a completed download.
             return False, None, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
@@ -346,9 +344,6 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
             return False, None, f"yt-dlp error: {stderr}"
 
     except subprocess.TimeoutExpired:
-        output = selected_output(downloaded_files(Path(".")))
-        if output:
-            return True, output, ""
         return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"

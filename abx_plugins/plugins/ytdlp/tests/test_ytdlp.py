@@ -42,10 +42,9 @@ YTDLP_HOOK = _YTDLP_HOOK
 TEST_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
 
-def _build_test_wav_bytes() -> bytes:
+def _build_test_wav_bytes(duration_seconds: int = 1) -> bytes:
     """Build a short deterministic WAV payload for local-media extractor tests."""
     sample_rate = 8000
-    duration_seconds = 1
     num_frames = sample_rate * duration_seconds
 
     wav_io = io.BytesIO()
@@ -726,6 +725,55 @@ def test_failed_media_download_is_not_successful_metadata(
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "failed", result.stdout
     assert record["output_str"] == {403: "403 Forbidden", 404: "404 Not Found"}[status]
+
+
+@pytest.mark.parametrize("keep_previous_media", [False, True])
+def test_timed_out_media_download_is_not_successful_metadata(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+    keep_previous_media,
+):
+    """Native bandwidth limiting leaves real metadata and an unfinished download."""
+    media_bytes = _build_test_wav_bytes(duration_seconds=120)
+    httpserver.expect_request("/sample.wav").respond_with_data(
+        media_bytes,
+        content_type="audio/wav",
+    )
+    media_test_url = httpserver.url_for("/sample.wav")
+    output_dir = tmp_path / "ytdlp"
+    output_dir.mkdir()
+    previous = output_dir / "previous.wav"
+    previous_bytes = _build_test_wav_bytes()
+    if keep_previous_media:
+        previous.write_bytes(previous_bytes)
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", media_test_url],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_TIMEOUT": "10",
+            "YTDLP_ARGS_EXTRA": '["--limit-rate=64K", "--buffer-size=64K", "--no-resize-buffer"]',
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    metadata = list(output_dir.glob("*.info.json"))
+    assert len(metadata) == 1, (result.stdout, result.stderr)
+    assert json.loads(metadata[0].read_text())["url"] == media_test_url
+    partials = list(output_dir.glob("*.part"))
+    assert len(partials) == 1, (result.stdout, result.stderr)
+    assert 0 < partials[0].stat().st_size < len(media_bytes)
+    assert not (output_dir / "sample.wav").exists()
+    if keep_previous_media:
+        assert previous.read_bytes() == previous_bytes
+    assert result.returncode == 1, (result.stdout, result.stderr)
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", result.stdout
+    assert record["output_str"] == "Timed out after 10 seconds", record
 
 
 def test_config_ytdlp_enabled_false_skips(ytdlp_runtime_env):
