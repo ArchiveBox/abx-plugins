@@ -139,24 +139,20 @@ function emitResponseProgress(force = false) {
 const symlinkDirectories = new Set();
 
 async function createSymlink(target, linkPath) {
-  try {
-    const dir = path.dirname(linkPath);
-    if (!symlinkDirectories.has(dir)) {
-      await fs.promises.mkdir(dir, { recursive: true });
-      symlinkDirectories.add(dir);
-    }
+  const dir = path.dirname(linkPath);
+  if (!symlinkDirectories.has(dir)) {
+    await fs.promises.mkdir(dir, { recursive: true });
+    symlinkDirectories.add(dir);
+  }
 
-    const relativePath = path.relative(dir, target);
-    try {
-      await fs.promises.symlink(relativePath, linkPath);
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      // Replace dangling links too; existsSync follows their missing target.
-      await fs.promises.unlink(linkPath);
-      await fs.promises.symlink(relativePath, linkPath);
-    }
-  } catch (e) {
-    // Ignore symlink errors
+  const relativePath = path.relative(dir, target);
+  try {
+    await fs.promises.symlink(relativePath, linkPath);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    // Replace dangling links too; existsSync follows their missing target.
+    await fs.promises.unlink(linkPath);
+    await fs.promises.symlink(relativePath, linkPath);
   }
 }
 
@@ -293,16 +289,26 @@ async function setupListener() {
           const sitePath = path.join(siteDir, filename);
           // These two independent aliases can overlap their filesystem waits.
           // The response queue still retains only one body at a time.
-          await Promise.all([
+          const aliases = await Promise.allSettled([
             createSymlink(uniquePath, symlinkPath),
             createSymlink(uniquePath, sitePath),
           ]);
-          candidateMainOutputPath = path.posix.join(
-            PLUGIN_DIR,
-            hostname,
-            dirPath.split(path.sep).join("/"),
-            filename
-          );
+          for (const alias of aliases) {
+            if (alias.status === "rejected") {
+              captureFailureCount += 1;
+              const message = `${alias.reason.name}: ${alias.reason.message}`;
+              if (!firstCaptureError) firstCaptureError = message;
+              console.error(`ERROR: Cannot save response alias: ${message}`);
+            }
+          }
+          if (aliases[1].status === "fulfilled") {
+            candidateMainOutputPath = path.posix.join(
+              PLUGIN_DIR,
+              hostname,
+              dirPath.split(path.sep).join("/"),
+              filename
+            );
+          }
         }
       } catch (e) {
         // URL parsing or symlink creation failed, skip

@@ -422,7 +422,10 @@ if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
 
-@pytest.mark.parametrize("broken_path", ["all", "index.jsonl"])
+@pytest.mark.parametrize(
+    "broken_path",
+    ["all", "index.jsonl", "document_alias", "site_alias"],
+)
 def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_path):
     """Real filesystem failures must not silently discard a completed response."""
     body = b"<!doctype html><title>ArchiveBox response storage</title><p>Preserve these bytes</p>"
@@ -431,6 +434,8 @@ def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_pa
         content_type="text/html",
     )
     url = httpserver.url_for("/document")
+    hostname = urlparse(url).hostname
+    assert hostname
     with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
         _,
         _,
@@ -439,6 +444,9 @@ def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_pa
     ):
         output = chrome_dir.parent / "responses"
         output.mkdir()
+        alias = output / hostname / "document"
+        if broken_path == "document_alias":
+            alias = output / "document" / hostname / "document"
         index = output / "index.jsonl"
         process = start_process_and_wait_for_file(
             [str(RESPONSES_HOOK), f"--url={url}"],
@@ -450,9 +458,12 @@ def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_pa
             if broken_path == "all":
                 (output / "all").rmdir()
                 (output / "all").write_text("existing non-directory archive entry")
-            else:
+            elif broken_path == "index.jsonl":
                 index.unlink()
                 index.mkdir()
+            else:
+                alias.mkdir(parents=True)
+                (alias / "existing.txt").write_bytes(b"Preserve existing archive data")
             navigation = subprocess.run(
                 [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
                 cwd=chrome_dir,
@@ -471,6 +482,21 @@ def test_response_storage_failure_is_not_success(tmp_path, httpserver, broken_pa
         ]
         record = next(row for row in results if row.get("type") == "ArchiveResult")
         assert record["status"] == "failed", record
-        assert "ENOTDIR" in stderr or "EISDIR" in stderr, stderr
-        if broken_path == "index.jsonl":
+        if broken_path.endswith("_alias"):
+            assert "ERROR: Cannot save response alias:" in stderr, stderr
+            assert str(alias) in stderr, stderr
+        else:
+            assert "ENOTDIR" in stderr or "EISDIR" in stderr, stderr
+        if broken_path != "all":
             assert body in [path.read_bytes() for path in (output / "all").iterdir()]
+        if broken_path.endswith("_alias"):
+            assert (
+                alias / "existing.txt"
+            ).read_bytes() == b"Preserve existing archive data"
+            entries = [json.loads(line) for line in index.read_text().splitlines()]
+            entry = next(row for row in entries if row["url"] == url)
+            assert (output / entry["path"]).read_bytes() == body
+            other_prefix = "" if broken_path == "document_alias" else "document"
+            other_alias = output / other_prefix / hostname / "document"
+            assert other_alias.is_symlink()
+            assert other_alias.read_bytes() == body
