@@ -5581,7 +5581,7 @@ async function waitForVisibleImages(page, timeoutMs, chromeSessionDir) {
       if (frameStoppedLoading(frameId)) break;
       await new Promise(resolve => setTimeout(resolve, Math.min(50, remaining())));
     }
-    await frame.waitForFunction(async () => {
+    const images = await frame.waitForFunction(() => {
       if (document.readyState === "loading") return false;
       const images = [...document.images].filter((img) => {
         const rect = img.getBoundingClientRect();
@@ -5593,11 +5593,22 @@ async function waitForVisibleImages(page, timeoutMs, chromeSessionDir) {
           && img.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
       });
       if (images.some((img) => !img.complete)) return false;
-      // The caller keeps this target paintable during capture. In a hidden
-      // target, decode() can remain pending despite valid natural dimensions.
-      await Promise.all(images.filter((img) => img.naturalWidth > 0).map((img) => img.decode()));
-      return true;
+      return images.filter((img) => img.naturalWidth > 0);
     }, {timeout: remaining()});
+    try {
+      // Keep the exact images selected by the readiness check. Separate the
+      // phases so a stalled renderer/decode is not reported as network loading.
+      console.error(`[screenshot] ${kind} frame decoding images ${JSON.stringify(state.url || "")}`);
+      await withTimeout(
+        () => images.evaluate(async (readyImages) => {
+          await Promise.all(readyImages.map((img) => img.decode()));
+        }),
+        remaining(),
+        "Timed out decoding visible screenshot images"
+      );
+    } finally {
+      await images.dispose();
+    }
     console.error(`[screenshot] ${kind} frame images ready ${JSON.stringify(state.url || "")}`);
 
     // Inspect each child only after its parent document exists. This includes
