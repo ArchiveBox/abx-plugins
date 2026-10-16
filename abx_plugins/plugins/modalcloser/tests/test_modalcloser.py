@@ -17,6 +17,7 @@ import os
 import signal
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -104,7 +105,7 @@ def _cookieyes_page_url(httpserver) -> str:
     return httpserver.url_for("/cookieyes")
 
 
-def _plain_page_url(httpserver) -> str:
+def _plain_page_url(httpserver, *, hidden_dialogs=False) -> str:
     """Serve a deterministic page with no dismissible modals or banners."""
     html = """<!doctype html>
 <html>
@@ -117,6 +118,20 @@ def _plain_page_url(httpserver) -> str:
 </body>
 </html>
 """
+    if hidden_dialogs:
+        html = html.replace(
+            "</body>",
+            """
+  <div role="dialog" aria-modal="true" hidden>Closed newsletter</div>
+  <div role="dialog" aria-modal="true" style="display:none">Closed login</div>
+  <div hidden><div role="dialog" aria-modal="true">Hidden ancestor</div></div>
+  <div role="dialog" aria-modal="true" style="visibility:hidden">Hidden dialog</div>
+  <div role="dialog" aria-modal="true" style="opacity:0">Transparent dialog</div>
+  <div data-radix-dialog-overlay hidden>Closed overlay</div>
+  <div class="cdk-overlay-backdrop" hidden>Closed backdrop</div>
+</body>
+""",
+        )
     httpserver.expect_request("/plain").respond_with_data(
         html,
         content_type="text/html; charset=utf-8",
@@ -359,12 +374,16 @@ def test_background_script_handles_sigterm(httpserver):
                 terminate_hook_process(modalcloser_process)
 
 
-def test_background_script_reports_noresults_when_nothing_closed(httpserver):
+@pytest.mark.parametrize("hidden_dialogs", [False, True])
+def test_background_script_reports_noresults_when_nothing_closed(
+    httpserver,
+    hidden_dialogs,
+):
     """Test that SIGTERM reports noresults when no dialogs or modals were closed."""
     with tempfile.TemporaryDirectory() as tmpdir:
         modalcloser_process = None
         try:
-            test_url = _plain_page_url(httpserver)
+            test_url = _plain_page_url(httpserver, hidden_dialogs=hidden_dialogs)
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-modalcloser-noresults",
@@ -390,6 +409,9 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
 
                 assert read_closed_count(modalcloser_process) == 0
 
+                # Observe multiple real default polling cycles: a hidden dialog
+                # must not be counted repeatedly as a successful dismissal.
+                time.sleep(1.2)
                 stdout, stderr = terminate_hook_process(modalcloser_process)
                 returncode = modalcloser_process.returncode
                 modalcloser_process = None

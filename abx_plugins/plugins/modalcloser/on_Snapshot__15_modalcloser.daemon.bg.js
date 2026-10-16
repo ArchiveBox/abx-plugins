@@ -131,6 +131,7 @@ async function closeModals(page) {
         '[data-radix-dialog-overlay], [data-state="open"][role="dialog"]'
       )
       .forEach((el) => {
+        if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return;
         try {
           el.dispatchEvent(
             new KeyboardEvent("keydown", {
@@ -145,6 +146,7 @@ async function closeModals(page) {
 
     // Angular Material - click backdrop to dismiss
     document.querySelectorAll(".cdk-overlay-backdrop").forEach((el) => {
+      if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return;
       try {
         el.click();
         closed++;
@@ -155,6 +157,9 @@ async function closeModals(page) {
     document
       .querySelectorAll('[role="dialog"][aria-modal="true"]')
       .forEach((el) => {
+        // Closed dialogs often retain their role/aria-modal attributes. Do not
+        // send Escape every polling cycle or report those as new dismissals.
+        if (!el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return;
         try {
           el.dispatchEvent(
             new KeyboardEvent("keydown", {
