@@ -33,6 +33,7 @@ from abx_plugins.plugins.base.utils import (
     emit_snapshot_record,
     build_request,
     has_failed_source_navigation,
+    has_binary_source_navigation,
     iri_to_uri,
     iter_staticfile_text_inputs,
     load_config,
@@ -429,7 +430,10 @@ def main(
                 )
         elif url.startswith(
             ("http://", "https://"),
-        ) and not has_failed_source_navigation(url, SNAP_DIR):
+        ) and not (
+            has_failed_source_navigation(url, SNAP_DIR)
+            or has_binary_source_navigation(url, SNAP_DIR)
+        ):
             timeout = CONFIG.TIMEOUT
             user_agent = CONFIG.USER_AGENT
 

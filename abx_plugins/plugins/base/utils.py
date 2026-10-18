@@ -1174,23 +1174,26 @@ def get_config(
     )
 
 
+TEXT_SOURCE_MIME_TYPES = {
+    "application/json",
+    "application/jsonl",
+    "application/x-ndjson",
+    "application/xml",
+    "application/rss+xml",
+    "application/atom+xml",
+    "application/xhtml+xml",
+}
+
+
 def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Path, ...]:
     """Return imported text and the captured main document's raw text body."""
     base = Path(snap_dir or os.environ.get("SNAP_DIR") or ".").expanduser().resolve()
     staticfile_dir = base / "staticfile"
-    text_mime_types = {
-        "application/json",
-        "application/jsonl",
-        "application/x-ndjson",
-        "application/xml",
-        "application/rss+xml",
-        "application/atom+xml",
-        "application/xhtml+xml",
-    }
     paths = set(staticfile_dir.glob("*.txt"))
-    stdout_log = staticfile_dir / "stdout.log"
-    if stdout_log.is_file():
-        for line in stdout_log.read_text(errors="replace").split("\n"):
+    result_file = staticfile_dir / "result.json"
+    metadata = result_file if result_file.is_file() else staticfile_dir / "stdout.log"
+    if metadata.is_file():
+        for line in metadata.read_text(errors="replace").split("\n"):
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
@@ -1206,7 +1209,8 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
             )
             output = record.get("output_str")
             if not isinstance(output, str) or not (
-                content_type.startswith("text/") or content_type in text_mime_types
+                content_type.startswith("text/")
+                or content_type in TEXT_SOURCE_MIME_TYPES
             ):
                 continue
             # Staticfile reuses the responses-owned body when available. Its
@@ -1236,7 +1240,10 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
                     and entry.get("method") == "GET"
                     and 200 <= entry.get("status", 0) < 300
                     and urldefrag(entry.get("url", ""))[0] == final_url
-                    and (mime_type.startswith("text/") or mime_type in text_mime_types)
+                    and (
+                        mime_type.startswith("text/")
+                        or mime_type in TEXT_SOURCE_MIME_TYPES
+                    )
                     and isinstance(entry.get("path"), str)
                 ):
                     path = (response_dir / entry["path"]).resolve()
@@ -1276,6 +1283,25 @@ def has_failed_source_navigation(url: str, snap_dir: Path) -> bool:
     )
 
 
+def has_binary_source_navigation(url: str, snap_dir: Path) -> bool:
+    """A captured binary response is not another text-parser download target."""
+    try:
+        navigation = json.loads((snap_dir / "chrome/navigation.json").read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(navigation, dict) or navigation.get("url") != url:
+        return False
+    status = navigation.get("status")
+    mime = str(navigation.get("content_type") or "").split(";", 1)[0].strip().lower()
+    return (
+        isinstance(status, int)
+        and 200 <= status < 300
+        and "/" in mime
+        and not mime.startswith("text/")
+        and mime not in TEXT_SOURCE_MIME_TYPES
+    )
+
+
 def read_snapshot_source_text(
     url: str,
     *,
@@ -1299,7 +1325,10 @@ def read_snapshot_source_text(
         return file_content
     if not url.startswith(("http://", "https://")):
         return ""
-    if has_failed_source_navigation(url, snap_dir):
+    if has_failed_source_navigation(url, snap_dir) or has_binary_source_navigation(
+        url,
+        snap_dir,
+    ):
         return ""
 
     import urllib.request

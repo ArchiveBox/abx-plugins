@@ -189,7 +189,7 @@ def real_staticfile_output(ensure_chrome_test_prereqs):
         run_staticfile_capture,
     )
 
-    def run(root: Path, url: str, snapshot_id: str) -> Path:
+    def run(root: Path, url: str, snapshot_id: str, *, start_responses=True) -> Path:
         with chrome_session(
             root,
             crawl_id=f"crawl-{snapshot_id}",
@@ -206,6 +206,7 @@ def real_staticfile_output(ensure_chrome_test_prereqs):
                 env,
                 url,
                 snapshot_id,
+                start_responses=start_responses,
             )
             hook_code, stdout, stderr, navigate, archive_result = result[:5]
             assert hook_code == 0, stderr
