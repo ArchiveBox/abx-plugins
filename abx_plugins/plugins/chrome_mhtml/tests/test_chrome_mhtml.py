@@ -214,6 +214,17 @@ def test_extracts_mhtml_from_cross_site_iframe(
             )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+        phases = [
+            "phase=attach started",
+            "phase=attach completed",
+            "phase=frames-settled",
+            "phase=captureSnapshot started",
+            "phase=captureSnapshot completed",
+            "phase=write started",
+            "phase=write completed",
+        ]
+        positions = [result.stderr.index(phase) for phase in phases]
+        assert positions == sorted(positions), result.stderr
         result_json = parse_jsonl_output(result.stdout)
         assert result_json is not None
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"

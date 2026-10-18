@@ -69,21 +69,25 @@ async function waitForFrameTreeSettled(page, timeoutMs) {
 async function captureMhtml(timeoutMs) {
   const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
   let browser = null;
-  const deadline = Date.now() + timeoutMs;
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
 
   try {
+    console.error(`[chrome_mhtml] phase=attach started elapsed_ms=${Date.now() - startedAt}`);
     const connection = await connectToPage({
       chromeSessionDir: CHROME_SESSION_DIR,
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
     });
+    console.error(`[chrome_mhtml] phase=attach completed elapsed_ms=${Date.now() - startedAt}`);
     browser = connection.browser;
     const page = connection.page;
     const cdpSession = connection.cdpSession;
     console.log("Chrome MHTML capture started");
 
     await waitForFrameTreeSettled(page, timeoutMs);
+    console.error(`[chrome_mhtml] phase=frames-settled elapsed_ms=${Date.now() - startedAt}`);
     await cdpSession.send("Page.enable").catch(() => null);
 
     const remainingMs = deadline - Date.now();
@@ -92,6 +96,7 @@ async function captureMhtml(timeoutMs) {
       return { success: false, error: "Chrome MHTML capture timed out" };
     }
 
+    console.error(`[chrome_mhtml] phase=captureSnapshot started elapsed_ms=${Date.now() - startedAt}`);
     const snapshot = await Promise.race([
       cdpSession.send("Page.captureSnapshot", { format: "mhtml" }),
       new Promise((_, reject) => {
@@ -101,10 +106,13 @@ async function captureMhtml(timeoutMs) {
         );
       }),
     ]);
+    console.error(`[chrome_mhtml] phase=captureSnapshot completed elapsed_ms=${Date.now() - startedAt}`);
     const mhtmlContent = snapshot && snapshot.data;
 
     if (mhtmlContent && mhtmlContent.length > 100) {
+      console.error(`[chrome_mhtml] phase=write started elapsed_ms=${Date.now() - startedAt}`);
       writeFileAtomic(outputPath, mhtmlContent);
+      console.error(`[chrome_mhtml] phase=write completed elapsed_ms=${Date.now() - startedAt}`);
       return { success: true, output: OUTPUT_FILE };
     }
     return {
