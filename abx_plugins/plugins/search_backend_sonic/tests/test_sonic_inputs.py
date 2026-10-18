@@ -153,6 +153,12 @@ print(json.dumps({'contents': contents, 'scans': scans, 'resolutions': resolutio
 
 def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Path):
     discovery_content = write_discovery_files(tmp_path)
+    # The real Analog PDF plaintext contained 80,369 consecutive newlines.
+    # A whitespace-only wire chunk is invalid in Sonic, but must not prevent
+    # indexing the actual text on either side or change the saved source.
+    spaced_text = "beforeblankuniqueneedle" + "\n" * 80369 + "afterblankuniqueneedle"
+    spaced_file = tmp_path / "article/pdf-spacing.txt"
+    spaced_file.write_text(spaced_text)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -243,6 +249,9 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert search("excludedsecretuniqueneedle", environ=env) == []
             assert (tmp_path / "index.jsonl").read_text() == manifest
             assert not list(tmp_path.rglob("injected"))
+            for term in ("beforeblankuniqueneedle", "afterblankuniqueneedle"):
+                assert search(term, environ=env) == ["explicit-sonic-id"]
+            assert spaced_file.read_text() == spaced_text
 
             # Actual 2026-09-26 defuddle output from the failed
             # plaintextoffenders.com -> balboaferriswheel.com capture.

@@ -302,6 +302,12 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                 )
                 if boundary is not None:
                     end = boundary
+            chunk = content[start:end]
+            # Sonic rejects text that trims to empty. PDF extraction can leave
+            # blank runs spanning entire chunks; these carry no search terms.
+            if not chunk.strip():
+                start = end
+                continue
             # A server closing an overflowing connection can yield an empty
             # response without raising in sonic-client. Only OK proves that
             # this chunk was indexed; otherwise we must not report success.
@@ -310,7 +316,7 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                     collection,
                     bucket,
                     snapshot_id,
-                    escape_sonic_backslashes(content[start:end]),
+                    escape_sonic_backslashes(chunk),
                 )
                 is not True
             ):
