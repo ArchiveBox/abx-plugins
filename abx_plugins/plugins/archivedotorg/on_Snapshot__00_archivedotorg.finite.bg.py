@@ -117,10 +117,7 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 
     config = load_config()
     timeout = config.ARCHIVEDOTORG_TIMEOUT
-    library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
-    user_agent = (
-        f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
-    )
+    user_agent = config.USER_AGENT
 
     save_endpoint = config.ARCHIVEDOTORG_SAVE_URL
     # Save Page Now takes the target in the request path, so a non-ASCII

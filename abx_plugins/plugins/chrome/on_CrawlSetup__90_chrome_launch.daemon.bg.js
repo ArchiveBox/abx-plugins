@@ -44,7 +44,8 @@ const {
 // Extractor metadata
 const PLUGIN_NAME = "chrome_launch";
 const PLUGIN_DIR = path.basename(__dirname);
-const hookConfig = loadConfig();
+// A new browser must not inherit a previous session's saved persona identity.
+const hookConfig = loadConfig(null, { hydrateUserAgent: false });
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const chromeSessionOptions = getChromeSessionOptionsFromConfig(hookConfig);
 const CHROME_USER_DATA_DIR = chromeSessionOptions.CHROME_USER_DATA_DIR;

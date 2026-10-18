@@ -96,6 +96,8 @@ def test_wget_without_valid_browser_metadata_stays_standalone(
         **os.environ,
         "SNAP_DIR": str(tmp_path),
         "WGET_WARC_ENABLED": "false",
+        "ABXPKG_LIB_DIR": str(tmp_path / "no-browser-cache"),
+        "CRAWL_DIR": str(tmp_path / "no-crawl"),
     }
     env.pop("USER_AGENT", None)
     env.pop("WGET_USER_AGENT", None)
@@ -110,6 +112,4 @@ def test_wget_without_valid_browser_metadata_stays_standalone(
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout
-    assert (
-        tmp_path / record["output_str"]
-    ).read_text() == "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    assert (tmp_path / record["output_str"]).read_text().startswith("Wget/")

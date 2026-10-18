@@ -29,6 +29,7 @@ const {
   parseArgs,
   writeFileAtomic,
   loadConfig,
+  isAutomaticUserAgent,
 } = require("../base/utils.js");
 
 ensureNodeModuleResolution(module);
@@ -198,7 +199,7 @@ function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
 
 function configuredChromeUserAgent(userAgent, version = "") {
   // Generic HTTP identities are not browser fingerprints.
-  if (["Mozilla/5.0 (compatible; ArchiveBox/1.0)", "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)"].includes(userAgent)) return "";
+  if (isAutomaticUserAgent(userAgent)) return "";
   return replaceChromeUserAgentVersion(userAgent, version);
 }
 
@@ -4971,6 +4972,11 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   if (!browserTarget) throw new Error("Chrome connection's browser target is unavailable");
   const root = await browserTarget.createCDPSession();
   const version = await root.send("Browser.getVersion");
+  const nativeUserAgent = version.userAgent.replace("HeadlessChrome/", "Chrome/");
+  if (config.ABXPKG_LIB_DIR) {
+    // Never persist a persona/custom identity as the global HTTP default.
+    writeFileAtomic(path.join(config.ABXPKG_LIB_DIR, "chrome-user-agent.json"), JSON.stringify({ userAgent: nativeUserAgent }));
+  }
   // Headless Chromium announces itself in its default UA (not in its hints).
   const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product)
     || version.userAgent.replace("HeadlessChrome/", "Chrome/");

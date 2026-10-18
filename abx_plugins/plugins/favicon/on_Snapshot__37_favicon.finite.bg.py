@@ -149,10 +149,7 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     def remaining() -> float:
         return hook_deadline - time.monotonic()
 
-    library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
-    user_agent = (
-        f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
-    )
+    user_agent = CONFIG.USER_AGENT
     provider_template = (CONFIG.FAVICON_PROVIDER or "").strip()
     headers = {"User-Agent": user_agent}
 

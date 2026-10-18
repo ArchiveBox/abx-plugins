@@ -79,8 +79,8 @@
     },
     "USER_AGENT": {
       "type": "string",
-      "default": "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
-      "description": "Default user agent string for HTTP requests and browser automation"
+      "default": "",
+      "description": "HTTP and browser user agent override; empty uses the saved Chrome identity automatically"
     },
     "PATH": {
       "type": "string",

@@ -21,7 +21,8 @@ const {
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
-const hookConfig = loadConfig();
+// A new browser must not inherit a previous session's saved persona identity.
+const hookConfig = loadConfig(null, { hydrateUserAgent: false });
 const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
     ? "snapshot"

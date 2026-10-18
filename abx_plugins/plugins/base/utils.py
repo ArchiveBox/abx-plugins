@@ -1033,6 +1033,71 @@ def load_required_binary_from_config(
     )
 
 
+_AUTOMATIC_USER_AGENTS = {
+    "",
+    "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
+    "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)",
+}
+
+
+def _is_automatic_user_agent(value: str) -> bool:
+    return value in _AUTOMATIC_USER_AGENTS or bool(
+        re.fullmatch(
+            re.escape(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/",
+            )
+            + r"[0-9A-Za-z.+-]+"
+            + re.escape(" (+https://github.com/ArchiveBox/ArchiveBox/)"),
+            value,
+        ),
+    )
+
+
+def resolve_user_agent(config: Mapping[str, Any]) -> str:
+    """Resolve automatic HTTP identity from saved Chrome state, without launching it.
+
+    Snapshot/crawl metadata retains the active persona identity; the shared cache
+    contains only Chrome's native identity. A browserless install stays supported.
+    """
+    configured = str(config.get("USER_AGENT") or "")
+    if not _is_automatic_user_agent(configured):
+        return configured
+    paths = [
+        Path(str(config[key])).expanduser() / "chrome" / "browser.json"
+        for key in ("SNAP_DIR", "CRAWL_DIR")
+        if config.get(key)
+    ]
+    if config.get("ABXPKG_LIB_DIR"):
+        paths.append(
+            Path(str(config["ABXPKG_LIB_DIR"])).expanduser() / "chrome-user-agent.json",
+        )
+    for path in paths:
+        try:
+            metadata = json.loads(path.read_text())
+            if not isinstance(metadata, dict):
+                continue
+            identity = metadata.get("userAgentOverride", metadata)
+            value = identity.get("userAgent") if isinstance(identity, dict) else None
+            if (
+                isinstance(value, str)
+                and value.strip()
+                and not any(char in value for char in "\r\n")
+            ):
+                return value
+        except (OSError, ValueError):
+            continue
+    return ""
+
+
+def _hydrate_user_agent(payload: dict[str, Any], properties: Mapping[str, Any]) -> None:
+    payload["USER_AGENT"] = resolve_user_agent(payload)
+    for name, prop in properties.items():
+        if prop.get("x-fallback") == "USER_AGENT" and _is_automatic_user_agent(
+            payload.get(name, ""),
+        ):
+            payload[name] = payload["USER_AGENT"]
+
+
 def load_config(
     config_path: Path | str | None = None,
     *,
@@ -1040,6 +1105,7 @@ def load_config(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
     hydrate_binaries: bool = True,
+    hydrate_user_agent: bool = True,
 ) -> Any:
     """Load typed plugin config with `x-aliases` and `x-fallback`.
 
@@ -1067,6 +1133,8 @@ def load_config(
         if hydrate_binaries
         else None,
     )
+    if hydrate_user_agent:
+        _hydrate_user_agent(payload, properties)
     model = build_config_model(title, properties)
     return model.model_validate(payload)
 
@@ -1078,6 +1146,7 @@ def get_config(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
     hydrate_binaries: bool = True,
+    hydrate_user_agent: bool = True,
 ) -> Any:
     """Alias for `load_config()` that preserves direct-caller config lookup."""
     if config_path is None:
@@ -1088,6 +1157,7 @@ def get_config(
         user_config=user_config,
         environ=environ,
         hydrate_binaries=hydrate_binaries,
+        hydrate_user_agent=hydrate_user_agent,
     )
 
 
@@ -1310,7 +1380,14 @@ def build_request(
         username, _, password = userinfo.partition(":")
         credentials = f"{unquote(username)}:{unquote(password)}".encode()
         authorization = "Basic " + base64.b64encode(credentials).decode("ascii")
-    request = urllib.request.Request(request_url, headers=dict(headers or {}))
+    request = urllib.request.Request(
+        request_url,
+        headers={
+            key: value
+            for key, value in (headers or {}).items()
+            if key.lower() != "user-agent" or value
+        },
+    )
     if authorization:
         request.add_unredirected_header("Authorization", authorization)
     return request

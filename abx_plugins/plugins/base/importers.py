@@ -10,7 +10,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from abx_plugins.plugins.base.utils import build_request
+from abx_plugins.plugins.base.utils import resolve_user_agent, build_request
 
 
 class NeedsLogin(Exception):
@@ -189,7 +189,7 @@ def fetch(url, *, authenticated=False):
     # Feed and sheet URLs may be IRIs or carry credentials (user:pw@host).
     request = build_request(
         url,
-        headers={"User-Agent": os.environ.get("USER_AGENT") or "ArchiveBox importer"},
+        headers={"User-Agent": resolve_user_agent(os.environ)},
     )
     try:
         with opener.open(
