@@ -88,16 +88,13 @@ def should_skip_plugin_dir(plugin_dir: Path) -> bool:
     return name in SKIP_DIRS or name.startswith(".") or name.endswith("_env")
 
 
-def should_skip_source_path(source_path: Path, plugin_dir: Path) -> bool:
-    """Ignore cache/build artifacts nested under otherwise indexable directories."""
-    for part in source_path.relative_to(plugin_dir).parts[:-1]:
-        if (
-            part.startswith(".")
-            or part in SKIP_NESTED_DIRS
-            or part.endswith(SKIP_NESTED_SUFFIXES)
-        ):
-            return True
-    return False
+def should_skip_nested_dir(name: str) -> bool:
+    """Prune runtime/build artifacts before descending into their directories."""
+    return (
+        name.startswith(".")
+        or name in SKIP_NESTED_DIRS
+        or name.endswith(SKIP_NESTED_SUFFIXES)
+    )
 
 
 def find_indexable_content() -> list[tuple[str, str, Path]]:
@@ -122,11 +119,18 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
         if should_skip_plugin_dir(plugin_dir):
             continue
 
-        for ext in INDEXABLE_EXTENSIONS:
-            for match in plugin_dir.rglob(f"*{ext}"):
-                if not match.is_file():
-                    continue
-                if should_skip_source_path(match, plugin_dir):
+        # Match rglob's symlink behavior: follow a plugin-root alias and file
+        # aliases, but never recurse through nested directory symlinks.
+        for directory, dirnames, filenames in os.walk(plugin_dir, followlinks=False):
+            dirnames[:] = [
+                name for name in dirnames if not should_skip_nested_dir(name)
+            ]
+            for filename in filenames:
+                match = Path(directory) / filename
+                if (
+                    not filename.endswith(tuple(INDEXABLE_EXTENSIONS))
+                    or not match.is_file()
+                ):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue

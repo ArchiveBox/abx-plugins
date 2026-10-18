@@ -6,7 +6,10 @@ from pathlib import Path
 import shlex
 import socket
 import subprocess
+import sys
 import time
+
+import pytest
 
 from abx_plugins.plugins.search_backend_sonic.daemon import (
     get_sonic_supervisord_worker,
@@ -15,7 +18,107 @@ from abx_plugins.plugins.search_backend_sonic.daemon import (
 from abx_plugins.plugins.search_backend_sonic.search import flush, search
 
 
+def write_discovery_files(snapshot: Path) -> dict[str, str]:
+    content = {
+        "article/text.txt": "plaintextuniqueneedle",
+        "article/nested/readme.md": "markdownuniqueneedle",
+        "article/nested/page.html": "<p>htmluniqueneedle</p>",
+        "article/page.htm": "<p>htmuniqueneedle</p>",
+        "article/.txt": "hiddenfilenameuniqueneedle",
+    }
+    for name, text in content.items():
+        target = snapshot / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    for directory in (
+        "article/.hidden",
+        "article/node_modules",
+        "article/nested/.cache",
+        "article/nested/tool.dist-info",
+        "article/nested/tool.egg-info",
+        "article/nested/site-packages",
+        "article/nested/.venv",
+        "article/nested/__pycache__",
+        "search_backend_sqlite",
+        "scratch_env",
+    ):
+        target = snapshot / directory / "deep/content.txt"
+        target.parent.mkdir(parents=True)
+        target.write_text("excludedruntimeuniqueneedle")
+    # File aliases and top-level plugin aliases remain inputs, while nested
+    # directory aliases/cycles are not recursively followed by Path.rglob.
+    (snapshot / "article/alias.txt").symlink_to("text.txt")
+    (snapshot / "article/nested/cycle").symlink_to("..", target_is_directory=True)
+    (snapshot / "article/nested/alias").symlink_to("../..", target_is_directory=True)
+    (snapshot / "article/broken.txt").symlink_to("missing")
+    (snapshot / "article/empty.txt").touch()
+    (snapshot / "article/blank.txt").write_text(" \n")
+    (snapshot / "article/copied.meta.json").write_text("excludedruntimeuniqueneedle")
+    (snapshot / "article_alias").symlink_to("article", target_is_directory=True)
+    expected = {
+        name: text.replace("<p>", "").replace("</p>", "")
+        for name, text in content.items()
+    }
+    expected["article/alias.txt"] = content["article/text.txt"]
+    expected.update(
+        {
+            name.replace("article/", "article_alias/", 1): text
+            for name, text in list(expected.items())
+        },
+    )
+    return expected
+
+
+@pytest.mark.parametrize("backend,order", [("sonic", "91"), ("sqlite", "90")])
+def test_discovery_walks_content_once_and_prunes_runtime_trees(
+    tmp_path: Path,
+    backend: str,
+    order: str,
+):
+    expected = write_discovery_files(tmp_path)
+    hook = (
+        Path(__file__).parents[2]
+        / f"search_backend_{backend}/on_Snapshot__{order}_index_{backend}.py"
+    )
+    # Observe actual filesystem traversal without replacing any filesystem API.
+    probe = """
+import json, os, runpy, sys
+from pathlib import Path
+hook = runpy.run_path(sys.argv[1])
+scans = []
+def audit(event, args):
+    if event == 'os.scandir':
+        scans.append(os.fspath(args[0]))
+sys.addaudithook(audit)
+contents = hook['find_indexable_content']()
+print(json.dumps({'contents': contents, 'scans': scans}, default=str))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", probe, str(hook)],
+        cwd=tmp_path,
+        env={**os.environ, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    observed = json.loads(result.stdout)
+    assert {item[0]: item[1] for item in observed["contents"]} == expected
+    assert len(observed["contents"]) == len(expected)
+    assert sorted(observed["scans"]) == sorted(
+        str(tmp_path / name)
+        for name in (
+            ".",
+            "article",
+            "article/nested",
+            "article_alias",
+            "article_alias/nested",
+        )
+    )
+
+
 def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Path):
+    discovery_content = write_discovery_files(tmp_path)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -100,6 +203,9 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert search("metataguniqueneedle", environ=env) == ["explicit-sonic-id"]
             assert search("forbiddencontextneedle", environ=env) == []
             assert search("forbiddencontexttag", environ=env) == []
+            for term in set(discovery_content.values()):
+                assert search(term, environ=env) == ["explicit-sonic-id"], term
+            assert search("excludedruntimeuniqueneedle", environ=env) == []
             assert (tmp_path / "index.jsonl").read_text() == manifest
             assert not list(tmp_path.rglob("injected"))
 

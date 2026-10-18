@@ -96,6 +96,42 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
     assert not (tmp_path / "search.sqlite3").exists()
 
 
+def test_hook_indexes_pruned_tree_and_preserves_file_and_root_aliases(
+    tmp_path: Path,
+) -> None:
+    from abx_plugins.plugins.search_backend_sonic.tests.test_sonic_inputs import (
+        write_discovery_files,
+    )
+
+    expected = write_discovery_files(tmp_path)
+    result = run_hook(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[-1])["status"] == "succeeded"
+    with sqlite3.connect(tmp_path / "search.sqlite3") as conn:
+        for term in set(expected.values()):
+            assert conn.execute(
+                "SELECT snapshot_id FROM search_index WHERE search_index MATCH ?",
+                (term,),
+            ).fetchall() == [("snap-001",)], term
+        assert (
+            conn.execute(
+                "SELECT snapshot_id FROM search_index WHERE search_index MATCH 'excludedruntimeuniqueneedle'",
+            ).fetchall()
+            == []
+        )
+    links = {
+        path.name: path
+        for path in (tmp_path / "search_backend_sqlite").iterdir()
+        if path.is_symlink()
+    }
+    assert set(links) == {name.replace("/", "__") for name in expected}
+    for name in expected:
+        assert (
+            links[name.replace("/", "__")].read_bytes()
+            == (tmp_path / name).read_bytes()
+        )
+
+
 def test_hook_upgrades_existing_index_and_replaces_exact_snapshot(
     tmp_path: Path,
 ) -> None:
