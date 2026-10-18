@@ -559,7 +559,8 @@ jobs:
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
         env:
-          PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+          # Refresh Figma independently without replacing the working Canva/Miro persona.
+          PROVIDER_AUTH_STORAGE_JSON: ${{ contains(matrix.test.path, '/figma/') && secrets.FIGMA_AUTH_STORAGE_JSON || secrets.PROVIDER_AUTH_STORAGE_JSON }}
         run: |
           set -Eeuo pipefail
           : "${PROVIDER_AUTH_STORAGE_JSON:?Missing provider-capture authentication secret}"
