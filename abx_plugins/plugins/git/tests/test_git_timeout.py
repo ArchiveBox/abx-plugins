@@ -236,12 +236,22 @@ def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
         )
         owner = psutil.Process(hook.pid)
         deadline = time.monotonic() + 5
+        http_helper = None
         while time.monotonic() < deadline and hook.poll() is None:
             children = owner.children(recursive=True)
-            if any("remote-http" in " ".join(child.cmdline()) for child in children):
+            for child in children:
+                try:
+                    if "remote-http" in " ".join(child.cmdline()):
+                        http_helper = child
+                        break
+                except psutil.NoSuchProcess:
+                    # Short-lived init/config children may exit after listing.
+                    # ZombieProcess also inherits NoSuchProcess on Linux.
+                    continue
+            if http_helper is not None:
                 break
             time.sleep(0.01)
-        assert any("remote-http" in " ".join(child.cmdline()) for child in children)
+        assert http_helper is not None, "Did not observe the actual Git HTTP helper"
         started = time.monotonic()
         stdout, stderr = hook.communicate(timeout=12)
         assert time.monotonic() - started < 11
