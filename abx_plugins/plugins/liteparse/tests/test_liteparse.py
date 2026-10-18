@@ -1002,7 +1002,7 @@ def test_parser_failure_is_failed_and_preserves_completed_files(
 
 @pytest.mark.parametrize("configured_tmp", [False, True])
 def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
-    """Pause the real parser after an output and exercise the hook's deadline."""
+    """A stopped real PDF parser must not prevent unrelated documents completing."""
     import signal
     import time
 
@@ -1011,7 +1011,10 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
     sources = tmp_path / "responses"
     sources.mkdir()
     pdf = _download_pdf(PDF_URL_A)
-    for index in range(100):
+    (sources / "large.pdf").write_bytes(
+        _download_pdf("https://arxiv.org/pdf/1212.5225"),
+    )
+    for index in range(16):
         # Valid trailing PDF comments make each real input distinct for dedup.
         (sources / f"document-{index:03}.pdf").write_bytes(
             pdf + f"\n% document {index:03}\n".encode(),
@@ -1020,10 +1023,10 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
         **os.environ,
         "SNAP_DIR": str(tmp_path),
         "LITEPARSE_BINARY": require_liteparse_binary(),
-        "LITEPARSE_OCR_ENABLED": "false",
+        "LITEPARSE_OCR_ENABLED": "true",
         "LITEPARSE_TIMEOUT": "10",
-        "LITEPARSE_BATCH_SIZE": "100",
-        "LITEPARSE_PARALLEL_WORKERS": "1",
+        "LITEPARSE_BATCH_SIZE": "8",
+        "LITEPARSE_PARALLEL_WORKERS": "2",
     }
     runtime_tmp = tmp_path.parent / f"runtime-{tmp_path.name}"
     runtime_tmp.mkdir()
@@ -1052,7 +1055,7 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
                             if "batch-parse" in args:
                                 batch_input = Path(args[args.index("batch-parse") + 1])
                                 if batch_input.is_dir() and any(
-                                    link.resolve().is_relative_to(sources.resolve())
+                                    link.resolve() == (sources / "large.pdf").resolve()
                                     for link in batch_input.iterdir()
                                 ):
                                     parser = child
@@ -1064,14 +1067,7 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
                             # parser and completed output within the same
                             # deadline below; an unreadable PID is not proof.
                             continue
-                completed = (
-                    list((batch_scratch / "text").glob("*.txt"))
-                    if batch_scratch is not None
-                    else []
-                )
-                if parser is not None and any(
-                    "Dummy PDF file" in path.read_text() for path in completed
-                ):
+                if parser is not None:
                     parser.send_signal(signal.SIGSTOP)
                     assert batch_scratch is not None
                     assert not batch_scratch.resolve().is_relative_to(
@@ -1088,7 +1084,7 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
                     break
                 time.sleep(0.001)
             else:
-                pytest.fail("Did not observe the real parser's first completed PDF")
+                pytest.fail("Did not observe the real parser processing the large PDF")
             assert hook.wait(timeout=20) == 1
         finally:
             # Only this test's process group; also cleans a stopped child on failure.
@@ -1102,9 +1098,43 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
     assert record and record["status"] == "failed", output
     assert "timed out" in record["output_str"], record
     retained = list((tmp_path / "liteparse").glob("document-*.pdf.txt"))
-    assert retained, (output, (tmp_path / "stderr.log").read_text())
+    assert len(retained) == 16, (output, (tmp_path / "stderr.log").read_text())
     assert all("Dummy PDF file" in path.read_text() for path in retained)
     assert batch_scratch is not None
     assert not batch_scratch.exists()
     assert not list(runtime_tmp.iterdir())
     assert not list((tmp_path / "liteparse").glob(".batch_*"))
+
+
+def test_queued_documents_share_one_hook_deadline(tmp_path):
+    """Queued real parses cannot each restart the full hook timeout."""
+    import time
+
+    sources = tmp_path / "responses"
+    sources.mkdir()
+    pdf = _download_pdf(PDF_URL_A)
+    for index in range(500):
+        (sources / f"document-{index:03}.pdf").write_bytes(
+            pdf + f"\n% document {index:03}\n".encode(),
+        )
+    started = time.monotonic()
+    result = _run_hook(
+        tmp_path,
+        "https://archivebox.io/tests/",
+        {
+            "LITEPARSE_OCR_ENABLED": "false",
+            "LITEPARSE_TIMEOUT": "10",
+            "LITEPARSE_BATCH_SIZE": "500",
+            "LITEPARSE_MAX_SOURCES": "0",
+            "LITEPARSE_PARALLEL_WORKERS": "1",
+        },
+        install_tesseract=False,
+    )
+    assert time.monotonic() - started < 20
+    assert result.returncode == 1, result.stdout + result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", record
+    assert "Hook deadline reached before parsing queued document" in result.stderr
+    retained = list((tmp_path / "liteparse").glob("document-*.pdf.txt"))
+    assert 0 < len(retained) < 500
+    assert all("Dummy PDF file" in path.read_text() for path in retained)

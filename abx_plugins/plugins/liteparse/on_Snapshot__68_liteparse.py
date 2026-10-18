@@ -489,17 +489,20 @@ def _process_batch(
     env: dict[str, str],
     scratch_dir: Path,
     imagemagick_binary: str,
+    hook_deadline: float,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
-    """Run ``lit batch-parse`` once per requested format over one batch.
+    """Run ``lit batch-parse`` once per requested format for an isolated source.
 
     Symlinks the batch's sources into a temp input dir, runs lit, then reads
     each per-source output by stem. Returns ``(idx, src, text, json_text)``
     per source, plus parser failures. Read outputs before deleting scratch even
-    when a later document fails or times out, so completed work is retained.
+    when a later format fails or times out, so completed work is retained.
     """
     results: list[tuple[int, Path, str, str]] = []
     errors: list[str] = []
-    deadline = time.monotonic() + timeout
+    deadline = min(hook_deadline, time.monotonic() + timeout)
+    if time.monotonic() >= deadline:
+        return [], ["Hook deadline reached before parsing queued document"]
     # Disposable parser output and OCR rasterization belong on local runtime
     # storage, not the snapshot's potentially remote archive filesystem.
     # Each batch has its own TMPDIR because lit uses fixed page_<n>_ocr names.
@@ -592,7 +595,9 @@ def _process_batch(
                         else exc.stderr
                     )
                     print(stderr, file=sys.stderr, end="")
-                errors.append(f"{fmt} parser timed out after {timeout}s")
+                errors.append(
+                    f"{fmt} parser timed out (document limit {timeout}s; hook deadline enforced)",
+                )
                 break
 
         for (idx, src, _digest), link_name in zip(batch, link_names, strict=True):
@@ -613,6 +618,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
 
     Returns: (status, output_str)
     """
+    started_at = time.monotonic()
     config = load_config(CONFIG_PATH, hydrate_binaries=False)
     timeout = config.LITEPARSE_TIMEOUT
     formats = [
@@ -712,12 +718,10 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
         (idx, path, digest) for idx, (path, digest) in enumerate(sources)
     ]
     batch_count = (len(indexed) + batch_size - 1) // batch_size
-    # Spread the size-sorted inputs across batches instead of concentrating
-    # every large document in the first batch's fixed time budget. Keep the
-    # same batch count, worker count, per-batch deadline, and source indexes.
-    batches: list[list[tuple[int, Path, str]]] = [
-        indexed[i::batch_count] for i in range(batch_count)
-    ]
+    # Native batch-parse is sequential: one stalled document prevents every
+    # later input in that process from starting. Isolate documents while
+    # retaining the configured budget groups and source indexes.
+    batches = [[item] for item in indexed]
 
     # Pre-compute the per-source output basename for every source. The
     # basename keeps the source's full input filename including extension
@@ -735,9 +739,10 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
     batch_errors: list[str] = []
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
-    batch_waves = max(1, (len(batches) + workers - 1) // workers)
+    batch_waves = max(1, (batch_count + workers - 1) // workers)
     hook_cleanup_budget = max(1, int(timeout * 0.1))
     batch_timeout = max(1, int((timeout - hook_cleanup_budget) / batch_waves))
+    hook_deadline = started_at + timeout - hook_cleanup_budget
 
     def _absorb_batch_results(results: list[tuple[int, Path, str, str]]) -> None:
         """Write per-source ``<name>.txt`` / ``<name>.json`` for one batch.
@@ -789,6 +794,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
                 env,
                 scratch_dir,
                 str(config.LITEPARSE_IMAGEMAGICK_BINARY),
+                hook_deadline,
             ): batch
             for batch in batches
         }

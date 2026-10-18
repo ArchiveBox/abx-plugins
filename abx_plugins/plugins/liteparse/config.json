@@ -158,7 +158,7 @@
       "type": "integer",
       "default": 8,
       "minimum": 1,
-      "description": "Number of source documents processed per `lit batch-parse` invocation. Sources are sorted largest-first so the most content-rich files come back first. Smaller batches give finer-grained progressive output but slightly more lit-startup overhead."
+      "description": "Number of source documents grouped when dividing the hook's time budget across worker waves. Each native parse runs in an isolated process so a stalled document cannot block other sources. The computed per-document cap and one shared hook deadline bound all work."
     },
     "LITEPARSE_MAX_SOURCES": {
       "type": "integer",
