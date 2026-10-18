@@ -271,8 +271,9 @@ async function setupListener() {
       });
       const uniquePath = path.join(allDir, uniqueFilename);
 
-      // Save to unique file
-      fs.writeFileSync(uniquePath, bodyBuffer);
+      // Keep CDP interception responsive while the archive filesystem waits.
+      // The serialized response queue still retains only one body at a time.
+      await fs.promises.writeFile(uniquePath, bodyBuffer);
 
       const relativeOutputPath = path.posix.join(
         PLUGIN_DIR,
@@ -384,7 +385,7 @@ async function setupListener() {
         extension,
       };
 
-      fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + "\n");
+      await fs.promises.appendFile(indexPath, JSON.stringify(indexEntry) + "\n");
       responseCount += 1;
       emitResponseProgress();
     } catch (error) {
