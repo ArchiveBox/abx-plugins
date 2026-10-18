@@ -39,15 +39,20 @@ def unused_port():
         return sock.getsockname()[1]
 
 
-def wait_for_listener(port):
+def wait_for_listener(port, process, log_path):
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
+        if process.poll() is not None:
+            break
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=0.1):
                 return
         except OSError:
             time.sleep(0.01)
-    raise AssertionError("Actual Git/HTTP server did not listen")
+    raise AssertionError(
+        f"Actual Git/HTTP server did not listen (exit={process.poll()}): "
+        f"{log_path.read_text(errors='replace')}",
+    )
 
 
 def stop_owned_process(process):
@@ -87,24 +92,26 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
     run_git(source, "commit", "-m", "Actual checkout fixture")
     expected_commit = run_git(source, "rev-parse", "HEAD")
     port = unused_port()
-    daemon = subprocess.Popen(
-        [
-            "git",
-            "daemon",
-            "--export-all",
-            "--reuseaddr",
-            "--listen=127.0.0.1",
-            f"--port={port}",
-            f"--base-path={tmp_path}",
-            str(tmp_path),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    daemon_log = tmp_path / "git-daemon.log"
+    with daemon_log.open("wb") as output:
+        daemon = subprocess.Popen(
+            [
+                "git",
+                "daemon",
+                "--export-all",
+                "--reuseaddr",
+                "--listen=127.0.0.1",
+                f"--port={port}",
+                f"--base-path={tmp_path}",
+                str(tmp_path),
+            ],
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
     hook = None
     try:
-        wait_for_listener(port)
+        wait_for_listener(port, daemon, daemon_log)
         snap = tmp_path / "snapshot"
         snap.mkdir()
         # Git's native URL rewrite keeps the public hook input HTTP-shaped
@@ -190,25 +197,27 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
 
 def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
     port = unused_port()
-    server = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "http.server",
-            str(port),
-            "--bind",
-            "127.0.0.1",
-            "--directory",
-            str(tmp_path),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    server_log = tmp_path / "http-server.log"
+    with server_log.open("wb") as output:
+        server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "http.server",
+                str(port),
+                "--bind",
+                "127.0.0.1",
+                "--directory",
+                str(tmp_path),
+            ],
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
     hook = None
     children = []
     try:
-        wait_for_listener(port)
+        wait_for_listener(port, server, server_log)
         server.send_signal(signal.SIGSTOP)
 
         # Block SIGINT across exec to exercise forced cleanup of an actual Git
