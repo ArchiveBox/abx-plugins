@@ -90,12 +90,18 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
         if archived is None:
             for root in ("responses/image", "responses", "wget"):
                 candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
+                # Most fallback paths are absent. Probe existence before paying
+                # for resolve's ancestor lookups, but do not read or link the
+                # file until its target passes the snapshot boundary below.
                 if not candidate.is_file():
                     continue
                 try:
                     resolved = candidate.resolve()
                 except (OSError, RuntimeError):
                     continue
+                # Responses may point into wget or another sibling plugin.
+                # Constrain the final target to the whole snapshot, excluding
+                # private browser state, instead of rejecting those aliases.
                 if not resolved.is_relative_to(SNAP_DIR) or any(
                     part.casefold() == ".persona"
                     for part in resolved.relative_to(SNAP_DIR).parts

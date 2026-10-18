@@ -209,6 +209,9 @@ def find_document_sources(
         source_stat: os.stat_result | None = None,
         resolved_path: Path | None = None,
     ) -> None:
+        # Discovered sources pass their checked target and metadata so hashing
+        # does not repeat archive I/O. The default is only for images we just
+        # extracted ourselves into scratch storage, which may be outside SNAP_DIR.
         # is_file() suppresses filesystem errors on Python 3.14. A failed
         # source read is a failed capture, not evidence that no source exists.
         source_stat = source_stat or match.stat()
@@ -242,6 +245,9 @@ def find_document_sources(
             if not fnmatch.fnmatchcase(entry.name, root) or not entry.is_dir():
                 continue
             root_dir = Path(entry.path)
+            # Producer directories may themselves alias another plugin's
+            # outputs. Permit that within the snapshot, but never traverse an
+            # escaping alias or private browser state to discover documents.
             resolved_root = root_dir.resolve() if entry.is_symlink() else root_dir
             if not resolved_root.is_relative_to(SNAP_DIR) or any(
                 part.casefold() == ".persona"
@@ -259,8 +265,12 @@ def find_document_sources(
                     continue
                 # Validate both ordinary documents and archives before any
                 # hashing, parsing, or embedded-image extraction.
+                # Otherwise an escaping archive can copy private image bytes
+                # into ordinary OCR outputs that no longer look like symlinks.
                 # rglob does not recurse into directory symlinks. Reuse one
                 # lstat for normal files, resolving only actual file links.
+                # Enabling recursive symlink traversal would invalidate this
+                # fast path; full resolution repeats costly ancestor lookups.
                 resolved = resolved_root / match.relative_to(root_dir)
                 if any(
                     part.casefold() == ".persona"

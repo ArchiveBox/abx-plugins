@@ -112,6 +112,10 @@ def find_indexable_content() -> list[tuple[str, str]]:
         extractor = plugin_dir.name
         if should_skip_plugin_dir(plugin_dir):
             continue
+        # The boundary is the snapshot, not this plugin: response-file aliases
+        # are valid inputs. Private .persona state is excluded even inside it.
+        # Validate root aliases before walking, or indexing could copy secrets
+        # into search results even when replay rejects the source.
         plugin_stat = plugin_dir.lstat()
         resolved_plugin = plugin_dir
         if stat.S_ISLNK(plugin_stat.st_mode):
@@ -127,7 +131,8 @@ def find_indexable_content() -> list[tuple[str, str]]:
             continue
 
         # Match rglob's symlink behavior: follow a plugin-root alias and file
-        # aliases, but never recurse through nested directory symlinks.
+        # aliases, but never recurse through nested directory symlinks. The
+        # per-file fast path below relies on keeping followlinks=False.
         for directory, dirnames, filenames in os.walk(plugin_dir, followlinks=False):
             dirnames[:] = [
                 name for name in dirnames if not should_skip_nested_dir(name)
@@ -141,6 +146,8 @@ def find_indexable_content() -> list[tuple[str, str]]:
                 # os.walk does not follow nested directory links. Only root
                 # aliases and file links need resolution; ordinary files reuse
                 # one lstat for their type and size on slow archive storage.
+                # stat would hide the link itself; resolving every normal file
+                # would repeat metadata reads for every ancestor directory.
                 resolved = resolved_plugin / match.relative_to(plugin_dir)
                 try:
                     source_stat = resolved.lstat()

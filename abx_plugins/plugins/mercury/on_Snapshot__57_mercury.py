@@ -342,6 +342,10 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
                 responses_images = (
                     output_dir / ".." / "responses" / "image" / hostname / "images"
                 ).resolve()
+                # A responses directory can alias wget or another producer.
+                # Check the final target against the snapshot (not responses)
+                # so shared assets work without exposing private browser state
+                # or propagating an escaping alias into Mercury's output.
                 if (
                     responses_images.is_relative_to(snap_dir)
                     and not any(
