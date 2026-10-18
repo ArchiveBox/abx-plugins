@@ -12,6 +12,7 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 from abx_plugins.plugins.singlefile.tests.test_singlefile import (
     CHROME_UTILS,
+    SINGLEFILE_HELPER,
     SNAPSHOT_HOOK,
 )
 
@@ -113,10 +114,12 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+@pytest.mark.parametrize("failure", ["download-deadline", "protocol-timeout"])
 def test_singlefile_timeout_cancels_exact_tab_and_keeps_other_capture(
     tmp_path,
     httpserver,
     singlefile_install_state,
+    failure,
 ):
     httpserver.expect_request("/").respond_with_data(
         "<!doctype html><h1>SingleFile cancellation preserves other tabs</h1>",
@@ -197,8 +200,30 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             return json.loads(result.stdout)
 
         assert control("configure") == []
+        capture_command = [str(SNAPSHOT_HOOK), f"--url={url}"]
+        if failure == "protocol-timeout":
+            # Exercise a real CDP timeout before the extension's own deadline,
+            # retaining the native delayed task and exact-tab cancellation.
+            capture_script = f"""
+const cu = require({json.dumps(str(CHROME_UTILS))});
+const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HELPER))});
+(async () => {{
+ const {{browser,page,extensions}} = await cu.connectToPage({{
+   chromeSessionDir:{json.dumps(str(chrome))}, requireTargetId:true,
+   waitForNavigationComplete:true, timeoutMs:5000,
+ }});
+ try {{
+   const extension = cu.findExtensionMetadataByName(extensions, 'singlefile');
+   extension.version = cu.loadExtensionManifest(extension.unpacked_path).version;
+   const target = await cu.waitForExtensionTargetHandle(browser, extension.id, 5000);
+   await cu.loadExtensionFromTarget([extension], target);
+   await saveSinglefileWithExtension(page, extension, {{timeoutMs:60000}});
+ }} finally {{ await browser.disconnect(); }}
+}})().catch(error => {{ console.error(error); process.exitCode=1; }});
+"""
+            capture_command = [env["NODE_BINARY"], "-e", capture_script]
         with subprocess.Popen(
-            [str(SNAPSHOT_HOOK), f"--url={url}"],
+            capture_command,
             cwd=output,
             env={**env, "SINGLEFILE_TIMEOUT": "20"},
             stdout=subprocess.PIPE,
@@ -209,7 +234,12 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             assert sorted(task["url"] for task in tasks) == [url, url + "?other"]
             stdout, stderr = hook.communicate(timeout=25)
         assert hook.returncode == 1, stdout + stderr
-        assert "did not complete within" in stderr, stderr
+        expected_error = (
+            "did not complete within"
+            if failure == "download-deadline"
+            else "Runtime.callFunctionOn timed out"
+        )
+        assert expected_error in stderr, stderr
         remaining = control("observe")
         assert [task["url"] for task in remaining] == [url + "?other"], remaining
         assert remaining[0]["status"] == "processing"
