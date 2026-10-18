@@ -10,13 +10,14 @@
     {
       "name": "{FORUMDL_BINARY}",
       "binproviders": "env,uv",
-      "min_version": null,
+      "min_version": "0.3.0",
+      "max_version": "0.3.0",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
             "--no-deps",
-            "forum-dl",
+            "forum-dl==0.3.0",
             "chardet==5.2.0",
             "pydantic==2.12.3",
             "pydantic-core==2.41.4",
