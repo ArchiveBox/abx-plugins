@@ -1,0 +1,41 @@
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_e20d6bdece27f3::t_89aeaae48f4c2e 85,97-99,103-104,107,151,285-287,291-293,334-335
+  s_e20d6bdece27f3::t_7f0f48b504c4e3 21
+  s_e20d6bdece27f3::t_1ae847bf0cdaca 100-102,105-106,288-290
+abx_plugins/plugins/search_backend_sonic/tests/test_sonic_inputs.py
+  s_e20d6bdece27f3::t_ad7c34b99a5a1b 226
+  s_e20d6bdece27f3::t_c57d82496068d4 58-71,77,84,132
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  s_e20d6bdece27f3::t_123236550befdb 336,345-346,351-352
+  s_e20d6bdece27f3::t_8ffa5b08b352b1 337-341,347-350
+abx_plugins/plugins/liteparse/on_Snapshot__68_liteparse.py
+  s_e20d6bdece27f3::t_db850c9d643815 187-199,237-242,245-259,265-268
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_e20d6bdece27f3::t_9a52453d3c49e0 553-566,584-586,994-997
+abx_plugins/plugins/readability/on_Snapshot__66_readability.py
+  s_e20d6bdece27f3::t_3c18daa17c436e 86-95,99
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_e20d6bdece27f3::t_5af4b54ae525ca 347-357
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  s_e20d6bdece27f3::t_0fb30485a81ca0 118-124,140-148,152
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_e20d6bdece27f3::t_9990af6ee472f6 122-128,144-152,156,165
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_e20d6bdece27f3::t_2741d984ff047b 55-61,75-76,96-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "788ebe9fa3ae00983be1a976035afb7e31571219",
+  "prompts": {},
+  "sessions": {
+    "s_e20d6bdece27f3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14cbf-5d03-7420-86c2-6c8187b28ea1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
