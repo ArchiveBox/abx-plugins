@@ -364,7 +364,20 @@ def test_screenshot_rechecks_loading_after_blank_frame_navigation(
         chrome,
         env,
     ):
-        before = json.loads((chrome / "frame_loads.json").read_text())
+        # chrome_navigate returns at DOMContentLoaded; the tab monitor publishes
+        # frame loading events independently. Establish the stopped child that
+        # this regression navigates again instead of racing that initial load.
+        baseline_deadline = time.monotonic() + 5
+        while True:
+            before = json.loads((chrome / "frame_loads.json").read_text())
+            child_ids = set(before["frames"]) - {before["targetId"]}
+            if len(child_ids) == 1 and all(
+                state == "stopped" for state in before["frames"].values()
+            ):
+                break
+            assert time.monotonic() < baseline_deadline, before
+            time.sleep(0.02)
+        child_id = child_ids.pop()
         script = """
 const utils = require(process.argv[1]);
 (async () => {
@@ -390,8 +403,14 @@ const utils = require(process.argv[1]);
                 timeout=10,
             )
             assert changed.returncode == 0, changed.stderr
+            loading_deadline = time.monotonic() + 5
             assert requested.wait(timeout=5)
-            current = json.loads((chrome / "frame_loads.json").read_text())
+            while True:
+                current = json.loads((chrome / "frame_loads.json").read_text())
+                if current["frames"].get(child_id) == "loading":
+                    break
+                assert time.monotonic() < loading_deadline, current
+                time.sleep(0.02)
             # Keep the exact observed states in the existing CI log artifact.
             # HTTP arrival and the Chrome monitor run in separate processes;
             # a failure needs both states, not just an empty set of frame IDs.
@@ -404,7 +423,10 @@ const utils = require(process.argv[1]);
             pending_ids = {
                 key for key, value in current["frames"].items() if value == "loading"
             }
-            assert len(pending_ids) == 1, {"before": before, "after_request": current}
+            assert pending_ids == {child_id}, {
+                "before": before,
+                "after_request": current,
+            }
             assert all(before["frames"][key] == "stopped" for key in pending_ids)
             if finish_navigation:
                 timer = threading.Timer(2, release.set)
