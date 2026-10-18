@@ -92,6 +92,42 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
+    const reportControls = async (frame, selector) => {
+      try {
+        const state = await frame.evaluate((selector) => {
+          const control = document.querySelector(
+            '[role="combobox"][aria-label="File type"]',
+          );
+          return {
+            selectedFormat: control?.innerText.slice(0, 100),
+            expanded: control?.getAttribute("aria-expanded"),
+            viewport: { width: innerWidth, height: innerHeight },
+            controls: [...document.querySelectorAll(selector)]
+              .slice(0, 20)
+              .map((el) => {
+                const box = el.getBoundingClientRect();
+                return {
+                  label: el.getAttribute("aria-label"),
+                  text: el.innerText.slice(0, 100),
+                  disabled:
+                    Boolean(el.disabled) ||
+                    el.getAttribute("aria-disabled") === "true",
+                  visible: box.width > 0 && box.height > 0,
+                  centerExposed: el.contains(
+                    document.elementFromPoint(
+                      box.x + box.width / 2,
+                      box.y + box.height / 2,
+                    ),
+                  ),
+                };
+              }),
+          };
+        }, selector);
+        console.error("Canva export controls:", JSON.stringify(state));
+      } catch (error) {
+        console.error("Canva menu diagnostics unavailable:", error.message);
+      }
+    };
     const click = async (
       role,
       name,
@@ -159,7 +195,8 @@ async function main() {
           name,
           selector,
         )
-        .catch(() => {
+        .catch(async () => {
+          await reportControls(frame, selector);
           throw new Error(`Canva export control unavailable: ${role} ${name}`);
         });
       const element = handle.asElement();
@@ -234,32 +271,7 @@ async function main() {
         timeout: remaining(),
       })
       .catch(async (error) => {
-        try {
-          const state = await page.evaluate(() => {
-            const visible = (el) => {
-              const box = el.getBoundingClientRect();
-              return box.width > 0 && box.height > 0;
-            };
-            const control = document.querySelector(
-              '[role="combobox"][aria-label="File type"]',
-            );
-            return {
-              selectedFormat: control?.innerText.slice(0, 100),
-              expanded: control?.getAttribute("aria-expanded"),
-              visible: control ? visible(control) : false,
-              options: [...document.querySelectorAll('[role="option"]')]
-                .filter(visible)
-                .slice(0, 20)
-                .map((el) => ({
-                  label: el.innerText.slice(0, 100),
-                  disabled: el.getAttribute("aria-disabled"),
-                })),
-            };
-          });
-          console.error("Canva file-type discovery failed:", JSON.stringify(state));
-        } catch (diagnosticError) {
-          console.error("Canva menu diagnostics unavailable:", diagnosticError.message);
-        }
+        await reportControls(page, '[role="option"]');
         throw error;
       });
     const native = await page.evaluate(
