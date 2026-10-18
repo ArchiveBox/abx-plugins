@@ -298,6 +298,10 @@ def test_source_filesystem_error_is_failed(tmp_path, extension):
     # including root-run containers where chmod cannot deny access.
     source.symlink_to(source.name)
     try:
+        # Python 3.12 rejects the loop during resolve; newer versions reach
+        # stat. Require the hook to retain this runtime's exact native error.
+        with pytest.raises((OSError, RuntimeError)) as source_error:
+            source.resolve().stat()
         result = subprocess.run(
             [sys.executable, str(LITEPARSE_HOOK), "--url", TEST_URL],
             cwd=tmp_path,
@@ -310,7 +314,9 @@ def test_source_filesystem_error_is_failed(tmp_path, extension):
         assert result.returncode != 0, result.stdout + result.stderr
         assert record and record["status"] == "failed", result.stdout + result.stderr
         assert str(source) in record["output_str"]
-        assert "OSError" in record["output_str"]
+        assert record["output_str"] == (
+            f"{type(source_error.value).__name__}: {source_error.value}"
+        )
         assert not list((tmp_path / "liteparse").glob("*.txt"))
     finally:
         # Artifact uploaders walk the test directory after pytest completes.
