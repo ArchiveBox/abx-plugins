@@ -1,0 +1,21 @@
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_10bc94d001be49::t_b1e58eeb7dca29 304-306,308-314
+abx_plugins/plugins/singlefile/tests/test_timeout_cleanup.py
+  s_10bc94d001be49::t_c7ad85cdf02ad2 113-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "68f533d5756a61727c279bd8d9a24f92b84e5ede",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
