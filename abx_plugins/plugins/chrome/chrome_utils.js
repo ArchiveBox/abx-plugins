@@ -3776,21 +3776,23 @@ function installExportPageShutdown() {
       // Close published targets immediately. Waiting for page attachment here
       // delays SIGTERM by the creation timeout. The existing nonce lease lets
       // the snapshot daemon reap a createTarget response that arrives after exit.
-      for (const owner of exportPageOwners.values()) {
-        try {
-          await sweepExportPages({
-            ...owner,
-            puppeteer: resolvePuppeteerModule(),
-            closeAll: true,
-            ownerPid: process.pid,
-          });
-        } catch (error) {
-          console.error(
-            `[*] Could not close export targets on ${signal}: ${error.message}`
-          );
-        }
+      try {
+        await withTimeout(async () => {
+          for (const owner of exportPageOwners.values()) {
+            await sweepExportPages({
+              ...owner,
+              puppeteer: resolvePuppeteerModule(),
+              closeAll: true,
+              ownerPid: process.pid,
+            });
+          }
+        }, 2000, "Chrome did not respond to export shutdown");
+      } catch (error) {
+        // Keep the lease for the snapshot daemon to reap after Chrome recovers.
+        console.error(`[*] Could not close export targets on ${signal}: ${error.message}`);
+      } finally {
+        process.exit(exitCode);
       }
-      process.exit(exitCode);
     })();
     return exportShutdownPromise;
   });

@@ -71,6 +71,7 @@ const {{connectToPage,openTabInChromeSession,getTargetIdFromTarget,resolvePuppet
     [
         "provider-killed",
         "provider-terminated",
+        "provider-chrome-stopped",
         "deadline",
         "snapshot-stopped",
         "snapshot-killed",
@@ -83,7 +84,7 @@ def test_provider_export_tab_lifecycle(tmp_path, ensure_chrome_test_prereqs, cle
         timeout=90,
     ) as (
         _,
-        _,
+        chrome_pid,
         first_chrome,
         env,
     ):
@@ -106,6 +107,7 @@ def test_provider_export_tab_lifecycle(tmp_path, ensure_chrome_test_prereqs, cle
         provider = None
         provider_log = None
         lease = None
+        chrome_stopped = False
         try:
             navigation = subprocess.run(
                 [
@@ -206,12 +208,22 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
                 assert 0 < lifetime <= 20_000
             # Suspend a genuine exporter to exercise a live but hung owner;
             # never replace its hooks, timers, or browser behavior.
-            if cleanup in {"provider-killed", "provider-terminated"}:
+            if cleanup == "provider-chrome-stopped":
+                os.kill(chrome_pid, signal.SIGSTOP)
+                chrome_stopped = True
+            if cleanup in {
+                "provider-killed",
+                "provider-terminated",
+                "provider-chrome-stopped",
+            }:
                 os.kill(
                     owner_pid,
                     signal.SIGKILL if cleanup == "provider-killed" else signal.SIGTERM,
                 )
                 provider.wait(timeout=5)
+                if chrome_stopped:
+                    os.kill(chrome_pid, signal.SIGCONT)
+                    chrome_stopped = False
             else:
                 os.kill(owner_pid, signal.SIGSTOP)
             if cleanup == "snapshot-stopped":
@@ -268,6 +280,8 @@ const {{connectToPage,getTargetIdFromTarget}} = require({json.dumps(str(CHROME_U
             assert after["url"] == before["url"]
             assert after["text"] == before["text"]
         finally:
+            if chrome_stopped:
+                os.kill(chrome_pid, signal.SIGCONT)
             if provider is not None and provider.poll() is None:
                 if lease is not None:
                     try:
