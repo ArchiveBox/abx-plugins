@@ -102,12 +102,23 @@ import json, os, runpy, sys
 from pathlib import Path
 hook = runpy.run_path(sys.argv[1])
 scans = []
+resolutions = []
+file_stats = []
 def audit(event, args):
     if event == 'os.scandir':
         scans.append(os.fspath(args[0]))
 sys.addaudithook(audit)
+def profile(frame, event, arg):
+    path = frame.f_locals.get('self')
+    if isinstance(path, Path):
+        if event == 'call' and frame.f_code.co_name == 'resolve':
+            resolutions.append(str(path))
+        if event == 'c_call' and (arg is os.lstat or (arg is os.stat and not frame.f_locals.get('follow_symlinks', True))):
+            file_stats.append(str(path))
+sys.setprofile(profile)
 contents = hook['find_indexable_content']()
-print(json.dumps({'contents': contents, 'scans': scans}, default=str))
+sys.setprofile(None)
+print(json.dumps({'contents': contents, 'scans': scans, 'resolutions': resolutions, 'file_stats': file_stats}, default=str))
 """
     result = subprocess.run(
         [sys.executable, "-c", probe, str(hook)],
@@ -121,6 +132,12 @@ print(json.dumps({'contents': contents, 'scans': scans}, default=str))
     observed = json.loads(result.stdout)
     assert {item[0]: item[1] for item in observed["contents"]} == expected
     assert len(observed["contents"]) == len(expected)
+    # Ordinary files (including files reached through a validated root alias)
+    # need one metadata read per visit, without resolving every parent again.
+    regular = str(tmp_path / "article/text.txt")
+    assert regular not in observed["resolutions"]
+    assert observed["file_stats"].count(regular) == 2
+    assert observed["file_stats"].count(str(tmp_path / "responses/body.txt")) == 1
     assert sorted(observed["scans"]) == sorted(
         str(tmp_path / name)
         for name in (

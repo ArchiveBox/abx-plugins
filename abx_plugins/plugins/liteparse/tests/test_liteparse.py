@@ -563,6 +563,11 @@ def test_document_discovery_reads_siblings_not_parser_output(tmp_path):
     private.mkdir()
     (private / "private.pdf").write_bytes(_download_pdf(PDF_URL_A) + b"\n% persona\n")
     (source.parent / "private.pdf").symlink_to(private / "private.pdf")
+    nested_private = source.parent / ".persona"
+    nested_private.mkdir()
+    (nested_private / "nested-private.pdf").write_bytes(
+        (private / "private.pdf").read_bytes(),
+    )
 
     # The parser's own output is not an upstream producer, even if a nested
     # directory happens to have a producer's name.
@@ -996,15 +1001,26 @@ def test_embedded_images_survive_duplicate_names_and_corrupt_members(tmp_path):
         archive.writestr("secret.png", _make_png(303, 303))
     (root / "escape.zip").symlink_to(outside)
     script = """
-import importlib.util, json, sys
+import importlib.util, json, os, sys
 from pathlib import Path
 spec = importlib.util.spec_from_file_location('liteparse_hook', sys.argv[1])
 hook = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hook)
 scratch = hook.OUTPUT_DIR / '.images_test'
 scratch.mkdir()
+resolutions = []
+file_stats = []
+def profile(frame, event, arg):
+    path = frame.f_locals.get('self')
+    if isinstance(path, Path):
+        if event == 'call' and frame.f_code.co_name == 'resolve':
+            resolutions.append(str(path))
+        if event == 'c_call' and (arg is os.lstat or (arg is os.stat and not frame.f_locals.get('follow_symlinks', True))):
+            file_stats.append(str(path))
+sys.setprofile(profile)
 found = hook.find_document_sources(archive_dir=scratch)
-print(json.dumps([hook._content_digest(path) for path, digest in found]))
+sys.setprofile(None)
+print(json.dumps({'digests': [hook._content_digest(path) for path, digest in found], 'resolutions': resolutions, 'file_stats': file_stats}))
 """
     result = subprocess.run(
         [sys.executable, "-c", script, str(LITEPARSE_HOOK)],
@@ -1015,10 +1031,13 @@ print(json.dumps([hook._content_digest(path) for path, digest in found]))
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
-    assert set(json.loads(result.stdout)) == {
+    observed = json.loads(result.stdout)
+    assert set(observed["digests"]) == {
         hashlib.md5(first).hexdigest(),
         hashlib.md5(second).hexdigest(),
     }
+    assert str(archive_path) not in observed["resolutions"]
+    assert observed["file_stats"].count(str(archive_path)) == 1
     assert "Cannot read embedded image" in result.stderr
 
 

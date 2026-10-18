@@ -204,21 +204,29 @@ def find_document_sources(
     archive_bytes = 0
     warned_limit = False
 
-    def consider(match: Path) -> None:
+    def consider(
+        match: Path,
+        source_stat: os.stat_result | None = None,
+        resolved_path: Path | None = None,
+    ) -> None:
         # is_file() suppresses filesystem errors on Python 3.14. A failed
         # source read is a failed capture, not evidence that no source exists.
-        source_stat = match.stat()
+        source_stat = source_stat or match.stat()
         if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
             return
-        resolved = str(match.resolve())
+        resolved_path = resolved_path or match
+        resolved = str(resolved_path)
         if resolved in seen_paths:
             return
         suffix = match.suffix.lower()
         if suffix in IMAGE_EXTENSIONS and not include_images:
             return
-        if suffix in IMAGE_EXTENSIONS and _image_is_too_small(match, min_image_dim):
+        if suffix in IMAGE_EXTENSIONS and _image_is_too_small(
+            resolved_path,
+            min_image_dim,
+        ):
             return
-        digest = _content_digest(match)
+        digest = _content_digest(resolved_path)
         if digest in seen_digests:
             return
         seen_digests[digest] = match
@@ -234,7 +242,7 @@ def find_document_sources(
             if not fnmatch.fnmatchcase(entry.name, root) or not entry.is_dir():
                 continue
             root_dir = Path(entry.path)
-            resolved_root = root_dir.resolve()
+            resolved_root = root_dir.resolve() if entry.is_symlink() else root_dir
             if not resolved_root.is_relative_to(SNAP_DIR) or any(
                 part.casefold() == ".persona"
                 for part in resolved_root.relative_to(SNAP_DIR).parts
@@ -251,28 +259,39 @@ def find_document_sources(
                     continue
                 # Validate both ordinary documents and archives before any
                 # hashing, parsing, or embedded-image extraction.
-                resolved = match.resolve()
-                if not resolved.is_relative_to(SNAP_DIR) or any(
+                # rglob does not recurse into directory symlinks. Reuse one
+                # lstat for normal files, resolving only actual file links.
+                resolved = resolved_root / match.relative_to(root_dir)
+                if any(
                     part.casefold() == ".persona"
                     for part in resolved.relative_to(SNAP_DIR).parts
                 ):
                     continue
+                source_stat = resolved.lstat()
+                if stat.S_ISLNK(source_stat.st_mode):
+                    resolved = resolved.resolve()
+                    if not resolved.is_relative_to(SNAP_DIR) or any(
+                        part.casefold() == ".persona"
+                        for part in resolved.relative_to(SNAP_DIR).parts
+                    ):
+                        continue
+                    source_stat = resolved.stat()
                 if suffix in SUPPORTED_EXTENSIONS:
-                    consider(match)
+                    consider(match, source_stat, resolved)
                 # Office/HTML exports may contain images even when the
                 # document also has native text. OCR those images once,
                 # deduplicated against the other saved representations.
                 if (
                     not embedded_images
                     or archive_dir is None
-                    or not stat.S_ISREG(match.stat().st_mode)
+                    or not stat.S_ISREG(source_stat.st_mode)
                 ):
                     continue
                 if resolved in seen_archives:
                     continue
                 seen_archives.add(resolved)
                 try:
-                    with zipfile.ZipFile(match) as archive:
+                    with zipfile.ZipFile(resolved) as archive:
                         for entry in archive.infolist():
                             extension = Path(entry.filename).suffix.lower()
                             if entry.is_dir() or extension not in IMAGE_EXTENSIONS:

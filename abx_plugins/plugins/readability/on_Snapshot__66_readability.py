@@ -67,6 +67,10 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
     elif images_dir.is_dir():
         shutil.rmtree(images_dir)
 
+    # Repeated image URLs in this document share one validated alias. Keep
+    # this local to the render so no filesystem decisions survive a capture.
+    linked_images: dict[tuple[str, ...], str] = {}
+
     def replace(match: re.Match) -> str:
         tag = match.group(0)
         src_match = re.search(r'\bsrc\s*=\s*(["\'])([^"\']+)\1', tag, flags=re.I)
@@ -81,36 +85,44 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
         )
         if not path_parts or any(part in {".", ".."} for part in path_parts):
             return ""
-        for root in ("responses/image", "responses", "wget"):
-            candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
-            try:
-                resolved = candidate.resolve()
-            except (OSError, RuntimeError):
-                continue
-            if not resolved.is_relative_to(SNAP_DIR) or any(
-                part.casefold() == ".persona"
-                for part in resolved.relative_to(SNAP_DIR).parts
-            ):
-                continue
-            if resolved.is_file():
-                link = output_dir / "images" / parsed.hostname / Path(*path_parts)
+        key = (parsed.hostname, *path_parts)
+        archived = linked_images.get(key)
+        if archived is None:
+            for root in ("responses/image", "responses", "wget"):
+                candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
+                if not candidate.is_file():
+                    continue
                 try:
-                    link.parent.mkdir(parents=True, exist_ok=True)
-                    target = os.path.relpath(resolved, link.parent)
+                    resolved = candidate.resolve()
+                except (OSError, RuntimeError):
+                    continue
+                if not resolved.is_relative_to(SNAP_DIR) or any(
+                    part.casefold() == ".persona"
+                    for part in resolved.relative_to(SNAP_DIR).parts
+                ):
+                    continue
+                if resolved.is_file():
+                    link = output_dir / "images" / parsed.hostname / Path(*path_parts)
                     try:
-                        link.symlink_to(target)
-                    except FileExistsError:
-                        # Repeated images share a link. Compare its stored target
-                        # without resolving every remote filesystem component.
-                        if os.readlink(link) != target:
-                            link.unlink()
+                        link.parent.mkdir(parents=True, exist_ok=True)
+                        target = os.path.relpath(resolved, link.parent)
+                        try:
                             link.symlink_to(target)
-                except OSError:
-                    return ""
-                archived = f"./{link.relative_to(output_dir).as_posix()}"
-                tag = f"{tag[: src_match.start(2)]}{archived}{tag[src_match.end(2) :]}"
-                return re.sub(r'\s+srcset\s*=\s*(["\']).*?\1', "", tag, flags=re.I)
-        return ""
+                        except FileExistsError:
+                            # Repeated images share a link. Compare its stored target
+                            # without resolving every remote filesystem component.
+                            if os.readlink(link) != target:
+                                link.unlink()
+                                link.symlink_to(target)
+                    except OSError:
+                        return ""
+                    archived = f"./{link.relative_to(output_dir).as_posix()}"
+                    linked_images[key] = archived
+                    break
+        if archived is None:
+            return ""
+        tag = f"{tag[: src_match.start(2)]}{archived}{tag[src_match.end(2) :]}"
+        return re.sub(r'\s+srcset\s*=\s*(["\']).*?\1', "", tag, flags=re.I)
 
     content = re.sub(
         r"<img\b[^>]*>",

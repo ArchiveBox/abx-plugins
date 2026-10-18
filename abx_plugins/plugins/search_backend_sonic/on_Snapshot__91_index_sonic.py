@@ -22,6 +22,7 @@ import sys
 import json
 import argparse
 import os
+import stat
 import re
 from importlib import import_module
 from pathlib import Path
@@ -108,18 +109,21 @@ def find_indexable_content() -> list[tuple[str, str]]:
         return results
 
     for plugin_dir in sorted(snap_dir.iterdir()):
-        if not plugin_dir.is_dir():
-            continue
-
         extractor = plugin_dir.name
         if should_skip_plugin_dir(plugin_dir):
             continue
-
-        resolved_plugin = plugin_dir.resolve()
-        if not resolved_plugin.is_relative_to(snap_dir) or any(
-            part.casefold() == ".persona"
-            for part in resolved_plugin.relative_to(snap_dir).parts
-        ):
+        plugin_stat = plugin_dir.lstat()
+        resolved_plugin = plugin_dir
+        if stat.S_ISLNK(plugin_stat.st_mode):
+            resolved_plugin = plugin_dir.resolve()
+            if not resolved_plugin.is_relative_to(snap_dir) or any(
+                part.casefold() == ".persona"
+                for part in resolved_plugin.relative_to(snap_dir).parts
+            ):
+                continue
+            if not resolved_plugin.is_dir():
+                continue
+        elif not stat.S_ISDIR(plugin_stat.st_mode):
             continue
 
         # Match rglob's symlink behavior: follow a plugin-root alias and file
@@ -130,22 +134,27 @@ def find_indexable_content() -> list[tuple[str, str]]:
             ]
             for filename in filenames:
                 match = Path(directory) / filename
-                if (
-                    not filename.endswith(tuple(INDEXABLE_EXTENSIONS))
-                    or not match.is_file()
-                ):
+                if not filename.endswith(tuple(INDEXABLE_EXTENSIONS)):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
-                resolved = match.resolve()
-                # Cross-plugin aliases are valid, but private runtime files and
-                # files outside this snapshot must never enter the search index.
-                if not resolved.is_relative_to(snap_dir) or any(
-                    part.casefold() == ".persona"
-                    for part in resolved.relative_to(snap_dir).parts
-                ):
+                # os.walk does not follow nested directory links. Only root
+                # aliases and file links need resolution; ordinary files reuse
+                # one lstat for their type and size on slow archive storage.
+                resolved = resolved_plugin / match.relative_to(plugin_dir)
+                try:
+                    source_stat = resolved.lstat()
+                    if stat.S_ISLNK(source_stat.st_mode):
+                        resolved = resolved.resolve()
+                        if not resolved.is_relative_to(snap_dir) or any(
+                            part.casefold() == ".persona"
+                            for part in resolved.relative_to(snap_dir).parts
+                        ):
+                            continue
+                        source_stat = resolved.stat()
+                except (OSError, RuntimeError):
                     continue
-                if resolved.stat().st_size == 0:
+                if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
                     continue
 
                 try:
