@@ -211,7 +211,19 @@ async function main() {
           throw new Error(`Canva export control unavailable: ${role} ${name}`);
         });
       const element = handle.asElement();
-      await element.asLocator().setTimeout(remaining()).click();
+      try {
+        // The export tab can stop painting under Xvfb even with focus emulation.
+        // Readiness and scrolling above must not be followed by Locator's RAF /
+        // IntersectionObserver waits. Keep a trusted click at the native point,
+        // which also accounts for controls inside the template iframe.
+        const { x, y } = await element.clickablePoint();
+        await page.mouse.click(x, y);
+      } catch (error) {
+        await reportControls(frame, selector);
+        throw new Error(`Canva export click failed: ${role} ${name}: ${error.message}`);
+      } finally {
+        await handle.dispose();
+      }
     };
     if (
       current.pathname.endsWith("/view") &&
