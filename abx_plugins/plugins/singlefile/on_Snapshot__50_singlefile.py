@@ -101,7 +101,14 @@ def main(url: str) -> None:
             int(config.SINGLEFILE_TIMEOUT),
         )
         status = "succeeded" if success else "failed"
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
+        # subprocess.run retains bytes from both pipes even with text=True.
+        # Keep the last completed browser phase when the helper is killed.
+        for detail in (exc.stdout, exc.stderr):
+            if detail:
+                if isinstance(detail, bytes):
+                    detail = detail.decode("utf-8", errors="replace")
+                print(detail, end="", file=sys.stderr)
         output = None
         error = f"Timed out after {config.SINGLEFILE_TIMEOUT} seconds"
         status = "failed"
