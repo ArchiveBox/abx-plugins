@@ -1,0 +1,29 @@
+abx_plugins/plugins/wget/tests/test_wget_browser_identity.py
+  s_10bc94d001be49::t_9fc524c98658d4 54,91
+  s_10bc94d001be49::t_e8af0d477a8d59 9,21-22,26-27,74-75,78-80,84-85
+  s_10bc94d001be49::t_17c66e3792df31 1-8,10-19,24,29-30,33-36,38,40-44,46-51,55-72,82,87-90,92-104
+  s_10bc94d001be49::t_641f2acf890cf3 20,23,25,28,39,45,52-53,73,76-77,81,83,86,105-107
+  s_10bc94d001be49::t_9d35d122ff1084 31-32,37
+  s_10bc94d001be49::t_a17d05371c05f3 108-115
+abx_plugins/plugins/wget/on_Snapshot__35_wget.finite.bg.py
+  s_10bc94d001be49::t_3ce2aa7569e8b4 40,105-116
+  s_10bc94d001be49::t_2610c0d51e7988 117-122
+abx_plugins/plugins/wget/config.json
+  s_10bc94d001be49::t_3ce2aa7569e8b4 61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a66f230c5ffca92664b1f825680c8eb92675b606",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
