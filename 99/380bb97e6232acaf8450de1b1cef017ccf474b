@@ -1,0 +1,41 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__00_archivedotorg.finite.bg.py
+  s_10bc94d001be49::t_c72007b69ea2f2 120
+abx_plugins/plugins/base/config.json
+  s_10bc94d001be49::t_65fcfad3beca18 82-83
+abx_plugins/plugins/base/importers.py
+  s_10bc94d001be49::t_7436412c216967 13,192
+abx_plugins/plugins/base/utils.js
+  s_10bc94d001be49::t_aa79f65dba1307 226-263,274,340,344,778
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_10bc94d001be49::t_911170c46c0217 32,202,4975-4979
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_10bc94d001be49::t_7d9f2abf4a0a27 47-48
+abx_plugins/plugins/chrome/on_Snapshot__00_chrome_launch.daemon.bg.js
+  s_10bc94d001be49::t_10ff1fc9f1b190 24-25
+abx_plugins/plugins/chrome/tests/test_http_user_agent.py
+  s_10bc94d001be49::t_089e2ec5d8101f 1-237
+abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py
+  s_10bc94d001be49::t_d05bc370056ce6 152
+abx_plugins/plugins/wget/config.json
+  s_10bc94d001be49::t_fa43a58a639a5c 61
+abx_plugins/plugins/wget/on_Snapshot__35_wget.finite.bg.py
+  s_10bc94d001be49::t_36a4fda4be545d 103
+abx_plugins/plugins/wget/tests/test_wget_browser_identity.py
+  s_10bc94d001be49::t_711a1dd388318d 99-100,115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99380bb97e6232acaf8450de1b1cef017ccf474b",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
