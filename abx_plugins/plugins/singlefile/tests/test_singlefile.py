@@ -216,6 +216,17 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
         )
 
     assert result.returncode == 0, f"Hook execution failed: {result.stderr}"
+    # A completed browser download can still stall on its destination filesystem.
+    # Keep these distinct from the extension capture/download timing.
+    phases = [
+        "phase=download completed",
+        "phase=browser-released",
+        "phase=file-stat completed",
+        "phase=file-rename started",
+        "phase=file-saved",
+    ]
+    positions = [result.stderr.index(phase) for phase in phases]
+    assert positions == sorted(positions), result.stderr
 
     output_file = singlefile_output_dir / "singlefile.html"
     assert output_file.exists(), (
