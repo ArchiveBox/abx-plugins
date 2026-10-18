@@ -105,7 +105,8 @@ scans = []
 resolutions = []
 file_stats = []
 def audit(event, args):
-    if event == 'os.scandir':
+    # Path.iterdir uses listdir on Python 3.12 and scandir on newer Python.
+    if event in {'os.scandir', 'os.listdir'}:
         scans.append(os.fspath(args[0]))
 sys.addaudithook(audit)
 def profile(frame, event, arg):
