@@ -158,13 +158,24 @@ async function main() {
                 .trim()
                 .replace(/\s+/g, " ");
               if (
-                role === "option"
-                  ? !text.startsWith(name + " ") && text !== name
-                  : text !== name
+                ![name]
+                  .flat()
+                  .some((label) =>
+                    role === "option"
+                      ? text.startsWith(label + " ") || text === label
+                      : text === label,
+                  )
               )
                 continue;
               if (el.disabled || el.getAttribute("aria-disabled") === "true")
                 continue;
+              const bounds = el.getBoundingClientRect();
+              if (!bounds.width || !bounds.height) continue;
+              el.scrollIntoView({
+                block: "nearest",
+                inline: "nearest",
+                behavior: "instant",
+              });
               const r = el.getBoundingClientRect();
               if (
                 !r.width ||
@@ -200,9 +211,7 @@ async function main() {
           throw new Error(`Canva export control unavailable: ${role} ${name}`);
         });
       const element = handle.asElement();
-      const box = await element.boundingBox();
-      if (!box) throw new Error("Canva export control is not visible");
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await element.asLocator().setTimeout(remaining()).click();
     };
     if (
       current.pathname.endsWith("/view") &&
@@ -262,7 +271,14 @@ async function main() {
         click("button", "Open in Editor", frame),
       ]);
     }
-    await click("menuitem", "Share");
+    // Compact layouts label the publish menu differently and also expose a
+    // separate Share control that only changes collaboration permissions.
+    await click(
+      "menuitem",
+      ["Share", "All Publish Options"],
+      page,
+      '[role="menuitem"]:not([aria-label="Share"])',
+    );
     await click("button", "Download");
     await click("combobox", "File type");
     await page
@@ -285,7 +301,12 @@ async function main() {
       : ["PDF"];
     for (let index = 0; index < formats.length; index++) {
       if (index) {
-        await click("menuitem", "Share");
+        await click(
+          "menuitem",
+          ["Share", "All Publish Options"],
+          page,
+          '[role="menuitem"]:not([aria-label="Share"])',
+        );
         await click("button", "Download");
         await click("combobox", "File type");
       }

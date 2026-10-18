@@ -8,6 +8,8 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
@@ -15,7 +17,8 @@ URL = "https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_canva.js"
 
 
-def test_authenticated_template_copy(tmp_path, ensure_chrome_test_prereqs):
+@pytest.mark.parametrize("resolution", ["1440,2000", "800,600"])
+def test_authenticated_template_copy(tmp_path, ensure_chrome_test_prereqs, resolution):
     auth = os.environ.get("AUTH_STORAGE_FILE")
     assert auth and Path(auth).is_file(), (
         "Set AUTH_STORAGE_FILE to the authorized Canva persona before running this explicit acceptance test"
@@ -24,7 +27,11 @@ def test_authenticated_template_copy(tmp_path, ensure_chrome_test_prereqs):
         tmp_path,
         test_url=URL,
         timeout=90,
-        env_overrides={"AUTH_STORAGE_FILE": auth, "CHROME_HEADLESS": "false"},
+        env_overrides={
+            "AUTH_STORAGE_FILE": auth,
+            "CHROME_HEADLESS": "false",
+            "CHROME_RESOLUTION": resolution,
+        },
     ) as (_, _, chrome, env):
         result = subprocess.run(
             [str(HOOK), f"--url={URL}"],
