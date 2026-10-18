@@ -55,17 +55,33 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
     (snapshot / "article/blank.txt").write_text(" \n")
     (snapshot / "article/copied.meta.json").write_text("excludedruntimeuniqueneedle")
     (snapshot / "article_alias").symlink_to("article", target_is_directory=True)
+    outside = snapshot.parent / f"{snapshot.name}-outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("excludedsecretuniqueneedle")
+    (snapshot / "article/escape.txt").symlink_to(outside / "secret.txt")
+    (snapshot / "outside_alias").symlink_to(outside, target_is_directory=True)
+    private = snapshot / ".persona"
+    private.mkdir()
+    (private / "secret.txt").write_text("excludedsecretuniqueneedle")
+    (snapshot / "article/private.txt").symlink_to(private / "secret.txt")
+    (snapshot / "private_alias").symlink_to(private, target_is_directory=True)
+    responses = snapshot / "responses"
+    responses.mkdir()
+    (responses / "body.txt").write_text("sharedresponseuniqueneedle")
+    (snapshot / "article/response.txt").symlink_to("../responses/body.txt")
     expected = {
         name: text.replace("<p>", "").replace("</p>", "")
         for name, text in content.items()
     }
     expected["article/alias.txt"] = content["article/text.txt"]
+    expected["article/response.txt"] = "sharedresponseuniqueneedle"
     expected.update(
         {
             name.replace("article/", "article_alias/", 1): text
             for name, text in list(expected.items())
         },
     )
+    expected["responses/body.txt"] = "sharedresponseuniqueneedle"
     return expected
 
 
@@ -113,6 +129,7 @@ print(json.dumps({'contents': contents, 'scans': scans}, default=str))
             "article/nested",
             "article_alias",
             "article_alias/nested",
+            "responses",
         )
     )
 
@@ -206,6 +223,7 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             for term in set(discovery_content.values()):
                 assert search(term, environ=env) == ["explicit-sonic-id"], term
             assert search("excludedruntimeuniqueneedle", environ=env) == []
+            assert search("excludedsecretuniqueneedle", environ=env) == []
             assert (tmp_path / "index.jsonl").read_text() == manifest
             assert not list(tmp_path.rglob("injected"))
 

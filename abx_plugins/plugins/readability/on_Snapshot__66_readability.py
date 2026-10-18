@@ -83,11 +83,20 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
             return ""
         for root in ("responses/image", "responses", "wget"):
             candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
-            if candidate.is_file():
+            try:
+                resolved = candidate.resolve()
+            except (OSError, RuntimeError):
+                continue
+            if not resolved.is_relative_to(SNAP_DIR) or any(
+                part.casefold() == ".persona"
+                for part in resolved.relative_to(SNAP_DIR).parts
+            ):
+                continue
+            if resolved.is_file():
                 link = output_dir / "images" / parsed.hostname / Path(*path_parts)
                 try:
                     link.parent.mkdir(parents=True, exist_ok=True)
-                    target = os.path.relpath(candidate, link.parent)
+                    target = os.path.relpath(resolved, link.parent)
                     try:
                         link.symlink_to(target)
                     except FileExistsError:

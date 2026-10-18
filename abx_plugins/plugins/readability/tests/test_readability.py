@@ -344,7 +344,17 @@ def test_falls_back_to_wget_images():
         create_example_html(snap_dir)
         archived_image = snap_dir / "wget" / "example.com" / "assets" / "example.svg"
         archived_image.parent.mkdir(parents=True)
-        archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        saved = snap_dir / "responses" / "all" / "image.svg"
+        saved.parent.mkdir(parents=True)
+        saved.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        archived_image.symlink_to(saved)
+        # The preferred responses alias is poisoned; use the safe wget alias,
+        # which itself points to a different plugin in this same snapshot.
+        private = tmpdir / "private.svg"
+        private.write_text("synthetic private image")
+        poisoned = snap_dir / "responses/image/example.com/assets/example.svg"
+        poisoned.parent.mkdir(parents=True)
+        poisoned.symlink_to(private)
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path

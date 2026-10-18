@@ -333,11 +333,23 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
         try:
             hostname = urlparse(url).hostname or ""
             if hostname:
+                snap_dir = output_dir.parent.resolve()
+                link_path = output_dir / "images"
+                # Rebuild our alias only from a validated target, including on
+                # reruns over outputs created before containment was enforced.
+                if link_path.is_symlink():
+                    link_path.unlink()
                 responses_images = (
                     output_dir / ".." / "responses" / "image" / hostname / "images"
                 ).resolve()
-                link_path = output_dir / "images"
-                if responses_images.exists() and responses_images.is_dir():
+                if (
+                    responses_images.is_relative_to(snap_dir)
+                    and not any(
+                        part.casefold() == ".persona"
+                        for part in responses_images.relative_to(snap_dir).parts
+                    )
+                    and responses_images.is_dir()
+                ):
                     if link_path.exists() or link_path.is_symlink():
                         if link_path.is_symlink() or link_path.is_file():
                             link_path.unlink()

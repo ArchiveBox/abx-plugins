@@ -550,7 +550,20 @@ def test_multiple_batches_preserve_source_mapping(tmp_path):
 def test_document_discovery_reads_siblings_not_parser_output(tmp_path):
     source = tmp_path / "01_responses" / "all" / "document.pdf"
     source.parent.mkdir(parents=True)
-    source.write_bytes(_download_pdf(PDF_URL_A))
+    saved = tmp_path / "git/document.pdf"
+    saved.parent.mkdir()
+    saved.write_bytes(_download_pdf(PDF_URL_A))
+    source.symlink_to(saved)
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    (outside / "secret.pdf").write_bytes(_download_pdf(PDF_URL_A) + b"\n% private\n")
+    (source.parent / "escape.pdf").symlink_to(outside / "secret.pdf")
+    (tmp_path / "dropbox").symlink_to(outside, target_is_directory=True)
+    private = tmp_path / ".persona"
+    private.mkdir()
+    (private / "private.pdf").write_bytes(_download_pdf(PDF_URL_A) + b"\n% persona\n")
+    (source.parent / "private.pdf").symlink_to(private / "private.pdf")
+
     # The parser's own output is not an upstream producer, even if a nested
     # directory happens to have a producer's name.
     ignored = tmp_path / "liteparse" / "responses" / "document.pdf"
@@ -568,6 +581,9 @@ def test_document_discovery_reads_siblings_not_parser_output(tmp_path):
         assert record and record["status"] == "succeeded", record
         assert "Dummy PDF file" in (tmp_path / "liteparse/document.pdf.txt").read_text()
         assert source.read_bytes() == _download_pdf(PDF_URL_A)
+        assert {path.name for path in (tmp_path / "liteparse").glob("*.txt")} == {
+            "document.pdf.txt",
+        }
     finally:
         ignored.unlink()
 
@@ -975,6 +991,10 @@ def test_embedded_images_survive_duplicate_names_and_corrupt_members(tmp_path):
     archive_path.write_bytes(
         archive_path.read_bytes().replace(b"broken crc payload", b"damagedcrc payload"),
     )
+    outside = tmp_path / "private.zip"
+    with zipfile.ZipFile(outside, "w") as archive:
+        archive.writestr("secret.png", _make_png(303, 303))
+    (root / "escape.zip").symlink_to(outside)
     script = """
 import importlib.util, json, sys
 from pathlib import Path

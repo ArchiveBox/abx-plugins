@@ -52,6 +52,13 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
         "https://archivebox.io/tests/",
         "snap-001",
     )
+    responses = snapshot_dir / "responses"
+    responses.mkdir()
+    (responses / "body.txt").write_text("sharedresponseuniqueneedle")
+    (snapshot_dir / "dom/response.txt").symlink_to("../responses/body.txt")
+    outside = tmp_path.parent / f"{tmp_path.name}-secret.txt"
+    outside.write_text("excludedsecretuniqueneedle")
+    (snapshot_dir / "dom/leak.txt").symlink_to(outside)
     result = run_hook(snapshot_dir)
 
     assert result.returncode == 0, result.stderr
@@ -65,6 +72,8 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
     assert {path.name for path in output_dir.iterdir() if path.is_symlink()} == {
         "dom__output.html",
         "title__title.txt",
+        "responses__body.txt",
+        "dom__response.txt",
     }
     assert body_link.resolve() == (snapshot_dir / "dom" / "output.html").resolve()
     assert title_link.resolve() == (snapshot_dir / "title" / "title.txt").resolve()
@@ -84,6 +93,12 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
         "ArchiveBox Test Page",
     )
     assert "ArchiveBox Test Page" in row[3]
+    assert "excludedsecretuniqueneedle" not in row[3]
+    assert "sharedresponseuniqueneedle" in row[3]
+    assert (
+        output_dir / "dom__response.txt"
+    ).read_text() == "sharedresponseuniqueneedle"
+    assert not (output_dir / "dom__leak.txt").is_symlink()
 
 
 def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:

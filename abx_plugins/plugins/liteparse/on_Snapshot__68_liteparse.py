@@ -184,6 +184,19 @@ def find_document_sources(
         "liteparse_input",
     )
 
+    archive_extensions = {
+        ".zip",
+        ".docx",
+        ".docm",
+        ".xlsx",
+        ".xlsm",
+        ".pptx",
+        ".pptm",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".epub",
+    }
     found: list[tuple[Path, str]] = []
     seen_paths: set[str] = set()
     seen_digests: dict[str, Path] = {}
@@ -221,34 +234,40 @@ def find_document_sources(
             if not fnmatch.fnmatchcase(entry.name, root) or not entry.is_dir():
                 continue
             root_dir = Path(entry.path)
+            resolved_root = root_dir.resolve()
+            if not resolved_root.is_relative_to(SNAP_DIR) or any(
+                part.casefold() == ".persona"
+                for part in resolved_root.relative_to(SNAP_DIR).parts
+            ):
+                continue
             for match in root_dir.rglob("*"):
                 suffix = match.suffix.lower()
+                embedded_images = (
+                    include_images
+                    and archive_dir is not None
+                    and suffix in archive_extensions
+                )
+                if suffix not in SUPPORTED_EXTENSIONS and not embedded_images:
+                    continue
+                # Validate both ordinary documents and archives before any
+                # hashing, parsing, or embedded-image extraction.
+                resolved = match.resolve()
+                if not resolved.is_relative_to(SNAP_DIR) or any(
+                    part.casefold() == ".persona"
+                    for part in resolved.relative_to(SNAP_DIR).parts
+                ):
+                    continue
                 if suffix in SUPPORTED_EXTENSIONS:
                     consider(match)
                 # Office/HTML exports may contain images even when the
                 # document also has native text. OCR those images once,
                 # deduplicated against the other saved representations.
-                if not (
-                    include_images
-                    and archive_dir
-                    and suffix
-                    in {
-                        ".zip",
-                        ".docx",
-                        ".docm",
-                        ".xlsx",
-                        ".xlsm",
-                        ".pptx",
-                        ".pptm",
-                        ".odt",
-                        ".ods",
-                        ".odp",
-                        ".epub",
-                    }
-                    and stat.S_ISREG(match.stat().st_mode)
+                if (
+                    not embedded_images
+                    or archive_dir is None
+                    or not stat.S_ISREG(match.stat().st_mode)
                 ):
                     continue
-                resolved = match.resolve()
                 if resolved in seen_archives:
                     continue
                 seen_archives.add(resolved)

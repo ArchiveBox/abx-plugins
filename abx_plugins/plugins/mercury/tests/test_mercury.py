@@ -18,6 +18,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 import pytest
 
 from abx_plugins.plugins.base.testing import (
@@ -81,7 +82,7 @@ def test_verify_deps_with_abxpkg():
     )
 
 
-def test_extracts_with_mercury_parser(httpserver):
+def test_extracts_with_mercury_parser(httpserver, tmp_path):
     """Test full workflow: extract with postlight-parser from local fixture HTML."""
     binary_path = require_mercury_binary()
     test_url = httpserver.url_for("/mercury-article")
@@ -92,6 +93,17 @@ def test_extracts_with_mercury_parser(httpserver):
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["MERCURY_BINARY"] = binary_path
+
+        private = tmp_path / "private-images"
+        private.mkdir()
+        (private / "secret.svg").write_text("synthetic private image")
+        images = (
+            snap_dir / "responses/image" / str(urlsplit(test_url).hostname) / "images"
+        )
+        images.parent.mkdir(parents=True)
+        images.symlink_to(private, target_is_directory=True)
+        (snap_dir / "mercury").mkdir()
+        (snap_dir / "mercury/images").symlink_to(private, target_is_directory=True)
 
         # Serve deterministic HTML source that mercury can parse.
         httpserver.expect_request("/mercury-article").respond_with_data(
@@ -136,6 +148,7 @@ def test_extracts_with_mercury_parser(httpserver):
         assert article_json.exists(), "article.json not created"
         metadata = json.loads(article_json.read_text())
         assert metadata.get("title") == "Example Article", metadata
+        assert not (snap_dir / "mercury/images").is_symlink()
 
 
 def test_extracts_owned_cookie_dilemma_from_captured_rendered_dom(httpserver):
@@ -269,6 +282,15 @@ def test_extracts_from_served_test_url_html(httpserver):
         env["SNAP_DIR"] = str(tmpdir)
         env["MERCURY_BINARY"] = binary_path
 
+        saved = tmpdir / "wget/images"
+        saved.mkdir(parents=True)
+        (saved / "image.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+        images = (
+            tmpdir / "responses/image" / str(urlsplit(test_url).hostname) / "images"
+        )
+        images.parent.mkdir(parents=True)
+        images.symlink_to(saved, target_is_directory=True)
+
         result = subprocess.run(
             [
                 str(MERCURY_HOOK),
@@ -309,6 +331,8 @@ def test_extracts_from_served_test_url_html(httpserver):
         assert article_json.exists(), "article.json not created"
         metadata = json.loads(article_json.read_text())
         assert metadata.get("title") == "Served Source Marker", metadata
+        assert (tmpdir / "mercury/images").is_symlink()
+        assert (tmpdir / "mercury/images").resolve() == saved.resolve()
         assert any(
             request.path == "/test_url.html" for request, _response in httpserver.log
         ), "Mercury did not fetch the served test_url.html fixture"

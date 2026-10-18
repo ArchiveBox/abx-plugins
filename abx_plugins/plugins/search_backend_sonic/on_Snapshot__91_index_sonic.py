@@ -115,6 +115,13 @@ def find_indexable_content() -> list[tuple[str, str]]:
         if should_skip_plugin_dir(plugin_dir):
             continue
 
+        resolved_plugin = plugin_dir.resolve()
+        if not resolved_plugin.is_relative_to(snap_dir) or any(
+            part.casefold() == ".persona"
+            for part in resolved_plugin.relative_to(snap_dir).parts
+        ):
+            continue
+
         # Match rglob's symlink behavior: follow a plugin-root alias and file
         # aliases, but never recurse through nested directory symlinks.
         for directory, dirnames, filenames in os.walk(plugin_dir, followlinks=False):
@@ -130,11 +137,19 @@ def find_indexable_content() -> list[tuple[str, str]]:
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
-                if match.stat().st_size == 0:
+                resolved = match.resolve()
+                # Cross-plugin aliases are valid, but private runtime files and
+                # files outside this snapshot must never enter the search index.
+                if not resolved.is_relative_to(snap_dir) or any(
+                    part.casefold() == ".persona"
+                    for part in resolved.relative_to(snap_dir).parts
+                ):
+                    continue
+                if resolved.stat().st_size == 0:
                     continue
 
                 try:
-                    content = match.read_text(encoding="utf-8", errors="ignore")
+                    content = resolved.read_text(encoding="utf-8", errors="ignore")
                     if not content.strip():
                         continue
                     if match.suffix.lower() in (".html", ".htm"):
