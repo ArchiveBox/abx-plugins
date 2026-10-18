@@ -301,15 +301,17 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
               await findCompleted();
             })().catch(fail);
           };
-          const timer = setTimeout(() => {
+          const timer = setTimeout(async () => {
+            if (settled) return;
+            settled = true;
             cleanup();
-            // Cancel only this tab's capture through the running extension,
-            // without importing another copy of its background modules.
-            chrome.runtime.sendMessage({ method: "downloads.getInfo" })
-              .then(tasks => Promise.all(tasks.filter(task => task.tabId === exactTab.id)
-                .map(task => chrome.runtime.sendMessage({ method: "downloads.cancel", taskId: task.id }))))
-              .catch(error => console.error("SingleFile cancellation failed:", error));
-            fail(
+            // SingleFile treats taskId=0 as absent. Send its native tab-cancel
+            // message from the capture tab, and finish before closing this helper.
+            await chrome.scripting.executeScript({
+              target: { tabId: exactTab.id },
+              func: () => chrome.runtime.sendMessage({ method: "downloads.cancel" }),
+            }).catch(error => console.error("SingleFile cancellation failed:", error));
+            reject(
               new Error(
                 `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
               )
