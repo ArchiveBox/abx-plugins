@@ -11,11 +11,11 @@
 <script>
 (() => {
   const output = new URL('{{ output_path|escapejs }}', location.href);
-  output.search = ''; output.hash = '';
+  output.searchParams.delete('preview'); output.searchParams.delete('titlebar'); output.hash = '';
   const folder = new URL('./', output);
   document.getElementById('files').href = folder.href + '?files=1';
   document.getElementById('download').href = output.href;
-  document.getElementById('raw').href = output.href + '?preview=1&raw=1';
+  document.getElementById('raw').href = output.href + (output.search ? '&' : '?') + 'preview=1&raw=1';
   const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = String(text); if (cls) node.className = cls; return node; };
   const safeLink = (value, label) => { const a = el('a', label || value); try { const u = new URL(value); if (['https:', 'http:'].includes(u.protocol)) { a.href = u.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; } } catch {} return a; };;
   const content = document.getElementById('content');

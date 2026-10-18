@@ -9,8 +9,8 @@
 <main id="content"></main>
 <script>
 (() => {
-  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';const folder=new URL('./',output);
-  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=output.href;document.getElementById('raw').href=output.href+'?preview=1&raw=1';
+  const output=new URL('{{ output_path|escapejs }}',location.href);output.searchParams.delete('preview');output.searchParams.delete('titlebar');output.hash='';const folder=new URL('./',output);
+  document.getElementById('files').href=folder.href+'?files=1';document.getElementById('download').href=output.href;document.getElementById('raw').href=output.href+(output.search?'&':'?')+'preview=1&raw=1';
   const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=String(text);if(cls)n.className=cls;return n};const content=document.getElementById('content');
   const icons={RootWebArea:'🌐',WebArea:'▣',heading:'H',link:'🔗',button:'▰',textbox:'⌨',image:'▧',navigation:'🧭',main:'◆',article:'▤',list:'☷',listitem:'•',table:'▦',row:'—',cell:'□',checkbox:'☑',radio:'◉',dialog:'▣',form:'▱'};
   function countNodes(node){if(!node||typeof node!=='object')return 0;return 1+(Array.isArray(node.children)?node.children.reduce((sum,child)=>sum+countNodes(child),0):0)}

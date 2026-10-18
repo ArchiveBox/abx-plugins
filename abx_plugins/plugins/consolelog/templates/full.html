@@ -8,11 +8,11 @@
 <script>
 (() => {
   const output = new URL('{{ output_path|escapejs }}', location.href);
-  output.search = ''; output.hash = '';
+  output.searchParams.delete('preview'); output.searchParams.delete('titlebar'); output.hash = '';
   const folder = new URL('./', output);
   document.getElementById('files').href = folder.href + '?files=1';
   document.getElementById('download').href = output.href;
-  document.getElementById('raw').href = output.href + '?preview=1&raw=1';
+  document.getElementById('raw').href = output.href + (output.search ? '&' : '?') + 'preview=1&raw=1';
 
   const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = String(text); if (cls) node.className = cls; return node; };;
   const content = document.getElementById('content');
