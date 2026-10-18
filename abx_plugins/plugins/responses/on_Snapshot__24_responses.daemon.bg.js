@@ -182,9 +182,16 @@ async function createSymlink(target, linkPath, isIndex = false) {
       if (isIndex) throw error;
       return createSymlink(target, path.join(linkPath, indexName), true);
     }
-    // Replace dangling links too; existsSync follows their missing target.
-    await fs.promises.unlink(linkPath);
-    await fs.promises.symlink(relativePath, linkPath);
+    // Keep the parent nonempty: object-store mounts can forget a directory
+    // between unlink and symlink. Rename also replaces dangling links safely.
+    const temporaryPath = path.join(dir, `.response-${crypto.randomUUID()}`);
+    await fs.promises.symlink(relativePath, temporaryPath);
+    try {
+      await fs.promises.rename(temporaryPath, linkPath);
+    } catch (replacementError) {
+      await fs.promises.unlink(temporaryPath);
+      throw replacementError;
+    }
   }
   return linkPath;
 }

@@ -203,6 +203,7 @@ class TestResponsesWithChrome:
                 assert alias.is_symlink()
                 assert alias.resolve(strict=True) == saved.resolve(strict=True)
                 assert alias.read_bytes() == body
+                assert set(alias.parent.iterdir()) == {alias}
             if previous_exists:
                 assert previous.read_bytes() == b"Previous response must remain intact."
 
