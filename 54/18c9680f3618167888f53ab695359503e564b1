@@ -1,0 +1,25 @@
+abx_plugins/plugins/liteparse/on_Snapshot__68_liteparse.py
+  s_10bc94d001be49::t_f299007530566f 492,503-505,598-600,621,721-724,742,745,797
+  s_10bc94d001be49::t_beb5f73883e007 494,499
+abx_plugins/plugins/liteparse/config.json
+  s_10bc94d001be49::t_f299007530566f 161
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_10bc94d001be49::t_0708b28321afe7 1005,1014-1017,1026,1028-1029,1058,1070,1087,1101,1107-1138
+  s_10bc94d001be49::t_c3f25c0ba931e0 1139-1140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5418c9680f3618167888f53ab695359503e564b1",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
