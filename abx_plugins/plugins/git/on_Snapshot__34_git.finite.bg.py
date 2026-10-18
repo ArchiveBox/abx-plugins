@@ -25,6 +25,7 @@ if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
 
 import os
 import subprocess
+import time
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -101,6 +102,46 @@ def normalize_git_url(url: str) -> str | None:
     return urlunsplit((parsed.scheme, parsed.netloc, f"/{owner}/{repo}", "", ""))
 
 
+def run_git(cmd: list[str | Path], timeout: int, *, capture: bool = False):
+    """Let Git release its own locks before killing its owned process group."""
+    deadline = time.monotonic() + timeout
+    proc = subprocess.Popen(
+        cmd,
+        start_new_session=True,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=subprocess.STDOUT if capture else None,
+        text=True,
+    )
+
+    def signal_group(sig: int) -> None:
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError:
+            pass
+
+    try:
+        # Reserve cleanup time inside the configured command deadline.
+        stdout, _ = proc.communicate(timeout=max(0, deadline - time.monotonic() - 1))
+        return subprocess.CompletedProcess(cmd, proc.returncode, stdout)
+    except subprocess.TimeoutExpired:
+        signal_group(signal.SIGINT)
+        signal_group(signal.SIGCONT)
+        try:
+            proc.communicate(timeout=max(0, deadline - time.monotonic() - 0.25))
+        except subprocess.TimeoutExpired:
+            pass
+        finally:
+            # Also stop helpers if their parent exited without waiting for them.
+            signal_group(signal.SIGKILL)
+        proc.communicate(timeout=max(0, deadline - time.monotonic()))
+        raise subprocess.TimeoutExpired(cmd, timeout) from None
+    finally:
+        if proc.poll() is None:
+            signal_group(signal.SIGKILL)
+        if proc.stdout is not None:
+            proc.stdout.close()
+
+
 def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Clone git repository.
@@ -121,7 +162,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                 (init_cmd, "git init failed"),
                 (add_remote_cmd, "git remote add failed"),
             ):
-                result = subprocess.run(cmd, timeout=timeout)
+                result = run_git(cmd, timeout)
                 if result.returncode != 0:
                     return False, None, f"{error_prefix} (exit={result.returncode})"
 
@@ -171,13 +212,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                 (reset_cmd, "git reset failed"),
                 (submodule_cmd, "git submodule update failed"),
             ):
-                result = subprocess.run(
-                    cmd,
-                    timeout=timeout,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                )
+                result = run_git(cmd, timeout, capture=True)
                 if result.returncode != 0:
                     output = result.stdout or ""
                     if (
