@@ -37,6 +37,7 @@ import sys
 import atexit
 import concurrent.futures
 import hashlib
+import fnmatch
 import os
 import re
 import shutil
@@ -211,101 +212,103 @@ def find_document_sources(
         seen_paths.add(resolved)
         found.append((match, digest))
 
-    for base in (Path.cwd(), Path.cwd().parent):
-        for root in document_roots:
-            for root_dir in base.glob(root):
-                if not root_dir.is_dir():
+    # Only sibling producer directories are inputs. Enumerate the snapshot
+    # once instead of probing absent roots inside this parser's own output.
+    with os.scandir(SNAP_DIR) as entries:
+        root_entries = list(entries)
+    for root in document_roots:
+        for entry in root_entries:
+            if not fnmatch.fnmatchcase(entry.name, root) or not entry.is_dir():
+                continue
+            root_dir = Path(entry.path)
+            for match in root_dir.rglob("*"):
+                suffix = match.suffix.lower()
+                if suffix in SUPPORTED_EXTENSIONS:
+                    consider(match)
+                # Office/HTML exports may contain images even when the
+                # document also has native text. OCR those images once,
+                # deduplicated against the other saved representations.
+                if not (
+                    include_images
+                    and archive_dir
+                    and suffix
+                    in {
+                        ".zip",
+                        ".docx",
+                        ".docm",
+                        ".xlsx",
+                        ".xlsm",
+                        ".pptx",
+                        ".pptm",
+                        ".odt",
+                        ".ods",
+                        ".odp",
+                        ".epub",
+                    }
+                    and stat.S_ISREG(match.stat().st_mode)
+                ):
                     continue
-                for match in root_dir.rglob("*"):
-                    suffix = match.suffix.lower()
-                    if suffix in SUPPORTED_EXTENSIONS:
-                        consider(match)
-                    # Office/HTML exports may contain images even when the
-                    # document also has native text. OCR those images once,
-                    # deduplicated against the other saved representations.
-                    if not (
-                        include_images
-                        and archive_dir
-                        and suffix
-                        in {
-                            ".zip",
-                            ".docx",
-                            ".docm",
-                            ".xlsx",
-                            ".xlsm",
-                            ".pptx",
-                            ".pptm",
-                            ".odt",
-                            ".ods",
-                            ".odp",
-                            ".epub",
-                        }
-                        and stat.S_ISREG(match.stat().st_mode)
-                    ):
-                        continue
-                    resolved = match.resolve()
-                    if resolved in seen_archives:
-                        continue
-                    seen_archives.add(resolved)
-                    try:
-                        with zipfile.ZipFile(match) as archive:
-                            for entry in archive.infolist():
-                                extension = Path(entry.filename).suffix.lower()
-                                if entry.is_dir() or extension not in IMAGE_EXTENSIONS:
-                                    continue
-                                # Bound temporary OCR input expansion; read one
-                                # member at a time without loading its archive.
-                                if (
-                                    entry.file_size > 256 * 1024 * 1024
-                                    or archive_bytes + entry.file_size
-                                    > 1024 * 1024 * 1024
-                                ):
-                                    if not warned_limit:
-                                        print(
-                                            "[liteparse] Skipping embedded images exceeding OCR expansion limits",
-                                            file=sys.stderr,
-                                        )
-                                        warned_limit = True
-                                    continue
-                                identity = hashlib.sha256(
-                                    f"{resolved}\0{entry.header_offset}\0{entry.filename}".encode(),
-                                ).hexdigest()[:16]
-                                image = (
-                                    archive_dir
-                                    / f"{match.stem[:60]}-{identity}{extension}"
-                                )
-                                try:
-                                    with (
-                                        image.open("wb") as target,
-                                        archive.open(entry) as source,
-                                    ):
-                                        shutil.copyfileobj(
-                                            source,
-                                            target,
-                                            length=1024 * 1024,
-                                        )
-                                except (
-                                    zipfile.BadZipFile,
-                                    RuntimeError,
-                                    ValueError,
-                                ) as error:
-                                    image.unlink(missing_ok=True)
+                resolved = match.resolve()
+                if resolved in seen_archives:
+                    continue
+                seen_archives.add(resolved)
+                try:
+                    with zipfile.ZipFile(match) as archive:
+                        for entry in archive.infolist():
+                            extension = Path(entry.filename).suffix.lower()
+                            if entry.is_dir() or extension not in IMAGE_EXTENSIONS:
+                                continue
+                            # Bound temporary OCR input expansion; read one
+                            # member at a time without loading its archive.
+                            if (
+                                entry.file_size > 256 * 1024 * 1024
+                                or archive_bytes + entry.file_size > 1024 * 1024 * 1024
+                            ):
+                                if not warned_limit:
                                     print(
-                                        f"[liteparse] Cannot read embedded image {match.name}/{entry.filename}: {error}",
+                                        "[liteparse] Skipping embedded images exceeding OCR expansion limits",
                                         file=sys.stderr,
                                     )
-                                    continue
-                                archive_bytes += entry.file_size
-                                consider(image)
-                    except (
-                        zipfile.BadZipFile,
-                        RuntimeError,
-                        ValueError,
-                    ) as error:
-                        print(
-                            f"[liteparse] Cannot inspect embedded images in {match.name}: {error}",
-                            file=sys.stderr,
-                        )
+                                    warned_limit = True
+                                continue
+                            identity = hashlib.sha256(
+                                f"{resolved}\0{entry.header_offset}\0{entry.filename}".encode(),
+                            ).hexdigest()[:16]
+                            image = (
+                                archive_dir / f"{match.stem[:60]}-{identity}{extension}"
+                            )
+                            try:
+                                with (
+                                    image.open("wb") as target,
+                                    archive.open(entry) as source,
+                                ):
+                                    shutil.copyfileobj(
+                                        source,
+                                        target,
+                                        length=1024 * 1024,
+                                    )
+                            except (
+                                zipfile.BadZipFile,
+                                RuntimeError,
+                                ValueError,
+                            ) as error:
+                                image.unlink(missing_ok=True)
+                                print(
+                                    f"[liteparse] Cannot read embedded image {match.name}/{entry.filename}: {error}",
+                                    file=sys.stderr,
+                                )
+                                continue
+                            archive_bytes += entry.file_size
+                            consider(image)
+                except (
+                    zipfile.BadZipFile,
+                    RuntimeError,
+                    ValueError,
+                ) as error:
+                    print(
+                        f"[liteparse] Cannot inspect embedded images in {match.name}: {error}",
+                        file=sys.stderr,
+                    )
 
     return found
 

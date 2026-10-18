@@ -29,6 +29,7 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
 
 import sys
 import json
+import fnmatch
 import os
 import signal
 import subprocess
@@ -118,9 +119,15 @@ def find_pdf_sources() -> list[Path]:
     found: list[Path] = []
     seen: set[str] = set()
 
-    for base in (Path.cwd(), Path.cwd().parent):
-        for pattern in search_patterns:
-            for match in base.glob(pattern):
+    # Enumerate sibling producers once; this parser's output is not an input.
+    with os.scandir(SNAP_DIR) as entries:
+        root_entries = list(entries)
+    for pattern in search_patterns:
+        root_pattern, file_pattern = pattern.split("/", 1)
+        for entry in root_entries:
+            if not fnmatch.fnmatchcase(entry.name, root_pattern) or not entry.is_dir():
+                continue
+            for match in Path(entry.path).glob(file_pattern):
                 resolved = str(match.resolve())
                 if resolved in seen:
                     continue

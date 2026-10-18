@@ -547,6 +547,31 @@ def test_multiple_batches_preserve_source_mapping(tmp_path):
         assert (sources / name).read_bytes() == content
 
 
+def test_document_discovery_reads_siblings_not_parser_output(tmp_path):
+    source = tmp_path / "01_responses" / "all" / "document.pdf"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(_download_pdf(PDF_URL_A))
+    # The parser's own output is not an upstream producer, even if a nested
+    # directory happens to have a producer's name.
+    ignored = tmp_path / "liteparse" / "responses" / "document.pdf"
+    ignored.parent.mkdir(parents=True)
+    ignored.symlink_to(ignored.name)
+    try:
+        result = _run_hook(
+            tmp_path,
+            "https://archivebox.io/tests/",
+            {"LITEPARSE_OCR_ENABLED": "false"},
+            install_tesseract=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "succeeded", record
+        assert "Dummy PDF file" in (tmp_path / "liteparse/document.pdf.txt").read_text()
+        assert source.read_bytes() == _download_pdf(PDF_URL_A)
+    finally:
+        ignored.unlink()
+
+
 def test_extract_scanned_pdf_via_ocr():
     """End-to-end OCR on a real scanned PDF (no native text layer).
 

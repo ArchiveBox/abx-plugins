@@ -470,6 +470,39 @@ def test_extract_single_pdf(source_dir, extension, html_response):
         assert metadata["files"][0]["source_file"] == source_name
 
 
+def test_document_discovery_reads_siblings_not_parser_output(tmp_path):
+    source = tmp_path / "01_responses" / "all" / "document.pdf"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(_download_test_pdf())
+    ignored = tmp_path / "opendataloader" / "responses" / "document.pdf"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_bytes(_download_test_pdf())
+    try:
+        result = subprocess.run(
+            [str(OPENDATALOADER_HOOK), "--url", "https://archivebox.io/tests/"],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "SNAP_DIR": str(tmp_path),
+                "OPENDATALOADER_BINARY": require_opendataloader_binary(),
+                "OPENDATALOADER_ENABLED": "true",
+                "JAVA_BINARY": require_java_binary(),
+            },
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "succeeded", record
+        metadata = json.loads((tmp_path / "opendataloader/metadata.json").read_text())
+        assert metadata["sources_processed"] == 1, metadata
+        assert Path(metadata["files"][0]["source_path"]) == source.resolve()
+        assert source.read_bytes() == _download_test_pdf()
+    finally:
+        ignored.unlink()
+
+
 def test_extract_multiple_pdfs():
     """Test that ALL PDFs are processed when multiple exist across plugins.
 
