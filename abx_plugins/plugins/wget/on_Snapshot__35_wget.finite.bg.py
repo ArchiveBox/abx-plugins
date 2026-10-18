@@ -37,6 +37,7 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("wget download started", flush=True)
 
+import json
 import os
 import re
 import subprocess
@@ -101,6 +102,24 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     config = load_config()
     timeout = config.WGET_TIMEOUT
     user_agent = config.WGET_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    # Reuse the saved browser/persona identity instead of sending a different
+    # default bot UA to the same site. Explicit caller identities still win;
+    # standalone wget does not require Chrome or a valid browser metadata file.
+    if user_agent == "Mozilla/5.0 (compatible; ArchiveBox/1.0)":
+        try:
+            metadata = json.loads((SNAP_DIR / "chrome" / "browser.json").read_text())
+            identity = (
+                metadata.get("userAgentOverride")
+                if isinstance(metadata, dict)
+                else None
+            )
+            browser_agent = (
+                identity.get("userAgent") if isinstance(identity, dict) else None
+            )
+            if isinstance(browser_agent, str) and browser_agent:
+                user_agent = browser_agent
+        except (OSError, ValueError):
+            pass
     check_ssl = config.WGET_CHECK_SSL_VALIDITY
     cookies_file = config.WGET_COOKIES_FILE
     wget_args = config.WGET_ARGS

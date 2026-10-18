@@ -58,7 +58,7 @@
       "type": "string",
       "default": "",
       "x-fallback": "USER_AGENT",
-      "description": "User agent string for wget"
+      "description": "User agent string for wget. The default ArchiveBox identity reuses chrome/browser.json userAgentOverride.userAgent when available; custom identities win and absent or malformed browser metadata keeps standalone behavior."
     },
     "WGET_COOKIES_FILE": {
       "type": "string",
