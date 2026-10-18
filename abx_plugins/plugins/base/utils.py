@@ -1054,13 +1054,14 @@ def _is_automatic_user_agent(value: str) -> bool:
 
 
 def resolve_user_agent(config: Mapping[str, Any]) -> str:
-    """Resolve automatic HTTP identity from saved Chrome state, without launching it.
+    """Resolve HTTP identity from saved Chrome state, without launching it.
 
     Snapshot/crawl metadata retains the active persona identity; the shared cache
     contains only Chrome's native identity. A browserless install stays supported.
     """
     configured = str(config.get("USER_AGENT") or "")
-    if not _is_automatic_user_agent(configured):
+    automatic = _is_automatic_user_agent(configured)
+    if not automatic and not re.search(r"(?:Headless)?Chrome/", configured):
         return configured
     paths = [
         Path(str(config[key])).expanduser() / "chrome" / "browser.json"
@@ -1083,17 +1084,29 @@ def resolve_user_agent(config: Mapping[str, Any]) -> str:
                 and value.strip()
                 and not any(char in value for char in "\r\n")
             ):
-                return value
+                if automatic:
+                    return value
+                version = re.search(r"(?:Headless)?Chrome/(\d+)\.", value)
+                if version:
+                    # Match Chrome's reduced-version emulation, retaining the
+                    # configured persona's platform and custom product tokens.
+                    return re.sub(
+                        r"(Chrome|HeadlessChrome)/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?",
+                        rf"\g<1>/{version[1]}.0.0.0",
+                        configured,
+                    )
         except (OSError, ValueError):
             continue
-    return ""
+    return "" if automatic else configured
 
 
 def _hydrate_user_agent(payload: dict[str, Any], properties: Mapping[str, Any]) -> None:
+    original = payload.get("USER_AGENT", "")
     payload["USER_AGENT"] = resolve_user_agent(payload)
     for name, prop in properties.items():
-        if prop.get("x-fallback") == "USER_AGENT" and _is_automatic_user_agent(
-            payload.get(name, ""),
+        if prop.get("x-fallback") == "USER_AGENT" and (
+            payload.get(name, "") == original
+            or _is_automatic_user_agent(payload.get(name, ""))
         ):
             payload[name] = payload["USER_AGENT"]
 

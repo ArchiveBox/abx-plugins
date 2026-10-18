@@ -233,9 +233,24 @@ function isAutomaticUserAgent(value) {
   return automaticUserAgents.has(value || "") || /^Mozilla\/5\.0 \(Macintosh; Intel Mac OS X 10_15_7\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/131\.0\.0\.0 Safari\/537\.36 ArchiveBox\/[0-9A-Za-z.+-]+ \(\+https:\/\/github\.com\/ArchiveBox\/ArchiveBox\/\)$/.test(value);
 }
 
+function parseChromiumUserAgentVersion(output) {
+  const version = String(output || "").match(/(\d+)\.\d+\.\d+(?:\.\d+)?/);
+  return version ? `${version[1]}.0.0.0` : "";
+}
+
+function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
+  const version = parseChromiumUserAgentVersion(browserVersionOutput);
+  if (!version) return userAgent || "";
+  return String(userAgent || "").replace(
+    /(Chrome|HeadlessChrome)\/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?/g,
+    `$1/${version}`
+  );
+}
+
 function resolveUserAgent(config) {
   const configured = config.USER_AGENT || "";
-  if (!isAutomaticUserAgent(configured)) return configured;
+  const automatic = isAutomaticUserAgent(configured);
+  if (!automatic && !/(?:Headless)?Chrome\//.test(configured)) return configured;
   const paths = ["SNAP_DIR", "CRAWL_DIR"]
     .filter(key => config[key])
     .map(key => path.join(config[key], "chrome", "browser.json"));
@@ -244,16 +259,21 @@ function resolveUserAgent(config) {
     try {
       const metadata = JSON.parse(fs.readFileSync(filename, "utf8"));
       const value = (metadata?.userAgentOverride || metadata)?.userAgent;
-      if (typeof value === "string" && value.trim() && !/[\r\n]/.test(value)) return value;
+      if (typeof value === "string" && value.trim() && !/[\r\n]/.test(value)) {
+        if (automatic) return value;
+        const version = value.match(/(?:Headless)?Chrome\/\d+\.\d+\.\d+(?:\.\d+)?/);
+        if (version) return replaceChromeUserAgentVersion(configured, version[0]);
+      }
     } catch { /* Optional metadata may be absent or malformed. */ }
   }
-  return "";
+  return automatic ? "" : configured;
 }
 
 function hydrateUserAgent(config, properties) {
+  const original = config.USER_AGENT;
   config.USER_AGENT = resolveUserAgent(config);
   for (const [name, prop] of Object.entries(properties)) {
-    if (prop["x-fallback"] === "USER_AGENT" && isAutomaticUserAgent(config[name])) {
+    if (prop["x-fallback"] === "USER_AGENT" && (config[name] === original || isAutomaticUserAgent(config[name]))) {
       config[name] = config.USER_AGENT;
     }
   }
@@ -776,6 +796,8 @@ function iterStaticfileTextInputs(snapDir = null) {
 module.exports = {
   PROCESS_EXIT_SKIPPED,
   isAutomaticUserAgent,
+  parseChromiumUserAgentVersion,
+  replaceChromeUserAgentVersion,
   getConfig,
   loadConfig,
   getEnv,

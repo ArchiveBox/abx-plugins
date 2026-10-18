@@ -39,6 +39,9 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
     # Resolve in ordinary hook code after the actual browser has closed.
     env.pop("USER_AGENT", None)
     env.pop("WGET_USER_AGENT", None)
+    version_match = re.search(r"Chrome/([\d.]+)", expected)
+    assert version_match
+    current_version = version_match[1]
     cases = (
         ({}, expected, expected),
         (
@@ -50,8 +53,8 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
         ),
         (
             {"USER_AGENT": "Mozilla/5.0 Chrome/131.0.0.0 Custom/1.0"},
-            "Mozilla/5.0 Chrome/131.0.0.0 Custom/1.0",
-            "Mozilla/5.0 Chrome/131.0.0.0 Custom/1.0",
+            f"Mozilla/5.0 Chrome/{current_version} Custom/1.0",
+            f"Mozilla/5.0 Chrome/{current_version} Custom/1.0",
         ),
         (
             {"USER_AGENT": "ExplicitGlobal/1.0"},
@@ -235,3 +238,57 @@ def test_browserless_fetch_omits_empty_user_agent(tmp_path, httpserver):
     )
     assert len(httpserver.log) == 1
     assert httpserver.log[0][0].headers["User-Agent"].startswith("Python-urllib/")
+
+
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+def test_frozen_persona_chrome_version_matches_browser_and_http(tmp_path, httpserver):
+    frozen = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+    httpserver.expect_request("/").respond_with_data(
+        "<h1>Frozen identity</h1>",
+        content_type="text/html",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    with chrome_session(
+        tmp_path,
+        test_url=httpserver.url_for("/"),
+        env_overrides={
+            "USER_AGENT": frozen,
+            "CHROME_USER_AGENT": frozen,
+            "WGET_USER_AGENT": frozen,
+        },
+    ) as (_process, _pid, chrome, env):
+        actual = json.loads((chrome / "browser.json").read_text())["userAgentOverride"][
+            "userAgent"
+        ]
+        assert re.sub(r"Chrome/[\d.]+", "Chrome/VERSION", actual) == re.sub(
+            r"Chrome/[\d.]+",
+            "Chrome/VERSION",
+            frozen,
+        )
+        assert httpserver.log[0][0].headers["User-Agent"] == actual
+        assert_loaders(env, tmp_path, [actual, actual])
+        assert_loaders(
+            {**env, "WGET_USER_AGENT": "ExplicitWget/1.0"},
+            tmp_path,
+            [actual, "ExplicitWget/1.0"],
+        )
+    # Saved browser identity remains usable after Chrome exits.
+    httpserver.expect_request(
+        "/source",
+        headers={"User-Agent": actual},
+    ).respond_with_data("frozen persona source", content_type="text/html")
+    config = load_config(
+        PLUGINS / "base/config.json",
+        environ=env,
+        hydrate_binaries=False,
+    )
+    assert (
+        read_snapshot_source_text(
+            httpserver.url_for("/source"),
+            snap_dir=tmp_path / "source",
+            timeout=5,
+            user_agent=config.USER_AGENT,
+        )
+        == "frozen persona source"
+    )
+    assert resolve_user_agent({"USER_AGENT": frozen}) == frozen

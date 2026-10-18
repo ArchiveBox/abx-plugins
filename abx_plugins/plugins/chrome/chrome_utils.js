@@ -30,6 +30,8 @@ const {
   writeFileAtomic,
   loadConfig,
   isAutomaticUserAgent,
+  parseChromiumUserAgentVersion,
+  replaceChromeUserAgentVersion,
 } = require("../base/utils.js");
 
 ensureNodeModuleResolution(module);
@@ -181,20 +183,6 @@ function parseChromiumVersion(output) {
   const match = String(output || "").match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?/);
   if (!match) return null;
   return match.slice(1, 5).map((part) => parseInt(part || "0", 10));
-}
-
-function parseChromiumUserAgentVersion(output) {
-  const version = parseChromiumVersion(output);
-  return version ? `${version[0]}.0.0.0` : "";
-}
-
-function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
-  const version = parseChromiumUserAgentVersion(browserVersionOutput);
-  if (!version) return userAgent || "";
-  return String(userAgent || "").replace(
-    /(Chrome|HeadlessChrome)\/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?/g,
-    `$1/${version}`
-  );
 }
 
 function configuredChromeUserAgent(userAgent, version = "") {
