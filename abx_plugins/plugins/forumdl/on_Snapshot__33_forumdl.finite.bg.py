@@ -99,6 +99,8 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     cmd = [
         binary,
+        # Share Chrome identity while leaving native user arguments in control.
+        *(["--user-agent", config.USER_AGENT] if config.USER_AGENT else []),
         *forumdl_args,
         "-f",
         output_format,

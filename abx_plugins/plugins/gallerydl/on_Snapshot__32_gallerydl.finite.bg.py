@@ -97,6 +97,8 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     # explicit configured arguments below may override this default policy.
     cmd = [
         binary,
+        # Share Chrome identity while leaving native user arguments in control.
+        *(["--user-agent", config.USER_AGENT] if config.USER_AGENT else []),
         "--option",
         'actions={"info:^Waiting .+ [(]rate limit[)]$":"exit 1"}',
         *gallerydl_args,
