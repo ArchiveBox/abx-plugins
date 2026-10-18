@@ -470,13 +470,12 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
             if tab["target_id"] == target
         )["available"]
         assert len(timings["frame_age_ms"]) >= 10
-        for key in ("list_ms", "select_ms", "stream_first_byte_ms"):
-            assert max(timings[key]) < 100, (key, timings[key])
         report = {
             "metrics": metrics,
             "timings": {
                 key: {
                     "count": len(values),
+                    "samples": values,
                     "median": round(statistics.median(values), 2),
                     "p95": round(sorted(values)[int((len(values) - 1) * 0.95)], 2),
                     "max": round(max(values), 2),
@@ -486,7 +485,10 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
             "screenshot": str(screenshot),
         }
         (tmp_path / "preview-cost.json").write_text(json.dumps(report, indent=2))
+        # Keep the real measurements even when a strict cost assertion fails.
         print("PREVIEW_COST=" + json.dumps(report))
+        for key in ("list_ms", "select_ms", "stream_first_byte_ms"):
+            assert max(timings[key]) < 100, (key, timings[key])
     finally:
         stream_stop.set()
         if stream_response is not None:
