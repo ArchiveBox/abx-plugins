@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome_mhtml/on_Snapshot__54_chrome_mhtml.js
+  s_10bc94d001be49::t_23b3db76508d34 72-73,76,83,90,99,109,113,115
+abx_plugins/plugins/chrome_mhtml/tests/test_chrome_mhtml.py
+  s_10bc94d001be49::t_148e2148cdec2e 217-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9290e4da8c8e7c7d3e526d7e10353b818d8893a7",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
