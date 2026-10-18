@@ -353,6 +353,22 @@ def test_real_public_paper_download():
             f"Downloaded paper file is empty: {output_path}"
         )
 
+        # A resumed capture overwrites its own files. The second successful
+        # download must remain visible instead of being reported as noresults.
+        original_bytes = output_path.read_bytes()
+        repeated = subprocess.run(
+            [str(PAPERSDL_HOOK), "--url", paper_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=180,
+        )
+        assert repeated.returncode == 0, repeated.stdout + repeated.stderr
+        assert parse_jsonl_output(repeated.stdout) == result_json
+        assert list(papersdl_dir.glob("*.pdf")) == [output_path]
+        assert output_path.read_bytes() == original_bytes
+
 
 def test_fetches_non_ascii_article_url(tmp_path, httpserver):
     """A page URL like /über must be fetched, not crash http.client's ASCII encode."""

@@ -240,19 +240,21 @@ def find_paper_identifiers(url: str, binary: str, deadline: float) -> list[str]:
     return list(identifiers.values())
 
 
-def new_pdf_files(output_dir: Path, files_before: set[Path]) -> list[Path]:
-    """Find new PDF files; their presence alone does not prove a complete download."""
-    return sorted(
-        (
-            path
-            for path in output_dir.iterdir()
-            if path.is_file()
-            and path.suffix.lower() == ".pdf"
-            and path.stat().st_size > 0
-            and path.resolve() not in files_before
-        ),
-        key=lambda path: path.name,
-    )
+def pdf_file_versions(output_dir: Path) -> dict[Path, tuple[int, int]]:
+    """Record PDF writes, including replacements of a previous capture's files.
+
+    Scandir reuses directory-entry metadata and avoids repeatedly resolving
+    every archived path through a potentially remote filesystem.
+    """
+    versions = {}
+    with os.scandir(output_dir) as entries:
+        for entry in entries:
+            if not entry.name.lower().endswith(".pdf") or not entry.is_file():
+                continue
+            info = entry.stat()
+            if info.st_size:
+                versions[Path(entry.path)] = (info.st_mtime_ns, info.st_size)
+    return versions
 
 
 def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int, str]:
@@ -268,7 +270,7 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    files_before = {path.resolve() for path in output_dir.iterdir() if path.is_file()}
+    files_before = pdf_file_versions(output_dir)
 
     # Build command - papers-dl <args> <identifier> -o <output_dir>
     cmd = [binary, *papersdl_args, identifier, "-o", str(output_dir)]
@@ -312,7 +314,11 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
 
         reader.join(timeout=1)
         combined_output = "".join(output_lines)
-        downloaded_files = new_pdf_files(output_dir, files_before)
+        downloaded_files = [
+            path
+            for path, version in pdf_file_versions(output_dir).items()
+            if files_before.get(path) != version
+        ]
 
         if downloaded_files:
             if process.returncode:
