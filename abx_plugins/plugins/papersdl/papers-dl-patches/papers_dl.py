@@ -4,6 +4,7 @@ import os
 import sys
 
 import aiohttp
+import fitz
 from loguru import logger
 from fetch import fetch
 from parse.parse import format_output, id_patterns, parse_file, parse_ids_from_text
@@ -30,6 +31,22 @@ async def fetch_paper(args) -> str:
 
     path = os.path.join(out, fetch.generate_name(pdf_content))
     fetch.save(pdf_content, path)
+    requested_dois = {
+        match["id"].casefold() for match in parse_ids_from_text(id, ["doi"])
+    }
+    if len(requested_dois) == 1:
+        # Provider locations can point to a correction or another paper. Use
+        # document metadata, not body citations which may mention the query DOI.
+        with fitz.open(stream=pdf_content, filetype="pdf") as document:
+            subject = (document.metadata or {}).get("subject", "")
+        declared_dois = {
+            match["id"].casefold() for match in parse_ids_from_text(subject, ["doi"])
+        }
+        if len(declared_dois) == 1 and declared_dois != requested_dois:
+            raise ValueError(
+                f"PDF declares DOI {next(iter(declared_dois))}, requested {next(iter(requested_dois))}; "
+                f"download preserved at {path}"
+            )
     new_path = fetch.rename(out, path, identifier=id)
     return f"Successfully downloaded paper from {url}.\n Saved to {new_path}"
 

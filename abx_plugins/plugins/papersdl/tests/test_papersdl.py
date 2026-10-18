@@ -11,6 +11,7 @@ Tests verify:
 7. Handles non-paper URLs gracefully
 """
 
+import hashlib
 import json
 import os
 import subprocess
@@ -368,6 +369,57 @@ def test_real_public_paper_download():
         assert parse_jsonl_output(repeated.stdout) == result_json
         assert list(papersdl_dir.glob("*.pdf")) == [output_path]
         assert output_path.read_bytes() == original_bytes
+
+
+@pytest.mark.parametrize("requested_suffix", ["", "e"])
+def test_download_checks_pdf_declared_doi(tmp_path, httpserver, requested_suffix):
+    """A real corrigendum cites the original DOI but is a different document."""
+    original_doi = "10.1051/0004-6361/201833910"
+    declared_doi = original_doi + "e"
+    with urlopen(
+        "https://archimer.ifremer.fr/doc/00654/76633/88063.pdf",
+        timeout=30,
+    ) as response:
+        pdf_bytes = response.read()
+    assert pdf_bytes.startswith(b"%PDF-")
+    requested_doi = original_doi + requested_suffix
+    httpserver.expect_request("/" + requested_doi).respond_with_data(
+        '<html><head><meta name="citation_pdf_url" content="/paper.pdf"></head></html>',
+        content_type="text/html",
+    )
+    httpserver.expect_request("/paper.pdf").respond_with_data(
+        pdf_bytes,
+        content_type="application/pdf",
+    )
+    result = subprocess.run(
+        [
+            require_papersdl_binary(),
+            "fetch",
+            httpserver.url_for("/" + requested_doi),
+            "--providers",
+            "publisher",
+            "--output",
+            str(tmp_path),
+        ],
+        env={**os.environ, "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches")},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    pdfs = list(tmp_path.glob("*.pdf"))
+    assert len(pdfs) == 1, result.stdout + result.stderr
+    assert pdfs[0].read_bytes() == pdf_bytes
+    if requested_suffix:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Successfully downloaded paper" in result.stdout
+    else:
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert "Successfully downloaded paper" not in result.stdout
+        assert (
+            f"PDF declares DOI {declared_doi}, requested {original_doi}"
+            in result.stderr
+        )
+        assert pdfs[0].stem == hashlib.md5(pdf_bytes).hexdigest()
 
 
 def test_fetches_non_ascii_article_url(tmp_path, httpserver):

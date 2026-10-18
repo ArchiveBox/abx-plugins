@@ -2,8 +2,9 @@
 
 Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
-License: MIT; see LICENSE. These Python files are copied unchanged from the
-canonical papers-dl source at `668760286b1bf29befc349f3ba8bf2ba38fb700e`.
+License: MIT; see LICENSE. These Python files are based on the canonical
+papers-dl source at `668760286b1bf29befc349f3ba8bf2ba38fb700e`, with the local
+PDF identity validation described below.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
 PYTHONPATH. It replaces its CLI entrypoint and parser/fetch/provider modules
@@ -40,6 +41,12 @@ are replaced so paper titles remain filenames inside the output directory.
 Known DOI queries reuse identifier metadata when naming the downloaded paper,
 avoiding repeated PDF extraction and Google searches. Queries without usable DOI
 metadata retain the existing PDF title discovery.
+
+Before naming a PDF, a single DOI declared in its Subject metadata must agree
+with a single requested DOI. Conflicting documents (such as a corrigendum offered
+for the original paper) fail while retaining the unchanged, content-named PDF.
+Absent or ambiguous metadata is not proof of a mismatch; body citations are not
+used as document identity.
 
 Long title filenames are limited to 255 UTF-8 bytes including the PDF extension,
 with a title hash distinguishing truncated prefixes. PDF bytes remain unchanged.
