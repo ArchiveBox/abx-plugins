@@ -1,0 +1,22 @@
+tests/test_wheel_namespace.py
+  s_10bc94d001be49::t_338bf10b58ed93 3,23-25,29-40
+  s_10bc94d001be49::t_cee2ca50c90b11 1-2,4-22,26-28
+pyproject.toml
+  s_10bc94d001be49::t_00785c4b84eaf9 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "677cbae4158574599fecbffc3795103af512c7b0",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
