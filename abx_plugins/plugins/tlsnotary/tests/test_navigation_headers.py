@@ -237,6 +237,73 @@ def test_real_gateway_enforces_session_limit_and_releases_capacity(verifier, req
         connections.close()
 
 
+def test_real_gateway_retains_upstream_verification_timeout(verifier):
+    """The pinned verifier's own timeout must remain observable after socket close."""
+    from websockets.sync.client import connect
+
+    url = verifier["TLSNOTARY_VERIFIER_URL"]
+    websocket_url = url.replace("http://", "ws://", 1)
+    receipt_id = uuid.uuid4().hex + uuid.uuid4().hex
+    with connect(websocket_url + "/session", open_timeout=5) as control:
+        control.send(
+            json.dumps(
+                {
+                    "type": "register",
+                    "maxRecvData": 16384,
+                    "maxSentData": 4096,
+                    "sessionData": {"receiptId": receipt_id, "mode": "Mpc"},
+                },
+            ),
+        )
+        registered = json.loads(control.recv(timeout=5))
+        assert registered["type"] == "session_registered"
+        control.send(
+            json.dumps(
+                {
+                    "type": "reveal_config",
+                    "sent": [],
+                    "recv": [
+                        {
+                            "start": 0,
+                            "end": 9,
+                            "handler": {
+                                "type": "RECV",
+                                "part": "ALL",
+                                "action": {"kind": "HASH", "algorithm": "SHA256"},
+                            },
+                        },
+                        {
+                            "start": 0,
+                            "end": 9,
+                            "handler": {
+                                "type": "RECV",
+                                "part": "PROTOCOL",
+                                "action": {"kind": "REVEAL"},
+                            },
+                        },
+                    ],
+                },
+            ),
+        )
+        # A real idle prover connection exercises the upstream 120s timeout;
+        # no substitute verifier, injected error frame, or altered deadline.
+        with connect(
+            websocket_url + "/verifier?sessionId=" + registered["sessionId"],
+            open_timeout=5,
+        ):
+            failure = json.loads(control.recv(timeout=125))
+            assert failure == {
+                "type": "error",
+                "message": "Verification timed out after 120s",
+            }
+        with pytest.raises(urllib.error.HTTPError) as terminal:
+            urllib.request.urlopen(f"{url}/receipts/{receipt_id}", timeout=2)
+        assert terminal.value.code == 502
+        assert json.load(terminal.value) == {
+            "error": "TLSNotary verifier rejected this proof.",
+        }
+
+
 def test_real_gateway_refuses_proof_when_host_memory_reserve_is_unavailable(tmp_path):
     """Run the real gateway admission test with its locked npm dependencies."""
 

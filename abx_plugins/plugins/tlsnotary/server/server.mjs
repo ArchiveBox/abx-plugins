@@ -93,7 +93,7 @@ const app = http.createServer((req, res) => {
       receipts.delete(id);
       return json(res, 404, { error: "Receipt not ready" });
     }
-    if (result.error) return json(res, 503, { error: result.error });
+    if (result.error) return json(res, result.status || 503, { error: result.error });
     return json(res, 200, result);
   }
   const files = {
@@ -314,6 +314,16 @@ app.on("upgrade", async (req, socket, head) => {
               if (m.type === "session_registered") {
                 session.id = m.sessionId;
                 byId.set(m.sessionId, session);
+              } else if (m.type === "error" && typeof m.message === "string" &&
+                session.receiptId && !receipts.has(session.receiptId)) {
+                // The SDK can remain pending after a typed upstream rejection.
+                // Preserve that failure, not ordinary successful socket closure.
+                if (receipts.size >= 1000) receipts.delete(receipts.keys().next().value);
+                receipts.set(session.receiptId, {
+                  error: "TLSNotary verifier rejected this proof.",
+                  status: 502,
+                  expiresAt: Date.now() + 3600000,
+                });
               }
             } catch {
               session.close("invalid control response");

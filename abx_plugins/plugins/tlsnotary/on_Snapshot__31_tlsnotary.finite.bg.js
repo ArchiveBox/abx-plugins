@@ -37,7 +37,7 @@ let stopped = false;
 let deadlineExceeded = false;
 let cleanupPromise;
 let terminalRecordEmitted = false;
-let memoryMonitor, verifierMonitor, resourceFailure;
+let memoryMonitor, verifierMonitor, resourceFailure, verifierFailure;
 const GIB = 1024 ** 3;
 const hookStartedAt = Date.now();
 let phaseStartedAt = hookStartedAt;
@@ -376,6 +376,14 @@ async function capture() {
       const response = await fetch(verifierUrl + "/receipts/" + receiptId, {
         signal: AbortSignal.timeout(3000),
       });
+      if (response.status === 502) {
+        const failure = await response.json();
+        if (failure.error === "TLSNotary verifier rejected this proof.") {
+          verifierFailure = failure.error;
+          stopped = true;
+          await cleanup();
+        }
+      }
       if (response.status === 503) {
         const failure = await response.json();
         // Only documented service/resource failures qualify as absence. An
@@ -577,8 +585,8 @@ async function capture() {
   } catch (error) {
     const expectedMessage = expectedAbsenceMessage(error);
     const expectedAbsence = expectedMessage !== null;
-    const message = expectedMessage || "TLSNotary extension capture failed; see hook log";
-    console.error(`[tlsnotary] ${expectedAbsence ? "WARNING: " + message : error.message}`);
+    const message = expectedMessage || verifierFailure || "TLSNotary extension capture failed; see hook log";
+    console.error(`[tlsnotary] ${expectedAbsence ? "WARNING: " + message : verifierFailure || error.message}`);
     if (!expectedAbsence && caller) {
       console.error(`[tlsnotary] caller state ${JSON.stringify({
         closed: caller.isClosed(),
