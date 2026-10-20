@@ -12,6 +12,9 @@ Tests verify:
 
 import json
 import subprocess
+import threading
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -42,6 +45,29 @@ SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 TEST_URL = "https://archivebox.io/tests/"
+
+
+@pytest.fixture
+def test_url(request):
+    if request.param:
+        yield request.param
+        return
+    # The loaded-document contract must not depend on GitHub Pages serving its
+    # test page instead of an outage page. Serve those exact static bytes locally.
+    with ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        partial(
+            SimpleHTTPRequestHandler,
+            directory=str(Path(__file__).parent / "fixtures"),
+        ),
+    ) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield f"http://127.0.0.1:{server.server_port}/archivebox-test-page.html"
+        finally:
+            server.shutdown()
+            thread.join()
 
 
 def test_snapshot_hook_exists():
@@ -102,9 +128,10 @@ def test_verify_deps_with_abxpkg(tmp_path, singlefile_install_state):
 @pytest.mark.parametrize(
     ("test_url", "expected_text"),
     [
-        (TEST_URL, "ArchiveBox Test Page"),
+        (None, "ArchiveBox Test Page"),
         ("https://docs.sweeting.me/s/cookie-dilemma", "Scraping-With-Cookies"),
     ],
+    indirect=["test_url"],
 )
 def test_singlefile_cli_archives_loaded_page(
     tmp_path,
