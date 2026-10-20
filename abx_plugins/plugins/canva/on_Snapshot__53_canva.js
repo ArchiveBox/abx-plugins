@@ -92,9 +92,9 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
-    const reportControls = async (frame, selector) => {
+    const reportControls = async (frame, selector, target = null) => {
       try {
-        const state = await frame.evaluate((selector) => {
+        const state = await frame.evaluate((selector, target) => {
           const control = document.querySelector(
             '[role="combobox"][aria-label="File type"]',
           );
@@ -102,6 +102,22 @@ async function main() {
             selectedFormat: control?.innerText.slice(0, 100),
             expanded: control?.getAttribute("aria-expanded"),
             viewport: { width: innerWidth, height: innerHeight },
+            documentSize: {
+              width: document.documentElement.clientWidth,
+              height: document.documentElement.clientHeight,
+            },
+            // Re-querying can hide a replaced control; retain the failed handle.
+            target: target && {
+              connected: target.isConnected,
+              tag: target.tagName,
+              current: target === control,
+              rects: [...target.getClientRects()].map((rect) => ({
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+              })),
+            },
             controls: [...document.querySelectorAll(selector)]
               .slice(0, 20)
               .map((el) => {
@@ -122,7 +138,7 @@ async function main() {
                 };
               }),
           };
-        }, selector);
+        }, selector, target);
         console.error("Canva export controls:", JSON.stringify(state));
       } catch (error) {
         console.error("Canva menu diagnostics unavailable:", error.message);
@@ -219,7 +235,7 @@ async function main() {
         const { x, y } = await element.clickablePoint();
         await page.mouse.click(x, y);
       } catch (error) {
-        await reportControls(frame, selector);
+        await reportControls(frame, selector, element);
         throw new Error(`Canva export click failed: ${role} ${name}: ${error.message}`);
       } finally {
         await handle.dispose();
