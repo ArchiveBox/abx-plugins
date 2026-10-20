@@ -133,6 +133,7 @@ print(json.dumps(result))
     timings = {
         "list_ms": [],
         "select_ms": [],
+        "select_send_to_headers_ms": [],
         "stream_first_byte_ms": [],
         "frame_age_ms": [],
     }
@@ -310,6 +311,13 @@ for(const endpoint of JSON.parse(process.argv[2])) {
         target = targets[0]["id"]
         measure("closed")
         measure("inventory_only")
+        select_resources = [
+            {
+                "phase": "before",
+                "loadavg": psutil.getloadavg(),
+                "cpu": psutil.cpu_times()._asdict(),
+            },
+        ]
         for _ in range(10):
             start = time.perf_counter()
             response = session.post(
@@ -318,7 +326,17 @@ for(const endpoint of JSON.parse(process.argv[2])) {
                 timeout=5,
             )
             timings["select_ms"].append(1000 * (time.perf_counter() - start))
+            timings["select_send_to_headers_ms"].append(
+                1000 * response.elapsed.total_seconds(),
+            )
             assert response.status_code == 200, response.text
+        select_resources.append(
+            {
+                "phase": "after",
+                "loadavg": psutil.getloadavg(),
+                "cpu": psutil.cpu_times()._asdict(),
+            },
+        )
 
         def read_stream():
             nonlocal stream_response
@@ -472,6 +490,7 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
         assert len(timings["frame_age_ms"]) >= 10
         report = {
             "metrics": metrics,
+            "select_resources": select_resources,
             "timings": {
                 key: {
                     "count": len(values),
@@ -484,7 +503,8 @@ const assert=require('node:assert/strict'),utils=require(process.argv[1]);
             },
             "screenshot": str(screenshot),
         }
-        (tmp_path / "preview-cost.json").write_text(json.dumps(report, indent=2))
+        # CI retains *.log; xdist does not reliably forward this test's stdout.
+        (tmp_path / "preview-cost.log").write_text(json.dumps(report, indent=2))
         # Keep the real measurements even when a strict cost assertion fails.
         print("PREVIEW_COST=" + json.dumps(report))
         for key in ("list_ms", "select_ms", "stream_first_byte_ms"):
