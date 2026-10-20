@@ -314,6 +314,7 @@ def test_real_public_paper_download():
         env = os.environ.copy()
         env["PAPERSDL_BINARY"] = binary_path
         env["PAPERSDL_TIMEOUT"] = "120"
+        env["PAPERSDL_ARGS"] = '["--verbose", "fetch"]'
         env["PAPERSDL_ARGS_EXTRA"] = '["--providers", "arxiv"]'
         env["SNAP_DIR"] = str(tmpdir)
 
@@ -334,6 +335,7 @@ def test_real_public_paper_download():
             f"Paper download should succeed: stdout={result.stdout} stderr={result.stderr}"
         )
 
+        assert "Finding paper title" in result.stderr, result.stderr
         result_json = parse_jsonl_output(result.stdout)
         assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
         assert result_json["type"] == "ArchiveResult", result_json
@@ -502,11 +504,13 @@ def test_download_paper_linked_from_article(tmp_path, saved_html):
             **os.environ,
             "PAPERSDL_BINARY": require_papersdl_binary(),
             "PAPERSDL_TIMEOUT": "120",
+            "PAPERSDL_ARGS": '["--verbose", "fetch"]',
             "SNAP_DIR": str(tmp_path),
         },
         timeout=180,
     )
     assert result.returncode == 0, result.stderr
+    assert "Finding paper title" in result.stderr, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout + result.stderr
     pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
@@ -540,11 +544,13 @@ def test_download_linked_and_inline_citations(tmp_path):
             **os.environ,
             "PAPERSDL_BINARY": require_papersdl_binary(),
             "PAPERSDL_TIMEOUT": "120",
+            "PAPERSDL_ARGS": '["--verbose", "fetch"]',
             "SNAP_DIR": str(tmp_path),
         },
         timeout=180,
     )
     assert result.returncode == 0, result.stderr
+    assert "Finding paper title" in result.stderr, result.stderr
     assert parse_jsonl_output(result.stdout) == {
         "type": "ArchiveResult",
         "status": "succeeded",
