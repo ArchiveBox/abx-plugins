@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Mercury",
-  "description": "Extract article HTML, text, and metadata using the Postlight Mercury parser.",
+  "description": "Extract article HTML, text, and metadata using the maintained Mercury parser.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["dom"],
@@ -9,18 +9,14 @@
     {
       "name": "{MERCURY_BINARY}",
       "binproviders": "env,npm",
-      "min_version": null,
+      "min_version": "3.1.1",
       "overrides": {
-        "env": {
-          "version": "2.2.3"
-        },
         "npm": {
           "install_root": "{ABXPKG_LIB_DIR}/npm/packages/mercury",
           "install_args": [
-            "@postlight/parser@2.2.3"
+            "@jocmp/mercury-parser@3.1.1"
           ],
-          "postinstall_scripts": true,
-          "version": "2.2.3"
+          "postinstall_scripts": true
         }
       }
     }
@@ -42,8 +38,8 @@
     },
     "MERCURY_BINARY": {
       "type": "string",
-      "default": "postlight-parser",
-      "description": "Path to Mercury/Postlight parser binary"
+      "default": "mercury-parser",
+      "description": "Path to the Mercury parser binary"
     },
     "MERCURY_TIMEOUT": {
       "type": "integer",

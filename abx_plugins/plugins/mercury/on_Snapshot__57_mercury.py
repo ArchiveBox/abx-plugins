@@ -35,7 +35,7 @@ from abx_plugins.plugins.base.utils import (
 
 # Extractor metadata
 PLUGIN_NAME = "mercury"
-BIN_NAME = "postlight-parser"
+BIN_NAME = "mercury-parser"
 BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 HTML_FILE = "content.html"
@@ -240,8 +240,8 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
                 timeout=timeout,
                 text=True,
             )
-        # Postlight 2.2.3 can parse the requested page, then crash when a
-        # linked page fails to load: _collectAllPages calls $.html() on the
+        # Mercury can parse the requested page, then crash when a
+        # linked page fails to load: collectAllPages calls $.html() on the
         # error object. Keep the requested page using its official API. A
         # configured CLI invocation keeps its own arguments and failure.
         if (
@@ -249,7 +249,13 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
             and not mercury_args
             and not mercury_args_extra
             and "TypeError: $.html is not a function" in result_html.stderr
-            and "dist/mercury.js:8012:" in result_html.stderr
+            and (
+                "dist/mercury.js:8012:" in result_html.stderr
+                or re.search(
+                    r"at collectAllPages \([^\n]+/dist/mercury\.js:\d+:\d+\)",
+                    result_html.stderr,
+                )
+            )
         ):
             parser_module = Path(binary).resolve().parent / "dist" / "mercury.js"
             node = shutil.which("node")
@@ -287,16 +293,16 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
             sys.stderr.write(result_html.stderr)
             sys.stderr.flush()
         if result_html.returncode != 0:
-            return "failed", f"postlight-parser failed (exit={result_html.returncode})"
+            return "failed", f"mercury-parser failed (exit={result_html.returncode})"
 
         try:
             html_json = json.loads(result_html.stdout)
         except json.JSONDecodeError:
-            return "failed", "postlight-parser returned invalid JSON"
+            return "failed", "mercury-parser returned invalid JSON"
 
         if html_json.get("error"):
             return "failed", str(
-                html_json.get("message") or "postlight-parser returned an error",
+                html_json.get("message") or "mercury-parser returned an error",
             )
         if html_json.get("failed"):
             return "noresults", "Mercury was not able to extract article"

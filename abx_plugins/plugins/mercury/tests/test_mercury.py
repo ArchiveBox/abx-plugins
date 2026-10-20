@@ -13,6 +13,7 @@ Tests verify:
 
 import json
 import gzip
+import lzma
 import os
 import re
 import subprocess
@@ -43,25 +44,25 @@ _mercury_binary_path = None
 
 
 def require_mercury_binary() -> str:
-    """Return postlight-parser binary path or fail with actionable context."""
+    """Return mercury-parser binary path or fail with actionable context."""
     binary_path = get_mercury_binary_path()
     assert binary_path, (
-        "postlight-parser dependency resolution failed. required_binaries should resolve "
+        "mercury-parser dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), (
-        f"postlight-parser binary path invalid: {binary_path}"
+        f"mercury-parser binary path invalid: {binary_path}"
     )
     return binary_path
 
 
 def get_mercury_binary_path() -> str | None:
-    """Get postlight-parser binary path, installing via abxpkg if needed."""
+    """Get mercury-parser binary path, installing via abxpkg if needed."""
     global _mercury_binary_path
     if _mercury_binary_path and Path(_mercury_binary_path).is_file():
         return _mercury_binary_path
 
-    binary = install_required_binary_from_config(PLUGIN_DIR, "postlight-parser")
+    binary = install_required_binary_from_config(PLUGIN_DIR, "mercury-parser")
     if binary and binary.abspath:
         _mercury_binary_path = str(binary.abspath)
         return _mercury_binary_path
@@ -75,15 +76,20 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abxpkg():
-    """Verify postlight-parser resolves through the real dependency preflight."""
+    """Verify mercury-parser resolves through the real dependency preflight."""
     binary_path = require_mercury_binary()
+    package = json.loads(
+        (Path(binary_path).resolve().parent / "package.json").read_text(),
+    )
+    assert package["name"] == "@jocmp/mercury-parser", package
+    assert package["version"] == "3.1.1", package
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"
     )
 
 
 def test_extracts_with_mercury_parser(httpserver, tmp_path):
-    """Test full workflow: extract with postlight-parser from local fixture HTML."""
+    """Test full workflow: extract with mercury-parser from local fixture HTML."""
     binary_path = require_mercury_binary()
     test_url = httpserver.url_for("/mercury-article")
 
@@ -259,7 +265,7 @@ def test_mercury_handles_legacy_resolver_invalid_link_in_captured_wikipedia_dom(
 
 
 def test_extracts_from_served_test_url_html(httpserver):
-    """Mercury should parse a specific served HTML file with postlight-parser."""
+    """Mercury should parse a specific served HTML file with mercury-parser."""
     binary_path = require_mercury_binary()
     test_url = httpserver.url_for("/test_url.html")
 
@@ -410,7 +416,7 @@ def test_extracts_without_local_html_source(httpserver):
 
         assert result.returncode == 0, f"Mercury fetch/parse failed: {result.stderr}"
 
-        # Mercury fetches URL directly with postlight-parser, doesn't need local HTML source
+        # Mercury fetches URL directly with mercury-parser, doesn't need local HTML source
         # Parse clean JSONL output
         result_json = parse_jsonl_output(result.stdout)
 
@@ -575,6 +581,49 @@ def test_custom_mercury_args_are_not_dropped_on_pagination_failure(httpserver):
         assert "TypeError: $.html is not a function" in result.stderr
         assert "saved the requested page only" not in result.stderr
         assert not (Path(tmpdir) / "mercury" / "content.html").exists()
+
+
+def test_large_saved_github_releases_preserves_article_and_code(tmp_path):
+    """Real release DOM whitespace must not exhaust the ordinary capture deadline."""
+    binary = require_mercury_binary()
+    captured = lzma.decompress(
+        (CAPTURE_FIXTURES / "github-archivebox-releases-dom.html.xz").read_bytes(),
+    )
+    assert len(captured) > 16_000_000
+    source = tmp_path / "dom" / "output.html"
+    source.parent.mkdir()
+    source.write_bytes(captured)
+    result = subprocess.run(
+        [
+            str(MERCURY_HOOK),
+            "--url",
+            "https://github.com/ArchiveBox/ArchiveBox/releases",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "MERCURY_BINARY": binary,
+            "MERCURY_TIMEOUT": "120",
+            "TIMEOUT": "120",
+        },
+        capture_output=True,
+        text=True,
+        timeout=125,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None and record["status"] == "succeeded", result.stdout
+    content = (tmp_path / "mercury/content.html").read_text()
+    text = (tmp_path / "mercury/content.txt").read_text()
+    metadata = json.loads((tmp_path / "mercury/article.json").read_text())
+    assert metadata["title"] == "Releases · ArchiveBox/ArchiveBox"
+    assert metadata["word_count"] > 600
+    assert "ArchiveBox 0.9 brings an entirely new archiving engine" in text
+    assert "It's been a long time since our last major release back in 2024!" in text
+    assert "docker compose run archivebox update --migrate-only" in text
+    assert "<pre" in content and "<code" in content
+    assert source.read_bytes() == captured
 
 
 if __name__ == "__main__":
