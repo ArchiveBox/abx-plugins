@@ -1,0 +1,25 @@
+abx_plugins/plugins/mercury/config.json
+  s_10bc94d001be49::t_7765d68e7c6a6d 4,12,17,19,41-42
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  s_10bc94d001be49::t_85596dd3502df3 38,243-244,252-258,296,301,305
+abx_plugins/plugins/mercury/tests/fixtures/README.md
+  s_10bc94d001be49::t_0a2144c148aa7f 18-28
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_10bc94d001be49::t_e0ee39063b8db1 16,47,50,54,60,65,79,81-85,92,268,419,586-628
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "355e5e45d33a2025a36a4c1700e3237010a4de3e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
