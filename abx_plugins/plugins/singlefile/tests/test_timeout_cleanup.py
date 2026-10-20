@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import pytest
+import psutil
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 from abx_plugins.plugins.singlefile.tests.test_singlefile import (
@@ -18,10 +19,12 @@ from abx_plugins.plugins.singlefile.tests.test_singlefile import (
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+@pytest.mark.parametrize("termination", ["helper-deadline", "outer-kill"])
 def test_singlefile_outer_timeout_keeps_browser_diagnostics(
     tmp_path,
     httpserver,
     singlefile_install_state,
+    termination,
 ):
     httpserver.expect_request("/").respond_with_data(
         "<!doctype html><h1>Busy browser capture</h1>",
@@ -75,14 +78,18 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
         )
         assert busy.returncode == 0, busy.stderr
         lock = Path(busy.stdout.strip()) / ".download.lock"
-        with subprocess.Popen(
-            [str(SNAPSHOT_HOOK), f"--url={url}"],
-            cwd=output,
-            env={**env, "SINGLEFILE_TIMEOUT": "10"},
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ) as hook:
+        with (
+            (tmp_path / "hook.stderr.log").open("w") as stderr_log,
+            subprocess.Popen(
+                [str(SNAPSHOT_HOOK), f"--url={url}"],
+                cwd=output,
+                env={**env, "SINGLEFILE_TIMEOUT": "10"},
+                stdout=subprocess.PIPE,
+                stderr=stderr_log,
+                text=True,
+                start_new_session=True,
+            ) as hook,
+        ):
             deadline = time.monotonic() + 8
             while (
                 not lock.exists()
@@ -97,17 +104,42 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             # Suspend the actual helper only after it has connected to Chrome
             # and acquired its own lock. Its subprocess deadline must kill it.
             os.kill(helper_pid, signal.SIGSTOP)
-            stdout, stderr = hook.communicate(timeout=15)
+            if termination == "outer-kill":
+                # The runner's deadline can precede the wrapper's helper deadline.
+                # Require diagnostics while the real helper is still suspended,
+                # then terminate its entire owned group just as the runner does.
+                while time.monotonic() < deadline:
+                    if (
+                        "[singlefile] phase=extension"
+                        in (tmp_path / "hook.stderr.log").read_text()
+                    ):
+                        break
+                    time.sleep(0.05)
+                os.killpg(hook.pid, signal.SIGKILL)
+            cleanup_deadline = time.monotonic() + 15
+            stdout, _ = hook.communicate(timeout=15)
+            stderr = (tmp_path / "hook.stderr.log").read_text()
             result = subprocess.CompletedProcess(
                 hook.args,
                 hook.returncode,
                 stdout,
                 stderr,
             )
-        with pytest.raises(ProcessLookupError):
-            os.kill(helper_pid, 0)
-        assert result.returncode == 1, result.stdout + result.stderr
-        assert "Timed out after 10 seconds" in result.stderr
+        if termination == "helper-deadline":
+            with pytest.raises(ProcessLookupError):
+                os.kill(helper_pid, 0)
+            assert result.returncode == 1, result.stdout + result.stderr
+            assert "Timed out after 10 seconds" in result.stderr
+        else:
+            assert result.returncode == -signal.SIGKILL
+            # A killed descendant can briefly remain as an init-owned zombie;
+            # it must never remain a live/suspended browser helper.
+            try:
+                psutil.Process(helper_pid).wait(
+                    timeout=max(0, cleanup_deadline - time.monotonic()),
+                )
+            except psutil.NoSuchProcess:
+                pass
         assert "[singlefile] phase=connect" in result.stderr, result.stderr
         assert "[singlefile] phase=extension" in result.stderr, result.stderr
         assert not (output / "singlefile.html").exists()

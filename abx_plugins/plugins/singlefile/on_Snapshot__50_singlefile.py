@@ -7,6 +7,9 @@
 import sys
 import os
 import subprocess
+import time
+from collections import deque
+from threading import Thread
 from pathlib import Path
 
 import rich_click as click
@@ -49,30 +52,50 @@ def save_singlefile_with_extension(
 ) -> tuple[bool, str | None, str]:
     output_path = OUTPUT_DIR / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
-    result = subprocess.run(
+    # The runner may kill this wrapper before its own helper deadline expires.
+    # Forward phases immediately, retaining only a bounded tail for the result.
+    recent_output: deque[str] = deque(maxlen=64)
+    deadline = time.monotonic() + timeout
+    with subprocess.Popen(
         [
             str(EXTENSION_SAVE_SCRIPT),
             f"--url={url}",
             f"--output-path={temp_output_path}",
         ],
         cwd=OUTPUT_DIR,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=timeout,
-    )
-    if result.stdout:
-        print(result.stdout, end="", file=sys.stderr)
-    if result.stderr:
-        print(result.stderr, end="", file=sys.stderr)
+        errors="replace",
+    ) as helper:
+        output_pipe = helper.stdout
+        assert output_pipe is not None
+
+        def forward_output() -> None:
+            while detail := output_pipe.readline(8192):
+                recent_output.append(detail)
+                print(detail, end="", file=sys.stderr, flush=True)
+
+        reader = Thread(target=forward_output, daemon=True)
+        reader.start()
+        try:
+            helper.wait(timeout=max(0, deadline - time.monotonic()))
+            reader.join(timeout=max(0, deadline - time.monotonic()))
+            if reader.is_alive():
+                raise subprocess.TimeoutExpired(helper.args, timeout)
+        except BaseException:
+            helper.kill()
+            helper.wait()
+            raise
 
     if (
-        result.returncode == 0
+        helper.returncode == 0
         and temp_output_path.exists()
         and temp_output_path.stat().st_size > 0
     ):
         temp_output_path.replace(output_path)
         return True, f"{PLUGIN_DIR}/{OUTPUT_FILE}", ""
-    return False, None, summarize_error(result.stderr or result.stdout)
+    return False, None, summarize_error("".join(recent_output))
 
 
 @click.command(
@@ -101,14 +124,7 @@ def main(url: str) -> None:
             int(config.SINGLEFILE_TIMEOUT),
         )
         status = "succeeded" if success else "failed"
-    except subprocess.TimeoutExpired as exc:
-        # subprocess.run retains bytes from both pipes even with text=True.
-        # Keep the last completed browser phase when the helper is killed.
-        for detail in (exc.stdout, exc.stderr):
-            if detail:
-                if isinstance(detail, bytes):
-                    detail = detail.decode("utf-8", errors="replace")
-                print(detail, end="", file=sys.stderr)
+    except subprocess.TimeoutExpired:
         output = None
         error = f"Timed out after {config.SINGLEFILE_TIMEOUT} seconds"
         status = "failed"
