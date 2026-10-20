@@ -4,7 +4,7 @@
 /**
  * Write Chrome screencast JPEGs for the admin live progress UI.
  *
- * Live frames are crawl-scoped temporary files. Only explicitly kept frames
+ * Live frames are snapshot-scoped temporary files. Only explicitly kept frames
  * become durable plugin output when the screencast stops.
  */
 
@@ -51,11 +51,11 @@ const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
     ? "snapshot"
     : "crawl";
-const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 const LIVE_DIR = path.join(
   path.resolve(getEnv("TMP_DIR") || os.tmpdir()),
   PLUGIN_DIR,
-  createHash("sha256").update(CRAWL_DIR).digest("hex")
+  createHash("sha256").update(SNAP_DIR).digest("hex")
 );
 const LATEST_FRAME = path.join(LIVE_DIR, "latest.jpg");
 const LIVE_FRAME_BUFFER = 10;

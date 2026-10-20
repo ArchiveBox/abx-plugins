@@ -4448,7 +4448,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             latest_frame = (
                 Path(env["TMP_DIR"])
                 / "chrome_screencast"
-                / hashlib.sha256(env["CRAWL_DIR"].encode()).hexdigest()
+                / hashlib.sha256(env["SNAP_DIR"].encode()).hexdigest()
                 / "latest.jpg"
             )
             assert not latest_frame.exists()
