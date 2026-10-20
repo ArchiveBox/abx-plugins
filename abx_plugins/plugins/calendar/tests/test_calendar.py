@@ -267,6 +267,9 @@ def test_unrelated_page_preserves_target(tmp_path, ensure_chrome_test_prereqs):
     [
         ('<a href="/industrial">ICS</a>', False, "noresults"),
         ('<a href="/subscription">ICS</a>', True, "succeeded"),
+        ('<a href="/subscription">Download ICS</a>', True, "succeeded"),
+        ('<a href="/subscription">Export as ICS file</a>', True, "succeeded"),
+        ('<a href="/subscription">Subscribe to ICS calendar</a>', True, "succeeded"),
         (
             '<a href="/industrial">ICS</a><a href="/subscription">iCalendar</a>',
             True,

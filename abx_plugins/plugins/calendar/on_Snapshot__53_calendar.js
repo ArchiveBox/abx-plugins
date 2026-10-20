@@ -132,7 +132,14 @@ async function main() {
           explicit:
             /^text\/calendar(?:;|$)/i.test(el.getAttribute("type") || "") ||
             /\.ics$/i.test(el.getAttribute("download") || ""),
-          textHint: /\b(?:iCalendar|ICS)\b/i.test(el.textContent || ""),
+          // ICS is also Industrial Control Systems (e.g. "ICS Advisory").
+          // Only dedicated ICS export labels are calendar evidence; explicit
+          // URL/MIME/download hints above remain authoritative.
+          textHint:
+            /\biCalendar\b/i.test(el.textContent || "") ||
+            /^(?:(?:download|export|subscribe)(?:\s+(?:as|to))?\s+)?ICS(?:\s+(?:file|feed|calendar|format))?$/i.test(
+              (el.textContent || "").trim(),
+            ),
         })),
       };
     });
