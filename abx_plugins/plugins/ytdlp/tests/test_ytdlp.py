@@ -892,6 +892,81 @@ def test_extra_args_aliases_reach_real_download(
         )
 
 
+@pytest.mark.parametrize("media_count", [1, 2])
+@pytest.mark.parametrize("thumbnail_kind", ["relative", "root-relative", "absolute"])
+def test_generic_thumbnail_urls_preserve_image_and_media(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+    media_count,
+    thumbnail_kind,
+):
+    """Generic pages must resolve OG image paths before downloading sidecars."""
+    image = (PLUGINS_ROOT / "importer_sheets/icons/google.png").read_bytes()
+    media = _build_test_wav_bytes()
+    image_path = "/article/assets/cover.png"
+    thumbnail = {
+        "relative": "assets/cover.png",
+        "root-relative": image_path,
+        "absolute": httpserver.url_for(image_path),
+    }[thumbnail_kind]
+    httpserver.expect_request(image_path).respond_with_data(
+        image,
+        content_type="image/png",
+    )
+    embeds = []
+    for index in range(media_count):
+        name = f"clip-{index}.wav"
+        httpserver.expect_request(f"/article/{name}").respond_with_data(
+            media,
+            content_type="audio/wav",
+        )
+        embeds.append(f'<audio controls src="{name}"></audio>')
+    httpserver.expect_request("/article/").respond_with_data(
+        f'<html><head><title>Retained media</title><meta property="og:image" content="{thumbnail}"></head>'
+        f"<body>{''.join(embeds)}</body></html>",
+        content_type="text/html",
+    )
+    # Resolve against the final page URL, including normal HTTP redirects.
+    httpserver.expect_request("/start").respond_with_data(
+        "",
+        status=302,
+        headers={"Location": "/article/"},
+    )
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", httpserver.url_for("/start")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--no-ignore-errors"]',
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", record
+    output = tmp_path / "ytdlp"
+    images = list(output.glob("*.png"))
+    assert images and all(path.read_bytes() == image for path in images)
+    saved_media = list(output.glob("*.wav"))
+    assert len(saved_media) == media_count
+    for path in saved_media:
+        with wave.open(str(path)) as captured, wave.open(io.BytesIO(media)) as original:
+            assert captured.getparams() == original.getparams()
+            assert captured.readframes(captured.getnframes()) == original.readframes(
+                original.getnframes(),
+            )
+    metadata = [json.loads(path.read_text()) for path in output.glob("*.info.json")]
+    thumbnails = [item["thumbnail"] for item in metadata if item.get("thumbnail")]
+    assert thumbnails and all(
+        url == httpserver.url_for(image_path) for url in thumbnails
+    )
+
+
 def test_extracts_local_media_url(media_test_url, ytdlp_runtime_env):
     """Test yt-dlp extraction against deterministic local media served by httpserver."""
     with tempfile.TemporaryDirectory() as tmpdir:
