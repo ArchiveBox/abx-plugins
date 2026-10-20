@@ -1,0 +1,27 @@
+abx_plugins/plugins/tlsnotary/templates/full.html
+  s_10bc94d001be49::t_47a0f73b948884 118-120
+abx_plugins/plugins/ytdlp/screenshot.json
+  s_10bc94d001be49::t_477b21512e4bb3 1-4
+abx_plugins/plugins/tlsnotary/screenshot.json
+  s_10bc94d001be49::t_477b21512e4bb3 2-4
+README.md
+  s_10bc94d001be49::t_e4c34ef3ca3073 77-81
+abx_plugins/plugins/ytdlp/config.json
+  s_10bc94d001be49::t_638507d922bea5 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5b4b35f38aec6d6c7478fd0610742b07bf718bf",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
