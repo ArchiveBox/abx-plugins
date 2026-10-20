@@ -1,0 +1,21 @@
+abx_plugins/plugins/opencode/archivebox/browser_panel_cases.py
+  s_10bc94d001be49::t_b0028230437abe 314-316
+  s_10bc94d001be49::t_68c7012687cb74 136,329-331
+  s_10bc94d001be49::t_e4596fa2eeb60f 317-320,333-339,493,506-507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ff8a0cb5b85663fe3ad3a2ef9a4d1d7a1e5a133",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
