@@ -1,0 +1,25 @@
+abx_plugins/plugins/readability/on_Snapshot__66_readability.py
+  s_10bc94d001be49::t_3e87950a9c8a12 31-33,180-281,316-335,368
+abx_plugins/plugins/readability/tests/fixtures/README.md
+  s_10bc94d001be49::t_d1883cf11a75b0 1-16
+abx_plugins/plugins/readability/tests/fixtures/qz-infinite-articles.html
+  s_10bc94d001be49::t_5f9ca4eff4fe32 1
+abx_plugins/plugins/readability/tests/test_primary_article.py
+  s_10bc94d001be49::t_067855b7534aa0 1-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a281b5ec85b2d7ced7412016957f22183183c58",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
