@@ -64,7 +64,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     if (!stream || stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
-    const vary = (new Map(responseHeaders).get("vary") || "").toLowerCase().split(",").map((name) => name.trim()).filter(Boolean);
+    // CDP omits transport-added Accept-Encoding, including on the original
+    // request. These bodies are decoded; the selected Content-Encoding still
+    // must match as part of the complete response-header identity below.
+    const vary = (new Map(responseHeaders).get("vary") || "").toLowerCase().split(",").map((name) => name.trim()).filter((name) => name && name !== "accept-encoding");
     // Cached CDP events omit some request headers. An unobservable Vary key
     // cannot establish that an earlier body belongs to this cache entry.
     if (vary.some((name) => name === "*" || !requestHeaders.has(name))) return;

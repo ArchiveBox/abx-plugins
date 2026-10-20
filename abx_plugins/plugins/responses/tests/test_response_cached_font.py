@@ -1,5 +1,6 @@
 """Fonts reused from Chrome's memory cache still need original response bytes."""
 
+import gzip
 import json
 import subprocess
 from pathlib import Path
@@ -22,7 +23,15 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.mark.parametrize(
     "scenario",
-    ["duplicate", "changed-variant", "language-vary", "late-observer"],
+    [
+        "duplicate",
+        "changed-variant",
+        "language-vary",
+        "encoding-vary",
+        "encoding-identity",
+        "encoding-changed-variant",
+        "late-observer",
+    ],
 )
 def test_cached_font_preserves_exact_identity_without_refetching(
     tmp_path,
@@ -33,18 +42,25 @@ def test_cached_font_preserves_exact_identity_without_refetching(
     changed = (FIXTURES / "forkawesome.woff2").read_bytes()
     first = httpserver.url_for("/first")
     second = httpserver.url_for("/second")
-    vary = "Accept-Language" if scenario == "language-vary" else "Referer"
+    vary = {
+        "language-vary": "Accept-Language",
+        "encoding-vary": "Accept-Encoding",
+        "encoding-identity": "Accept-Encoding",
+        "encoding-changed-variant": "Accept-Encoding, Referer",
+    }.get(scenario, "Referer")
+    compressed = scenario in ("encoding-vary", "encoding-changed-variant")
     for url, body in [(first, original), (second, changed)]:
         httpserver.expect_request(
             "/font.woff",
             headers={"Referer": url},
         ).respond_with_data(
-            body,
+            gzip.compress(body) if compressed else body,
             content_type="font/woff",
             headers={
                 "Cache-Control": "public, max-age=3600",
                 "Vary": vary,
                 "ETag": str(len(body)),
+                **({"Content-Encoding": "gzip"} if compressed else {}),
             },
         )
     for path in ["/first", "/second"]:
@@ -58,7 +74,7 @@ def test_cached_font_preserves_exact_identity_without_refetching(
     repetitions = 20 if scenario == "duplicate" else 2
     urls = (
         [first, second, first]
-        if scenario == "changed-variant"
+        if scenario in ("changed-variant", "encoding-changed-variant")
         else [first] * repetitions
     )
     with chrome_session(
@@ -105,11 +121,12 @@ def test_cached_font_preserves_exact_identity_without_refetching(
         finally:
             process.terminate()
             stdout, stderr = process.communicate(timeout=30)
+            (tmp_path / "responses.stderr.log").write_text(stderr)
         rows = [json.loads(line) for line in index.read_text().splitlines()]
         fonts = [r for r in rows if r["url"] == httpserver.url_for("/font.woff")]
         # Chrome's font memory cache can reuse the first variant even for a
         # different Referer. Never attribute its old bytes to that new Vary key.
-        if scenario in ("changed-variant", "late-observer"):
+        if scenario in ("changed-variant", "encoding-changed-variant", "late-observer"):
             assert process.returncode == 1, (stdout, stderr)
             assert "No data found for resource" in stderr
             expected = [] if scenario == "late-observer" else [original, original]
