@@ -50,6 +50,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     session.on(event, callback);
     listeners.push([event, callback]);
   };
+  let observedHttp = false;
+  listen("Network.requestWillBeSent", ({ request }) => {
+    if (/^https?:\/\//i.test(request.url)) observedHttp = true;
+  });
   const bodies = new Map();
   const streams = new Map();
   const fontBodies = new Map();
@@ -245,6 +249,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       // Synthetic data/blob responses have no HTTP wire-body cache. Keep
       // Puppeteer's existing body handling for these browser-owned resources.
       if (!/^https?:\/\//i.test(response.url())) return undefined;
+      observedHttp = true;
       if (setupError) throw setupError;
       if (!suppliedSession && response.request().client !== mainClient) {
         const reader = children.get(response.request().client);
@@ -306,7 +311,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       onClosed();
       await Promise.allSettled([...streams.values()].map((stream) => stream.saved));
       if (directory && !sharedDirectory) await fs.promises.rm(await directory, { recursive: true, force: true });
-      if (setupError) throw setupError;
+      // An unused worker can exit during Network setup. Its destruction is
+      // not a failed response; any owned HTTP work still reports the error.
+      if (setupError && (setupError.name !== "TargetCloseError" || !session.detached || observedHttp)) throw setupError;
       const failed = closed.find((result) => result.status === "rejected");
       if (failed) throw failed.reason;
     },

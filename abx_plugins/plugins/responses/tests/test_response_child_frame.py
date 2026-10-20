@@ -26,6 +26,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
         "worker",
         "worker-closed",
         "blob-worker",
+        "empty-workers",
         "transient",
     ],
 )
@@ -59,6 +60,8 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
         script = f'fetch("{route}").then(r=>r.arrayBuffer()).then(b=>{{document.title="Saved "+b.byteLength}})'
     if mode == "detached":
         script += '.then(()=>parent.postMessage("done","*"))'
+    if mode == "empty-workers":
+        script += ';for(let i=0;i<20;i++){new Worker(URL.createObjectURL(new Blob(["close();"],{type:"application/javascript"})))}'
     worker_script = None
     if mode in ("worker", "worker-closed", "blob-worker"):
         worker_script = (
