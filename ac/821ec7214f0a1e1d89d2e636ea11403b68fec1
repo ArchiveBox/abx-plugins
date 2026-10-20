@@ -1,0 +1,38 @@
+abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py
+  s_10bc94d001be49::t_e60de41115580c 104
+  s_10bc94d001be49::t_8a570fb6e7c999 19,71-86,183,186,237
+  s_10bc94d001be49::t_ac759cf7d70308 44,113-116,173-182,184-185,187-193,198-215,220-227,231-236
+  s_10bc94d001be49::t_1313e15fa7cc6e 8,139-141,194-197,216-219,228-230
+  s_10bc94d001be49::t_94375e6bea888a 238-239
+abx_plugins/plugins/tlsnotary/README.md
+  s_10bc94d001be49::t_dade62b26de545 125
+abx_plugins/plugins/tlsnotary/server/README.md
+  s_10bc94d001be49::t_dade62b26de545 11-17
+  s_10bc94d001be49::t_8a570fb6e7c999 8-9,37,53-63,75
+.github/workflows/release.yml
+  s_10bc94d001be49::t_8a570fb6e7c999 192-227,230
+abx_plugins/plugins/tlsnotary/server/docker-compose.yml
+  s_10bc94d001be49::t_8a570fb6e7c999 26-27
+  s_10bc94d001be49::t_dade62b26de545 31
+abx_plugins/plugins/tlsnotary/server/.env.example
+  s_10bc94d001be49::t_8a570fb6e7c999 7-8
+  s_10bc94d001be49::t_dade62b26de545 5-6
+abx_plugins/plugins/tlsnotary/server/server.mjs
+  s_10bc94d001be49::t_dade62b26de545 13-17,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac821ec7214f0a1e1d89d2e636ea11403b68fec1",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
