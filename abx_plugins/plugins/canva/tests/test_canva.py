@@ -52,3 +52,19 @@ def test_public_export_restriction(
         assert record["output_str"] == reason, result.stdout
         assert result.stderr.strip() == reason
         assert not (chrome.parent / "canva" / "downloads.json").exists()
+
+
+def test_export_failure_keeps_native_callsite(tmp_path, ensure_chrome_test_prereqs):
+    result = subprocess.run(
+        [str(HOOK)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 1
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", result.stdout
+    assert record["output_str"] == "Missing --url"
+    assert "Error: Missing --url" in result.stderr
+    assert "at main (" in result.stderr and HOOK.name in result.stderr

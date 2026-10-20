@@ -422,7 +422,7 @@ main().catch((error) => {
     emitArchiveResultRecord("noresults", error.message);
     return;
   }
-  console.error(error.message);
+  console.error(error.stack || error.message);
   emitArchiveResultRecord("failed", error.message);
   process.exitCode = 1;
 });
