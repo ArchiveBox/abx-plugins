@@ -5,11 +5,16 @@ it needs no ArchiveBox checkout, Node installation, Rust toolchain, or files fro
 its parent directory. The gateway serves the public verification UI and signs
 compact receipts after the pinned official TLSNotary verifier completes MPC.
 
-Install Docker with Compose v2, OpenSSL, and curl. The official verifier image is
-currently amd64, so an ARM host needs Docker's amd64 emulation. Allow up to 6 GiB
+Install Docker with Compose v2, OpenSSL, and curl. The published gateway and official
+verifier images are amd64, so an ARM host needs Docker's amd64 emulation. Allow up to 3 GiB
 for the verifier, 256 MiB for the gateway, and another 128 MiB for cloudflared
-when using the `public` profile, plus memory for the host OS. Two sessions can run concurrently;
-a third receives HTTP 503. The gateway also requires 1 GiB of available host RAM
+when using the `public` profile, plus memory for the host OS. One session runs at a
+time by default; another receives HTTP 503 until it finishes or closes. This
+prevents overlapping proof allocations in the shipped 3 GiB verifier budget.
+`TLSNOTARY_MAX_SESSIONS` accepts a positive integer for deployments with separately
+measured capacity; host headroom alone cannot establish the verifier's capacity.
+Serialization does not guarantee that every individual proof fits its memory cap.
+The gateway also requires 1 GiB of available host RAM
 plus free disk-backed swap per admitted session; increase this reserve with
 `TLSNOTARY_MIN_AVAILABLE_MEMORY_MB` for larger proofs. The verifier runs in a
 separate container, so its budget cannot be inferred from the gateway's cgroup.
@@ -29,7 +34,7 @@ mode-600 key with all Linux capabilities dropped. Generate the key once:
 Back up this key securely; replacing it changes which receipts your server can
 sign. Do not regenerate it during upgrades.
 
-Run `docker compose up -d --build`, then check
+Run `docker compose pull && docker compose up -d --no-build`, then check
 `curl -fsS http://127.0.0.1:7047/health` and
 `curl -fsS http://127.0.0.1:7047/key` once the gateway is ready.
 Open <http://127.0.0.1:7047/> for the verification UI. Select `receipt.json` and
@@ -45,8 +50,17 @@ code of 1005 alone does not identify the initiator.
 
 `docker compose config --quiet` checks the configuration before startup.
 `docker compose down` stops the service without deleting `state/`.
-For upgrades, replace these source files and run `docker compose up -d --build`.
-The signing state is mounted read-only and excluded from the Docker build context.
+For upgrades, replace the Compose configuration from the release and run
+`docker compose pull && docker compose up -d --no-build`. The normal abx-plugins
+release publishes `ghcr.io/archivebox/tlsnotary-gateway` after full CI passes, from
+that exact commit and its npm lock. Tags are `latest`, the package version, and
+`sha-<full-commit>`. Set `TLSNOTARY_GATEWAY_IMAGE` to a published tag or digest
+to pin a deployment. No server-side source build is needed. The signing state
+remains mounted read-only.
+
+The Dockerfile remains available for development and the real integration tests;
+those tests build the current source with an isolated Compose override before
+publication. Signing state is excluded from its build context.
 
 ## Publish through Cloudflare Tunnel
 
@@ -58,7 +72,7 @@ JSON at `cloudflared/credentials.json`. The cloudflared container runs as UID/GI
 65532:65532 with mode 600). Keep the containing directory traversable.
 
 Route the public hostname's DNS to that tunnel before advertising it. Start with
-`docker compose --profile public up -d --build`. Check
+`docker compose --profile public pull && docker compose --profile public up -d --no-build`. Check
 `https://YOUR_HOSTNAME/health`, `/key`, and `/` from outside the server.
 Alternatively, use any HTTPS reverse proxy in front of `127.0.0.1:7047` that
 supports WebSockets and connections lasting at least 180 seconds.

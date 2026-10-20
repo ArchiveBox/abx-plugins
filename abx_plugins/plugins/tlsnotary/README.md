@@ -122,7 +122,7 @@ testing. Keep signing keys outside source/build contexts and back them up secure
 The bundled key must match the deployed service; a new self-hosted server has its
 own key. Check `/key` independently before relying on an instance.
 
-The gateway allows two sessions, enforces request/response allocation caps and
+The gateway allows one session by default, enforces request/response allocation caps and
 180-second deadlines, and signs only verifier webhooks containing a full-response
 HASH commitment. The webhook listener and upstream verifier are isolated on a
 private Docker network. Public endpoints require no authentication. The bridge

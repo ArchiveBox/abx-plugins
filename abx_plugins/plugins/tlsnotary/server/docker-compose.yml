@@ -23,12 +23,12 @@ services:
     stop_grace_period: 35s
     logging: { driver: none }
   gateway:
+    image: "${TLSNOTARY_GATEWAY_IMAGE:-ghcr.io/archivebox/tlsnotary-gateway:latest}"
+    platform: linux/amd64
     user: "${TLSNOTARY_UID:-1000}:${TLSNOTARY_GID:-1000}"
     environment:
       TLSNOTARY_MIN_AVAILABLE_MEMORY_MB: "${TLSNOTARY_MIN_AVAILABLE_MEMORY_MB:-1024}"
-    build:
-      context: .
-      dockerfile: Dockerfile
+      TLSNOTARY_MAX_SESSIONS: "${TLSNOTARY_MAX_SESSIONS:-1}"
     ports: ["127.0.0.1:${TLSNOTARY_PORT:-7047}:7047"]
     volumes: ["${TLSNOTARY_STATE_DIR:-./state}:/state:ro"]
     networks: [private, public]

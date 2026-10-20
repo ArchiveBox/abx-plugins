@@ -10,6 +10,11 @@ const MiB = 1024 * 1024;
 const sessionHeadroom = Number(process.env.TLSNOTARY_MIN_AVAILABLE_MEMORY_MB || 1024) * MiB;
 if (!Number.isSafeInteger(sessionHeadroom) || sessionHeadroom < 512 * MiB)
   throw new Error("TLSNOTARY_MIN_AVAILABLE_MEMORY_MB must be an integer of at least 512");
+// Host headroom does not reserve the sibling verifier's container budget.
+// Its shipped 3 GiB limit must not admit two simultaneous MPC allocations.
+const maxSessions = Number(process.env.TLSNOTARY_MAX_SESSIONS || 1);
+if (!Number.isSafeInteger(maxSessions) || maxSessions < 1)
+  throw new Error("TLSNOTARY_MAX_SESSIONS must be a positive integer");
 const key = createPrivateKey(
   fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem")
 );
@@ -20,8 +25,7 @@ const upstream = process.env.VERIFIER_URL || "ws://verifier:7047";
 const sessions = new Map(),
   byId = new Map(),
   receipts = new Map();
-const maxSessions = 2,
-  lifetime = 180000,
+const lifetime = 180000,
   maxRecv = 262144,
   maxSent = 16384;
 function proofMemoryAvailable(required) {

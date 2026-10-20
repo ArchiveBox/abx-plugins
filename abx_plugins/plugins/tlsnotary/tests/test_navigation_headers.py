@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import os
 import shutil
@@ -15,6 +16,7 @@ import urllib.error
 import urllib.request
 import uuid
 import zipfile
+from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
@@ -39,7 +41,7 @@ pytest_plugins = ["tests.test_archivewebpage_concurrent_collections"]
 
 
 @pytest.fixture
-def verifier(tmp_path):
+def verifier(tmp_path, request):
     """Each proof owns the shipped gateway, real verifier, key and session state."""
     state = tmp_path / "verifier-state"
     state.mkdir()
@@ -66,7 +68,22 @@ def verifier(tmp_path):
         json.dumps(
             {
                 "services": {
-                    name: {"logging": {"driver": "local"}}
+                    name: {
+                        "logging": {"driver": "local"},
+                        **(
+                            {
+                                # CI must test this checkout before its image is published.
+                                "image": f"tlsnotary-gateway-test-{uuid.uuid4().hex}",
+                                "pull_policy": "build",
+                                "build": {
+                                    "context": str(PLUGIN_DIR / "server"),
+                                    "dockerfile": "Dockerfile",
+                                },
+                            }
+                            if name == "gateway"
+                            else {}
+                        ),
+                    }
                     for name in ("verifier", "gateway")
                 },
             },
@@ -84,7 +101,7 @@ def verifier(tmp_path):
         "--file",
         str(logging_override),
     ]
-    env = {
+    env: dict[str, str] = {
         **os.environ,
         "TLSNOTARY_STATE_DIR": str(state),
         "TLSNOTARY_UID": str(os.getuid()),
@@ -93,6 +110,10 @@ def verifier(tmp_path):
         "TLSNOTARY_MIN_AVAILABLE_MEMORY_MB": "1024",
         "COMPOSE_PROFILES": "",
     }
+    # Exercise the shipped default and explicit operator limits through Compose.
+    env.pop("TLSNOTARY_MAX_SESSIONS", None)
+    if getattr(request, "param", None) is not None:
+        env["TLSNOTARY_MAX_SESSIONS"] = str(request.param)
     try:
         started = subprocess.run(
             [*compose, "up", "--detach", "--build", "--wait", "verifier", "gateway"],
@@ -115,7 +136,9 @@ def verifier(tmp_path):
                 with urllib.request.urlopen(f"{url}/key", timeout=1) as response:
                     assert json.load(response)["publicKey"] == public_key
                 break
-            except urllib.error.URLError:
+            # Docker's port proxy may accept before the gateway starts HTTP.
+            # Both a refused connection and a closed one mean it isn't ready.
+            except (urllib.error.URLError, http.client.RemoteDisconnected):
                 if time.monotonic() >= deadline:
                     raise
                 time.sleep(0.1)
@@ -145,6 +168,73 @@ def verifier(tmp_path):
                 timeout=30,
             )
             assert stopped.returncode == 0, stopped.stdout + stopped.stderr
+
+
+@pytest.mark.parametrize("verifier", [None, 1, 2], indirect=True)
+def test_real_gateway_enforces_session_limit_and_releases_capacity(verifier, request):
+    """Real registered verifier sessions consume capacity until their owner closes."""
+    from websockets.exceptions import InvalidStatus
+    from websockets.sync.client import connect
+
+    limit = request.node.callspec.params["verifier"] or 1
+    url = verifier["TLSNOTARY_VERIFIER_URL"]
+    websocket_url = url.replace("http://", "ws://", 1) + "/session"
+    sessions = []
+    connections = ExitStack()
+
+    def register():
+        session = connections.enter_context(connect(websocket_url, open_timeout=5))
+        sessions.append(session)
+        session.send(
+            json.dumps(
+                {
+                    "type": "register",
+                    "maxRecvData": 16384,
+                    "maxSentData": 4096,
+                    "sessionData": {
+                        "receiptId": uuid.uuid4().hex + uuid.uuid4().hex,
+                        "mode": "Mpc",
+                    },
+                },
+            ),
+        )
+        registered = json.loads(session.recv(timeout=5))
+        assert registered["type"] == "session_registered"
+        assert registered["sessionId"]
+
+    def active():
+        with urllib.request.urlopen(f"{url}/health", timeout=2) as response:
+            return json.load(response)["active"]
+
+    try:
+        for _ in range(limit):
+            register()
+        assert active() == limit
+        with pytest.raises(urllib.error.HTTPError) as preflight:
+            urllib.request.urlopen(f"{url}/session", timeout=2)
+        assert preflight.value.code == 503
+        assert (
+            json.load(preflight.value)["error"]
+            == "TLSNotary verifier is at its active proof limit."
+        )
+        with pytest.raises(InvalidStatus) as upgrade:
+            connect(websocket_url, open_timeout=5)
+        assert upgrade.value.response.status_code == 503
+        assert active() == limit
+
+        sessions.pop().close()
+        deadline = time.monotonic() + 5
+        while active() != limit - 1:
+            assert time.monotonic() < deadline, (
+                "Closed session did not release capacity"
+            )
+            time.sleep(0.05)
+        with urllib.request.urlopen(f"{url}/session", timeout=2) as response:
+            assert response.status == 200
+        register()
+        assert active() == limit
+    finally:
+        connections.close()
 
 
 def test_real_gateway_refuses_proof_when_host_memory_reserve_is_unavailable(tmp_path):
