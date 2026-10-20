@@ -7,6 +7,7 @@ Tests the real merkle tree generation with actual files.
 import hashlib
 import json
 import os
+import re
 import runpy
 import subprocess
 import tempfile
@@ -121,6 +122,15 @@ class TestHashesPlugin:
         assert result.returncode == 0, result.stderr
         assert first.read_bytes() == duplicate.read_bytes()
         assert first.stat().st_ino == duplicate.stat().st_ino
+        phases = re.findall(
+            r"phase=(hash|dedupe) complete elapsed_ms=(\d+\.\d+) files=(\d+) bytes=(\d+)",
+            result.stderr,
+        )
+        assert [phase[0] for phase in phases] == ["hash", "dedupe"], result.stderr
+        for _, elapsed, count, size in phases:
+            assert float(elapsed) >= 0
+            assert int(count) == 2
+            assert int(size) == len(first.read_bytes()) * 2
         assert {
             row["path"]
             for row in json.loads((output_dir / "hashes.json").read_text())["files"]

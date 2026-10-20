@@ -15,6 +15,7 @@ import os
 import re
 import stat
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -235,8 +236,24 @@ def main(url: str):
         output_path = output_dir / "hashes.json"
 
         # Generate Merkle tree
+        phase_started = time.monotonic()
         merkle_data = create_hashes(snapshot_dir)
+        counts = (
+            f"files={merkle_data['metadata']['file_count']} "
+            f"bytes={merkle_data['metadata']['total_size']}"
+        )
+        print(
+            f"phase=hash complete elapsed_ms={(time.monotonic() - phase_started) * 1000:.3f} {counts}",
+            file=sys.stderr,
+            flush=True,
+        )
+        phase_started = time.monotonic()
         hardlink_duplicates(snapshot_dir, merkle_data["files"])
+        print(
+            f"phase=dedupe complete elapsed_ms={(time.monotonic() - phase_started) * 1000:.3f} {counts}",
+            file=sys.stderr,
+            flush=True,
+        )
 
         # Write output
         manifest = json.dumps(merkle_data, indent=2)
