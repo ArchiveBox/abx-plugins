@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 import psutil
@@ -202,12 +203,15 @@ def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
         server = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
-                "http.server",
+                "-c",
+                # HTTPServer resolves its unused CGI hostname before listening;
+                # hosted macOS reverse DNS can block that startup for 30s.
+                # Keep the real static-file handler without that DNS dependency.
+                "import functools, http.server, socketserver, sys\n"
+                "handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[2])\n"
+                "with socketserver.TCPServer(('127.0.0.1', int(sys.argv[1])), handler) as server:\n"
+                "    server.serve_forever()\n",
                 str(port),
-                "--bind",
-                "127.0.0.1",
-                "--directory",
                 str(tmp_path),
             ],
             stdout=output,
@@ -218,6 +222,14 @@ def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
     children = []
     try:
         wait_for_listener(port, server, server_log)
+        proof = tmp_path / "proof.txt"
+        proof.write_bytes(b"Real HTTP server ready\n")
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/proof.txt",
+            timeout=5,
+        ) as response:
+            assert response.status == 200
+            assert response.read() == proof.read_bytes()
         server.send_signal(signal.SIGSTOP)
 
         # Block SIGINT across exec to exercise forced cleanup of an actual Git
