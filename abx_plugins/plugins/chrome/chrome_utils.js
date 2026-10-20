@@ -47,6 +47,27 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
   const session = await page.createCDPSession();
   const bodies = new Map();
   const streams = new Map();
+  const fontBodies = new Map();
+  const headerIdentity = (headers) => Object.entries(headers || {})
+    .map(([name, value]) => [name.toLowerCase(), value]).sort(([a], [b]) => a.localeCompare(b));
+  session.on("Network.requestServedFromCache", ({ requestId }) => {
+    const stream = streams.get(requestId);
+    if (stream) stream.cached = true;
+  });
+  session.on("Network.responseReceived", (event) => {
+    const stream = streams.get(event.requestId);
+    if (!stream || stream.resourceType !== "Font") return;
+    const responseHeaders = headerIdentity(event.response.headers);
+    const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
+    const vary = (new Map(responseHeaders).get("vary") || "").toLowerCase().split(",").map((name) => name.trim()).filter(Boolean);
+    // Cached CDP events omit some request headers. An unobservable Vary key
+    // cannot establish that an earlier body belongs to this cache entry.
+    if (vary.some((name) => name === "*" || !requestHeaders.has(name))) return;
+    const identity = JSON.stringify([stream.url, stream.method, event.response.status,
+      vary.map((name) => [name, requestHeaders.get(name)]), responseHeaders]);
+    if (stream.cached) stream.previousFont = fontBodies.get(identity);
+    if (!stream.previousFont) fontBodies.set(identity, stream);
+  });
   // Spool raw chunks to local scratch instead of retaining concurrent bodies
   // or decoding them according to potentially incorrect server MIME headers.
   session.on("Network.dataReceived", (event) => {
@@ -92,7 +113,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
       if (!event.type || event.type === "Document" ||
           (resourceTypes.length && !resourceTypes.includes(event.type.toLowerCase()))) return;
       const filename = path.join(directory, crypto.randomUUID());
-      const stream = { filename, receivedBytes: 0 };
+      const stream = { filename, receivedBytes: 0, resourceType: event.type, url: event.request.url, method: event.request.method, requestHeaders: event.request.headers };
       stream.done = new Promise((resolve) => { stream.finish = () => { stream.complete = true; resolve(); }; });
       streams.set(event.requestId, stream);
       fs.writeFileSync(filename, "");
@@ -110,6 +131,16 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
       stream.saved = Promise.all([stream.ready, stream.done]).then(async () => {
         if (stream.error) throw stream.error;
         if (fs.statSync(filename).size === stream.receivedBytes) return;
+        // Chrome drops raw bytes for fonts reused from its memory cache. Reuse
+        // only this listener's identical earlier response, never refetch it.
+        if (stream.previousFont) {
+          await stream.previousFont.saved;
+          if (fs.statSync(stream.previousFont.filename).size !== stream.receivedBytes) {
+            throw new Error("Cached font byte count differs from its captured response");
+          }
+          stream.filename = stream.previousFont.filename;
+          return;
+        }
         // Spool completed bodies before the remote output queue can delay them
         // and let newer responses evict their raw bytes from Chrome's cache.
         const result = await session.send("Network.getResponseBody", { requestId: event.requestId });
@@ -167,7 +198,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
         streams.delete(id);
         if (stream.error) throw stream.error;
         const body = await fs.promises.readFile(stream.filename);
-        await fs.promises.unlink(stream.filename);
+        if (stream.resourceType !== "Font") await fs.promises.unlink(stream.filename);
         return body;
       }
       if (bodies.get(id) instanceof Error) throw bodies.get(id);
