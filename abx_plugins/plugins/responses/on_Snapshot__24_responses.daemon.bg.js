@@ -392,7 +392,13 @@ async function setupListener() {
       // A body/index write failure is not an empty successful capture. Retain
       // other completed responses and surface the storage failure at shutdown.
       captureFailureCount += 1;
-      const message = `${error.name}: ${error.message}`;
+      const request = response.request();
+      const address = new URL(response.url());
+      // Keep request identity without recording query tokens or credentials.
+      const location = ["http:", "https:"].includes(address.protocol)
+        ? `${address.origin}${address.pathname}`.slice(0, 512) : address.protocol;
+      const context = `${request.resourceType()} ${request.id} ${location}`;
+      const message = `${error.name}: ${error.message} [${context}]`;
       if (!firstCaptureError) firstCaptureError = message;
       console.error(`ERROR: Cannot save response: ${message}`);
     }
@@ -432,7 +438,14 @@ async function handleShutdown(signal) {
     page.off("requestfinished", responseListener);
   }
   await pendingResponseWork;
-  await originalResponses?.close();
+  try {
+    await originalResponses?.close();
+  } catch (error) {
+    const message = `${error.name}: ${error.message}`;
+    console.error(`ERROR: Cannot close response capture: ${message}`);
+    captureFailureCount += 1;
+    firstCaptureError ||= message;
+  }
   if (captureFailureCount) {
     await emitResult("failed", `${captureFailureCount} response capture error(s), ${responseCount} saved: ${firstCaptureError}`);
   } else {

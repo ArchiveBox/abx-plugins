@@ -38,23 +38,28 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
   // Ordinary documents retain Network's text handling: Fetch body reads hold
   // navigation until EOF, preventing streamed HTML from rendering as it arrives.
-  const session = await page.createCDPSession();
+  const session = suppliedSession || page.mainFrame().client;
+  const listeners = [];
+  const listen = (event, callback) => {
+    session.on(event, callback);
+    listeners.push([event, callback]);
+  };
   const bodies = new Map();
   const streams = new Map();
   const fontBodies = new Map();
   const headerIdentity = (headers) => Object.entries(headers || {})
     .map(([name, value]) => [name.toLowerCase(), value]).sort(([a], [b]) => a.localeCompare(b));
-  session.on("Network.requestServedFromCache", ({ requestId }) => {
+  listen("Network.requestServedFromCache", ({ requestId }) => {
     const stream = streams.get(requestId);
     if (stream) stream.cached = true;
   });
-  session.on("Network.responseReceived", (event) => {
+  listen("Network.responseReceived", (event) => {
     const stream = streams.get(event.requestId);
     if (!stream || stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
@@ -70,7 +75,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
   });
   // Spool raw chunks to local scratch instead of retaining concurrent bodies
   // or decoding them according to potentially incorrect server MIME headers.
-  session.on("Network.dataReceived", (event) => {
+  listen("Network.dataReceived", (event) => {
     const stream = streams.get(event.requestId);
     if (!stream || stream.error) return;
     stream.receivedBytes += event.dataLength;
@@ -81,8 +86,8 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
       stream.error = error;
     }
   });
-  session.on("Network.loadingFinished", ({ requestId }) => streams.get(requestId)?.finish());
-  session.on("Network.loadingFailed", ({ requestId, errorText }) => {
+  listen("Network.loadingFinished", ({ requestId }) => streams.get(requestId)?.finish());
+  listen("Network.loadingFailed", ({ requestId, errorText }) => {
     const stream = streams.get(requestId);
     if (stream) {
       stream.error = new Error(errorText);
@@ -101,16 +106,15 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
   const pdfUrls = new Set();
   const wireDocuments = new Set();
   const pending = new Set();
-  let directory;
+  let directory = sharedDirectory;
   if (resourceTypes) {
-    directory = await fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "response-bodies-"));
-    await session.send("Network.enable");
+    directory ||= await fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "response-bodies-"));
     // The browser's bounded raw-byte cache covers synchronous XHRs, which
     // finish before their blocked renderer can enable a stream. Ordinary and
     // large responses stream to disk instead of accumulating body buffers.
-    await session.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 });
-    session.on("Network.requestWillBeSent", (event) => {
-      if (!event.type || event.type === "Document" ||
+    listen("Network.requestWillBeSent", (event) => {
+      if (!/^https?:\/\//i.test(event.request.url) ||
+          !event.type || event.type === "Document" ||
           (resourceTypes.length && !resourceTypes.includes(event.type.toLowerCase()))) return;
       const filename = path.join(directory, crypto.randomUUID());
       const stream = { filename, receivedBytes: 0, resourceType: event.type, url: event.request.url, method: event.request.method, requestHeaders: event.request.headers };
@@ -153,7 +157,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
       stream.saved.catch((error) => { stream.error = error; });
     });
   }
-  session.on("Fetch.requestPaused", (event) => {
+  listen("Fetch.requestPaused", (event) => {
     if (event.resourceType === "Document") wireDocuments.add(event.networkId);
     const work = (async () => {
       const header = (name) => event.responseHeaders?.find(
@@ -188,9 +192,62 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
     pending.add(work);
     work.catch((error) => bodies.set(event.networkId, error)).finally(() => pending.delete(work));
   });
-  await session.send("Fetch.enable", { patterns: [{ resourceType: "Document", requestStage: "Response" }] });
+  // Puppeteer attaches isolated child-frame sessions before resuming them.
+  // Register all listeners and send setup commands synchronously in that event,
+  // so the child's first response is captured by its owning session too.
+  const setup = [];
+  if (resourceTypes) {
+    setup.push(session.send("Network.enable"));
+    setup.push(session.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 }));
+  }
+  if (documents) setup.push(session.send("Fetch.enable", { patterns: [{ resourceType: "Document", requestStage: "Response" }] }));
+  const children = new Map();
+  const watched = new Map();
+  const mainClient = page.mainFrame().client;
+  const attach = (child, documents = true) => {
+    if (children.has(child)) return;
+    watch(child);
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents });
+    children.set(child, reader);
+    reader.catch(() => {}); // The owning request or close() reports setup errors.
+  };
+  const watch = (client) => {
+    if (watched.has(client)) return;
+    const onAttached = ({ sessionId, targetInfo }) => {
+      // Workers have Network responses but no document Fetch domain.
+      if (!["iframe", "worker", "shared_worker"].includes(targetInfo.type)) return;
+      const child = client.connection()?.session(sessionId);
+      if (child) attach(child, targetInfo.type === "iframe");
+    };
+    watched.set(client, onAttached);
+    client.on("Target.attachedToTarget", onAttached);
+  };
+  if (!suppliedSession) {
+    watch(mainClient);
+    for (const frame of page.frames()) {
+      if (frame.client !== mainClient) attach(frame.client);
+    }
+  }
+  let setupError;
+  try {
+    await Promise.all(setup);
+  } catch (error) {
+    if (!suppliedSession) throw error;
+    // A short-lived child can close during setup. Retain its error for the
+    // owning response, but still return its reader so cleanup can drain it.
+    setupError = error;
+  }
   return {
     async read(response) {
+      // Synthetic data/blob responses have no HTTP wire-body cache. Keep
+      // Puppeteer's existing body handling for these browser-owned resources.
+      if (!/^https?:\/\//i.test(response.url())) return undefined;
+      if (setupError) throw setupError;
+      if (!suppliedSession && response.request().client !== mainClient) {
+        const reader = children.get(response.request().client);
+        if (!reader) throw new Error("Response belongs to an unobserved Chrome child session");
+        return (await reader).read(response);
+      }
       const id = response.request().id;
       let stream = streams.get(id);
       const resourceType = response.request().resourceType();
@@ -232,17 +289,23 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
       return body;
     },
     async close() {
+      for (const [client, onAttached] of watched) client.off("Target.attachedToTarget", onAttached);
+      const closed = await Promise.allSettled([...children.values()].map(async (reader) => (await reader).close()));
       page.off("close", onClosed);
       page.browser().off("disconnected", onClosed);
       await Promise.allSettled(pending);
       try {
-        if (!session.detached) await session.detach();
+        if (documents && !session.detached) await session.send("Fetch.disable");
       } catch (error) {
         if (!session.detached) throw error;
       }
+      for (const [event, callback] of listeners) session.off(event, callback);
       onClosed();
       await Promise.allSettled([...streams.values()].map((stream) => stream.saved));
-      if (directory) await fs.promises.rm(await directory, { recursive: true, force: true });
+      if (directory && !sharedDirectory) await fs.promises.rm(await directory, { recursive: true, force: true });
+      if (setupError) throw setupError;
+      const failed = closed.find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
     },
   };
 }
