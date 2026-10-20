@@ -528,11 +528,11 @@ Move to `on_SnapshotChromeTabNavigated__...`:
 Move to `on_AfterSnapshot__...` if they should run after all snapshot outputs exist and are actually intended to consume generated snapshot artifacts rather than the original input URL directly:
 
 - `abx_plugins/plugins/readability/on_Snapshot__56_readability.py`
-- `abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py`
-- `abx_plugins/plugins/defuddle/on_Snapshot__57_defuddle.py`
-- `abx_plugins/plugins/htmltotext/on_Snapshot__58_htmltotext.py`
+- `abx_plugins/plugins/mercury/on_Snapshot__66_mercury.py`
+- `abx_plugins/plugins/defuddle/on_Snapshot__66_defuddle.py`
+- `abx_plugins/plugins/htmltotext/on_Snapshot__66_htmltotext.py`
 - `abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py`
-- `abx_plugins/plugins/trafilatura/on_Snapshot__59_trafilatura.py`
+- `abx_plugins/plugins/trafilatura/on_Snapshot__66_trafilatura.py`
 - `abx_plugins/plugins/opendataloader/on_Snapshot__67_opendataloader.py`
 - `abx_plugins/plugins/liteparse/on_Snapshot__68_liteparse.py`
 - `abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py`

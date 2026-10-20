@@ -7,7 +7,7 @@
 # Creates content.html, content.txt, and article.json files from the extracted article.
 #
 # Usage:
-#     ./on_Snapshot__57_mercury.py [...] > events.jsonl
+#     ./on_Snapshot__66_mercury.py [...] > events.jsonl
 
 import sys
 import html

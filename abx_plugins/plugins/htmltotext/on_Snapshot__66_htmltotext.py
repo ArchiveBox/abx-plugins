@@ -7,7 +7,7 @@
 # Reads HTML from other extractors (wget, singlefile, dom) and converts to plain text for full-text search.
 #
 # Usage:
-#     ./on_Snapshot__58_htmltotext.py --url=<url> > events.jsonl
+#     ./on_Snapshot__66_htmltotext.py --url=<url> > events.jsonl
 
 import sys
 import os

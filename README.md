@@ -160,6 +160,7 @@ Lifecycle:
 - Plugins whose snapshot hook owns the extension lifecycle may set `x-chrome-extension-load: on-demand` in `config.json`. Chrome keeps the installed extension available and enables CDP extension loading, but the hook loads and unloads it around each capture.
 - `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
 - Papers download starts after DOM capture and overlaps article parsing.
+- Offline article parsers run after live browser hooks and cleanup so parsing saved HTML does not keep a large renderer resident alongside another DOM.
 - PDF parsers settle background downloads before scanning saved documents, just like hashes settle producers before building the final manifest. Live DOM outlink extraction runs before that cleanup.
 - Final-file consumers may declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
 

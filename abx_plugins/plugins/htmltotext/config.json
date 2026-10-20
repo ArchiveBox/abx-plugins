@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
+  "wait_for_background_cleanup": true,
   "required_binaries": [],
   "output_mimetypes": [
     "text/plain"
