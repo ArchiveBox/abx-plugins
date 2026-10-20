@@ -28,6 +28,9 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
+from contextlib import ExitStack
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
 from abx_plugins.plugins.base.utils import (
@@ -174,6 +177,108 @@ blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475
 </style></head><body><main><article>{content}</article></main></body></html>'''
 
 
+def primary_article_html(source: str) -> str:
+    """Exclude separately headed articles appended to a known primary article.
+
+    A unique H1 must agree with explicit Article JSON-LD. Without that evidence,
+    leave selection to Readability. Keep the primary article's nested sections
+    and unheaded article blocks, which may be continuations of the same story.
+    """
+    if "application/ld+json" not in source:
+        return source
+    offsets = [0, *(match.end() for match in re.finditer("\n", source))]
+
+    class Articles(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.depth = 0
+            self.start = 0
+            self.articles = []
+            self.headings = []
+            self.heading = None
+            self.script = None
+            self.headlines = set()
+
+        def position(self):
+            line, column = self.getpos()
+            return offsets[line - 1] + column
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "article":
+                if not self.depth:
+                    self.start = self.position()
+                self.depth += 1
+            if tag in {"h1", "h2"}:
+                self.heading = [tag, self.position(), ""]
+            if tag == "script" and dict(attrs).get("type") == "application/ld+json":
+                self.script = ""
+
+        def handle_data(self, data):
+            if self.heading is not None:
+                self.heading[2] += data
+            if self.script is not None:
+                self.script += data
+
+        def handle_endtag(self, tag):
+            if tag == "article" and self.depth:
+                self.depth -= 1
+                if not self.depth:
+                    self.articles.append(
+                        (self.start, source.index(">", self.position()) + 1),
+                    )
+            if self.heading is not None and tag == self.heading[0]:
+                self.headings.append(tuple(self.heading))
+                self.heading = None
+            if tag == "script" and self.script is not None:
+                try:
+                    data = json.loads(self.script)
+                    nodes = data if isinstance(data, list) else [data]
+                    for node in nodes:
+                        if not isinstance(node, dict):
+                            continue
+                        types = node.get("@type", [])
+                        types = [types] if isinstance(types, str) else types
+                        if not isinstance(types, list) or not all(
+                            isinstance(t, str) for t in types
+                        ):
+                            continue
+                        if any(
+                            t in {"Article", "NewsArticle", "BlogPosting"}
+                            for t in types
+                        ):
+                            headline = node.get("headline")
+                            if isinstance(headline, str):
+                                self.headlines.add(" ".join(headline.split()))
+                except (ValueError, TypeError):
+                    pass
+                self.script = None
+
+    parser = Articles()
+    parser.feed(source)
+    primary = [h for h in parser.headings if h[0] == "h1"]
+    if (
+        parser.depth
+        or len(primary) != 1
+        or " ".join(primary[0][2].split()) not in parser.headlines
+    ):
+        return source
+    _, primary_start, primary_title = primary[0]
+    primary_title = " ".join(primary_title.split())
+    chunks = []
+    cursor = 0
+    for start, end in parser.articles:
+        headings = [
+            " ".join(text.split())
+            for _, position, text in parser.headings
+            if start <= position < end
+        ]
+        if start <= primary_start < end or not headings or primary_title in headings:
+            continue
+        chunks.append(source[cursor:start])
+        cursor = end
+    return "".join([*chunks, source[cursor:]])
+
+
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
     """
     Extract article using Readability.
@@ -208,12 +313,26 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
             url,
             "utf-8",
         ]
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            timeout=max(1, timeout - 5),
-            text=True,
-        )
+        source_html = Path(html_source).read_text(encoding="utf-8", errors="replace")
+        scoped_html = primary_article_html(source_html)
+        with ExitStack() as files:
+            if scoped_html != source_html:
+                scoped = files.enter_context(
+                    tempfile.NamedTemporaryFile(
+                        mode="w+",
+                        suffix=".html",
+                        encoding="utf-8",
+                    ),
+                )
+                scoped.write(scoped_html)
+                scoped.flush()
+                cmd[-3] = scoped.name
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                timeout=max(1, timeout - 5),
+                text=True,
+            )
 
         if result.stdout:
             sys.stderr.write(result.stdout)
@@ -246,7 +365,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
         html_content = preserve_article_image_dimensions(
             html_content,
-            Path(html_source).read_text(encoding="utf-8", errors="replace"),
+            source_html,
             url,
         )
         html_content = render_readability_document(
