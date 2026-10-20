@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "yt-dlp",
   "description": "Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.",
+  "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],

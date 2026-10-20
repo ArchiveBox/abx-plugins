@@ -1,3 +1,5 @@
 {
-  "enabled": true
+  "enabled": true,
+  "url": "https://example.com",
+  "wait_for_text": "Content signed + attested to by"
 }

@@ -115,7 +115,9 @@
         const metadata = await metadataResponse.json();
         const legacyMetadata = !metadata.verifier_url && !metadata.receipt_id && Number.isSafeInteger(metadata.bytes) && metadata.server_name;
         const navigation = navigationResponse.ok ? await navigationResponse.json() : null;
-        if (!legacyMetadata && (!metadata.verifier_url || !metadata.receipt_id || !navigation?.timestamp)) throw new Error('Incomplete capture metadata');
+        // Chrome deletes navigation.json on teardown; it is optional display
+        // context, not part of the saved proof verified below.
+        if (!legacyMetadata && (!metadata.verifier_url || !metadata.receipt_id)) throw new Error('Incomplete capture metadata');
         if (metadata.verifier_url && !['https:', 'http:'].includes(new URL(metadata.verifier_url).protocol)) throw new Error('Invalid verifier URL');
         if (!receiptResponse.ok || !responseResponse.ok) throw new Error(`Unable to read proof files (HTTP ${receiptResponse.status}/${responseResponse.status})`);
         const receipt = await receiptResponse.json(), response = new Uint8Array(await responseResponse.arrayBuffer());

@@ -74,6 +74,11 @@ screenshot of the plugin's expanded settings on Add URLs (see `mobilesize`).
 Set `"enabled": true` to include an optional plugin in the default capture.
 Ordinary plugins need no recipe.
 
+The yt-dlp example uses a public HTML video demo so its gallery does not depend on
+YouTube allowing anonymous CI downloads. TLSNotary uses the small Example Domain
+response so the gallery can show a complete verified proof within its normal
+response-size budget. Both still require real successful captures.
+
 Recipes travel in the plugin package. Neither website needs a plugin allowlist,
 and adding an example requires no workflow changes or separate screenshot job.
 
