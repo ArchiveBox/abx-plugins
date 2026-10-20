@@ -175,6 +175,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
       behavior: "allowAndName", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
     });
+    console.error(`[singlefile] phase=helper-navigation started elapsed_ms=${Date.now() - saveStartedAt}`);
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
     );
@@ -182,6 +183,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // optimizations discard currently hidden images and alternate media rules.
     // Use its normal configuration API, restoring the persona's preferences
     // after this capture while still holding the browser download lock.
+    console.error(`[singlefile] phase=helper-profile started elapsed_ms=${Date.now() - saveStartedAt}`);
     originalProfileOptions = await helperPage.evaluate(async (tabId) => {
       const [result] = await chrome.scripting.executeScript({
         target: { tabId },
@@ -200,6 +202,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // Use Chrome's actual toolbar action. Importing SingleFile's source modules
     // bypasses its bundled entrypoint and breaks bare imports in current releases.
     // Register download listeners first; a small page can finish immediately.
+    console.error(`[singlefile] phase=helper-bindings started elapsed_ms=${Date.now() - saveStartedAt}`);
     const installed = (await page.browser().extensions()).get(extension.id);
     if (!installed) throw new Error("SingleFile is no longer installed in this browser");
     await helperPage.exposeFunction("archiveboxDownloadMatchesContent", async (filename, digest) => {
@@ -433,7 +436,8 @@ async function main() {
     console.log(savedPath);
     process.exit(0);
   } catch (error) {
-    console.error(`[❌] ${error.message || error}`);
+    // Context-loss messages alone cannot distinguish helper setup from capture.
+    console.error(`[❌] ${error.stack || error.message || error}`);
     process.exit(4);
   } finally {
     if (browser) await browser.disconnect().catch(() => {});

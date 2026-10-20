@@ -272,6 +272,16 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
             else "Runtime.callFunctionOn timed out"
         )
         assert expected_error in stderr, stderr
+        if failure == "download-deadline":
+            assert "singlefile_extension_save.js:" in stderr, stderr
+            phases = [
+                "phase=helper-navigation started",
+                "phase=helper-profile started",
+                "phase=helper-bindings started",
+                "phase=capture started",
+            ]
+            positions = [stderr.index(phase) for phase in phases]
+            assert positions == sorted(positions), stderr
         remaining = control("observe")
         assert [task["url"] for task in remaining] == [url + "?other"], remaining
         assert remaining[0]["status"] == "processing"
