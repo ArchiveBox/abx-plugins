@@ -39,8 +39,12 @@ Run `docker compose pull && docker compose up -d --no-build`, then check
 `curl -fsS http://127.0.0.1:7047/key` once the gateway is ready.
 Open <http://127.0.0.1:7047/> for the verification UI. Select `receipt.json` and
 `response.http` together; signature and response validation run in the browser,
-without uploading those files. `docker compose logs gateway` shows lifecycle
-errors. The upstream verifier's transcript logging is disabled in Compose.
+without uploading those files. Compose intentionally disables persistent Docker
+logging, so `docker compose logs` cannot retrieve historical lifecycle errors.
+For temporary observation of future gateway lifecycle messages, use
+`docker attach --no-stdin --sig-proxy=false <gateway-container>`; find the container
+name with `docker compose ps`. Disconnecting this observer does not stop the
+gateway. Do not attach to the verifier, whose output may contain transcript data.
 Gateway lifecycle lines include a random per-session log ID, a short hash of the
 client's random receipt ID matching the hook's correlation line, the control,
 verifier, or proxy channel, socket close direction/code, and byte counts. They
