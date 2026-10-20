@@ -69,6 +69,9 @@ def test_handles_non_git_url():
     ("url", "message"),
     [
         ("https://wicg.github.io/file-system-access/", "Not a git URL"),
+        ("https://github.com/sponsors/pirate", "Not a git URL"),
+        ("https://github.com/topics/python", "Not a git URL"),
+        ("https://github.com/orgs/ArchiveBox/repositories", "Not a git URL"),
         (
             "https://wicg.github.io/__archivebox_missing_repository__.git",
             "No git repository found",

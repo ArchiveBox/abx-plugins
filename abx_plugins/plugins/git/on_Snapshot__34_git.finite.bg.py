@@ -96,6 +96,9 @@ def normalize_git_url(url: str) -> str | None:
 
     owner = path_parts[0]
     repo = path_parts[1]
+    # GitHub's site routes can have two path components without naming a repo.
+    if host == "github.com" and owner.lower() in {"sponsors", "topics", "orgs"}:
+        return None
     if not owner or not repo:
         return None
 
