@@ -192,7 +192,25 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}
   return {
     async read(response) {
       const id = response.request().id;
-      const stream = streams.get(id);
+      let stream = streams.get(id);
+      const resourceType = response.request().resourceType();
+      if (!stream && resourceTypes && resourceType !== "document" &&
+          (!resourceTypes.length || resourceTypes.includes(resourceType))) {
+        // Puppeteer's requestfinished can precede this CDP session's queued
+        // request events. Read on this session before deciding it was untracked.
+        let result;
+        let error;
+        try {
+          result = await session.send("Network.getResponseBody", { requestId: id });
+        } catch (caught) {
+          error = caught;
+        }
+        stream = streams.get(id);
+        if (!stream) {
+          if (error) throw error;
+          return Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
+        }
+      }
       if (stream) {
         await stream.saved;
         streams.delete(id);

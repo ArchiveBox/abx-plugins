@@ -53,7 +53,14 @@ def test_cached_font_preserves_exact_identity_without_refetching(
             content_type="text/html",
         )
     httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
-    urls = [first, second, first] if scenario == "changed-variant" else [first, first]
+    # Exercise cached requests while the independent CDP sessions and disk
+    # writer drain; requestfinished can arrive before the raw capture events.
+    repetitions = 20 if scenario == "duplicate" else 2
+    urls = (
+        [first, second, first]
+        if scenario == "changed-variant"
+        else [first] * repetitions
+    )
     with chrome_session(
         tmp_path,
         test_url=first,
@@ -108,6 +115,7 @@ def test_cached_font_preserves_exact_identity_without_refetching(
             expected = [] if scenario == "late-observer" else [original, original]
         else:
             assert process.returncode == 0, (stdout, stderr)
-            expected = [original, original]
+            expected = [original] * repetitions
+        assert len(fonts) == len(expected), (stdout, stderr, rows)
         assert [(output / font["path"]).read_bytes() for font in fonts] == expected
         assert sum(r.path == "/font.woff" for r, _ in httpserver.log) == 1
