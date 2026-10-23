@@ -3,6 +3,7 @@
 import signal
 import subprocess
 import threading
+from pathlib import Path
 
 import psutil
 import pytest
@@ -47,8 +48,11 @@ def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
                 for process in parent.children(recursive=True):
                     try:
                         command = process.cmdline()
+                        # Node 24 names its main thread "MainThread" on Linux.
+                        # Match the executable argument, not that mutable name.
                         if (
-                            process.name() == "node"
+                            command
+                            and Path(command[0]).name == "node"
                             and "install" in command
                             and any(arg.startswith("chrome@") for arg in command)
                             and any("puppeteer" in arg for arg in command)
