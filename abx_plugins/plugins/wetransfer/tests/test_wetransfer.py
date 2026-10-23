@@ -45,6 +45,19 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                 browser = playwright.chromium.connect_over_cdp(
                     (chrome / "cdp_url.txt").read_text().strip(),
                 )
+                page = next(
+                    page
+                    for page in browser.contexts[0].pages
+                    if "wetransfer.com/" in page.url
+                )
+                terms = page.get_by_role("button", name="I agree", exact=True)
+                preview = page.get_by_role("button", name="Close preview", exact=True)
+                terms.or_(preview).wait_for(state="visible")
+                # The short link can open a preview that downloads without
+                # consent. Close it to exercise the genuine terms gate.
+                if preview.is_visible():
+                    preview.click()
+                terms.wait_for(state="visible")
                 assert not any(
                     cookie.get("name") == "wt_tandc"
                     for cookie in browser.contexts[0].cookies()
