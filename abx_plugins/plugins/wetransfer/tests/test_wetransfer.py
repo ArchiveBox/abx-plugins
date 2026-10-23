@@ -9,7 +9,8 @@ import zipfile
 from pathlib import Path
 
 import imagesize
-from playwright.sync_api import sync_playwright
+import pytest
+from playwright.sync_api import expect, sync_playwright
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
@@ -28,7 +29,8 @@ HEADSHOTS = {
 }
 
 
-def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs):
+@pytest.mark.parametrize("terms_accepted", [False, True])
+def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accepted):
     # Published as high-resolution headshots on drkatherinehunt.com/media-kit.
     with chrome_session(tmp_path, test_url=MEDIA_KIT_URL, timeout=60) as (
         _,
@@ -36,6 +38,21 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs):
         chrome,
         env,
     ):
+        if terms_accepted:
+            # Exercise a genuine accepted session as well as first-time consent.
+            # The export tab hydrates that shared cookie after its initial HTML.
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.connect_over_cdp(
+                    (chrome / "cdp_url.txt").read_text().strip(),
+                )
+                page = next(
+                    page
+                    for page in browser.contexts[0].pages
+                    if "wetransfer.com/downloads/" in page.url
+                )
+                agreement = page.get_by_role("button", name="I agree", exact=True)
+                agreement.click()
+                expect(agreement).to_have_count(0)
         result, diagnostic = run_observed_hook(
             tmp_path,
             chrome,

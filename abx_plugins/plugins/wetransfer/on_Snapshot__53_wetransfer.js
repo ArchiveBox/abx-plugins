@@ -18,7 +18,6 @@ const {
   readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
-  withTimeout,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -37,6 +36,13 @@ async function main() {
     if (ms <= 0) throw new Error("Provider download deadline exceeded");
     return ms;
   };
+  const transferReady = () =>
+    [...document.querySelectorAll("button")].some((button) => {
+      if (!/^(Download|Download all)$/.test(button.textContent.trim()) || button.disabled) return false;
+      const box = button.getBoundingClientRect();
+      return box.width && box.height && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    }) ||
+    /transfer (?:has )?expired|transfer (?:was )?deleted|Oops, the transfer you requested/i.test(document.body.innerText);
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const isTransfer = (candidate) =>
     candidate.protocol === "https:" &&
@@ -108,77 +114,57 @@ async function main() {
     );
     if (terms) {
       console.error("Accepting WeTransfer terms");
-      while (true) {
-        // A survey can cover the consent button after navigation. Like other
-        // provider exports, act on the topmost control: a covered click merely
-        // dismisses the survey backdrop without accepting the transfer terms.
-        const control = await page.waitForFunction(() => {
-          return [...document.querySelectorAll("button")].find(button => {
-            const label = (button.getAttribute("aria-label") || button.textContent).trim();
-            if (label !== "I agree" && !(button.closest('[role="dialog"]') && /^(skip(?:\s|$)|close$)/i.test(label))) return false;
-            if (button.disabled) return false;
-            const box = button.getBoundingClientRect();
-            return box.width && box.height && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
-          });
-        }, { timeout: remaining(), polling: 100 });
-        try {
-          const button = control.asElement();
-          const label = await button.evaluate(element => (element.getAttribute("aria-label") || element.textContent).trim());
-          const selector = `::-p-aria([name=${JSON.stringify(label)}][role="button"])`;
-          // React can replace the button after observation. Resolve the live
-          // control for the click, just as we do for the Download button.
-          // A survey can also appear between that observation and mouseup.
-          // Advance only when the native click actually reaches this control.
-          const receipt = await page.evaluateHandle(() => {
-            const controller = new AbortController();
-            const result = new Promise(resolve => {
-              document.addEventListener("click", event => {
-                if (!event.isTrusted) return;
-                controller.abort();
-                const button = event.composedPath().find(node => node instanceof HTMLButtonElement);
-                const target = event.target instanceof Element ? event.target : null;
-                resolve({
-                  label: button ? (button.getAttribute("aria-label") || button.textContent).trim() : null,
-                  overlay: Boolean(target?.closest('[role="dialog"]') || target?.querySelector('[role="dialog"]')),
-                });
-              }, {capture: true, signal: controller.signal});
+      const controller = new AbortController();
+      const consent = async () => {
+        while (true) {
+          // A survey can cover the consent button after navigation. Like other
+          // provider exports, act on the topmost control: a covered click merely
+          // dismisses the survey backdrop without accepting the transfer terms.
+          const control = await page.waitForFunction(() => {
+            return [...document.querySelectorAll("button")].find(button => {
+              const label = (button.getAttribute("aria-label") || button.textContent).trim();
+              if (label !== "I agree" && !(button.closest('[role="dialog"]') && /^(skip(?:\s|$)|close$)/i.test(label))) return false;
+              if (button.disabled) return false;
+              const box = button.getBoundingClientRect();
+              return box.width && box.height && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
             });
-            return {result, controller};
-          });
-          let delivered;
+          }, { timeout: remaining(), polling: 100, signal: controller.signal });
           try {
-            [delivered] = await withTimeout(() => Promise.all([
-              receipt.evaluate(({result}) => result),
-              page.locator(selector).setTimeout(remaining()).click(),
-            ]), remaining(), "WeTransfer click delivery timed out");
-          } finally {
-            // Navigation destroys the listener too; cleanup must not replace
-            // the original click error if its execution context has gone away.
-            if (!delivered) await receipt.evaluate(({controller}) => controller.abort()).catch(() => {});
-            await receipt.dispose();
-          }
-          if (delivered.label !== label) {
-            if (!delivered.overlay) throw new Error("WeTransfer click reached an unexpected control");
-            console.error("Dismissed WeTransfer overlay before accepting terms");
-            continue;
-          }
-          if (label === "I agree") break;
-          console.error("Dismissed optional WeTransfer dialog");
-          await page.waitForSelector(selector, { hidden: true, timeout: remaining() });
-        } finally { await control.dispose(); }
+            const button = control.asElement();
+            const label = await button.evaluate(element => (element.getAttribute("aria-label") || element.textContent).trim());
+            const selector = `::-p-aria([name=${JSON.stringify(label)}][role="button"])`;
+            // React can replace the button after observation. Resolve the live
+            // control for the click, just as we do for the Download button.
+            await page.locator(selector).setTimeout(remaining()).click({signal: controller.signal});
+            if (label === "I agree") break;
+            console.error("Dismissed optional WeTransfer dialog");
+            await page.waitForSelector(selector, { hidden: true, timeout: remaining(), signal: controller.signal });
+          } finally { await control.dispose(); }
+        }
+      };
+      // Cookie hydration can remove consent without another click. Stop the
+      // consent flow once the transfer is ready, including a stale control wait.
+      const pending = [
+        consent(),
+        page.waitForFunction(transferReady, {timeout: remaining(), signal: controller.signal})
+          .then(handle => handle.dispose()),
+      ];
+      let failure;
+      try {
+        await Promise.race(pending);
+      } catch (error) {
+        failure = error;
       }
-      console.error("WeTransfer agreement clicked; waiting for transfer status");
-      await page.waitForFunction(
-        () =>
-          [...document.querySelectorAll("button")].some((button) =>
-            /^(Download|Download all)$/.test(button.textContent.trim()),
-          ) ||
-          /transfer (?:has )?expired|transfer (?:was )?deleted|Oops, the transfer you requested/i.test(
-            document.body.innerText,
-          ),
-        { timeout: remaining(), polling: "mutation" },
-      );
+      controller.abort();
+      // Settle the cancelled locator before issuing the download click, and
+      // preserve unexpected failures even if the readiness wait won the race.
+      const settled = await Promise.allSettled(pending);
+      if (failure) throw failure;
+      for (const result of settled) {
+        if (result.status === "rejected" && result.reason !== controller.signal.reason) throw result.reason;
+      }
     }
+    await page.waitForFunction(transferReady, { timeout: remaining() });
     const expired = await page.evaluate(() =>
       /transfer (?:has )?expired|transfer (?:was )?deleted|Oops, the transfer you requested/i.test(
         document.body.innerText,
