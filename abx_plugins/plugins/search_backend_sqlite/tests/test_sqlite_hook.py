@@ -203,7 +203,7 @@ def test_hook_upgrades_existing_index_and_replaces_exact_snapshot(
         ]
 
 
-@pytest.mark.parametrize("component", ["a" * 120, "界" * 50])
+@pytest.mark.parametrize("component", ["a" * 115, "a" * 120, "界" * 50])
 def test_hook_indexes_long_source_paths_without_losing_links(
     tmp_path: Path,
     component: str,
@@ -217,7 +217,7 @@ def test_hook_indexes_long_source_paths_without_losing_links(
     for source, content in sources.items():
         source.write_bytes(content)
         flattened = source.relative_to(tmp_path).as_posix().replace("/", "__")
-        assert len(os.fsencode(flattened)) > 255
+        assert len(os.fsencode(flattened + ".rclonelink")) > 255
 
     previous_names = None
     for _ in range(2):
@@ -229,7 +229,7 @@ def test_hook_indexes_long_source_paths_without_losing_links(
         assert len(links) == len(sources)
         assert all(link.is_symlink() for link in links)
         assert {link.resolve() for link in links} == set(sources)
-        assert all(len(os.fsencode(link.name)) <= 255 for link in links)
+        assert all(len(os.fsencode(link.name + ".rclonelink")) <= 255 for link in links)
         names = {link.name for link in links}
         if previous_names is not None:
             assert names == previous_names

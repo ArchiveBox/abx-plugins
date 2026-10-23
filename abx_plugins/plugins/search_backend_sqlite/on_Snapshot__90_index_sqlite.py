@@ -210,9 +210,9 @@ def sync_source_symlinks(contents: list[tuple[str, str, Path]]) -> list[Path]:
     links: list[Path] = []
     for source_id, _content, source_path in contents:
         link_name = source_id.replace("/", "__")
-        # Flattening valid nested paths can exceed a filesystem's 255-byte
-        # filename limit. Keep ordinary names stable and hash only long ones.
-        if len(os.fsencode(link_name)) > 255:
+        # rclone stores symlinks with a .rclonelink suffix in its local cache.
+        # Reserve that suffix within the filesystem's 255-byte filename limit.
+        if len(os.fsencode(link_name + ".rclonelink")) > 255:
             source_hash = hashlib.sha256(os.fsencode(source_id)).hexdigest()
             link_name = f"source-{source_hash}{source_path.suffix}"
         link_path = OUTPUT_DIR / link_name
