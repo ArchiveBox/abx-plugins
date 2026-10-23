@@ -75,7 +75,9 @@ def strip_html_tags(html: str) -> str:
         flags=re.DOTALL | re.IGNORECASE,
     )
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r"<[^>]+>", " ", html)
+    # Quoted `>` characters do not end tags; leaking srcset data URLs here
+    # can send megabytes of image bytes to the text index.
+    html = re.sub(r"""<(?:[^>"']|"[^"]*"|'[^']*')+>""", " ", html)
     html = html.replace("&nbsp;", " ").replace("&amp;", "&")
     html = html.replace("&lt;", "<").replace("&gt;", ">")
     html = html.replace("&quot;", '"')

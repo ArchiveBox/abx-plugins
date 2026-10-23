@@ -25,6 +25,12 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
         "article/nested/page.html": "<p>htmluniqueneedle</p>",
         "article/page.htm": "<p>htmuniqueneedle</p>",
         "article/.txt": "hiddenfilenameuniqueneedle",
+        "article/quoted.html": (
+            '<p>beforeimageuniqueneedle</p><img alt="a > b" '
+            'src="data:image/png;base64,excludedattributeuniqueneedle">'
+            "<span title='c > d' data-note='excludedattributeuniqueneedle'>"
+            "afterimageuniqueneedle</span>"
+        ),
     }
     for name, text in content.items():
         target = snapshot / name
@@ -73,6 +79,7 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
         name: text.replace("<p>", "").replace("</p>", "")
         for name, text in content.items()
     }
+    expected["article/quoted.html"] = "beforeimageuniqueneedle afterimageuniqueneedle"
     expected["article/alias.txt"] = content["article/text.txt"]
     expected["article/response.txt"] = "sharedresponseuniqueneedle"
     expected.update(
@@ -248,6 +255,7 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
                 assert search(term, environ=env) == ["explicit-sonic-id"], term
             assert search("excludedruntimeuniqueneedle", environ=env) == []
             assert search("excludedsecretuniqueneedle", environ=env) == []
+            assert search("excludedattributeuniqueneedle", environ=env) == []
             assert (tmp_path / "index.jsonl").read_text() == manifest
             assert not list(tmp_path.rglob("injected"))
             for term in ("beforeblankuniqueneedle", "afterblankuniqueneedle"):
