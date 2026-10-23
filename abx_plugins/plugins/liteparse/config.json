@@ -58,6 +58,23 @@
           ]
         }
       }
+    },
+    {
+      "name": "{LITEPARSE_DJXL_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": "0.7.0",
+      "overrides": {
+        "brew": {
+          "install_args": [
+            "jpeg-xl"
+          ]
+        },
+        "apt": {
+          "install_args": [
+            "libjxl-tools"
+          ]
+        }
+      }
     }
   ],
   "output_mimetypes": [
@@ -88,6 +105,11 @@
       "type": "string",
       "default": "convert",
       "description": "Path to ImageMagick, used to normalize AVIF OCR inputs to temporary PNG files without changing archived originals. Auto-installed via brew/apt."
+    },
+    "LITEPARSE_DJXL_BINARY": {
+      "type": "string",
+      "default": "djxl",
+      "description": "Path to the JPEG XL decoder, used to normalize JPEG XL OCR inputs to temporary PNG files without changing archived originals. Auto-installed via brew/apt."
     },
     "LITEPARSE_TIMEOUT": {
       "type": "integer",

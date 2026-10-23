@@ -101,6 +101,7 @@ IMAGE_EXTENSIONS = {
     ".tif",
     ".webp",
     ".avif",
+    ".jxl",
 }
 SUPPORTED_EXTENSIONS = PDF_EXTENSIONS | OFFICE_EXTENSIONS | IMAGE_EXTENSIONS
 
@@ -541,6 +542,7 @@ def _process_batch(
     env: dict[str, str],
     scratch_dir: Path,
     imagemagick_binary: str,
+    djxl_binary: str,
     hook_deadline: float,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
     """Run ``lit batch-parse`` once for an isolated source.
@@ -570,12 +572,14 @@ def _process_batch(
         link_names: list[str] = []
         for idx, src, digest in batch:
             link_name = _safe_link_name(idx, src, digest)
-            # Servers commonly return AVIF bytes behind a .jpg URL. LiteParse's
+            # Servers return AVIF or JPEG XL bytes behind a .jpg URL. LiteParse's
             # native decoder rejects those bytes even with the correct suffix.
             # Normalize only the disposable OCR input, preserving the archive.
             with src.open("rb") as source:
                 header = source.read(32)
-            if header[4:8] == b"ftyp" and b"avif" in header[8:]:
+            is_jxl = header.startswith((b"\xff\x0a", b"\x00\x00\x00\x0cJXL \r\n\x87\n"))
+            if is_jxl or (header[4:8] == b"ftyp" and b"avif" in header[8:]):
+                image_format = "JPEG XL" if is_jxl else "AVIF"
                 link_name = str(Path(link_name).with_suffix(".png"))
                 converted_dir = tmp / f"convert_{idx}"
                 converted_dir.mkdir()
@@ -583,6 +587,13 @@ def _process_batch(
                 try:
                     conversion = subprocess.run(
                         [
+                            djxl_binary,
+                            str(src.resolve()),
+                            str(converted),
+                            "--num_threads=1",
+                        ]
+                        if is_jxl
+                        else [
                             imagemagick_binary,
                             str(src.resolve()),
                             # These lossless PNGs are disposable OCR inputs.
@@ -596,17 +607,46 @@ def _process_batch(
                         env=batch_env,
                         timeout=max(0.001, deadline - time.monotonic()),
                     )
-                    # Multi-frame conversions produce numbered files. Never
+                    # djxl writes animation as APNG, which LiteParse only reads
+                    # as one frame. acTL precedes IDAT; inspect bounded chunks
+                    # without reading the pixel payload or dropping other frames.
+                    multiple_frames = False
+                    if is_jxl and not conversion.returncode and converted.is_file():
+                        size = converted.stat().st_size
+                        with converted.open("rb") as png:
+                            png.seek(8)  # Skip the native decoder's PNG signature.
+                            while True:
+                                chunk = png.read(8)
+                                length = int.from_bytes(chunk[:4], "big")
+                                if len(chunk) != 8 or length > size - png.tell() - 4:
+                                    raise ValueError("incomplete PNG chunk")
+                                if chunk[4:] == b"acTL":
+                                    if length != 8:
+                                        raise ValueError("invalid PNG acTL chunk")
+                                    multiple_frames = (
+                                        int.from_bytes(png.read(4), "big") > 1
+                                    )
+                                    break
+                                if chunk[4:] == b"IDAT":
+                                    break
+                                png.seek(length + 4, 1)
+                    # ImageMagick multi-frame conversions produce numbered files. Never
                     # silently OCR only one frame and claim complete extraction.
-                    if conversion.returncode or not converted.is_file():
+                    if (
+                        conversion.returncode
+                        or not converted.is_file()
+                        or multiple_frames
+                    ):
                         errors.append(
-                            f"{src.name}: AVIF conversion failed or produced multiple frames: "
+                            f"{src.name}: {image_format} conversion failed or produced multiple frames: "
                             f"{conversion.stderr.strip()}",
                         )
                     else:
                         converted.rename(input_dir / link_name)
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    errors.append(f"{src.name}: AVIF conversion failed: {exc}")
+                except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+                    errors.append(
+                        f"{src.name}: {image_format} conversion failed: {exc}",
+                    )
             else:
                 (input_dir / link_name).symlink_to(src.resolve())
             link_names.append(link_name)
@@ -864,6 +904,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
                 env,
                 scratch_dir,
                 str(config.LITEPARSE_IMAGEMAGICK_BINARY),
+                str(config.LITEPARSE_DJXL_BINARY),
                 hook_deadline,
             ): batch
             for batch in batches
