@@ -114,6 +114,77 @@ def test_replay_prefers_latest_capture_of_requested_page_including_post(
     assert f'data-url="{html_escape(cleared, quote=True)}"' in html
 
 
+def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path):
+    original = "https://example.com/article"
+    final = original + "?referrer=https%3A%2F%2Fexample.com%2Farticle"
+    capture = tmp_path / "archivewebpage" / "archivewebpage.wacz"
+    capture.parent.mkdir()
+    with zipfile.ZipFile(capture, "w") as archive:
+        archive.writestr(
+            "pages/pages.jsonl",
+            "\n".join(
+                json.dumps(page)
+                for page in [
+                    {"format": "json-pages-1.0"},
+                    {
+                        "url": "https://example.com/unrelated",
+                        "ts": "2026-10-23T17:22:00Z",
+                    },
+                    {
+                        "url": original,
+                        "ts": "2026-10-23T17:21:15Z",
+                        "title": "Verification",
+                    },
+                    {
+                        "url": final,
+                        "ts": "2026-10-23T17:21:24Z",
+                        "title": "Original article",
+                    },
+                ]
+            ),
+        )
+    navigation = tmp_path / "chrome" / "navigation.json"
+    navigation.parent.mkdir()
+    navigation.write_text(
+        json.dumps({"url": original, "finalUrl": final, "status": 200}),
+    )
+    html = presentation.render_replay_html(
+        "archivewebpage.wacz",
+        "/archivewebpage/archivewebpage.wacz",
+        wacz_path=capture,
+        fallback_url=original,
+    )
+    assert f'data-url="{html_escape(final, quote=True)}"' in html
+
+    # Unrelated, absent, or malformed metadata must preserve ordinary selection.
+    for metadata in [
+        {"url": "https://example.com/other", "finalUrl": final, "status": 200},
+        {
+            "url": original,
+            "finalUrl": "https://example.com/not-recorded",
+            "status": 200,
+        },
+        {"url": original, "finalUrl": None},
+        [],
+    ]:
+        navigation.write_text(json.dumps(metadata))
+        html = presentation.render_replay_html(
+            "archivewebpage.wacz",
+            "/archivewebpage/archivewebpage.wacz",
+            wacz_path=capture,
+            fallback_url=original,
+        )
+        assert f'data-url="{original}"' in html
+    navigation.write_text("{")
+    html = presentation.render_replay_html(
+        "archivewebpage.wacz",
+        "/archivewebpage/archivewebpage.wacz",
+        wacz_path=capture,
+        fallback_url=original,
+    )
+    assert f'data-url="{original}"' in html
+
+
 def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     tmp_path: Path,
 ) -> None:

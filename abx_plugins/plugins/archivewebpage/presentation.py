@@ -155,13 +155,31 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
     match a recorded page. Page index order is not navigation order: an
     incidental page can appear before the requested page.
 
+    Optional Chrome navigation metadata identifies the final redirected page.
+    Ignore missing, malformed, unrelated, or unrecorded navigation metadata.
+
     One URL can be recorded more than once: a bot-check interstitial is the
     first GET of it, and the page that cleared it may be a later form POST back
     to it (listed with a ``__wb_method=POST`` suffix). Replay the latest capture,
     the document the browser settled on.
     """
+    preferred_urls = [preferred_url]
+    # Navigation records the settled document before later scrolling can visit
+    # unrelated pages. Use it only for this capture and only if the WACZ has it.
+    try:
+        navigation = json.loads(
+            (wacz_path.parent.parent / "chrome/navigation.json").read_text(),
+        )
+        if (
+            isinstance(navigation, dict)
+            and navigation.get("url") == preferred_url
+            and isinstance(navigation.get("finalUrl"), str)
+        ):
+            preferred_urls.insert(0, navigation["finalUrl"])
+    except (OSError, ValueError):
+        pass
     first_url = ""
-    latest = None
+    latest = {}
     try:
         with zipfile.ZipFile(wacz_path) as zf:
             for name in ("pages/pages.jsonl", "pages/extraPages.jsonl"):
@@ -183,15 +201,19 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
                         continue  # header row, not a real page entry
                     url = record.get("url")
                     if url:
-                        if preferred_url and _page_request_url(url) == preferred_url:
+                        request_url = _page_request_url(url)
+                        if request_url in preferred_urls:
                             ts = str(record.get("ts") or "")
-                            if latest is None or ts >= latest[0]:
-                                latest = (ts, url)
+                            if (
+                                request_url not in latest
+                                or ts >= latest[request_url][0]
+                            ):
+                                latest[request_url] = (ts, url)
                         if not first_url:
                             first_url = url
     except (zipfile.BadZipFile, OSError):
         pass
-    return latest[1] if latest else first_url
+    return next((latest[url][1] for url in preferred_urls if url in latest), first_url)
 
 
 def _replay_index(wacz_path: Path) -> dict:
@@ -281,8 +303,9 @@ def render_replay_html(
     base. Other outputs from the plugin, such as ``recording.json``, continue
     through their ordinary MIME-specific renderer.
 
-    If recorded, prefer ``fallback_url`` over incidental pages in the WACZ.
-    Otherwise use the first archived URL to support redirects. Falls back to
+    Prefer the recorded final navigation for ``fallback_url``, then that URL,
+    over incidental pages in the WACZ. Otherwise use the first archived URL.
+    Falls back to
     ``fallback_url`` (typically ``Snapshot.url``) if the WACZ has no readable
     pages index.
     """
