@@ -63,7 +63,8 @@ process.on('SIGTERM', () => { if (browser) browser.disconnect(); process.exit(0)
           focus: document.hasFocus(), visibility: document.visibilityState,
           viewport: {width: innerWidth, height: innerHeight}, ...state(),
           animations: document.getAnimations().filter(a => a.playState === 'running').slice(0, 20)
-            .map(a => ({target: describe(a.effect?.target), currentTime: a.currentTime}))});
+            .map(a => ({target: describe(a.effect?.target), currentTime: a.currentTime,
+              ancestorOfControl: a.effect?.target?.contains(control)}))});
       }, true);
       let previous;
       new MutationObserver(() => {

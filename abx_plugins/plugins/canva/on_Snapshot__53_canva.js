@@ -204,15 +204,23 @@ async function main() {
                 )
               )
                 continue;
-              const popup = el.closest(
-                '[role="listbox"], [role="dialog"], [role="region"]',
-              );
-              if (
-                popup
-                  ?.getAnimations()
-                  .some((animation) => animation.playState === "running")
-              )
-                continue;
+              // Role-less popup wrappers can still transform the click target.
+              let animating = false;
+              for (
+                let ancestor = el;
+                ancestor;
+                ancestor = ancestor.parentElement
+              ) {
+                if (
+                  ancestor
+                    .getAnimations()
+                    .some((animation) => animation.playState === "running")
+                ) {
+                  animating = true;
+                  break;
+                }
+              }
+              if (animating) continue;
               return el;
             }
             return false;
