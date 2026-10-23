@@ -1,0 +1,27 @@
+abx_plugins/plugins/trafilatura/on_Snapshot__66_trafilatura.py
+  s_10bc94d001be49::t_efde44a335da55 101,121,125,128,130,149-151
+abx_plugins/plugins/trafilatura/tests/test_trafilatura.py
+  s_10bc94d001be49::t_8631dc449540ed 63-83,86-87
+  s_10bc94d001be49::t_58e459bc5bee02 84-85
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_10bc94d001be49::t_b4c10956dfa572 114-137,140
+  s_10bc94d001be49::t_fa261222e04640 138-139
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_10bc94d001be49::t_efde44a335da55 123-135,137-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a398d1996df0a793a44a861017b143ab996e7f1",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
