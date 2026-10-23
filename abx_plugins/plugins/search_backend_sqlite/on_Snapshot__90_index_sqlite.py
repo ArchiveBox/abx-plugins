@@ -19,6 +19,7 @@ Environment variables:
 
 import sys
 import argparse
+import errno
 import os
 import stat
 import re
@@ -135,6 +136,11 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
             elif not stat.S_ISDIR(plugin_stat.st_mode):
                 continue
         except (OSError, RuntimeError) as error:
+            if isinstance(error, OSError) and error.errno not in (
+                errno.ENOENT,
+                errno.ELOOP,
+            ):
+                raise
             print(f"Unable to read search input {plugin_dir}: {error}", file=sys.stderr)
             continue
 

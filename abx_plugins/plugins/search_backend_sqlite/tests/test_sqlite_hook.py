@@ -138,6 +138,38 @@ def test_hook_indexes_available_content_with_unreadable_plugin_root(
     assert not (tmp_path / "search_backend_sqlite/wget").exists()
 
 
+def test_hook_fails_when_existing_plugin_content_is_inaccessible(
+    tmp_path: Path,
+) -> None:
+    title = tmp_path / "title" / "title.txt"
+    title.parent.mkdir()
+    title.write_text("preservedsearchneedle")
+    original = run_hook(tmp_path)
+    assert original.returncode == 0, original.stderr
+
+    source = tmp_path / ".source"
+    source.mkdir()
+    article = source / "article"
+    article.mkdir()
+    (article / "content.txt").write_text("valuablemissingcontent")
+    (tmp_path / "wget").symlink_to(".source/article")
+    source.chmod(0)
+    try:
+        result = run_hook(tmp_path)
+    finally:
+        source.chmod(0o700)
+
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "PermissionError" in result.stderr
+    assert '"status": "succeeded"' not in result.stdout
+    assert (article / "content.txt").read_text() == "valuablemissingcontent"
+    with sqlite3.connect(tmp_path / "search.sqlite3") as conn:
+        assert conn.execute(
+            "SELECT snapshot_id FROM search_index WHERE search_index MATCH ?",
+            ("preservedsearchneedle",),
+        ).fetchall() == [("snap-001",)]
+
+
 def test_hook_indexes_pruned_tree_and_preserves_file_and_root_aliases(
     tmp_path: Path,
 ) -> None:
