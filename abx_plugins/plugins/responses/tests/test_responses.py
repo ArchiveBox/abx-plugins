@@ -401,17 +401,9 @@ class TestResponsesWithChrome:
                     f"Missing ArchiveResult from responses hook stdout: {stdout}"
                 )
                 archive_result = archive_result_records[-1]
-                parsed_main_url = urlparse(test_url)
-                main_pathname = parsed_main_url.path or "/"
-                main_filename = posixpath.basename(main_pathname) or "index.html"
-                main_dir_raw = posixpath.dirname(main_pathname)
-                main_dir = "" if main_dir_raw == "." else main_dir_raw.lstrip("/")
-                expected_output = posixpath.join(
-                    "responses",
-                    parsed_main_url.hostname or "",
-                    main_dir,
-                    main_filename,
-                )
+                main_record = next(row for row in records if row["url"] == test_url)
+                expected_output = (Path("responses") / main_record["path"]).as_posix()
+                assert not (responses_dir.parent / expected_output).is_symlink()
                 assert archive_result == {
                     "type": "ArchiveResult",
                     "status": "succeeded",
@@ -529,9 +521,10 @@ def test_response_parent_and_child_urls_keep_both_bodies(
         image,
         content_type="image/svg+xml",
     )
+    start_body = b'<script>fetch("/article/image.svg").then(r=>r.text()).then(()=>fetch("/article"))</script>'
     if child_first:
         httpserver.expect_request("/start").respond_with_data(
-            '<script>fetch("/article/image.svg").then(r=>r.text()).then(()=>fetch("/article"))</script>',
+            start_body,
             content_type="text/html",
         )
     url = httpserver.url_for("/start" if child_first else parent_path)
@@ -601,7 +594,8 @@ def test_response_parent_and_child_urls_keep_both_bodies(
         ]
         result = next(row for row in results if row.get("type") == "ArchiveResult")
         assert result["status"] == "succeeded"
-        if not child_first:
-            expected_main = output / urlparse(url).hostname / "article/index.html"
-            assert (output.parent / result["output_str"]) == expected_main
-            assert expected_main.read_bytes() == body
+        main_record = next(row for row in records if row["url"] == url)
+        expected_main = output / main_record["path"]
+        assert (output.parent / result["output_str"]) == expected_main
+        assert not expected_main.is_symlink()
+        assert expected_main.read_bytes() == (start_body if child_first else body)
