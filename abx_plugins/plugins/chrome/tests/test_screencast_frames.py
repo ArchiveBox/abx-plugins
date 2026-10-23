@@ -42,12 +42,12 @@ const utils=require(process.argv[1]);
 const {startPageScreencast}=require(path.join(path.dirname(process.argv[1]),'../chrome_screencast/screencast.js'));
 (async()=>{
   const {browser,page}=await utils.connectToPage({chromeSessionDir:process.argv[2]});
-  let stop,frames=0,bytes=0;
+  let stop,frames=0,bytes=0,times=[];
   try {
-    stop=await startPageScreencast(page,jpeg=>{frames++;bytes+=jpeg.length;fs.writeFileSync(process.argv[3],jpeg);},{fps:1,bringToFront:true});
+    stop=await startPageScreencast(page,jpeg=>{frames++;times.push(performance.now());bytes+=jpeg.length;fs.writeFileSync(process.argv[3],jpeg);},{fps:1,bringToFront:true});
     await new Promise(resolve=>setTimeout(resolve,6000));
     await stop();stop=null;
-    console.log(JSON.stringify({frames,bytes}));
+    console.log(JSON.stringify({frames,bytes,times}));
   } finally {if(stop)await stop();await browser.disconnect();}
 })().catch(error=>{console.error(error);process.exit(1);});
 """,
@@ -55,7 +55,7 @@ const {startPageScreencast}=require(path.join(path.dirname(process.argv[1]),'../
                 str(chrome_dir),
                 str(tmp_path / "last-frame.jpg"),
             ],
-            env=env | {"NODE_DEBUG": "puppeteer:protocol:RECV*"},
+            env=env | {"NODE_DEBUG": "puppeteer:protocol:*"},
             capture_output=True,
             text=True,
             timeout=30,
@@ -68,6 +68,14 @@ const {startPageScreencast}=require(path.join(path.dirname(process.argv[1]),'../
             re.findall(r'"method"\s*:\s*"Page\.screencastFrame"', result.stderr),
         )
         assert 4 <= observed["frames"] <= 7, observed
+        assert all(
+            b - a >= 900 for a, b in zip(observed["times"], observed["times"][1:])
+        ), observed
+        # Stop must reach Chrome before ACK frees another native capture slot.
+        methods = re.findall(r'"method"\s*:\s*"(Page\.[^"]+)"', result.stderr)
+        assert methods.index("Page.stopScreencast") < methods.index(
+            "Page.screencastFrameAck",
+        ), methods
         assert observed["bytes"] > 1000
         assert (tmp_path / "last-frame.jpg").read_bytes().startswith(b"\xff\xd8\xff")
         assert observed["frames"] <= acquired <= 9, {"acquired": acquired, **observed}
