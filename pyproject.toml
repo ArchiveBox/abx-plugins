@@ -21,9 +21,10 @@ classifiers = [
 dependencies = [
     "abxbus==2.5.77",
     "abxpkg==1.13.58",
+    "certifi>=2026.10.19",
     "imagesize>=2.0.0",
     "rich-click>=1.9.7",
-    "uv>=0.8.22",
+    "uv>=0.13.4",
 ]
 
 [project.optional-dependencies]
@@ -98,7 +99,9 @@ timeout_method = "thread"
 
 [tool.uv]
 exclude-newer = "5 days"
-exclude-newer-package = { abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second", abx-plugins = "2100-01-01T00:00:00Z" }
+# Security fixes for GHSA-6q48-6c7w-9gw2 and GHSA-hq85-5cpj-mr62
+# are newer than the default age window; allow only the published fixes.
+exclude-newer-package = { certifi = "2026-10-23T00:00:00Z", uv = "2026-10-23T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second", abx-plugins = "2100-01-01T00:00:00Z" }
 
 [tool.pyright]
 include = [
