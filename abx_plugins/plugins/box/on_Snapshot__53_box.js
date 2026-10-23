@@ -96,16 +96,21 @@ async function main() {
       timeoutMs: remaining(),
       downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
       trigger: async () => {
+        console.error("Waiting for Box Download control");
         const button = await page.waitForSelector(
           'button[aria-label="Download"]',
           { visible: true, timeout: remaining() },
         );
+        console.error("Box Download control ready:", JSON.stringify(await button.evaluate(
+          element => ({ disabled: element.disabled, connected: element.isConnected }),
+        )));
         folder = await page.evaluate(
           () =>
             window.Box?.postStreamData?.["/app-api/enduserapp/shared-item"]
               ?.itemType === "folder",
         );
         await button.click();
+        console.error("Box Download control clicked; waiting for browser download");
       },
     });
     await saveDownloads(path.join(snapshotDir, "box"), title, downloads, {
@@ -127,7 +132,7 @@ async function main() {
   }
 }
 main().catch((error) => {
-  console.error(error.message);
+  console.error(error.stack || error.message);
   emitArchiveResultRecord("failed", error.message);
   process.exitCode = 1;
 });
