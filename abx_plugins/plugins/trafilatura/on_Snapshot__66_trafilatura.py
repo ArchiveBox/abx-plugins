@@ -98,7 +98,7 @@ def run_trafilatura(
     url: str,
     formats: list[str],
     timeout: int,
-) -> tuple[str, str]:
+) -> tuple[bool, str]:
     managed_python = Path(binary).resolve().with_name("python")
     cmd = [
         str(managed_python),
@@ -118,16 +118,16 @@ def run_trafilatura(
         sys.stderr.write(result.stderr)
         sys.stderr.flush()
     if result.returncode != 0:
-        return "failed", f"trafilatura failed (exit={result.returncode})"
+        return False, f"trafilatura failed (exit={result.returncode})"
 
     outputs = json.loads(result.stdout)
     if not outputs:
-        return "noresults", "trafilatura returned no extracted content"
+        return False, "trafilatura returned no extracted content"
     for fmt in formats:
         if fmt not in outputs:
-            return "failed", f"trafilatura returned no format={fmt} output"
+            return False, f"trafilatura returned no format={fmt} output"
         write_text_atomic(OUTPUT_DIR / FORMAT_TO_FILE[fmt], outputs[fmt] or "")
-    return "succeeded", ""
+    return True, ""
 
 
 def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
@@ -146,9 +146,9 @@ def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
     if not formats:
         return "noresults", "No output formats enabled"
 
-    status, output = run_trafilatura(binary, html_source, url, formats, timeout)
-    if status != "succeeded":
-        return status, output
+    success, error = run_trafilatura(binary, html_source, url, formats, timeout)
+    if not success:
+        return "failed", error
 
     output_file = FORMAT_TO_FILE[formats[0]]
     return "succeeded", f"{PLUGIN_DIR}/{output_file}"
