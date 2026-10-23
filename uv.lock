@@ -15,7 +15,7 @@ abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.477"
+version = "1.13.478"
 source = { editable = "." }
 dependencies = [
     { name = "abxbus" },
