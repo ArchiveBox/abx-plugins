@@ -1,6 +1,8 @@
 #!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
+# [tool.ty.rules]
+# unresolved-import = "ignore"
 # ///
 """Optional ArchiveBox browser handoff; standalone importers use supplied CDP env."""
 
