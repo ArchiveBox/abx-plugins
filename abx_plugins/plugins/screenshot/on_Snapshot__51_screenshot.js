@@ -188,7 +188,13 @@ async function takeScreenshot(url) {
     await page.bringToFront();
     console.error(`[screenshot] capturing pixels (${Date.now() - captureStartedAt}ms)`);
     await Promise.race([
-      page.screenshot({ path: tempOutputPath, fullPage: false }),
+      (async () => {
+        // Separate compositor time from remote archive writes in phase logs.
+        const pixels = await page.screenshot({ type: "png", fullPage: false });
+        console.error(`[screenshot] pixels captured (${Date.now() - captureStartedAt}ms)`);
+        await fs.promises.writeFile(tempOutputPath, pixels);
+        console.error(`[screenshot] pixels written (${Date.now() - captureStartedAt}ms)`);
+      })(),
       new Promise((_, reject) => {
         setTimeout(
           () => reject(new Error("Screenshot capture timed out")),
