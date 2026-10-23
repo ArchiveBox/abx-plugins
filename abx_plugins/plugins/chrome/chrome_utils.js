@@ -72,13 +72,30 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     // request. These bodies are decoded; the selected Content-Encoding still
     // must match as part of the complete response-header identity below.
     const vary = (new Map(responseHeaders).get("vary") || "").toLowerCase().split(",").map((name) => name.trim()).filter((name) => name && name !== "accept-encoding");
-    // Cached CDP events omit some request headers. An unobservable Vary key
-    // cannot establish that an earlier body belongs to this cache entry.
-    if (vary.some((name) => name === "*" || !requestHeaders.has(name))) return;
+    if (vary.includes("*")) return;
+    const observableVary = vary.every((name) => requestHeaders.has(name));
+    // MHTML serialization's EmulateLoadStartedForInspector creates a URL-only
+    // request for an existing FontResource. It retains that resource's original
+    // network timing, connection and response headers, but omits Origin etc.
+    // Identify the observed response itself; never infer missing request headers.
+    const { responseTime, connectionId, timing, fromServiceWorker } = event.response;
+    const transportIdentity = !fromServiceWorker &&
+      [responseTime, connectionId, timing?.requestTime].every((value) => Number.isFinite(value) && value > 0)
+      ? JSON.stringify(["font-response", stream.url, stream.method, event.response.status,
+        responseHeaders, responseTime, connectionId, timing]) : null;
+    if (!observableVary) {
+      const previous = stream.cached && transportIdentity && fontBodies.get(transportIdentity);
+      const previousHeaders = previous && new Map(headerIdentity(previous.requestHeaders));
+      if (previous && vary.every((name) => !requestHeaders.has(name) || requestHeaders.get(name) === previousHeaders.get(name))) {
+        stream.previousFont = previous;
+      }
+      return;
+    }
     const identity = JSON.stringify([stream.url, stream.method, event.response.status,
       vary.map((name) => [name, requestHeaders.get(name)]), responseHeaders]);
     if (stream.cached) stream.previousFont = fontBodies.get(identity);
     if (!stream.previousFont) fontBodies.set(identity, stream);
+    if (!stream.cached && transportIdentity) fontBodies.set(transportIdentity, stream);
   });
   // Spool raw chunks to local scratch instead of retaining concurrent bodies
   // or decoding them according to potentially incorrect server MIME headers.
