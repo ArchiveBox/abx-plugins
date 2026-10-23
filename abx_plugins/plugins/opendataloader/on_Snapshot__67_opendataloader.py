@@ -289,6 +289,7 @@ def extract_opendataloader(
     for index, source_file in enumerate(sources):
         remaining = deadline - time.monotonic()
         if remaining <= 1:
+            timed_out_on = source_file.name
             print(
                 f"[opendataloader] WARN: timeout budget spent, skipping "
                 f"{len(sources) - index} of {len(sources)} PDFs",
@@ -388,6 +389,10 @@ def extract_opendataloader(
             indent=2,
         ),
     )
+
+    # Preserve completed PDFs without claiming the timed-out document is complete.
+    if timed_out_on:
+        return "failed", f"Timed out after {timeout}s extracting {timed_out_on}"
 
     # Return the primary output file that was actually written
     if all_md_parts:

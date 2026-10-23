@@ -680,7 +680,7 @@ def test_failing_pdf_does_not_discard_other_pdfs():
 
 
 def test_timeout_budget_writes_partial_results_before_runner_kill():
-    """Spend at most the hook timeout and keep the PDFs already extracted.
+    """Retain extracted PDF bytes while reporting known incomplete extraction.
 
     WHY: a demo snapshot found 11 PDFs, gave every converter run the full
     120 s hook timeout, and was killed by the runner after three PDFs with
@@ -696,6 +696,24 @@ def test_timeout_budget_writes_partial_results_before_runner_kill():
         responses_dir = snap_dir / "responses" / "example.com"
         responses_dir.mkdir(parents=True)
         (responses_dir / "quick.pdf").write_bytes(pdf_content)
+        baseline = _run_hook(
+            snap_dir,
+            tmpdir,
+            "https://example.com",
+            PRODUCTION_HEAP_ENV,
+            timeout=120,
+        )
+        assert baseline.returncode == 0, baseline.stderr
+        baseline_record = parse_jsonl_output(baseline.stdout)
+        assert baseline_record and baseline_record["status"] == "succeeded"
+        output_dir = snap_dir / "opendataloader"
+        baseline_md = (output_dir / "content.md").read_bytes()
+        baseline_text = (output_dir / "content.txt").read_bytes()
+        assert b"Dummy PDF file" in baseline_md
+        assert b"Dummy PDF file" in baseline_text
+        for output in output_dir.iterdir():
+            output.unlink()
+
         wget_dir = snap_dir / "wget" / "example.com"
         wget_dir.mkdir(parents=True)
         # Each copy takes seconds to convert, more than the budget in total.
@@ -711,9 +729,6 @@ def test_timeout_budget_writes_partial_results_before_runner_kill():
             timeout=hook_timeout,
         )
 
-        assert result.returncode == 0, result.stderr[-2000:]
-        record = parse_jsonl_output(result.stdout)
-        assert record and record["status"] == "succeeded", record
         assert "timeout budget spent" in result.stderr, result.stderr[-2000:]
         metadata = json.loads(
             (snap_dir / "opendataloader" / "metadata.json").read_text(),
@@ -722,6 +737,18 @@ def test_timeout_budget_writes_partial_results_before_runner_kill():
         processed = [file["source_file"] for file in metadata["files"]]
         assert processed[0] == "quick.pdf", processed
         assert len(processed) < 9, processed
+        assert (output_dir / "content.md").read_bytes().split(b"\n\n---\n\n", 1)[
+            0
+        ] == baseline_md
+        assert (output_dir / "content.txt").read_bytes().split(b"\n\n---\n\n", 1)[
+            0
+        ] == baseline_text
+        assert result.returncode == 1, result.stderr[-2000:]
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "failed", record
+        assert record["output_str"].startswith(
+            f"Timed out after {hook_timeout}s extracting paper-",
+        ), record
 
 
 def test_force_ocr_adds_hybrid_flag():
