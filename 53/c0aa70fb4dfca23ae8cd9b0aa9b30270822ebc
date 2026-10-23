@@ -1,0 +1,27 @@
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  s_10bc94d001be49::t_5fc530dc50be65 88-173,179,184,186-192,219-221,228-230,254,282-283,293-311,321-322,330,333,335,342,357,398-412,447-458,554-556,565,567,577,586,593
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  s_10bc94d001be49::t_d9db3acc611bb1 647-839
+abx_plugins/plugins/mercury/tests/fixtures/README.md
+  s_10bc94d001be49::t_0e422e2695a79e 30-31,33-35
+abx_plugins/plugins/mercury/tests/fixtures/techcrunch-original-article.json
+  s_10bc94d001be49::t_7261cf51632ebe 1
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_10bc94d001be49::t_9298fdd6a2c75b 629-665
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "53c0aa70fb4dfca23ae8cd9b0aa9b30270822ebc",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
