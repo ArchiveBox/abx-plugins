@@ -126,8 +126,15 @@ const {{connectToPage}} = require({json.dumps(str(CHROME_UTILS))});
 (async () => {{
   const {{browser,page}} = await connectToPage({{chromeSessionDir:process.argv[1],timeoutMs:30000,waitForNavigationComplete:true}});
   try {{
+    page.on('requestfailed', request => console.error('Excalidraw request failed:', request.url(), request.failure()?.errorText));
+    page.on('pageerror', error => console.error('Excalidraw page error:', error.stack || error.message));
     await page.bringToFront();
-    await page.waitForFunction(() => !location.hash, {{timeout:30000}});
+    try {{
+      await page.waitForFunction(() => !location.hash, {{timeout:30000}});
+    }} catch (error) {{
+      console.error('Excalidraw import state:', await page.evaluate(() => ({{url:location.href,title:document.title,text:document.body?.innerText.slice(0,4000)}})).catch(stateError => ({{error:stateError.message}})));
+      throw error;
+    }}
     await page.click('[data-testid="toolbar-text"]');
     await page.mouse.click(1100,1500);
     await page.keyboard.type('ArchiveBox existing local scene must stay unchanged');
