@@ -1,0 +1,21 @@
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_10bc94d001be49::t_05908cffaba8ad 123-129,131-134
+abx_plugins/plugins/trafilatura/on_Snapshot__66_trafilatura.py
+  s_10bc94d001be49::t_b9ea320c76dc7f 101,121,125,128,130,149-151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca5d49a16f8911c95717a6f62f968d604050a089",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
