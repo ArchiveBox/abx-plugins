@@ -236,7 +236,19 @@ async function setupListener() {
       }
 
       // Get response body
-      let bodyBuffer = await originalResponses.read(response);
+      let bodyBuffer;
+      try {
+        bodyBuffer = await originalResponses.read(response);
+      } catch (error) {
+        // Chrome may evict an otherwise completed response. Keep the bodies
+        // already saved; an unavailable cache entry is not a storage failure.
+        if (error.name === "ProtocolError" &&
+            /Protocol error \(Network\.getResponseBody\): (No data found for resource with given identifier|No resource with given identifier found)/.test(error.message)) {
+          console.error(`WARN: Cannot read response body: ${error.message}`);
+          return;
+        }
+        throw error;
+      }
       if (bodyBuffer === null) return;
       try {
         bodyBuffer ??= await response.buffer();

@@ -261,7 +261,8 @@ const utils = require(process.argv[1]);
         fonts = [r for r in rows if r["url"] == font_url]
         assert process is not None
         if scenario in ("service-worker", "observable-mismatch"):
-            assert process.returncode == 1, (stdout, stderr)
+            assert process.returncode == 0, (stdout, stderr)
+            assert "WARN: Cannot read response body:" in stderr
             assert "No data found for resource" in stderr
             expected = [original, original]
         else:
@@ -271,6 +272,11 @@ const utils = require(process.argv[1]);
                 if scenario == "changed-origin"
                 else [original] * 3
             )
+        results = [
+            json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+        ]
+        record = next(row for row in results if row.get("type") == "ArchiveResult")
+        assert record["status"] == "succeeded", record
         assert [(output / row["path"]).read_bytes() for row in fonts] == expected
         assert [row["responseSha256"] for row in fonts] == [
             hashlib.sha256(body).hexdigest() for body in expected
