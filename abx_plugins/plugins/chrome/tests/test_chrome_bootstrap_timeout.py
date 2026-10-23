@@ -79,7 +79,10 @@ def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
             result = _run_chrome_required_binary_env(env, timeout=20)
             pytest.fail(f"Installer returned {result.returncode}: {result.stderr}")
         assert not monitor_errors, monitor_errors
-        assert stopped.is_set(), "The real Puppeteer installer did not start"
+        assert stopped.is_set(), (
+            "The real Puppeteer installer did not start\n"
+            f"stdout={timeout.value.stdout}\nstderr={timeout.value.stderr}"
+        )
         assert "Installing chromium via puppeteer" in str(timeout.value.stderr)
         assert installers
         _, alive = psutil.wait_procs(installers, timeout=5)

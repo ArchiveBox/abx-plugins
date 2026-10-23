@@ -17,6 +17,7 @@ import pytest
 from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
     parse_jsonl_output,
+    wait_for_file,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
@@ -825,10 +826,79 @@ const awpInternal = require(process.argv[2]);
     assert len({status["collId"] for status in statuses.values()}) == 1
 
 
+@pytest.fixture
+def awp_extension_events(archivewebpage_crawl, tmp_path):
+    """Observe actual extension failures during the concurrent startup regression."""
+    env, crawl_chrome_dir, _tab_processes = archivewebpage_crawl
+    events = tmp_path / "awp-extension-events.jsonl"
+    ready = tmp_path / "awp-observer-ready"
+    script = r"""
+const fs = require('fs');
+const utils = require(process.argv[1]);
+const awp = require(process.argv[2]);
+(async () => {
+  const endpoint = await utils.getBrowserCdpUrl(process.argv[3], {requireTargetId: false});
+  const browser = await utils.connectToBrowserEndpoint(utils.resolvePuppeteerModule(), endpoint);
+  const {id} = awp.resolveAwpExtension(process.argv[3]);
+  if (!id) throw new Error('ArchiveWeb.page extension identity is missing');
+  const started = Date.now();
+  const write = (event, target, data = {}) => fs.appendFileSync(process.argv[4], JSON.stringify({
+    elapsed_ms: Date.now() - started, event, target: utils.getTargetIdFromTarget(target),
+    url: target.url(), type: target.type(), data,
+  }) + '\n');
+  const observe = async target => {
+    if (!target.url().startsWith(`chrome-extension://${id}/`)) return;
+    write('target', target);
+    const session = await target.createCDPSession();
+    for (const name of ['Runtime.exceptionThrown', 'Runtime.consoleAPICalled']) {
+      session.on(name, data => write(name, target, data));
+    }
+    await session.send('Runtime.enable');
+  };
+  browser.on('targetcreated', target => {
+    observe(target).catch(error => write('observer error', target, {message: error.message}));
+  });
+  browser.on('targetdestroyed', target => {
+    if (target.url().startsWith(`chrome-extension://${id}/`)) write('destroyed', target);
+  });
+  await Promise.all(browser.targets().map(observe));
+  fs.writeFileSync(process.argv[5], 'ready');
+  process.on('SIGTERM', () => { browser.disconnect(); process.exit(0); });
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+    with (tmp_path / "awp-observer.log").open("w") as log:
+        observer = subprocess.Popen(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(AWP_INTERNAL),
+                str(crawl_chrome_dir),
+                str(events),
+                str(ready),
+            ],
+            cwd=tmp_path,
+            env=env,
+            stdout=log,
+            stderr=log,
+            text=True,
+        )
+        try:
+            wait_for_file(ready, process=observer)
+            yield events
+        finally:
+            observer.terminate()
+            observer.wait(timeout=15)
+            if events.exists():
+                print(events.read_text())
+
+
 def test_cowpig_recording_survives_overlapping_snapshot_lifecycles(
     archivewebpage_crawl,
     chrome_test_url,
     tmp_path,
+    awp_extension_events,
 ):
     """AWP must retain the exact Cowpig target until its stop hook completes.
 
