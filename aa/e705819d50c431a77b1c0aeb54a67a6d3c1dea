@@ -1,0 +1,25 @@
+abx_plugins/plugins/mercury/on_Snapshot__66_mercury.py
+  s_10bc94d001be49::t_f566016ba74559 55-61
+abx_plugins/plugins/mercury/tests/fixtures/README.md
+  s_10bc94d001be49::t_83a5cdc8bb339e 38-45
+abx_plugins/plugins/mercury/tests/fixtures/posthog-sql-parser-paragraphs.json
+  s_10bc94d001be49::t_17695922f48caa 1-44
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_10bc94d001be49::t_5dd12736b3aa5f 666-744
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aae705819d50c431a77b1c0aeb54a67a6d3c1dea",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
