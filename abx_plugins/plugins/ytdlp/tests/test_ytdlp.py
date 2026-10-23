@@ -1276,3 +1276,53 @@ def test_individual_public_video_still_downloads(tmp_path, ytdlp_runtime_env):
     with videos[0].open("rb") as video:
         assert video.read(12)[4:8] == b"ftyp"
     assert videos[0].stat().st_size > 1_000_000
+
+
+@pytest.mark.parametrize("script_boundary", [False, True])
+def test_generic_html5_ignores_comments_without_losing_visible_media(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+    script_boundary,
+):
+    """Commented authoring examples are not playable media elements."""
+    media = _build_test_wav_bytes()
+    for name in ("first.wav", "second.wav"):
+        httpserver.expect_request(f"/{name}").respond_with_data(
+            media,
+            content_type="audio/wav",
+        )
+    script = '<script>const marker = "<!--";</script>\r' if script_boundary else ""
+    page = (
+        "<!doctype html><title>Visible media</title>\n"
+        f'{script}<audio src="first.wav" controls></audio>\n'
+        '<!-- Authoring template:\n<audio src="missing.wav" controls></audio>\n-->\r'
+        '<audio src="second.wav" controls></audio>'
+    )
+    httpserver.expect_request("/").respond_with_data(page, content_type="text/html")
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url", httpserver.url_for("/")],
+        cwd=tmp_path,
+        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", record
+    output = tmp_path / "ytdlp"
+    saved = list(output.glob("*.wav"))
+    assert len(saved) == 2
+    for path in saved:
+        with wave.open(str(path)) as captured, wave.open(io.BytesIO(media)) as original:
+            assert captured.getparams() == original.getparams()
+            assert captured.readframes(captured.getnframes()) == original.readframes(
+                original.getnframes(),
+            )
+    metadata = [json.loads(path.read_text()) for path in output.glob("*.info.json")]
+    assert {item["url"] for item in metadata if item.get("url")} == {
+        httpserver.url_for("/first.wav"),
+        httpserver.url_for("/second.wav"),
+    }
+    assert not any(request.path == "/missing.wav" for request, _ in httpserver.log)
