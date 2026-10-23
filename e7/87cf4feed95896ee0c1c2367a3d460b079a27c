@@ -1,0 +1,19 @@
+abx_plugins/plugins/mobilesize/on_Snapshot__60_mobilesize.js
+  s_10bc94d001be49::t_314810b6a521e7 32-33,41,78,80,94,110,117,122,124,133,136,141,146-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e787cf4feed95896ee0c1c2367a3d460b079a27c",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
