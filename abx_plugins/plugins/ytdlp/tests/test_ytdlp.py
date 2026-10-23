@@ -305,6 +305,94 @@ def test_twitter_video_survives_summary_card_override(tmp_path, ytdlp_runtime_en
     assert not decoded.stderr, decoded.stderr
 
 
+def test_amazon_product_hls_downloads_media_not_variant_playlists(
+    tmp_path,
+    ytdlp_runtime_env,
+):
+    """Replay actual product data, then download and decode all five real videos."""
+    page = gzip.decompress(
+        (
+            Path(__file__).parent / "fixtures/amazon-product-video-data.js.gz"
+        ).read_bytes(),
+    )
+    assert hashlib.sha256(page).hexdigest() == (
+        "81683cf2cbdfafb03fea716653f60994e85cf66a0e515e834a77fe18d499f352"
+    )
+    output = tmp_path / "ytdlp"
+    output.mkdir()
+    saved_page = output / "B0F7QP994T_https_-_www.amazon.com_dp_B0F7QP994T.dump"
+    saved_page.write_bytes(page)
+    result = subprocess.run(
+        [str(YTDLP_HOOK), "--url=https://www.amazon.com/dp/B0F7QP994T"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
+        },
+        capture_output=True,
+        text=True,
+        timeout=140,
+    )
+    assert "Loading request from" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    assert saved_page.read_bytes() == page
+    expected = {
+        "Halloween_Vibes_on_Times_Gate": 17,
+        "divoom_times_gate_for_Halloween_decor": 14,
+        "Divoom_Times_Gate_-_Cyberpunk_Gaming_Desk_Setup": 43,
+        "First_Look_-_Yellow_Time_Gate_Unboxing_Showcase": 29,
+        "Yellow_Time_Gate_-_Function_Showcase": 32,
+    }
+    videos = sorted(output.glob("*.mp4"))
+    assert {video.stem for video in videos} == set(expected)
+    assert not list(output.glob("*.m3u8"))
+    ffmpeg = Path(ytdlp_runtime_env["FFMPEG_BINARY"]).resolve()
+    for video in videos:
+        metadata = json.loads(video.with_suffix(".info.json").read_text())
+        assert metadata["id"] == "ATVPDKIKX0DER"
+        assert metadata["duration"] == expected[video.stem]
+        assert len(metadata["formats"]) == 4
+        assert video.stat().st_size > 1_000_000
+        probe = subprocess.run(
+            [
+                str(ffmpeg.with_name("ffprobe")),
+                "-v",
+                "error",
+                "-show_format",
+                "-show_streams",
+                "-of",
+                "json",
+                str(video),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert probe.returncode == 0, probe.stderr
+        media = json.loads(probe.stdout)
+        assert {stream["codec_type"] for stream in media["streams"]} == {
+            "audio",
+            "video",
+        }
+        assert (
+            expected[video.stem]
+            <= float(media["format"]["duration"])
+            < expected[video.stem] + 1
+        )
+        decoded = subprocess.run(
+            [str(ffmpeg), "-v", "error", "-i", str(video), "-f", "null", "-"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert decoded.returncode == 0, decoded.stderr
+        assert not decoded.stderr, decoded.stderr
+
+
 @pytest.mark.parametrize(
     "post_id,fixture_name,sha256",
     [

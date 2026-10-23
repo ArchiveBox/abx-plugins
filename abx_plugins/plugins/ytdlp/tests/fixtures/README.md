@@ -72,3 +72,29 @@ verifies the existing summary-card override and hook classification, independent
 of X omitting card/link data from a hosted-runner response. The failed hosted
 response was not retained, so its exact shape remains unverified. Separate live
 image-only and downloadable-video tests remain unchanged.
+
+`amazon-product-video-data.js.gz` contains the unmodified public product-data
+script excerpt recorded anonymously on 2026-10-23 from
+https://www.amazon.com/dp/B0F7QP994T using yt-dlp2026.10.21:
+
+```sh
+yt-dlp --ignore-config --write-pages --skip-download --dump-single-json https://www.amazon.com/dp/B0F7QP994T
+```
+
+The complete response was2878414bytes, SHA256
+`619eb562bf976894921e8541c6a5e9df4aa316f59cad514f31c233ef8204641b`.
+The excerpt begins at the literal `var obj = jQuery.parseJSON('` and ends at
+its first following `');`, inclusive. It is an exact13478byte substring of that
+response, SHA256
+`81683cf2cbdfafb03fea716653f60994e85cf66a0e515e834a77fe18d499f352`.
+No fields are rewritten. All five original video entries, titles, identifiers,
+HLS master URLs, thumbnails, dimensions and durations remain present. Unrelated
+page scripts with guest-session/CSRF values are excluded; the recorded excerpt
+contains no session, CSRF, token or account credentials.
+
+Native `--load-pages` exercises the actual AmazonStore extractor using this
+recorded script. HLS masters, variants, media segments and thumbnails are fetched
+from the actual public media CDN. The regression requires all five MP4 outputs,
+original metadata, meaningful durations, audio/video streams, and complete real
+FFmpeg decoding. Without HLS format extraction, the downloader concatenates four
+variant playlists as if they were media fragments and FFmpeg rejects the result.
