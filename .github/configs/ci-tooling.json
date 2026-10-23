@@ -29,7 +29,8 @@
     },
     {
       "name": "{UV_BINARY}",
-      "binproviders": "env,brew"
+      "binproviders": "env,brew",
+      "min_version": "0.13.5"
     },
     {
       "name": "{JQ_BINARY}",
@@ -38,7 +39,8 @@
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,node,brew,apt",
-      "min_version": "22.23.1"
+      "min_version": "24.22.1",
+      "max_version": "24.22.1"
     },
     {
       "name": "{PRETTIER_BINARY}",
@@ -73,7 +75,8 @@
     },
     {
       "name": "{UV_BINARY}",
-      "binproviders": "env,brew"
+      "binproviders": "env,brew",
+      "min_version": "0.13.5"
     }
   ]
 }
