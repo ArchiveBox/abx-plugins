@@ -14,6 +14,37 @@ from abx_plugins.plugins.responses.tests.test_responses import (
 )
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+CHROME_UTILS = CHROME_NAVIGATE_HOOK.parent / "chrome_utils.js"
+OBSERVER = r"""
+const fs = require('fs');
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  const pending = new Map();
+  let count = 0;
+  const record = (name, data) => {
+    if (count++ < 400) fs.appendFileSync(process.argv[3], JSON.stringify({name, data}) + '\n');
+  };
+  page.on('request', request => {
+    const data = {url: request.url(), type: request.resourceType()};
+    pending.set(request, data);
+    record('request', data);
+  });
+  for (const name of ['requestfinished', 'requestfailed']) page.on(name, request => {
+    record(name, {url: request.url(), failure: request.failure()});
+    pending.delete(request);
+  });
+  for (const name of ['frameattached', 'framenavigated', 'framedetached']) {
+    page.on(name, frame => record(name, {url: frame.url()}));
+  }
+  fs.writeFileSync(process.argv[4], 'ready');
+  process.on('SIGTERM', () => {
+    fs.appendFileSync(process.argv[3], JSON.stringify({pending: [...pending.values()], frames: page.frames().map(frame => frame.url())}) + '\n');
+    browser.disconnect();
+    process.exit(0);
+  });
+})().catch(error => { console.error(error); process.exit(1); });
+"""
 
 
 @pytest.mark.parametrize(
@@ -114,6 +145,22 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
         output = chrome_dir.parent / "responses"
         output.mkdir()
         index = output / "index.jsonl"
+        observer = None
+        if mode == "transient":
+            observer = start_process_and_wait_for_file(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    OBSERVER,
+                    str(CHROME_UTILS),
+                    str(chrome_dir),
+                    str(tmp_path / "network-events.log"),
+                    str(tmp_path / "observer-ready"),
+                ],
+                tmp_path / "observer-ready",
+                cwd=chrome_dir,
+                env=env,
+            )
         process = start_process_and_wait_for_file(
             [str(RESPONSES_HOOK), f"--url={page_url}"],
             index,
@@ -129,10 +176,17 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
                 text=True,
                 timeout=60,
             )
-            assert nav.returncode == 0, nav.stderr
+            (tmp_path / "navigation.stdout.log").write_text(nav.stdout)
+            (tmp_path / "navigation.stderr.log").write_text(nav.stderr)
         finally:
+            if observer is not None:
+                observer.terminate()
+                observer.communicate(timeout=15)
             process.terminate()
             stdout, stderr = process.communicate(timeout=30)
+            (tmp_path / "responses.stdout.log").write_text(stdout)
+            (tmp_path / "responses.stderr.log").write_text(stderr)
+        assert nav.returncode == 0, (nav.stderr, stdout, stderr)
         if mode == "transient":
             final = [
                 json.loads(line)
