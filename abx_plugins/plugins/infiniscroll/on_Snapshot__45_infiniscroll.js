@@ -44,6 +44,7 @@ ensureNodeModuleResolution(module);
 const {
   connectToPage,
   resolvePuppeteerModule,
+  withTimeout,
 } = require("../chrome/chrome_utils.js");
 
 const PLUGIN_NAME = "infiniscroll";
@@ -425,12 +426,40 @@ async function scrollDown(page, options = {}) {
         }x ${scrollDistance}px... (${scrollPosition}/${lastHeight})`,
       );
 
-      await page.evaluate((yOffset) => {
-        window.scrollTo({ top: yOffset, left: 0, behavior: "instant" });
-      }, scrollPosition);
-
+      // Background Chrome can render at 1Hz even while focused. Let its
+      // native scroll handlers run before moving again or checking the end.
+      const [rendered] = await Promise.all([
+        withTimeout(
+          () =>
+            page.evaluate(
+              (yOffset) =>
+                new Promise((resolve) => {
+                  window.scrollTo({
+                    top: yOffset,
+                    left: 0,
+                    behavior: "instant",
+                  });
+                  requestAnimationFrame(() => resolve(true));
+                }),
+              scrollPosition,
+            ),
+          timeout - elapsed,
+          "Timeout waiting for scroll rendering",
+        ).catch((error) => {
+          if (
+            error.message === "Timeout waiting for scroll rendering" &&
+            Date.now() - startTime >= timeout
+          )
+            return false;
+          throw error;
+        }),
+        sleep(scrollDelay),
+      ]);
       scrollCount++;
-      await sleep(scrollDelay);
+      if (!rendered) {
+        console.error(`Timeout reached after ${scrollCount} scrolls`);
+        break;
+      }
 
       // Check if new content was added (infinite scroll detection)
       const newHeight = await getPageHeight();
