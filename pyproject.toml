@@ -141,3 +141,7 @@ skip = "*.json"
 
 [tool.ty.src]
 exclude = ["abx_plugins/plugins/papersdl/papers-dl-patches/**"]
+
+[tool.ruff.lint]
+# Keep the pre-0.16 Ruff policy explicit when upgrading the linter.
+select = ["E4", "E7", "E9", "F"]
