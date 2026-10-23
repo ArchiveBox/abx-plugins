@@ -98,3 +98,22 @@ from the actual public media CDN. The regression requires all five MP4 outputs,
 original metadata, meaningful durations, audio/video streams, and complete real
 FFmpeg decoding. Without HLS format extraction, the downloader concatenates four
 variant playlists as if they were media fragments and FFmpeg rejects the result.
+
+`substack-json-script-newsletter.html.gz` and
+`substack-json-script-video.html.gz` are complete byte-exact anonymous public
+HTML responses fetched with `curl -L` on2026-10-23 from:
+
+- https://www.thefocalpoints.com/p/new-study-frog-derived-gut-bacterium
+  (187343bytes, SHA256`ce82cfe52afa7217ee2e5c9ab8161b428a16107b5c8759bbe92ef692bfb092f4`)
+- https://andrewzimmern.substack.com/p/mussels-with-black-bean-sauce-recipe
+  (206323bytes, SHA256`85b64ba067f2defc06ec7d5b71aeb1c34fb5424e6eb2242878cefd95e77f205c`)
+
+No authentication or cookies were supplied. Account user/publication-user
+settings are null; tracking identifiers are public publication analytics IDs.
+Both responses use the new `preloads-json` application/json script. Native
+`--load-pages` parses these unchanged bytes through the actual Substack
+extractor. The video test downloads its original public media and requires
+complete FFmpeg decoding, audio and video streams, and its actual60second
+length. Deliberately truncated/corrupted copies separately verify that missing
+or invalid metadata stays failed. The existing legacy newsletter fixture remains
+unchanged and verifies the original quoted JSON.parse format.

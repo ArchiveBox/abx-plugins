@@ -729,29 +729,46 @@ def test_reddit_hosted_video_still_downloads(
     ), info
 
 
-def test_substack_newsletter_reports_noresults(tmp_path, ytdlp_runtime_env):
+@pytest.mark.parametrize(
+    "fixture_name,sha256,domain,slug",
+    [
+        (
+            "substack-newsletter.html.gz",
+            "e2fe1f2435ddfca8713cf651a7b64f05d5e66039a5f35ba81df34c24aa3c326c",
+            "engineercodex",
+            "how-apple-built-icloud-to-store-billions",
+        ),
+        (
+            "substack-json-script-newsletter.html.gz",
+            "ce82cfe52afa7217ee2e5c9ab8161b428a16107b5c8759bbe92ef692bfb092f4",
+            "petermcculloughmd",
+            "new-study-frog-derived-gut-bacterium",
+        ),
+    ],
+)
+def test_substack_newsletter_reports_noresults(
+    tmp_path,
+    ytdlp_runtime_env,
+    fixture_name,
+    sha256,
+    domain,
+    slug,
+):
     """Replay real public HTML through yt-dlp's native saved-page input."""
     page = gzip.decompress(
-        (
-            Path(__file__).parent / "fixtures" / "substack-newsletter.html.gz"
-        ).read_bytes(),
+        (Path(__file__).parent / "fixtures" / fixture_name).read_bytes(),
     )
-    assert hashlib.sha256(page).hexdigest() == (
-        "e2fe1f2435ddfca8713cf651a7b64f05d5e66039a5f35ba81df34c24aa3c326c"
-    )
+    assert hashlib.sha256(page).hexdigest() == sha256
     # Hosted Substack may return403 before extraction. Native replay exercises
     # the real newsletter parser without converting those HTTP errors to absence.
     output_dir = tmp_path / "ytdlp"
     output_dir.mkdir()
-    saved_page = output_dir / (
-        "how-apple-built-icloud-to-store-billions_https_-_"
-        "engineercodex.substack.com_p_how-apple-built-icloud-to-store-billions.dump"
-    )
+    saved_page = output_dir / (f"{slug}_https_-_{domain}.substack.com_p_{slug}.dump")
     saved_page.write_bytes(page)
     result = subprocess.run(
         [
             str(YTDLP_HOOK),
-            "--url=https://engineercodex.substack.com/p/how-apple-built-icloud-to-store-billions",
+            f"--url=https://{domain}.substack.com/p/{slug}",
         ],
         cwd=tmp_path,
         env={
@@ -767,7 +784,7 @@ def test_substack_newsletter_reports_noresults(tmp_path, ytdlp_runtime_env):
     assert "Loading request from" in result.stderr, result.stderr
     assert "Unable to load request" not in result.stderr, result.stderr
     assert "Downloading webpage" not in result.stderr, result.stderr
-    assert "[Substack]" in result.stderr, result.stderr
+    assert "[Substack+archivebox]" in result.stderr, result.stderr
     assert 'Page type "newsletter" is not supported' in result.stderr, result.stderr
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
@@ -1326,3 +1343,118 @@ def test_generic_html5_ignores_comments_without_losing_visible_media(
         httpserver.url_for("/second.wav"),
     }
     assert not any(request.path == "/missing.wav" for request, _ in httpserver.log)
+
+
+def test_substack_json_script_downloads_real_video(tmp_path, ytdlp_runtime_env):
+    """Parse actual new-format HTML and decode its complete public media bytes."""
+    page = gzip.decompress(
+        (
+            Path(__file__).parent / "fixtures/substack-json-script-video.html.gz"
+        ).read_bytes(),
+    )
+    assert hashlib.sha256(page).hexdigest() == (
+        "85b64ba067f2defc06ec7d5b71aeb1c34fb5424e6eb2242878cefd95e77f205c"
+    )
+    slug = "mussels-with-black-bean-sauce-recipe"
+    output = tmp_path / "ytdlp"
+    output.mkdir()
+    saved_page = output / f"{slug}_https_-_andrewzimmern.substack.com_p_{slug}.dump"
+    saved_page.write_bytes(page)
+    result = subprocess.run(
+        [str(YTDLP_HOOK), f"--url=https://andrewzimmern.substack.com/p/{slug}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
+        },
+        capture_output=True,
+        text=True,
+        timeout=140,
+    )
+    assert "Loading request from" in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    assert saved_page.read_bytes() == page
+    videos = list(output.glob("*.mp4"))
+    assert len(videos) == 1, list(output.iterdir())
+    info = json.loads(videos[0].with_suffix(".info.json").read_text())
+    assert info["id"] == "47368578", info
+    assert info["title"] == "Mussels with Black Bean Sauce: Recipe of the Week #7"
+    assert info["uploader_id"] == "577659", info
+    ffmpeg = Path(ytdlp_runtime_env["FFMPEG_BINARY"]).resolve()
+    probe = subprocess.run(
+        [
+            str(ffmpeg.with_name("ffprobe")),
+            "-v",
+            "error",
+            "-show_format",
+            "-show_streams",
+            "-of",
+            "json",
+            str(videos[0]),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert probe.returncode == 0, probe.stderr
+    media = json.loads(probe.stdout)
+    assert 59 < float(media["format"]["duration"]) < 62, media
+    assert {stream["codec_type"] for stream in media["streams"]} >= {
+        "video",
+        "audio",
+    }, media
+    decoded = subprocess.run(
+        [str(ffmpeg), "-v", "error", "-i", str(videos[0]), "-f", "null", "-"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert decoded.returncode == 0, decoded.stderr
+    assert not decoded.stderr, decoded.stderr
+
+
+@pytest.mark.parametrize("damage", ["missing", "malformed"])
+def test_substack_invalid_metadata_remains_failed(tmp_path, ytdlp_runtime_env, damage):
+    """A missing or corrupt saved response must never be treated as no media."""
+    page = gzip.decompress(
+        (
+            Path(__file__).parent / "fixtures/substack-json-script-video.html.gz"
+        ).read_bytes(),
+    )
+    script_start = page.index(b'<script type="application/json"')
+    json_start = page.index(b">", script_start) + 1
+    assert page[json_start : json_start + 1] == b"{"
+    damaged = (
+        page[:script_start]
+        if damage == "missing"
+        else page[:json_start] + page[json_start + 1 :]
+    )
+    output = tmp_path / "ytdlp"
+    output.mkdir()
+    slug = "mussels-with-black-bean-sauce-recipe"
+    saved_page = output / f"{slug}_https_-_andrewzimmern.substack.com_p_{slug}.dump"
+    saved_page.write_bytes(damaged)
+    result = subprocess.run(
+        [str(YTDLP_HOOK), f"--url=https://andrewzimmern.substack.com/p/{slug}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "Loading request from" in result.stderr, result.stderr
+    assert result.returncode != 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", result.stdout
+    assert "No media found" not in result.stdout, result.stdout
+    assert saved_page.read_bytes() == damaged
+    assert not list(output.glob("*.mp4"))
