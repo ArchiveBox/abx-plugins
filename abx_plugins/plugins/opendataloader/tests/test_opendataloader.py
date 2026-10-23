@@ -651,6 +651,119 @@ def test_line_art_pdf_extracts_within_production_heap():
         assert "ABSTRACT" in text_content
 
 
+def test_native_images_survive_duplicate_pdf_filenames(tmp_path):
+    pdf = _download_line_art_pdf()
+    snap = tmp_path / "snap"
+    sources = [
+        snap / producer / "document.pdf" for producer in ("responses", "papersdl")
+    ]
+    original = tmp_path / "original.pdf"
+    original.write_bytes(pdf)
+    for index, source in enumerate(sources):
+        source.parent.mkdir(parents=True)
+        if index == 0:
+            source.symlink_to(original)
+        else:
+            source.write_bytes(pdf)
+
+    baseline = tmp_path / "native"
+    baseline.mkdir()
+    java = Path(require_java_binary())
+    env = (
+        os.environ
+        | PRODUCTION_HEAP_ENV
+        | {
+            "PATH": str(java.parent) + os.pathsep + os.environ.get("PATH", ""),
+        }
+    )
+    env.pop("PYTHONPATH", None)
+    native = subprocess.run(
+        [
+            require_opendataloader_binary(),
+            "-f",
+            "markdown,text",
+            "-o",
+            str(baseline),
+            "-q",
+            str(sources[0]),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert native.returncode == 0, native.stderr
+    image_pattern = r"!\[[^\]]*\]\(<([^>]+)>\)"
+    native_md = (baseline / "document.md").read_text()
+    native_refs = re.findall(image_pattern, native_md)
+    assert native_refs, native_md[:1000]
+    native_images = {
+        Path(ref).name: (baseline / ref).read_bytes() for ref in native_refs
+    }
+
+    result = _run_hook(
+        snap,
+        tmp_path,
+        LINE_ART_PDF_URL,
+        PRODUCTION_HEAP_ENV,
+        timeout=150,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", record
+    output = snap / "opendataloader"
+    markdown = (output / "content.md").read_text()
+    refs = re.findall(image_pattern, markdown)
+    assert len(refs) == 2 * len(native_refs), refs
+    assert len({Path(ref).parent for ref in refs}) == 2, refs
+    for ref in refs:
+        image = output / ref
+        assert image.is_file(), ref
+        assert image.resolve().is_relative_to(output.resolve()), ref
+        assert image.read_bytes() == native_images[image.name], ref
+        assert image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), ref
+    assert (output / "content.txt").read_text() == "\n\n---\n\n".join(
+        [(baseline / "document.txt").read_text()] * 2,
+    )
+    # Native Markdown is unchanged apart from its relocated image directory.
+    for part in markdown.split("<!-- source: document.pdf -->\n")[1:]:
+        image_dir = Path(re.findall(image_pattern, part)[0]).parent.as_posix()
+        assert (
+            part.removesuffix("\n\n---\n\n").replace(
+                image_dir + "/",
+                "document_images/",
+            )
+            == native_md
+        )
+    assert all(source.read_bytes() == pdf for source in sources)
+
+
+def test_native_image_directory_argument_keeps_precedence(tmp_path):
+    snap = tmp_path / "snap"
+    source = snap / "papersdl" / "document.pdf"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(_download_line_art_pdf())
+    image_dir = snap / "opendataloader" / "configured_images"
+    result = _run_hook(
+        snap,
+        tmp_path,
+        LINE_ART_PDF_URL,
+        PRODUCTION_HEAP_ENV
+        | {"OPENDATALOADER_ARGS_EXTRA": json.dumps(["--image-dir", str(image_dir)])},
+        timeout=150,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", record
+    refs = re.findall(
+        r"!\[[^\]]*\]\(<([^>]+)>\)",
+        (image_dir.parent / "content.md").read_text(),
+    )
+    assert refs
+    assert all(Path(ref).parent.as_posix() == "configured_images" for ref in refs), refs
+    assert all((image_dir.parent / ref).is_file() for ref in refs), refs
+
+
 def test_failing_pdf_does_not_discard_other_pdfs():
     """A PDF the converter rejects must not abort extraction of the others."""
     pdf_content = _download_test_pdf()
