@@ -1,0 +1,21 @@
+abx_plugins/plugins/pdf/tests/test_pdf.py
+  s_10bc94d001be49::t_b456447824af94 6
+  s_10bc94d001be49::t_08b7bce49c2643 27,36,47-55
+  s_10bc94d001be49::t_004b1b58858ed8 56-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b02785327516ed34d5cb2a1e0ae5415e35b61449",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
