@@ -1,11 +1,17 @@
 """MHTML reports a loaded FontResource again after its fetch cache entry is collected."""
 
+import base64
 import hashlib
 import json
 import subprocess
 from pathlib import Path
+from email import policy
+from email.parser import BytesParser
+from time import perf_counter
 
 import pytest
+from jinja2 import Environment
+from playwright.sync_api import sync_playwright
 from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.testing import start_process_and_wait_for_file
@@ -69,10 +75,23 @@ def httpserver():
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 @pytest.mark.parametrize(
     "scenario",
-    ["same-origin", "changed-origin", "service-worker", "observable-mismatch"],
+    [
+        "same-origin",
+        "same-origin-icon",
+        "changed-origin",
+        "service-worker",
+        "observable-mismatch",
+    ],
 )
 def test_mhtml_cached_font_preserves_original_bytes(tmp_path, httpserver, scenario):
-    original = (FIXTURES / "source-sans-pro.woff").read_bytes()
+    original = (
+        FIXTURES
+        / (
+            "forkawesome.woff2"
+            if scenario == "same-origin-icon"
+            else "source-sans-pro.woff"
+        )
+    ).read_bytes()
     changed = (FIXTURES / "forkawesome.woff2").read_bytes()
     first = httpserver.url_for("/")
     second = first.replace("localhost", "127.0.0.1")
@@ -297,3 +316,130 @@ const utils = require(process.argv[1]);
         assert sum(request.path == "/font.woff" for request, _ in httpserver.log) == (
             3 if scenario == "changed-origin" else 2
         )
+
+    # Replay the actual native MHTML after the original site has gone away.
+    # The independently saved font must work in both card and full views.
+    embedded_font = base64.b64encode(expected[-1]).decode()
+    httpserver.expect_request("/embedded-font").respond_with_data(
+        '<!doctype html><meta charset="utf-8"><style>@font-face{font-family:Saved;'
+        f"src:url(data:font/woff;base64,{embedded_font})}}body{{font-family:Saved}}"
+        "</style><body>Original font bytes &#xf000;</body>",
+        content_type="text/html",
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=env["CHROME_BINARY"])
+        page = browser.new_page()
+        page.goto(httpserver.url_for("/embedded-font"))
+        page.evaluate("async () => { await document.fonts.ready; }")
+        embedded_mhtml = (
+            page.context.new_cdp_session(page)
+            .send("Page.captureSnapshot", {"format": "mhtml"})["data"]
+            .encode()
+        )
+        browser.close()
+    embedded_parts = BytesParser(policy=policy.default).parsebytes(embedded_mhtml)
+    assert any(
+        isinstance(body := part.get_payload(decode=True), bytes)
+        and embedded_font.encode() in body
+        for part in embedded_parts.walk()
+    )
+    httpserver.stop()
+    raw_mhtml = (mhtml / "snapshot.mhtml").read_bytes()
+    templates = MHTML_HOOK.parent / "templates"
+    with HTTPServer(threaded=True) as replay, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=env["CHROME_BINARY"])
+        for manifest in ("saved", "embedded", "absent", "malformed", "unsafe"):
+            prefix = f"/{manifest}"
+            output_path = f"{prefix}/chrome_mhtml/snapshot.mhtml"
+            replay.expect_request(output_path, query_string="").respond_with_data(
+                embedded_mhtml if manifest == "embedded" else raw_mhtml,
+                content_type="multipart/related",
+            )
+            viewer = (templates / "full.html").read_text()
+            viewer = viewer.replace("{{ output_path }}", output_path).replace(
+                '{{ output_path_raw|default:"snapshot.mhtml" }}',
+                "snapshot.mhtml",
+            )
+            replay.expect_request(
+                output_path,
+                query_string="preview=1",
+            ).respond_with_data(viewer, content_type="text/html")
+            card = (
+                Environment(autoescape=True)
+                .from_string((templates / "card.html").read_text())
+                .render(output_path=output_path)
+            )
+            replay.expect_request(f"{prefix}/card.html").respond_with_data(
+                card,
+                content_type="text/html",
+            )
+            manifest_bytes = index.read_bytes()
+            if manifest == "unsafe":
+                manifest_bytes = "\n".join(
+                    json.dumps({**row, "path": "../outside.woff"}) for row in rows
+                ).encode()
+            elif manifest not in ("saved", "embedded"):
+                manifest_bytes = b"invalid JSONL"
+            replay.expect_request(f"{prefix}/responses/index.jsonl").respond_with_data(
+                manifest_bytes,
+                content_type="application/x-ndjson",
+                status=404 if manifest == "absent" else 200,
+            )
+            for row in fonts:
+                replay.expect_request(
+                    f"{prefix}/responses/{row['path'].removeprefix('./')}",
+                ).respond_with_data(
+                    (output / row["path"]).read_bytes(),
+                    content_type=row["mimeType"],
+                )
+            for surface in ("full", "card"):
+                context = browser.new_context()
+                page = context.new_page()
+                requested = []
+                page.on("request", lambda request: requested.append(request.url))
+                started = perf_counter()
+                page.goto(
+                    replay.url_for(output_path) + "?preview=1"
+                    if surface == "full"
+                    else replay.url_for(f"{prefix}/card.html"),
+                )
+                rendered = page.frame_locator("iframe")
+                if surface == "card":
+                    rendered = rendered.frame_locator("iframe")
+                assert (
+                    rendered.locator("body").inner_text()
+                    == "Original font bytes \uf000"
+                )
+                loaded = rendered.locator("body").evaluate(
+                    """async () => {
+                        await document.fonts.ready;
+                        return [...document.fonts].filter(font => font.family === 'Saved')
+                            .map(font => font.status);
+                    }""",
+                )
+                elapsed_ms = (perf_counter() - started) * 1000
+                timing = page.evaluate("""() => {
+                    const navigation = performance.getEntriesByType('navigation')[0];
+                    return {ttfb_ms:navigation.responseStart-navigation.requestStart,
+                        index:performance.getEntriesByType('resource')
+                            .filter(entry=>entry.name.includes('/responses/index.jsonl'))
+                            .map(entry=>({duration_ms:entry.duration,bytes:entry.decodedBodySize}))};
+                }""")
+                print(
+                    f"MHTML replay scenario={scenario} manifest={manifest} surface={surface} "
+                    f"elapsed_ms={elapsed_ms:.1f} manifest_bytes={len(manifest_bytes)} timing={timing}",
+                )
+                assert not any("outside.woff" in request for request in requested)
+                if manifest == "embedded" or (
+                    manifest == "saved" and scenario != "changed-origin"
+                ):
+                    assert loaded == ["loaded"], (scenario, surface, requested)
+                    assert font_url not in requested
+                else:
+                    # Distinct native FontResources can share a URL. Do not
+                    # silently choose another origin's bytes for that URL.
+                    assert loaded == ["error"], (scenario, manifest, surface)
+                page.screenshot(path=str(tmp_path / f"{manifest}-{surface}.png"))
+                context.close()
+        browser.close()
+    assert (mhtml / "snapshot.mhtml").read_bytes() == raw_mhtml

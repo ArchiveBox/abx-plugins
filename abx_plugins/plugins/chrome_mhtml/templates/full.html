@@ -226,11 +226,43 @@
         catch { return part.location === sourceUrl }
       }) || fallback
     }
-    function renderMhtmlToHtml(rawMhtml, sourceUrl) {
+    async function savedResponseFonts(rawUrl) {
+      const fonts = new Map()
+      try {
+        const root = new URL("../responses/", rawUrl)
+        const index = new URL("index.jsonl", root)
+        index.searchParams.set("raw", "1")
+        const response = await fetch(index, { credentials: "same-origin" })
+        if (!response.ok) return fonts
+        const candidates = new Map()
+        for (const line of (await response.text()).split("\n")) {
+          let item
+          try { item = JSON.parse(line) } catch { continue }
+          if (!item || item.resourceType !== "font" || typeof item.url !== "string") continue
+          let url
+          try { url = new URL(item.url) } catch { continue }
+          if (!["http:", "https:"].includes(url.protocol)) continue
+          // A single URL can have different font bytes for different origins.
+          // Without that identity in MHTML, only an unambiguous body is usable.
+          const previous = candidates.get(url.href)
+          if (candidates.has(url.href) && previous?.responseSha256 !== item.responseSha256) {
+            candidates.set(url.href, null)
+          } else if (!candidates.has(url.href)) candidates.set(url.href, item)
+        }
+        for (const [url, item] of candidates) {
+          if (!item || !/^[a-f0-9]{64}$/i.test(item.responseSha256 || "") || typeof item.path !== "string") continue
+          const parts = item.path.replace(/^\.\//, "").split("/")
+          if (parts[0] !== "all" || parts.some(part => !part || part === ".." || part === "." || part.includes("\\"))) continue
+          fonts.set(url, new URL(parts.map(encodeURIComponent).join("/"), root).href)
+        }
+      } catch {}
+      return fonts
+    }
+    function renderMhtmlToHtml(rawMhtml, sourceUrl, savedFonts) {
       const decodedParts = parseMhtmlParts(rawMhtml).parts.map(decodeMhtmlPart)
       const rootPart = findRootHtmlPart(decodedParts, sourceUrl)
       const baseUrl = rootPart.location || sourceUrl
-      const resources = new Map()
+      const resources = new Map(savedFonts)
       const htmlParts = decodedParts.filter((part) => part.mimeType === "text/html")
       for (const part of decodedParts) {
         if (part !== rootPart && part.mimeType !== "text/html") addResourceAliases(resources, part, makeDataUrl(part.mimeType, part.bytes), baseUrl)
@@ -276,7 +308,7 @@
       })
       let rendered
       try {
-        rendered = renderMhtmlToHtml(rawMhtml, rawUrl.href)
+        rendered = renderMhtmlToHtml(rawMhtml, rawUrl.href, await savedResponseFonts(rawUrl))
       } catch (error) {
         status.className = "mhtml-status error"
         status.textContent = `Unable to render MHTML preview: ${error.message}`
