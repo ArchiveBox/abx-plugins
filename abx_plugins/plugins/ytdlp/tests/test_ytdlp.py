@@ -225,17 +225,39 @@ def test_twitter_link_preview_follows_link_without_inventing_video(
     ytdlp_runtime_env,
 ):
     """A real large-image summary card links to a Gist, not a broken video."""
+    page = gzip.decompress(
+        (Path(__file__).parent / "fixtures/twitter-summary-card.json.gz").read_bytes(),
+    )
+    assert hashlib.sha256(page).hexdigest() == (
+        "c3c391c2db81c02ff1f971289858f19f2c87d5bc05d230dcbd209c46b44f5ead"
+    )
+    output_dir = tmp_path / "ytdlp"
+    output_dir.mkdir()
+    saved_page = output_dir / (
+        "1877264551613190437_https_-_x.com_i_api_graphql_2ICDjqPd81tulZcYrtpTuQ_"
+        "TweetResultByRestIdva___211080c63059600fbbd6086581fef98b.dump"
+    )
+    saved_page.write_bytes(page)
     result = subprocess.run(
         [
             str(YTDLP_HOOK),
             "--url=https://x.com/ArchiveBoxApp/status/1877264551613190437",
         ],
         cwd=tmp_path,
-        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
+        },
         capture_output=True,
         text=True,
         timeout=60,
     )
+    assert f"Loading request from {saved_page.name}" in result.stderr, result.stderr
+    assert "Downloading GraphQL JSON" not in result.stderr, result.stderr
+    assert saved_page.read_bytes() == page
+    saved_page.unlink()  # Remove only the unchanged real API input before checking outputs.
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "noresults", result.stdout

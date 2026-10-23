@@ -49,3 +49,26 @@ No account cookies or authentication were supplied. The post has `is_self=true`,
 The upstream extractor passes the empty URL to its generic extractor, which
 fails with `'' is not a valid URL`. Native `--load-pages` exercises the actual
 Reddit extractor against this unchanged response.
+
+`twitter-summary-card.json.gz` contains the complete byte-exact anonymous public
+GraphQL response recorded on 2026-10-23 with yt-dlp 2026.10.21:
+
+```sh
+yt-dlp --ignore-config --write-pages --skip-download https://x.com/ArchiveBoxApp/status/1877264551613190437
+```
+
+API: `https://x.com/i/api/graphql/2ICDjqPd81tulZcYrtpTuQ/TweetResultByRestId`.
+Uncompressed size: 10478 bytes.
+SHA256: `c3c391c2db81c02ff1f971289858f19f2c87d5bc05d230dcbd209c46b44f5ead`.
+No account cookies or authentication were supplied. This response contains the
+public post, public author metadata and the complete `summary_large_image` card
+linking to `https://gist.github.com/pirate/c89b7d42be148e9180d8c7cf81e734c8`.
+It contains no guest token, account credentials, cookies, email or phone number;
+the separate guest-token activation response is deliberately not recorded here.
+
+The test uses native `--load-pages` for this GraphQL response while guest-token
+setup and the linked public Gist request remain real network requests. It
+verifies the existing summary-card override and hook classification, independently
+of X omitting card/link data from a hosted-runner response. The failed hosted
+response was not retained, so its exact shape remains unverified. Separate live
+image-only and downloadable-video tests remain unchanged.
