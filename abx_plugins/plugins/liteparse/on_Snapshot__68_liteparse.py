@@ -37,6 +37,7 @@ import sys
 import atexit
 import concurrent.futures
 import hashlib
+import json
 import fnmatch
 import os
 import re
@@ -542,12 +543,12 @@ def _process_batch(
     imagemagick_binary: str,
     hook_deadline: float,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
-    """Run ``lit batch-parse`` once per requested format for an isolated source.
+    """Run ``lit batch-parse`` once for an isolated source.
 
     Symlinks the batch's sources into a temp input dir, runs lit, then reads
     each per-source output by stem. Returns ``(idx, src, text, json_text)``
     per source, plus parser failures. Read outputs before deleting scratch even
-    when a later format fails or times out, so completed work is retained.
+    when parsing fails or times out, so completed work is retained.
     """
     results: list[tuple[int, Path, str, str]] = []
     errors: list[str] = []
@@ -611,7 +612,7 @@ def _process_batch(
             link_names.append(link_name)
 
         for fmt, out_dir in (("text", text_out), ("json", json_out)):
-            if fmt not in formats:
+            if fmt not in formats or (fmt == "text" and "json" in formats):
                 continue
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -659,6 +660,24 @@ def _process_batch(
             json_text = (
                 _read_if_present(json_out / f"{stem}.json") if "json" in formats else ""
             )
+            if "text" in formats and "json" in formats and json_text:
+                try:
+                    pages = json.loads(json_text)["pages"]
+                    if not isinstance(pages, list) or any(
+                        not isinstance(page["text"], str)
+                        or type(page["page"]) is not int
+                        or page["page"] < 1
+                        for page in pages
+                    ):
+                        raise ValueError("Invalid LiteParse page number or text")
+                    # Exact upstream cli-text.ts serializer: JSON retains the
+                    # same page text, so producing both formats need not OCR twice.
+                    text = "\n\n".join(
+                        f"\n--- Page {page['page']} ---\n{page['text']}"
+                        for page in pages
+                    )
+                except (ValueError, KeyError, TypeError) as exc:
+                    errors.append(f"{src.name}: Invalid LiteParse JSON: {exc}")
             results.append((idx, src, text, json_text))
 
     return results, errors

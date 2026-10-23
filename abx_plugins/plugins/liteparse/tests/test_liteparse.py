@@ -1208,3 +1208,104 @@ def test_queued_documents_share_one_hook_deadline(tmp_path):
     retained = list((tmp_path / "liteparse").glob("document-*.pdf.txt"))
     assert 0 < len(retained) < 500
     assert all("Dummy PDF file" in path.read_text() for path in retained)
+
+
+@pytest.mark.parametrize("formats", [["text", "json"], ["text"], ["json"]])
+@pytest.mark.parametrize("ocr_enabled", [True, False])
+def test_requested_formats_parse_each_document_once(tmp_path, formats, ocr_enabled):
+    """Both formats retain native CLI bytes without performing OCR twice."""
+    import sys
+
+    source_dir = tmp_path / "responses"
+    source_dir.mkdir()
+    sources = {
+        "native.pdf": _download_pdf(PDF_URL_A),
+        "scanned.pdf": _download_pdf(PDF_URL_OCR),
+        "eurotext.png": _download_png(IMAGE_URL_OCR),
+        "blank.png": _make_png(400, 400),
+    }
+    for name, content in sources.items():
+        (source_dir / name).write_bytes(content)
+    binary = require_liteparse_binary()
+    env = {
+        **os.environ,
+        "SNAP_DIR": str(tmp_path),
+        "LITEPARSE_BINARY": binary,
+        "LITEPARSE_TESSERACT_BINARY": install_tesseract_binary(),
+        "TESSDATA_PREFIX": require_tessdata_dir(),
+        "LITEPARSE_FORMATS": json.dumps(formats),
+        "LITEPARSE_OCR_ENABLED": str(ocr_enabled),
+        "LITEPARSE_PARALLEL_WORKERS": "1",
+    }
+    for fmt in formats:
+        expected_dir = tmp_path / f"expected-{fmt}"
+        native = subprocess.run(
+            [
+                binary,
+                "batch-parse",
+                str(source_dir),
+                str(expected_dir),
+                "--format",
+                fmt,
+                "--num-workers",
+                "1",
+                "-q",
+                *([] if ocr_enabled else ["--no-ocr"]),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert native.returncode == 0, native.stderr
+
+    # Python's audit event observes real child commands without replacing them.
+    script = """
+import json, runpy, sys
+from pathlib import Path
+commands = []
+def audit(event, args):
+    if event == 'subprocess.Popen' and 'batch-parse' in args[1]:
+        commands.append(args[1])
+sys.addaudithook(audit)
+hook, report = sys.argv[1:]
+sys.argv = [hook, '--url', 'https://example.com/documents']
+try:
+    runpy.run_path(hook, run_name='__main__')
+finally:
+    Path(report).write_text(json.dumps(commands))
+"""
+    report = tmp_path / "commands.json"
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(LITEPARSE_HOOK), str(report)],
+        env=env,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    expected_sources = (
+        sources
+        if ocr_enabled
+        else {
+            name: content for name, content in sources.items() if name.endswith(".pdf")
+        }
+    )
+    for name in expected_sources:
+        for fmt in formats:
+            extension = "txt" if fmt == "text" else "json"
+            expected = (
+                tmp_path / f"expected-{fmt}" / f"{Path(name).stem}.{extension}"
+            ).read_bytes()
+            actual = (tmp_path / "liteparse" / f"{name}.{extension}").read_bytes()
+            if fmt == "text":
+                expected = f"<!-- source: {name} -->\n".encode() + expected
+            assert actual == expected, (name, fmt)
+    commands = json.loads(report.read_text())
+    assert len(commands) == len(expected_sources), commands
+    assert {path.suffix for path in (tmp_path / "liteparse").iterdir()} == {
+        ".txt" if fmt == "text" else ".json" for fmt in formats
+    }
