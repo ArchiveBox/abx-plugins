@@ -1,0 +1,25 @@
+abx_plugins/plugins/mercury/tests/test_techcrunch_article.py
+  s_10bc94d001be49::t_6f40253e061f45 1-108
+  s_10bc94d001be49::t_d4a9238c49e2b9 109-120
+abx_plugins/plugins/mercury/on_Snapshot__66_mercury.py
+  s_10bc94d001be49::t_149bc3235c0fe0 99-100,103-104,106-125,130
+  s_10bc94d001be49::t_6f40253e061f45 101-102,105
+abx_plugins/plugins/mercury/tests/fixtures/README.md
+  s_10bc94d001be49::t_8b30c8f34e861b 29-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7230d7fd609dc6a201d973888d998b5856ff4c03",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
