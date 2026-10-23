@@ -153,6 +153,35 @@ def test_singlefile_timeout_cancels_exact_tab_and_keeps_other_capture(
     singlefile_install_state,
     failure,
 ):
+    _check_singlefile_timeout_cleanup(
+        tmp_path,
+        httpserver,
+        singlefile_install_state,
+        failure,
+    )
+
+
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+def test_singlefile_deadline_survives_paused_renderer_clock(
+    tmp_path,
+    httpserver,
+    singlefile_install_state,
+):
+    """Wall-clock cancellation must run even when Chrome's timer clock is paused."""
+    _check_singlefile_timeout_cleanup(
+        tmp_path,
+        httpserver,
+        singlefile_install_state,
+        "paused-clock",
+    )
+
+
+def _check_singlefile_timeout_cleanup(
+    tmp_path,
+    httpserver,
+    singlefile_install_state,
+    failure,
+):
     httpserver.expect_request("/").respond_with_data(
         "<!doctype html><h1>SingleFile cancellation preserves other tabs</h1>",
         content_type="text/html",
@@ -178,10 +207,18 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
  const {{browser,page,extensions}}=await cu.connectToPage({{chromeSessionDir:{json.dumps(str(chrome))},requireTargetId:true,waitForNavigationComplete:true}});
  try {{
  const extension=cu.findExtensionMetadataByName(extensions,'singlefile');
+ const mode=process.argv[1];
+ const pausedClock={json.dumps(failure == "paused-clock")};
+ if(pausedClock&&mode==='observe'){{
+  for(const observer of (await browser.pages()).filter(candidate=>candidate.url()===`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`)){{
+   const session=await observer.createCDPSession();
+   await session.send('Emulation.setVirtualTimePolicy',{{policy:'advance'}});
+   await observer.close();
+  }}
+ }}
  const helper=await browser.newPage();
  await helper.goto(`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`);
  const url=await page.url();
- const mode=process.argv[1];
  const info=()=>helper.evaluate(()=>chrome.runtime.sendMessage({{method:'downloads.getInfo'}}));
  if(mode==='configure'||mode==='reset'){{
   await helper.evaluate(async({{url,delay}})=>{{
@@ -190,7 +227,7 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
    await chrome.runtime.sendMessage({{method:'config.updateProfile',profileName:init.result.options.profileName,profile:{{delayBeforeProcessing:delay}}}});
   }},{{url,delay:mode==='configure'?30:0}});
  }}
- if(mode==='other'){{
+ if(mode==='other'||mode==='other-paused'){{
   const deadline=Date.now()+5000;
   while(!(await info()).some(task=>task.url===url)){{
    if(Date.now()>deadline)throw new Error('SingleFile did not start the owned capture');
@@ -205,6 +242,12 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
    if(Date.now()>deadline)throw new Error('SingleFile did not start the other capture');
    await new Promise(resolve=>setTimeout(resolve,50));
   }}
+  if(mode==='other-paused'){{
+   const observers=(await browser.pages()).filter(candidate=>candidate!==helper && candidate.url()===helper.url());
+   if(observers.length!==1)throw new Error(`Expected one capture observer, got ${{observers.length}}`);
+   const session=await observers[0].createCDPSession();
+   await session.send('Emulation.setVirtualTimePolicy',{{policy:'pause'}});
+  }}
  }}
  if(mode==='cleanup'){{
   await helper.evaluate(async(url)=>{{
@@ -214,7 +257,8 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
   }},url);
  }}
  if(mode==='reset')await page.goto(url+'?next');
- console.log(JSON.stringify(await info()));await helper.close();
+ console.log(JSON.stringify(await info()));
+ if(mode!=='other-paused')await helper.close();
  }}finally{{await browser.disconnect()}}
 }})().catch(e=>{{console.error(e);process.exit(1)}});
 """
@@ -233,7 +277,7 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
 
         assert control("configure") == []
         capture_command = [str(SNAPSHOT_HOOK), f"--url={url}"]
-        if failure == "protocol-timeout":
+        if failure != "download-deadline":
             # Exercise a real CDP timeout before the extension's own deadline,
             # retaining the native delayed task and exact-tab cancellation.
             capture_script = f"""
@@ -242,18 +286,19 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
 (async () => {{
  const {{browser,page,extensions}} = await cu.connectToPage({{
    chromeSessionDir:{json.dumps(str(chrome))}, requireTargetId:true,
-   waitForNavigationComplete:true, timeoutMs:5000,
+   waitForNavigationComplete:true, timeoutMs:{5000 if failure == "protocol-timeout" else 30000},
  }});
  try {{
    const extension = cu.findExtensionMetadataByName(extensions, 'singlefile');
    extension.version = cu.loadExtensionManifest(extension.unpacked_path).version;
    const target = await cu.waitForExtensionTargetHandle(browser, extension.id, 5000);
    await cu.loadExtensionFromTarget([extension], target);
-   await saveSinglefileWithExtension(page, extension, {{timeoutMs:60000}});
+   await saveSinglefileWithExtension(page, extension, {{timeoutMs:{60000 if failure == "protocol-timeout" else 7000}}});
  }} finally {{ await browser.disconnect(); }}
 }})().catch(error => {{ console.error(error); process.exitCode=1; }});
 """
             capture_command = [env["NODE_BINARY"], "-e", capture_script]
+        capture_started = time.monotonic()
         with subprocess.Popen(
             capture_command,
             cwd=output,
@@ -262,18 +307,21 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
             stderr=subprocess.PIPE,
             text=True,
         ) as hook:
-            tasks = control("other")
+            tasks = control("other-paused" if failure == "paused-clock" else "other")
             assert sorted(task["url"] for task in tasks) == [url, url + "?other"]
             stdout, stderr = hook.communicate(timeout=25)
+        if failure == "paused-clock":
+            # Seven seconds for capture plus the existing ten-second cleanup reserve.
+            assert time.monotonic() - capture_started < 17, stderr
         assert hook.returncode == 1, stdout + stderr
         expected_error = (
             "did not complete within"
-            if failure == "download-deadline"
+            if failure != "protocol-timeout"
             else "Runtime.callFunctionOn timed out"
         )
         assert expected_error in stderr, stderr
         if failure == "download-deadline":
-            assert "singlefile_extension_save.js:" in stderr, stderr
+            assert "chrome_utils.js:" in stderr, stderr
             phases = [
                 "phase=helper-navigation started",
                 "phase=helper-profile started",
@@ -287,6 +335,10 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
         assert remaining[0]["status"] == "processing"
         assert not (output / "singlefile.html").exists()
         assert control("cleanup") == []
+        if failure == "paused-clock":
+            # CDP virtual time cannot return to the real clock in this renderer.
+            # The unmodified real-clock cases below verify the next capture.
+            return
         assert control("reset") == []
         result = subprocess.run(
             [str(SNAPSHOT_HOOK), f"--url={url}?next"],
