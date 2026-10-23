@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/tests/test_screencast_frames.py
+  s_10bc94d001be49::t_2ef7d336006564 45,47,50,58,71-78
+abx_plugins/plugins/chrome_screencast/screencast.js
+  s_10bc94d001be49::t_95cf54fb4284f8 7,21,29-32,38,51-57,64,70-73,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f914f676479e5ef324b95dc71f428b74e4c4793",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
