@@ -96,38 +96,10 @@ $('[srcset]').each((_index, element) => {
 });
 
 (async () => {
-    let customExtractor;
-    const primary = $('main[data-url-observer]');
-    const identity = primary.attr('data-url-observer');
-    if (new URL(pageUrl).hostname === 'techcrunch.com' && primary.length === 1 && identity?.trim()) {
-        let primaryUrl;
-        try {
-            primaryUrl = new URL(identity, pageUrl).href;
-        } catch (_error) {
-            // An invalid identity marker must not override the normal parser.
-        }
-        if (primaryUrl === new URL(pageUrl).href) {
-            // The upstream TechCrunch selector is `main`; infinite scrolling adds
-            // other mains. Keep its metadata selectors and scope only the body.
-            customExtractor = {
-                domain: 'techcrunch.com',
-                title: { selectors: [['meta[name="og:title"]', 'value']] },
-                author: { selectors: [['meta[name="author"]', 'value']] },
-                date_published: { selectors: [['meta[name="article:published_time"]', 'value']] },
-                lead_image_url: { selectors: [['meta[name="og:image"]', 'value']] },
-                content: {
-                    selectors: ['main[data-url-observer]'],
-                    transforms: {},
-                    clean: ['img.post-authors-list__author-thumb'],
-                },
-            };
-        }
-    }
     const result = await Parser.parse(pageUrl, {
         html: $.html(),
         contentType: 'html',
         fetchAllPages: false,
-        customExtractor,
     });
     if (Object.values(removed).some(count => count > 0)) {
         console.error(`Removed unresolvable URL attributes: ${JSON.stringify(removed)}`);

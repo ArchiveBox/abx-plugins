@@ -27,15 +27,11 @@ The large real text/whitespace input exposes quadratic normalization in Postligh
 including its migration command and code/pre formatting, within the same deadline.
 XZ compression keeps the real input below the repository's fixture size limit.
 
-`techcrunch-infinite-scroll-before.html.gz` and
-`techcrunch-infinite-scroll-after.html.gz` are byte-exact DOM artifacts collected
-by real Chrome/navigation/infiniscroll/DOM hooks on 2026-10-23 from
+`techcrunch-infinite-scroll-before.html.gz` is a byte-exact DOM artifact
+collected by real Chrome/navigation/DOM hooks on 2026-10-23 from
 https://techcrunch.com/2026/06/30/the-father-of-the-internet-is-finally-retiring/ .
-The original article and metadata remain present after scrolling, but four later
-stories have been appended. Mercury 3.1.2 selected the next story's body while
-reporting the original title and author. The tests compare the complete extracted
-body and metadata before/after and prove ambiguous identity markers retain the
-normal parser's behavior. Input bytes remain unchanged by the hook. These saved
-public page artifacts are used as parser input, with no page execution or fetch.
+`techcrunch-original-article.json` records the complete original article extracted
+by the unmodified native Mercury 3.1.2 parser. The test checks the entire body,
+metadata, and unchanged input bytes without any provider-specific parser override.
 Article text and images remain copyright their respective TechCrunch owners;
 these fixtures are retained for regression testing, not as demo content.

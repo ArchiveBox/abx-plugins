@@ -644,5 +644,198 @@ def test_config_timeout_honored(infiniscroll_test_url):
             ), result_json
 
 
+@pytest.mark.parametrize(
+    "case",
+    [
+        "article",
+        "short",
+        "outside_details",
+        "outside_button",
+        "headline_mismatch",
+        "canonical_mismatch",
+        "ambiguous_schema",
+        "ambiguous_main",
+        "outside_article",
+    ],
+)
+def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, case):
+    """The article boundary includes opened content; outside comments retain normal scrolling."""
+    url = httpserver.url_for("/article").replace("localhost", "127.0.0.1", 1)
+    schema = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "NewsArticle",
+                "headline": "A complete long article",
+                "mainEntityOfPage": {"@id": url},
+            },
+        ],
+    }
+    if case == "headline_mismatch":
+        schema["@graph"][0]["headline"] = "Another article"
+    elif case == "ambiguous_schema":
+        schema["@graph"].append({**schema["@graph"][0], "headline": "Another article"})
+    canonical = url + "/different" if case == "canonical_mismatch" else url
+    outside = ""
+    if case == "outside_details":
+        outside = "<details><summary>Comments</summary><p>Valuable outside comments.</p></details>"
+    elif case == "outside_button":
+        outside = """<button onclick="this.insertAdjacentHTML('beforebegin', '<p>Valuable outside comments.</p>'); this.remove()">Load more</button>"""
+    elif case == "ambiguous_main":
+        outside = "<main>Another article with its own main.</main>"
+    elif case == "outside_article":
+        outside = '<article>Valuable outside continuation.<img loading="lazy" width="100" height="100" src="/continuation-image.svg"></article>'
+    html = f'''<!doctype html><html><head><title>A complete long article</title>
+      <link rel="canonical" href="{canonical}">
+      <script type="application/ld+json">{json.dumps(schema)}</script>
+      <style>body {{ margin: 0 }} main {{ margin: 0 }} h1 {{ margin: 0; height: 100px }} button {{ display: block; height: 20px; margin: 0 }}</style>
+      </head><body><main><h1>A complete long article</h1>
+      <p style="height: 2400px; margin: 0">The first part of the original article.</p>
+      <details><summary>Continue reading</summary>
+        <p style="height: 3000px; margin: 0">The rest of the same article must remain available.</p>
+        <img loading="lazy" width="100" height="100" src="/article-image.svg">
+        <p>The valuable original conclusion.</p>
+        <button onclick="this.insertAdjacentHTML('beforebegin', '<p style=height:200px>Expanded real comment</p>'); this.remove()">Load more</button>
+      </details></main>
+      <footer style="height: 5000px">Other material below the article.</footer>
+      {outside}
+      <script>window.addEventListener('scroll', () => {{
+        document.body.dataset.maxScroll = Math.max(Number(document.body.dataset.maxScroll || 0), window.scrollY);
+      }}, {{passive: true}});</script></body></html>'''
+    if case == "short":
+        html = html.replace("height: 2400px", "height: 20px").replace(
+            "height: 3000px",
+            "height: 20px",
+        )
+    httpserver.expect_request("/article").respond_with_data(
+        html,
+        content_type="text/html",
+    )
+    httpserver.expect_request("/article-image.svg").respond_with_data(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="green"/></svg>',
+        content_type="image/svg+xml",
+    )
+    httpserver.expect_request("/continuation-image.svg").respond_with_data(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>',
+        content_type="image/svg+xml",
+    )
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={
+            "CHROME_WAIT_FOR": "domcontentloaded",
+            "CHROME_RESOLUTION": "1280,720",
+        },
+    ) as (_, _, chrome_dir, env):
+        env.update({"INFINISCROLL_SCROLL_DELAY": "100"})
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        # Read native layout/loading state without modifying the document.
+        script = """const chrome = require(process.argv[1]);
+          (async () => {
+            const {browser, page} = await chrome.connectToPage({chromeSessionDir: process.argv[2],
+              timeoutMs: 10000, waitForNavigationComplete: true, puppeteer: chrome.resolvePuppeteerModule()});
+            console.log(JSON.stringify(await page.evaluate(() => ({
+              maxScroll: Number(document.body.dataset.maxScroll || 0), viewport: innerHeight,
+              bottom: document.querySelector('main').getBoundingClientRect().bottom + scrollY,
+              imageLoaded: [...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0),
+              detailsOpen: [...document.querySelectorAll('details')].every(el => el.open),
+              text: document.body.innerText, y: scrollY,
+            }))));
+            await browser.disconnect();
+          })().catch(err => {console.error(err); process.exit(1)});"""
+        state_result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
+                str(chrome_dir),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert state_result.returncode == 0, state_result.stderr
+        state = json.loads(state_result.stdout)
+        assert state["detailsOpen"]
+        assert state["imageLoaded"]
+        assert "The valuable original conclusion." in state["text"]
+        assert state["maxScroll"] + state["viewport"] >= state["bottom"] - 1
+        assert state["y"] == 0
+        assert "Expanded real comment" in state["text"]
+        if case in {"outside_details", "outside_button"}:
+            assert "Valuable outside comments." in state["text"]
+        if case == "outside_article":
+            assert "Valuable outside continuation." in state["text"]
+        if case in {"article", "short"}:
+            assert state["maxScroll"] <= max(0, state["bottom"] - state["viewport"]) + 1
+        else:
+            assert state["maxScroll"] + state["viewport"] > state["bottom"] + 1000
+
+
+@pytest.mark.parametrize("control_type", ["checkbox", "radio"])
+def test_expansion_keeps_native_label_disclosures_open(
+    httpserver,
+    tmp_path,
+    control_type,
+):
+    html = INFINISCROLL_TEST_PAGE_HTML.replace(
+        '<main id="feed">',
+        f'''
+      <style>
+        #disclosure {{ display: none }}
+        #disclosure:not(:checked) ~ label .hide,
+        #disclosure:not(:checked) ~ .menu {{ display: none }}
+        #disclosure:checked ~ label .show {{ display: none }}
+      </style>
+      <input id="disclosure" type="{control_type}"
+        onchange="document.body.dataset.disclosureOpen = this.checked">
+      <label role="button" for="disclosure"
+        onclick="document.body.dataset.disclosureClicks = Number(document.body.dataset.disclosureClicks || 0) + 1">
+        <span class="show">Show more</span><span class="hide">Hide expanded menu</span>
+      </label>
+      <nav class="menu">Expanded navigation content</nav>
+      <main id="feed">''',
+    )
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+    ) as (_, _, chrome_dir, env):
+        env.update(
+            {
+                "INFINISCROLL_TIMEOUT": "8",
+                "INFINISCROLL_SCROLL_LIMIT": "1",
+                "INFINISCROLL_SCROLL_DELAY": "40",
+            },
+        )
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 0, result.stderr
+        saved = save_dom(chrome_dir, env, url)
+        assert 'data-disclosure-clicks="1"' in saved, result.stderr
+        assert 'data-disclosure-open="true"' in saved
+        assert "Expanded navigation content" in saved
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

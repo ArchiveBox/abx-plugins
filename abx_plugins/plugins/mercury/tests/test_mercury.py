@@ -626,5 +626,42 @@ def test_large_saved_github_releases_preserves_article_and_code(tmp_path):
     assert source.read_bytes() == captured
 
 
+def test_captured_original_article_keeps_complete_body(tmp_path):
+    source = gzip.decompress(
+        (CAPTURE_FIXTURES / "techcrunch-infinite-scroll-before.html.gz").read_bytes(),
+    )
+    (tmp_path / "dom").mkdir()
+    saved = tmp_path / "dom" / "output.html"
+    saved.write_bytes(source)
+    result = subprocess.run(
+        [
+            str(MERCURY_HOOK),
+            "--url",
+            "https://techcrunch.com/2026/06/30/the-father-of-the-internet-is-finally-retiring/",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "MERCURY_BINARY": require_mercury_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", result.stdout
+    assert saved.read_bytes() == source
+    expected = json.loads(
+        (CAPTURE_FIXTURES / "techcrunch-original-article.json").read_text(),
+    )
+    assert (tmp_path / "mercury/content.txt").read_text() == expected
+    metadata = json.loads((tmp_path / "mercury/article.json").read_text())
+    assert metadata["author"] == "Tim Fernholz"
+    assert "Father of the Internet" in metadata["title"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
