@@ -596,6 +596,49 @@ def test_download_paper_linked_from_article(tmp_path, saved_html):
     assert record["output_str"] == f"papersdl/{pdfs[0].name}", record
 
 
+def test_arxiv_provider_uses_canonical_pdf_urls():
+    """The real provider removes citation labels without losing arXiv versions."""
+    binary = Path(require_papersdl_binary()).resolve()
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-project",
+            "--no-sync",
+            "--python",
+            str(binary.with_name("python")),
+            "python",
+            "-c",
+            """
+import asyncio
+from providers.arxiv import get_url
+
+async def main():
+    for identifier, expected in [
+        ('arXiv:1706.03762', 'https://arxiv.org/pdf/1706.03762.pdf'),
+        ('arxiv:1810.04805', 'https://arxiv.org/pdf/1810.04805.pdf'),
+        ('ARXIV:1810.04805v2', 'https://arxiv.org/pdf/1810.04805v2.pdf'),
+        ('arXiv:hep-th/9901001', 'https://arxiv.org/pdf/hep-th/9901001.pdf'),
+        ('arXiv:math.GT/0309136v1', 'https://arxiv.org/pdf/math.GT/0309136v1.pdf'),
+        ('10.1038/nature12373', None),
+    ]:
+        actual = await get_url(identifier)
+        assert actual == expected, (identifier, actual, expected)
+
+asyncio.run(main())
+""",
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_download_linked_and_inline_citations(tmp_path):
     """Real PDFs for linked DOI aliases and an unlinked inline arXiv citation."""
     dom = tmp_path / "dom" / "output.html"

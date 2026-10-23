@@ -7,6 +7,8 @@ from parse.parse import parse_ids_from_text
 async def get_url(identifier):
     is_arxiv = parse_ids_from_text(identifier, ["arxiv"])
     if is_arxiv:
+        # arXiv: is a citation label, not part of the PDF URL's identifier.
+        identifier = identifier.split(":", 1)[1]
         pdf_url = f"https://arxiv.org/pdf/{identifier}.pdf"
         return pdf_url
 

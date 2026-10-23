@@ -34,6 +34,7 @@ pages. No CAPTCHA solving or rate-limit retries are added.
 
 DOI prefixes require a literal period, so archived-link timestamps do not become
 false paper identifiers. The same overlay is used for both CLI parsing and fetching.
+arXiv PDF URLs omit the citation's `arXiv:` label while retaining subject and version.
 
 Publisher title markup/entities are decoded before naming PDFs, and path separators
 are replaced so paper titles remain filenames inside the output directory.
