@@ -170,6 +170,93 @@ def test_non_ascii_url_is_submitted_as_encoded_uri(
     assert output.read_text(encoding="utf-8") == httpserver.url_for(replay_path)
 
 
+@pytest.mark.parametrize(
+    ("status", "body", "reason"),
+    [
+        (403, "Forbidden", "Archive.org returned HTTP 403"),
+        (429, "Too many requests", "Archive.org returned HTTP 429"),
+        (503, "Unavailable", "Archive.org returned HTTP 503"),
+        (
+            200,
+            "RobotAccessControlException",
+            "Archive.org blocked submission by robots.txt",
+        ),
+        (200, "No capture", "Archive.org returned no archive URL"),
+    ],
+)
+def test_remote_rejection_preserves_previous_archive_as_noresults(
+    tmp_path,
+    httpserver,
+    status,
+    body,
+    reason,
+):
+    output = tmp_path / "archivedotorg" / "archive.org.txt"
+    output.parent.mkdir()
+    previous = "https://web.archive.org/web/20200101000000/https://example.com/"
+    output.write_text(previous)
+    httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
+        body,
+        status=status,
+    )
+    result = subprocess.run(
+        [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "ARCHIVEDOTORG_ENABLED": "True",
+            "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+            "no_proxy": "*",
+            "NO_PROXY": "*",
+        },
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": reason,
+    }
+    assert f"WARNING: {reason}" in result.stderr
+    assert output.read_text() == previous
+    assert len(httpserver.log) == 1
+
+
+def test_local_write_failure_is_failed(tmp_path, httpserver):
+    output = tmp_path / "archivedotorg" / "archive.org.txt"
+    output.mkdir(parents=True)
+    preserved = output / "keep.txt"
+    preserved.write_text("Existing local data")
+    httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
+        "",
+        headers={"Content-Location": "/web/20261012000000/https://example.com/"},
+    )
+    result = subprocess.run(
+        [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "ARCHIVEDOTORG_ENABLED": "True",
+            "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+            "no_proxy": "*",
+            "NO_PROXY": "*",
+        },
+        timeout=30,
+    )
+    assert result.returncode == 1, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None
+    assert record["status"] == "failed"
+    assert record["output_str"].startswith("IsADirectoryError:")
+    assert preserved.read_text() == "Existing local data"
+
+
 def test_private_url_has_noresults(tmp_path):
     result = subprocess.run(
         [str(ARCHIVEDOTORG_HOOK), "--url", "http://127.0.0.1/private"],
@@ -219,15 +306,13 @@ def test_live_submission_classifies_service_response(request_timeout):
         result_json = parse_jsonl_output(result.stdout)
         assert result_json, "Should have ArchiveResult JSONL output"
         output_path = tmpdir / "archivedotorg" / "archive.org.txt"
-        if "ERROR: Archive.org returned HTTP 429" in result.stderr:
-            # A real service rate limit must be a failed extraction, never a
-            # successful retry-link artifact. This branch still verifies the
-            # complete hook contract; it does not skip a rate-limited run.
-            # Accept HTTP 429 in CI: there is not much we can do to force 200.
-            assert result.returncode == 1, result.stdout + result.stderr
+        if "WARNING: Archive.org returned HTTP 429" in result.stderr:
+            # A service rate limit has no capture, and must never create a
+            # successful retry-link artifact.
+            assert result.returncode == 0, result.stdout + result.stderr
             assert result_json == {
                 "type": "ArchiveResult",
-                "status": "failed",
+                "status": "noresults",
                 "output_str": "Archive.org returned HTTP 429",
             }, result_json
             assert not output_path.exists()

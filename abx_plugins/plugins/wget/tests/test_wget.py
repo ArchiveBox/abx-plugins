@@ -322,41 +322,65 @@ def test_staticfile_present_skips(real_staticfile_output, local_staticfile_urls)
         )
 
 
-def test_handles_404_gracefully(httpserver):
-    """Test that wget fails gracefully on 404."""
-    install_required_binary_from_config(PLUGIN_DIR, "wget")
-    httpserver.expect_request("/nonexistent-page-404").respond_with_data(
-        "Not Found",
-        status=404,
+@pytest.mark.parametrize("status", [403, 404, 429, 503])
+def test_http_rejection_without_saved_page_has_noresults(httpserver, tmp_path, status):
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request("/article.html").respond_with_data(
+        "Unavailable",
+        status=status,
         content_type="text/plain",
     )
+    result = subprocess.run(
+        [str(WGET_HOOK), "--url", httpserver.url_for("/article.html")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "WGET_BINARY": str(loaded.loaded_abspath),
+        },
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": "No files downloaded",
+    }
+    assert f"WARNING: wget failed (exit=8): ERROR {status}:" in result.stderr
+    assert not list((tmp_path / "wget").rglob("*.html"))
+    assert len(httpserver.log) == 1
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
 
-        # Try to download non-existent page
-        result = subprocess.run(
-            [
-                str(WGET_HOOK),
-                "--url",
-                httpserver.url_for("/nonexistent-page-404"),
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-
-        # Should fail
-        assert result.returncode == 1, "Should fail on 404"
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json == {
-            "type": "ArchiveResult",
-            "status": "failed",
-            "output_str": "wget failed (exit=8): ERROR 404: NOT FOUND",
-        }, result_json
-        assert "ERROR: wget failed (exit=8): ERROR 404: NOT FOUND" in result.stderr
+def test_local_write_failure_is_failed(httpserver, tmp_path):
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request("/article.html").respond_with_data(
+        "<html>Article</html>",
+        content_type="text/html",
+    )
+    blocked = tmp_path / "blocked"
+    blocked.write_text("Keep this local file")
+    result = subprocess.run(
+        [str(WGET_HOOK), "--url", httpserver.url_for("/article.html")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "WGET_BINARY": str(loaded.loaded_abspath),
+            "WGET_ARGS_EXTRA": json.dumps([f"--directory-prefix={blocked}"]),
+        },
+        timeout=30,
+    )
+    assert result.returncode == 1, result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "failed",
+        "output_str": "wget failed (exit=3)",
+    }
+    assert blocked.read_text() == "Keep this local file"
 
 
 @pytest.mark.parametrize("artifact_hook_name", [WGET_HOOK.stem, WGET_HOOK.name])

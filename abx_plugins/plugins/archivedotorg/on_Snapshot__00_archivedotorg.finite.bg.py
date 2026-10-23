@@ -160,12 +160,12 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
             log(f"Saved archive URL -> {archive_url}")
             return True, OUTPUT_FILE, ""
         if "RobotAccessControlException" in body:
-            return False, None, "Archive.org blocked submission by robots.txt"
-        return False, None, "Archive.org returned no archive URL"
+            return True, None, "Archive.org blocked submission by robots.txt"
+        return True, None, "Archive.org returned no archive URL"
 
     except HTTPError as e:
         log_http_error(e)
-        return False, None, f"Archive.org returned HTTP {e.code}"
+        return True, None, f"Archive.org returned HTTP {e.code}"
     except TimeoutError:
         return False, None, f"Request timed out after {timeout} seconds"
     except RemoteDisconnected as e:
@@ -204,10 +204,11 @@ def main(url: str):
         success, output, error = submit_to_archivedotorg(url)
 
         if success:
-            # Success - emit ArchiveResult with output file
+            if not output:
+                print(f"WARNING: {error}", file=sys.stderr)
             emit_archive_result_record(
-                "succeeded",
-                f"{PLUGIN_DIR}/{OUTPUT_FILE}" if output else "",
+                "succeeded" if output else "noresults",
+                f"{PLUGIN_DIR}/{OUTPUT_FILE}" if output else error,
             )
             sys.exit(0)
         else:

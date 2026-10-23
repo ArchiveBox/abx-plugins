@@ -146,6 +146,7 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         print("saving page with wget...", file=sys.stderr)
         error = ""
+        result = None
         try:
             result = subprocess.run(
                 cmd,
@@ -191,6 +192,9 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
             http_errors = re.findall(r"^\S+ \S+ (ERROR \d+: .+?)\.?$", log, re.M)
             if http_errors:
                 error = f"{error}: {http_errors[-1]}"
+                if result is not None and result.returncode == 8:
+                    print(f"WARNING: {error}", file=sys.stderr)
+                    return True, "No files downloaded", ""
             return False, None, error
         return True, "No files downloaded", ""
 
