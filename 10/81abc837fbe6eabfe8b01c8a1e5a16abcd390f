@@ -1,0 +1,25 @@
+abx_plugins/plugins/ytdlp/yt-dlp-plugins/archivebox/yt_dlp_plugins/extractor/archivebox_generic.py
+  s_10bc94d001be49::t_ea3fbba0a72ef2 1,7-9
+  s_10bc94d001be49::t_eaf4a1aed0262e 12-13,22-35,38-43
+  s_10bc94d001be49::t_ee1916bf6ded70 17-19
+  s_10bc94d001be49::t_1e7509d310b0b9 36-37,44
+  s_10bc94d001be49::t_2ed15b316cde38 20-21
+abx_plugins/plugins/ytdlp/tests/test_ytdlp.py
+  s_10bc94d001be49::t_9e20b513afdc85 1279-1328
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1081abc837fbe6eabfe8b01c8a1e5a16abcd390f",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
