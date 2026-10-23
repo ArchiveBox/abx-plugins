@@ -701,6 +701,81 @@ def test_overflow_clipped_article_keeps_complete_body(tmp_path):
     assert saved.read_bytes() == source
 
 
+def test_hidden_alert_does_not_replace_captured_issue_body(tmp_path):
+    source = gzip.decompress(
+        (CAPTURE_FIXTURES / "github-issue-2272-dom.html.gz").read_bytes(),
+    )
+    saved = tmp_path / "dom" / "output.html"
+    saved.parent.mkdir()
+    saved.write_bytes(source)
+    result = subprocess.run(
+        [
+            str(MERCURY_HOOK),
+            "--url",
+            "https://github.com/browserbase/stagehand/issues/2272",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "MERCURY_BINARY": require_mercury_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    expected = json.loads(
+        (CAPTURE_FIXTURES / "github-issue-2272-text.json").read_text(),
+    )
+    text = (tmp_path / "mercury/content.txt").read_text()
+    assert re.sub(r"\s+", " ", text).strip() == expected
+    assert saved.read_bytes() == source
+
+
+@pytest.mark.parametrize("state", [None, "until-found", "UNTIL-FOUND"])
+def test_hidden_state_preserves_visible_and_findable_article_content(tmp_path, state):
+    paragraphs = [
+        f"Article paragraph {index} explains the complete finding, with several sentences and important details. "
+        "The article must remain available for reading and searching in the saved document."
+        for index in range(4)
+    ]
+    attribute = "" if state is None else f' hidden="{state}"'
+    source = (
+        "<!doctype html><title>Findable article</title><article>"
+        + "".join(f"<p>{paragraph}</p>" for paragraph in paragraphs)
+        + f"<div{attribute}><p>Findable explanation retains its meaningful details alongside the visible article.</p></div>"
+        + "</article>"
+        + "<div hidden><p>Hidden alert should never replace the actual article.</p></div>"
+    )
+    saved = tmp_path / "dom" / "output.html"
+    saved.parent.mkdir()
+    saved.write_text(source)
+    result = subprocess.run(
+        [str(MERCURY_HOOK), "--url", "https://example.com/article"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "MERCURY_BINARY": require_mercury_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    text = (tmp_path / "mercury/content.txt").read_text()
+    for paragraph in paragraphs:
+        assert paragraph in text
+    assert "Findable explanation retains its meaningful details" in text
+    assert "Hidden alert" not in text
+    assert saved.read_text() == source
+
+
 def test_overflow_clipping_preserves_hidden_and_sidebar_exclusion(tmp_path):
     paragraphs = [
         f"Visible paragraph {index} explains a complete native article, with enough prose to exercise the parser's ordinary scoring. "

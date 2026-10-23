@@ -52,6 +52,11 @@ const html = fs.readFileSync(0, 'utf8');
 const $ = cheerio.load(html);
 const removed = { href: 0, src: 0, srcset: 0 };
 
+// Hidden alerts can satisfy Mercury's minimum text length and prevent its
+// normal article fallback. Keep findable content in the until-found state.
+// attr('hidden') normalizes boolean attributes; attr() preserves their values.
+$('[hidden]').filter((_index, element) => $(element).attr().hidden.toLowerCase() !== 'until-found').remove();
+
 // Mercury's generic blacklist mistakes this clipping utility for hidden
 // content and removes entire article ancestors. Keep actual hidden classes.
 $('[class~="overflow-hidden"]').each((_index, element) => {
