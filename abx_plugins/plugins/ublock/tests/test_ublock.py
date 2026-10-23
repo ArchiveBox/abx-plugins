@@ -9,6 +9,7 @@ import os
 import signal
 import subprocess
 import tempfile
+from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
@@ -834,15 +835,14 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         ext_crawl_dir.mkdir(parents=True, exist_ok=True)
         ext_chrome_dir = ext_crawl_dir / "chrome"
         ext_env["CRAWL_DIR"] = str(ext_crawl_dir)
-        ext_process = None
-
-        try:
+        with ExitStack() as browser_cleanup:
             ext_process, ext_cdp_url = launch_chromium_session(
                 ext_env,
                 ext_chrome_dir,
                 ext_crawl_id,
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
+            browser_cleanup.callback(kill_chromium_session, ext_process, ext_chrome_dir)
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
             loaded_exts = wait_for_extensions_metadata(
@@ -891,8 +891,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             )
             assert dashboard_result.returncode == 0, dashboard_result.stderr
 
-            kill_chromium_session(ext_process, ext_chrome_dir)
-            ext_process = None
+            browser_cleanup.close()
 
             print("\n" + "=" * 60)
             print("STEP 2: BASELINE TEST (no extension)")
@@ -1032,6 +1031,3 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 "baseline": baseline_result,
                 "extension": ext_result,
             }
-        finally:
-            if ext_process:
-                kill_chromium_session(ext_process, ext_chrome_dir)

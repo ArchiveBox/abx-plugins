@@ -125,7 +125,7 @@ const utils = require(process.argv[1]);
         installed = json.loads(converter.stdout)
         launcher = Path(installed["PNPM_HOME"]) / "defuddle"
         assert launcher.is_file()
-        assert ".pnpm/defuddle@0.14.0" in launcher.read_text()
+        assert ".pnpm/defuddle@0.19.5" in launcher.read_text()
         env = {**env, "DEFUDDLE_BINARY": str(launcher)}
     result = subprocess.run(
         [str(HOOK), f"--url={URL}"],
