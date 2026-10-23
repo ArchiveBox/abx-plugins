@@ -2,11 +2,15 @@
 
 import json
 import subprocess
+from contextlib import ExitStack
 from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 
-from abx_plugins.plugins.base.testing import start_process_and_wait_for_file
+from abx_plugins.plugins.base.testing import (
+    start_process_and_wait_for_file,
+    wait_for_file,
+)
 from abx_plugins.plugins.responses.tests.test_responses import (
     RESPONSES_HOOK,
     CHROME_NAVIGATE_HOOK,
@@ -14,37 +18,6 @@ from abx_plugins.plugins.responses.tests.test_responses import (
 )
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-CHROME_UTILS = CHROME_NAVIGATE_HOOK.parent / "chrome_utils.js"
-OBSERVER = r"""
-const fs = require('fs');
-const utils = require(process.argv[1]);
-(async () => {
-  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
-  const pending = new Map();
-  let count = 0;
-  const record = (name, data) => {
-    if (count++ < 400) fs.appendFileSync(process.argv[3], JSON.stringify({name, data}) + '\n');
-  };
-  page.on('request', request => {
-    const data = {url: request.url(), type: request.resourceType()};
-    pending.set(request, data);
-    record('request', data);
-  });
-  for (const name of ['requestfinished', 'requestfailed']) page.on(name, request => {
-    record(name, {url: request.url(), failure: request.failure()});
-    pending.delete(request);
-  });
-  for (const name of ['frameattached', 'framenavigated', 'framedetached']) {
-    page.on(name, frame => record(name, {url: frame.url()}));
-  }
-  fs.writeFileSync(process.argv[4], 'ready');
-  process.on('SIGTERM', () => {
-    fs.appendFileSync(process.argv[3], JSON.stringify({pending: [...pending.values()], frames: page.frames().map(frame => frame.url())}) + '\n');
-    browser.disconnect();
-    process.exit(0);
-  });
-})().catch(error => { console.error(error); process.exit(1); });
-"""
 
 
 @pytest.mark.parametrize(
@@ -145,47 +118,49 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
         output = chrome_dir.parent / "responses"
         output.mkdir()
         index = output / "index.jsonl"
-        observer = None
-        if mode == "transient":
-            observer = start_process_and_wait_for_file(
-                [
-                    env["NODE_BINARY"],
-                    "-e",
-                    OBSERVER,
-                    str(CHROME_UTILS),
-                    str(chrome_dir),
-                    str(tmp_path / "network-events.log"),
-                    str(tmp_path / "observer-ready"),
-                ],
-                tmp_path / "observer-ready",
-                cwd=chrome_dir,
-                env=env,
-            )
-        process = start_process_and_wait_for_file(
-            [str(RESPONSES_HOOK), f"--url={page_url}"],
-            index,
-            cwd=output,
-            env=env,
-        )
-        try:
-            nav = subprocess.run(
-                [str(CHROME_NAVIGATE_HOOK), f"--url={page_url}"],
-                cwd=chrome_dir,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            (tmp_path / "navigation.stdout.log").write_text(nav.stdout)
-            (tmp_path / "navigation.stderr.log").write_text(nav.stderr)
-        finally:
-            if observer is not None:
-                observer.terminate()
-                observer.communicate(timeout=15)
-            process.terminate()
-            stdout, stderr = process.communicate(timeout=30)
-            (tmp_path / "responses.stdout.log").write_text(stdout)
-            (tmp_path / "responses.stderr.log").write_text(stderr)
+        stdout_path = tmp_path / "responses.stdout.log"
+        stderr_path = tmp_path / "responses.stderr.log"
+        with ExitStack() as logs:
+            if mode == "transient":
+                # Fetch pauses belong to the collector's CDP session, so a
+                # separate observer cannot show which request blocked loading.
+                # Stream protocol logs directly to disk: an undrained stderr
+                # pipe would itself stall the collector during navigation.
+                process = subprocess.Popen(
+                    [str(RESPONSES_HOOK), f"--url={page_url}"],
+                    cwd=output,
+                    env={**env, "NODE_DEBUG": "puppeteer:protocol:*"},
+                    stdout=logs.enter_context(stdout_path.open("w")),
+                    stderr=logs.enter_context(stderr_path.open("w")),
+                    text=True,
+                )
+            else:
+                process = start_process_and_wait_for_file(
+                    [str(RESPONSES_HOOK), f"--url={page_url}"],
+                    index,
+                    cwd=output,
+                    env=env,
+                )
+            try:
+                if mode == "transient":
+                    wait_for_file(index, process=process)
+                nav = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={page_url}"],
+                    cwd=chrome_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                (tmp_path / "navigation.stdout.log").write_text(nav.stdout)
+                (tmp_path / "navigation.stderr.log").write_text(nav.stderr)
+            finally:
+                process.terminate()
+                stdout, stderr = process.communicate(timeout=30)
+                if mode != "transient":
+                    stdout_path.write_text(stdout)
+                    stderr_path.write_text(stderr)
+        stdout, stderr = stdout_path.read_text(), stderr_path.read_text()
         assert nav.returncode == 0, (nav.stderr, stdout, stderr)
         if mode == "transient":
             final = [
