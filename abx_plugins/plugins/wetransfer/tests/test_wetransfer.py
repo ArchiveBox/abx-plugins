@@ -10,7 +10,7 @@ from pathlib import Path
 
 import imagesize
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import sync_playwright
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
@@ -39,66 +39,78 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
         env,
     ):
         if terms_accepted:
-            # Exercise a genuine accepted session as well as first-time consent.
-            # The export tab hydrates that shared cookie after its initial HTML.
+            # Establish consent through the real provider flow, including any
+            # optional dialog. The next export must reuse that accepted session.
             with sync_playwright() as playwright:
                 browser = playwright.chromium.connect_over_cdp(
                     (chrome / "cdp_url.txt").read_text().strip(),
                 )
-                page = next(
-                    page
-                    for page in browser.contexts[0].pages
-                    if "wetransfer.com/downloads/" in page.url
+                assert not any(
+                    cookie.get("name") == "wt_tandc"
+                    for cookie in browser.contexts[0].cookies()
                 )
-                agreement = page.get_by_role("button", name="I agree", exact=True)
-                agreement.click()
-                expect(agreement).to_have_count(0)
-        result, diagnostic = run_observed_hook(
-            tmp_path,
-            chrome,
-            env,
-            MEDIA_KIT_URL,
-            timeout=150,
+            assert_media_kit_export(tmp_path, chrome, env)
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.connect_over_cdp(
+                    (chrome / "cdp_url.txt").read_text().strip(),
+                )
+                assert any(
+                    cookie.get("name") == "wt_tandc" and cookie.get("value")
+                    for cookie in browser.contexts[0].cookies()
+                ), "The first export must establish genuine transfer consent"
+            # Preserve the first validated export without letting its bytes mask
+            # a missing download during the accepted-session export.
+            (chrome.parent / "wetransfer").rename(tmp_path / "first-export")
+        assert_media_kit_export(tmp_path, chrome, env)
+
+
+def assert_media_kit_export(tmp_path, chrome, env):
+    result, diagnostic = run_observed_hook(
+        tmp_path,
+        chrome,
+        env,
+        MEDIA_KIT_URL,
+        timeout=150,
+    )
+    assert result.returncode == 0, diagnostic
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "succeeded", result.stdout
+    output = chrome.parent / "wetransfer"
+    manifest = json.loads((output / "downloads.json").read_text())
+    assert len(manifest["files"]) == 1
+    item = manifest["files"][0]
+    assert item["filename"] == ZIP_FILENAME
+    assert item["format"] == "zip"
+    archive_path = output / item["path"]
+    data = archive_path.read_bytes()
+    assert len(data) == item["size"] == 12086255
+    assert hashlib.sha256(data).hexdigest() == item["sha256"]
+    assert sorted(path.name for path in (output / "files").iterdir()) == [
+        ZIP_FILENAME,
+    ], "The delivery ZIP must remain unchanged, without extracted copies"
+    with zipfile.ZipFile(archive_path) as archive, sync_playwright() as playwright:
+        assert archive.testzip() is None, "All member CRCs must match"
+        assert set(archive.namelist()) == set(HEADSHOTS)
+        browser = playwright.chromium.connect_over_cdp(
+            (chrome / "cdp_url.txt").read_text().strip(),
         )
-        assert result.returncode == 0, diagnostic
-        record = parse_jsonl_output(result.stdout)
-        assert record is not None, result.stdout
-        assert record["status"] == "succeeded", result.stdout
-        output = chrome.parent / "wetransfer"
-        manifest = json.loads((output / "downloads.json").read_text())
-        assert len(manifest["files"]) == 1
-        item = manifest["files"][0]
-        assert item["filename"] == ZIP_FILENAME
-        assert item["format"] == "zip"
-        archive_path = output / item["path"]
-        data = archive_path.read_bytes()
-        assert len(data) == item["size"] == 12086255
-        assert hashlib.sha256(data).hexdigest() == item["sha256"]
-        assert sorted(path.name for path in (output / "files").iterdir()) == [
-            ZIP_FILENAME,
-        ], "The delivery ZIP must remain unchanged, without extracted copies"
-        with zipfile.ZipFile(archive_path) as archive, sync_playwright() as playwright:
-            assert archive.testzip() is None, "All member CRCs must match"
-            assert set(archive.namelist()) == set(HEADSHOTS)
-            browser = playwright.chromium.connect_over_cdp(
-                (chrome / "cdp_url.txt").read_text().strip(),
+        page = browser.contexts[0].pages[0]
+        for filename, expected_size in HEADSHOTS.items():
+            jpeg = archive.read(filename)
+            assert jpeg.startswith(b"\xff\xd8\xff") and jpeg.endswith(b"\xff\xd9")
+            assert imagesize.get(io.BytesIO(jpeg)) == expected_size
+            decoded_size = page.evaluate(
+                """async encoded => {
+                    const bytes = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+                    const bitmap = await createImageBitmap(new Blob([bytes], {type: 'image/jpeg'}));
+                    const size = [bitmap.width, bitmap.height];
+                    bitmap.close();
+                    return size;
+                }""",
+                base64.b64encode(jpeg).decode(),
             )
-            page = browser.contexts[0].pages[0]
-            for filename, expected_size in HEADSHOTS.items():
-                jpeg = archive.read(filename)
-                assert jpeg.startswith(b"\xff\xd8\xff") and jpeg.endswith(b"\xff\xd9")
-                assert imagesize.get(io.BytesIO(jpeg)) == expected_size
-                decoded_size = page.evaluate(
-                    """async encoded => {
-                        const bytes = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
-                        const bitmap = await createImageBitmap(new Blob([bytes], {type: 'image/jpeg'}));
-                        const size = [bitmap.width, bitmap.height];
-                        bitmap.close();
-                        return size;
-                    }""",
-                    base64.b64encode(jpeg).decode(),
-                )
-                assert decoded_size == list(expected_size), filename
+            assert decoded_size == list(expected_size), filename
 
 
 def run_observed_hook(tmp_path, chrome, env, url, timeout):
