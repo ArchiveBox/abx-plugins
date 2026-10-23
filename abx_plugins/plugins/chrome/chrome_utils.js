@@ -171,7 +171,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         }
         // Spool completed bodies before the remote output queue can delay them
         // and let newer responses evict their raw bytes from Chrome's cache.
-        const result = await session.send("Network.getResponseBody", { requestId: event.requestId });
+        // Durable bodies belong to the root session's collector. The owning
+        // renderer can detach immediately after receiving the complete body.
+        const result = await mainClient.send("Network.getResponseBody", { requestId: event.requestId });
         const body = Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
         if (body.length !== stream.receivedBytes) {
           throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}`);
@@ -279,11 +281,11 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       if (!stream && resourceTypes && resourceType !== "document" &&
           (!resourceTypes.length || resourceTypes.includes(resourceType))) {
         // Puppeteer's requestfinished can precede this CDP session's queued
-        // request events. Read on this session before deciding it was untracked.
+        // request events. Read the durable body before deciding it was untracked.
         let result;
         let error;
         try {
-          result = await session.send("Network.getResponseBody", { requestId: id });
+          result = await mainClient.send("Network.getResponseBody", { requestId: id });
         } catch (caught) {
           error = caught;
         }

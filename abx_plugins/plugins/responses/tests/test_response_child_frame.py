@@ -23,6 +23,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
         "sync-xhr",
         "redirect",
         "detached",
+        "detached-sync-xhr",
         "worker",
         "worker-closed",
         "blob-worker",
@@ -53,13 +54,15 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
         f'<!doctype html><title>Parent</title><script>addEventListener("message",()=>{{document.querySelector("iframe").remove();document.title="Child detached"}})</script><iframe src="{child_url}"></iframe>{transient}',
         content_type="text/html",
     )
-    if mode == "sync-xhr":
+    if mode in ("sync-xhr", "detached-sync-xhr"):
         script = 'const r=new XMLHttpRequest();r.open("GET","/payload",false);r.send();document.title="Saved "+r.status'
     else:
         route = "/redirect" if mode == "redirect" else "/payload"
         script = f'fetch("{route}").then(r=>r.arrayBuffer()).then(b=>{{document.title="Saved "+b.byteLength}})'
     if mode == "detached":
         script += '.then(()=>parent.postMessage("done","*"))'
+    if mode == "detached-sync-xhr":
+        script += ';parent.postMessage("done","*")'
     if mode == "empty-workers":
         script += ';for(let i=0;i<20;i++){new Worker(URL.createObjectURL(new Blob(["close();"],{type:"application/javascript"})))}'
     worker_script = None
