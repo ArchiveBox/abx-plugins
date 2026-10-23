@@ -25,9 +25,9 @@ class TestParseRssUrls:
         config = json.loads((PLUGIN_DIR / "config.json").read_text())
         assert config["required_binaries"][0]["binproviders"] == "uv,env"
         uv_override = config["required_binaries"][0]["overrides"]["uv"]
-        assert uv_override["install_args"] == ["feedparser==6.0.12"]
+        assert uv_override["install_args"] == ["feedparser==6.0.14"]
         assert uv_override["install_root"].endswith(
-            "/uv/packages/parse_rss_urls-6.0.12",
+            "/uv/packages/parse_rss_urls-6.0.14",
         )
 
         env = parse_rss_urls_env()
@@ -44,9 +44,9 @@ class TestParseRssUrls:
         )
         assert result.returncode == 0, result.stderr
         version, module_path = result.stdout.strip().split(maxsplit=1)
-        assert version == "6.0.12"
+        assert version == "6.0.14"
         assert Path(module_path).is_relative_to(
-            Path(env["ABXPKG_LIB_DIR"]) / "uv" / "packages" / "parse_rss_urls-6.0.12",
+            Path(env["ABXPKG_LIB_DIR"]) / "uv" / "packages" / "parse_rss_urls-6.0.14",
         )
 
     def test_parses_http_rss_feed(self, tmp_path, httpserver):

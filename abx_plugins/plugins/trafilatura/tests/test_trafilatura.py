@@ -100,11 +100,11 @@ def test_verify_deps_with_install_hooks():
     assert config["required_binaries"][0]["binproviders"] == "uv,env"
     uv_override = config["required_binaries"][0]["overrides"]["uv"]
     assert uv_override["install_args"] == [
-        "trafilatura==2.1.0",
-        "lxml==6.1.1",
+        "trafilatura==2.3.1",
+        "lxml==6.1.3",
     ]
     assert uv_override["install_root"].endswith(
-        "/uv/packages/trafilatura-2.1.0",
+        "/uv/packages/trafilatura-2.3.1",
     )
 
     binary_path = require_trafilatura_binary()
@@ -123,7 +123,7 @@ def test_verify_deps_with_install_hooks():
         timeout=30,
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "2.1.0"
+    assert result.stdout.strip() == "2.3.1"
 
 
 def test_extracts_local_html_outputs_with_real_binary(httpserver):

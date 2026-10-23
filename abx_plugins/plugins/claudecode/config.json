@@ -9,14 +9,15 @@
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,node,apt,brew",
-      "min_version": null,
+      "min_version": "24.22.1",
       "overrides": {
         "apt": {
           "install_args": [
             "nodejs"
           ]
         }
-      }
+      },
+      "max_version": "24.22.1"
     },
     {
       "name": "{CLAUDECODE_BINARY}",

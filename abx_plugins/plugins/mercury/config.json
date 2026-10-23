@@ -4,22 +4,27 @@
   "description": "Extract article HTML, text, and metadata using the maintained Mercury parser.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["dom"],
+  "required_plugins": [
+    "dom"
+  ],
   "wait_for_background_cleanup": true,
   "required_binaries": [
     {
       "name": "{MERCURY_BINARY}",
       "binproviders": "env,npm",
-      "min_version": "3.1.1",
+      "min_version": "3.1.2",
       "overrides": {
         "npm": {
           "install_root": "{ABXPKG_LIB_DIR}/npm/packages/mercury",
           "install_args": [
-            "@jocmp/mercury-parser@3.1.1"
+            "@jocmp/mercury-parser@3.1.2"
           ],
-          "postinstall_scripts": true
+          "postinstall_scripts": true,
+          "min_release_age": 0
         }
-      }
+      },
+      "min_release_age": 0,
+      "max_version": "3.1.2"
     }
   ],
   "output_mimetypes": [

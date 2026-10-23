@@ -71,9 +71,9 @@ def test_crawl_hook_emits_defuddle_binary_request_record():
     binary = get_hydrated_required_binary(PLUGIN_DIR, "defuddle")
     assert binary.get("binproviders") == "env,pnpm"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
-        "defuddle@0.14.0",
+        "defuddle@0.19.5",
     ]
-    assert binary.get("overrides", {}).get("pnpm", {}).get("version") == "0.14.0"
+    assert binary.get("overrides", {}).get("pnpm", {}).get("version") == "0.19.5"
 
 
 def test_verify_deps_with_abxpkg():

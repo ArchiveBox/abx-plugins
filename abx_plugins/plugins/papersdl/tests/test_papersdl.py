@@ -238,6 +238,83 @@ def test_handles_non_paper_url():
         assert result_json["output_str"] == "No papers found", result_json
 
 
+def test_papersdl_replaces_cached_vulnerable_trust_bundle(tmp_path):
+    from abx_plugins.plugins.base.utils import load_required_binary
+
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    current = config["required_binaries"][0]
+    previous = json.loads(json.dumps(current))
+    args = previous["overrides"]["uv"]["install_args"]
+    args[args.index("certifi==2026.10.19")] = "certifi==2024.2.2"
+    env = {**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
+    for declaration, expected in ((previous, "2024.2.2"), (current, "2026.10.19")):
+        loaded = load_required_binary(
+            declaration,
+            config={**env, "PAPERSDL_BINARY": "papers-dl"},
+            environ=env,
+            install=True,
+        )
+        binary = Path(loaded.loaded_abspath).resolve()
+        result = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--no-project",
+                "--no-sync",
+                "--python",
+                str(binary.with_name("python")),
+                "python",
+                "-c",
+                "import importlib.metadata; print(importlib.metadata.version('certifi'))",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == expected
+
+
+def test_installed_papersdl_uses_patched_dependencies():
+    binary = Path(require_papersdl_binary()).resolve()
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-project",
+            "--no-sync",
+            "--python",
+            str(binary.with_name("python")),
+            "python",
+            "-c",
+            """
+import importlib.metadata
+import ssl
+import certifi
+versions = {name: importlib.metadata.version(name) for name in
+            ('certifi', 'cryptography', 'requests', 'urllib3', 'pdfminer.six', 'pypdf')}
+print(versions)
+assert versions['certifi'] == '2026.10.19'
+assert versions['cryptography'] == '50.0.2'
+assert versions['requests'] == '2.34.2'
+assert versions['urllib3'] == '2.8.0'
+assert versions['pdfminer.six'] == '20260107'
+assert versions['pypdf'] == '6.21.2'
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+context.load_verify_locations(cafile=certifi.where())
+assert context.get_ca_certs()
+assert not any(value == 'emSign ECC Root CA - G3'
+               for cert in context.get_ca_certs()
+               for rdn in cert['subject'] for _, value in rdn)
+""",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_config_save_papersdl_false_skips():
     """Test that PAPERSDL_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:

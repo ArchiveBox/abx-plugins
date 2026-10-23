@@ -309,17 +309,26 @@ def test_required_binary_configs_prefer_hosts_or_declared_managed_runtimes() -> 
                     if isinstance(provider_overrides, dict)
                     else None
                 )
+                package_args = (
+                    [
+                        package
+                        for package in install_args
+                        if not str(package).startswith("-")
+                    ]
+                    if isinstance(install_args, list)
+                    else []
+                )
                 if (
                     providers[:1] == [provider]
                     and isinstance(provider_overrides, dict)
                     and bool(provider_overrides.get("install_root"))
                     and isinstance(install_args, list)
-                    and bool(install_args)
+                    and bool(package_args)
                     and all(
                         "==" in str(package)
                         if provider == "uv"
                         else bool(str(package).rpartition("@")[0])
-                        for package in install_args
+                        for package in package_args
                     )
                 ):
                     managed_package = True

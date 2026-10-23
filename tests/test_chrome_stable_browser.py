@@ -26,7 +26,7 @@ def test_managed_browser_is_stable_chrome(
     )
     # Official Chrome for Testing stable release, independently checked against
     # its published channel manifest when updating the dependency pin.
-    assert "Google Chrome for Testing 155.0.8059.84" in version.stdout
+    assert "Google Chrome for Testing 156.0.8078.47" in version.stdout
     httpserver.expect_request("/").respond_with_data(
         "<!doctype html><title>Stable Chrome capture</title><h1>ArchiveBox</h1>",
         content_type="text/html",
@@ -60,6 +60,6 @@ const utils = require(process.argv[1]);
         )
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout) == {
-            "version": "Chrome/155.0.8059.84",
+            "version": "Chrome/156.0.8078.47",
             "title": "Stable Chrome capture",
         }

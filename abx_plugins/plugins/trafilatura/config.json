@@ -14,10 +14,10 @@
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
-          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/trafilatura-2.1.0",
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/trafilatura-2.3.1",
           "install_args": [
-            "trafilatura==2.1.0",
-            "lxml==6.1.1"
+            "trafilatura==2.3.1",
+            "lxml==6.1.3"
           ]
         }
       }

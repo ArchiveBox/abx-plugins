@@ -9,14 +9,15 @@
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,node,apt,brew",
-      "min_version": "22.12.0",
+      "min_version": "24.22.1",
       "overrides": {
         "apt": {
           "install_args": [
             "nodejs"
           ]
         }
-      }
+      },
+      "max_version": "24.22.1"
     },
     {
       "name": "abxbus",
@@ -39,32 +40,34 @@
     {
       "name": "browsers",
       "binproviders": "pnpm",
-      "min_version": "3.2.3",
+      "min_version": "3.2.6",
       "postinstall_scripts": false,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
           "install_args": [
-            "@puppeteer/browsers@3.2.3",
-            "puppeteer@25.12.0",
+            "@puppeteer/browsers@3.2.6",
+            "puppeteer@25.16.0",
             "dexie@4.4.6",
             "dexie-export-import@4.4.1"
           ],
-          "version": "3.2.3"
+          "version": "3.2.6",
+          "min_release_age": 0
         }
-      }
+      },
+      "min_release_age": 0
     },
     {
       "name": "{CHROME_BINARY}",
       "binproviders": "puppeteer",
-      "min_version": "155.0.8059.84",
-      "max_version": "155.0.8059.84",
+      "min_version": "156.0.8078.47",
+      "max_version": "156.0.8078.47",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
         "puppeteer": {
           "install_args": [
-            "chrome@155.0.8059.84",
+            "chrome@156.0.8078.47",
             "--install-deps"
           ]
         },

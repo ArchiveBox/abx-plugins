@@ -337,7 +337,7 @@ def test_crawl_hook_emits_lit_binary_request_record():
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
-        "@llamaindex/liteparse@2.9.0",
+        "@llamaindex/liteparse@2.17.0",
     ]
 
 
@@ -462,7 +462,7 @@ def test_extract_single_pdf(source_dir):
         assert "this is a simple pdf file" in text_content, text_content[:500]
         assert "consectetuer adipiscing elit" in text_content, text_content[:500]
 
-        # The pinned LiteParse 2.9.0 package emits structured pages with
+        # The pinned LiteParse 2.17.0 package emits structured pages with
         # spatial text_items.
         json_payload = json.loads((output_dir / "output.pdf.json").read_text())
         assert isinstance(json_payload, dict) and "pages" in json_payload, json_payload

@@ -15,13 +15,13 @@
     {
       "name": "feedparser",
       "binproviders": "uv,env",
-      "min_version": "6.0.12",
+      "min_version": "6.0.14",
       "overrides": {
         "uv": {
           "install_root": "{ABXPKG_LIB_DIR}/uv/packages/importer-rss",
           "postinstall_scripts": true,
           "install_args": [
-            "feedparser==6.0.12"
+            "feedparser==6.0.14"
           ]
         }
       }

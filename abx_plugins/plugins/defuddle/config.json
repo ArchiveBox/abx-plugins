@@ -4,22 +4,25 @@
   "description": "Extract cleaned article HTML, text, and metadata from archived HTML using Defuddle.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["dom"],
+  "required_plugins": [
+    "dom"
+  ],
   "wait_for_background_cleanup": true,
   "required_binaries": [
     {
       "name": "{DEFUDDLE_BINARY}",
       "binproviders": "env,pnpm",
-      "min_version": null,
+      "min_version": "0.19.5",
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/defuddle",
           "install_args": [
-            "defuddle@0.14.0"
+            "defuddle@0.19.5"
           ],
-          "version": "0.14.0"
+          "version": "0.19.5"
         }
-      }
+      },
+      "max_version": "0.19.5"
     }
   ],
   "output_mimetypes": [

@@ -82,7 +82,7 @@ def test_verify_deps_with_abxpkg():
         (Path(binary_path).resolve().parent / "package.json").read_text(),
     )
     assert package["name"] == "@jocmp/mercury-parser", package
-    assert package["version"] == "3.1.1", package
+    assert package["version"] == "3.1.2", package
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"
     )

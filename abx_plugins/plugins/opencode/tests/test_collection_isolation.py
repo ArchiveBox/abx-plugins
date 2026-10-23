@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import requests
+from requests.structures import CaseInsensitiveDict
 import pytest
 
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
@@ -357,7 +358,9 @@ def test_opencode_oauth_callback_waits_for_user_and_preserves_cancellation(
             assert cancelled.text == "Login cancelled"
         status, response_headers, body = callback.result(timeout=5)
     assert status == 500
-    assert response_headers["Content-Type"].startswith("application/json")
+    assert CaseInsensitiveDict(response_headers)["Content-Type"].startswith(
+        "application/json",
+    )
     assert isinstance(body, bytes)
     error = json.loads(body)
     assert error["name"] == "UnknownError"

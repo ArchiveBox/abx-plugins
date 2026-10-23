@@ -151,7 +151,7 @@ def test_chrome_js_modules_stay_package_scoped() -> None:
     assert records["abxbus"]["overrides"]["pnpm"]["version"] == abxbus_version
     assert records["browsers"]["binproviders"] == "pnpm"
     assert "env" not in records["browsers"]["overrides"]
-    assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.2.3"
+    assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.2.6"
 
 
 def test_chrome_config_pins_puppeteer_dependencies() -> None:
@@ -161,8 +161,8 @@ def test_chrome_config_pins_puppeteer_dependencies() -> None:
     )
 
     assert record["overrides"]["pnpm"]["install_args"] == [
-        "@puppeteer/browsers@3.2.3",
-        "puppeteer@25.12.0",
+        "@puppeteer/browsers@3.2.6",
+        "puppeteer@25.16.0",
         # Persona IndexedDB hydration loads these browser scripts from this
         # same managed module root; their exact versions are part of the contract.
         "dexie@4.4.6",

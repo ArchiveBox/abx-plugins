@@ -10,28 +10,32 @@
     {
       "name": "{YTDLP_BINARY}",
       "binproviders": "env,uv,apt,brew",
-      "min_version": "2026.08.19",
-      "max_version": "2026.08.19",
+      "min_version": "2026.10.21",
+      "max_version": "2026.10.21",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "yt-dlp[default]==2026.8.19"
-          ]
+            "yt-dlp[default]==2026.10.21",
+            "--exclude-newer-package=yt-dlp=2026-10-23T00:00:00Z"
+          ],
+          "min_release_age": 0
         }
-      }
+      },
+      "min_release_age": 0
     },
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,node,apt,brew",
-      "min_version": null,
+      "min_version": "24.22.1",
       "overrides": {
         "apt": {
           "install_args": [
             "nodejs"
           ]
         }
-      }
+      },
+      "max_version": "24.22.1"
     },
     {
       "name": "{FFMPEG_BINARY}",

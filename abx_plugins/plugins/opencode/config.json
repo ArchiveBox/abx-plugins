@@ -10,14 +10,15 @@
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,node,apt,brew",
-      "min_version": null,
+      "min_version": "24.22.1",
       "overrides": {
         "apt": {
           "install_args": [
             "nodejs"
           ]
         }
-      }
+      },
+      "max_version": "24.22.1"
     },
     {
       "name": "{NPM_BINARY}",
@@ -54,7 +55,7 @@
     {
       "name": "{OPENCODE_BINARY}",
       "binproviders": "env,pnpm",
-      "min_version": "1.18.31",
+      "min_version": "1.19.4",
       "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
@@ -63,7 +64,7 @@
           "min_release_age": 0,
           "postinstall_scripts": true,
           "install_args": [
-            "opencode-ai@1.18.31"
+            "opencode-ai@1.19.4"
           ]
         }
       }
@@ -94,7 +95,7 @@
           "install_args": [
             "shalpha@4.0.0-rc.56",
             "abxbus@2.5.18",
-            "tsx@4.21.0"
+            "tsx@4.23.15"
           ],
           "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/shalpha/index.ts",
           "version": "4.0.0-rc.56"
