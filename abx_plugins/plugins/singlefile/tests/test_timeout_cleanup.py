@@ -146,7 +146,10 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-@pytest.mark.parametrize("failure", ["download-deadline", "protocol-timeout"])
+@pytest.mark.parametrize(
+    "failure",
+    ["download-deadline", "protocol-timeout", "paused-target"],
+)
 def test_singlefile_timeout_cancels_exact_tab_and_keeps_other_capture(
     tmp_path,
     httpserver,
@@ -299,6 +302,24 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
 """
             capture_command = [env["NODE_BINARY"], "-e", capture_script]
         capture_started = time.monotonic()
+        paused_target = None
+        paused_marker = tmp_path / "target-paused"
+        pause_script = ""
+        if failure == "paused-target":
+            pause_script = f"""
+const cu=require({json.dumps(str(CHROME_UTILS))});
+(async()=>{{
+ const {{browser,page}}=await cu.connectToPage({{chromeSessionDir:{json.dumps(str(chrome))},requireTargetId:true,waitForNavigationComplete:true}});
+ try {{
+  const session=await page.createCDPSession();
+  await session.send('Debugger.enable');
+  const paused=new Promise(resolve=>session.once('Debugger.paused',resolve));
+  await session.send('Debugger.pause');await paused;
+  require('fs').writeFileSync({json.dumps(str(paused_marker))},'paused');
+  await new Promise(resolve=>setTimeout(resolve,30000));
+ }}finally{{await browser.disconnect();}}
+}})().catch(error=>{{console.error(error);process.exitCode=1;}});
+"""
         with subprocess.Popen(
             capture_command,
             cwd=output,
@@ -309,7 +330,32 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
         ) as hook:
             tasks = control("other-paused" if failure == "paused-clock" else "other")
             assert sorted(task["url"] for task in tasks) == [url, url + "?other"]
-            stdout, stderr = hook.communicate(timeout=25)
+            try:
+                if failure == "paused-target":
+                    paused_target = subprocess.Popen(
+                        [env["NODE_BINARY"], "-e", pause_script],
+                        cwd=output,
+                        env=env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+                    pause_deadline = time.monotonic() + 5
+                    while (
+                        not paused_marker.exists() and time.monotonic() < pause_deadline
+                    ):
+                        time.sleep(0.05)
+                    assert paused_marker.exists(), "Native target did not pause"
+                stdout, stderr = hook.communicate(timeout=25)
+                if paused_target is not None:
+                    remaining = control("observe")
+                    assert [task["url"] for task in remaining] == [url + "?other"], (
+                        remaining
+                    )
+            finally:
+                if paused_target is not None:
+                    paused_target.terminate()
+                    paused_target.communicate(timeout=5)
         if failure == "paused-clock":
             # Seven seconds for capture plus the existing ten-second cleanup reserve.
             assert time.monotonic() - capture_started < 17, stderr

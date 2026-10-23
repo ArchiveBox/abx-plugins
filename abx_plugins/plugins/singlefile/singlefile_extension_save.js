@@ -323,14 +323,15 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   } catch (error) {
     if (captureStarted) {
       // Either the capture deadline or a CDP failure can end our wait.
-      // Cancel the owned native task before closing its observer, including
-      // task id 0, which SingleFile's task-id cancellation treats as absent.
+      // Use the extension's pending-task API: the captured renderer may be
+      // stalled and unable to execute a cancellation message itself.
       await chromeUtils.withTimeout(
         () => helperPage.evaluate(async (tabId) => {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            func: () => chrome.runtime.sendMessage({ method: "downloads.cancel" }),
-          });
+          const tasks = await chrome.runtime.sendMessage({ method: "downloads.getInfo" });
+          for (const task of tasks.filter(task => task.tabId === tabId)) {
+            // SingleFile accepts string IDs; numeric 0 selects its tab fallback.
+            await chrome.runtime.sendMessage({ method: "downloads.cancel", taskId: String(task.id) });
+          }
         }, tab.id),
         DOWNLOAD_WAIT_RESERVE_MS,
         "SingleFile cancellation deadline exceeded"
