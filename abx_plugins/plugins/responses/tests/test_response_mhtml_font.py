@@ -36,17 +36,26 @@ const utils = require(process.argv[1]);
 EVICT_FETCH = r"""
 const utils = require(process.argv[1]);
 (async () => {
+  const started = Date.now();
+  const phase = name => console.error(`MHTML font setup phase=${name} elapsed_ms=${Date.now() - started}`);
+  phase('connect');
   const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  phase('font readiness');
   await page.evaluate(async () => {
     await document.fonts.ready;
     if (![...document.fonts].some(font => font.family === 'Saved' && font.status === 'loaded')) throw new Error('Original font did not render');
   });
+  phase('screenshot');
   await page.screenshot({path: process.argv[4]});
+  phase('no-store fetch');
   await page.evaluate(async url => { await (await fetch(url, {cache: 'no-store'})).arrayBuffer(); }, process.argv[3]);
   // The temporary Fetch Resource replaces the FontResource in Blink's weak
   // URL map. Collect it deterministically instead of waiting for incidental GC.
+  phase('garbage collection');
   await page.mainFrame().client.send('HeapProfiler.collectGarbage');
+  phase('disconnect');
   browser.disconnect();
+  phase('complete');
 })().catch(error => { console.error(error); process.exit(1); });
 """
 
@@ -174,21 +183,31 @@ const utils = require(process.argv[1]);
                     timeout=60,
                 )
                 assert nav.returncode == 0, nav.stderr
-            fetched = subprocess.run(
-                [
-                    env["NODE_BINARY"],
-                    "-e",
-                    EVICT_FETCH,
-                    str(CHROME_UTILS),
-                    str(chrome),
-                    font_url,
-                    str(tmp_path / "loaded-font.png"),
-                ],
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+            try:
+                fetched = subprocess.run(
+                    [
+                        env["NODE_BINARY"],
+                        "-e",
+                        EVICT_FETCH,
+                        str(CHROME_UTILS),
+                        str(chrome),
+                        font_url,
+                        str(tmp_path / "loaded-font.png"),
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+            except subprocess.TimeoutExpired as error:
+                # TimeoutExpired omits captured stderr, including the last
+                # real browser operation reached before the setup stalled.
+                diagnostics = error.stderr or b""
+                if isinstance(diagnostics, bytes):
+                    diagnostics = diagnostics.decode(errors="replace")
+                error.add_note(diagnostics)
+                raise
+            print(fetched.stderr)
             assert fetched.returncode == 0, fetched.stderr
             mhtml = chrome.parent / "chrome_mhtml"
             mhtml.mkdir()
