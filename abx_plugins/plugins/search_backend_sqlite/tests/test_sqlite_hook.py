@@ -111,6 +111,33 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
     assert not (tmp_path / "search.sqlite3").exists()
 
 
+@pytest.mark.parametrize("target", ["wget", "missing-output"])
+def test_hook_indexes_available_content_with_unreadable_plugin_root(
+    tmp_path: Path,
+    target: str,
+) -> None:
+    title = tmp_path / "title" / "title.txt"
+    title.parent.mkdir()
+    title.write_text("preservedsearchneedle")
+    (tmp_path / "wget").symlink_to(target)
+
+    result = run_hook(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[-1])["status"] == "succeeded"
+    assert "Unable to read search input" in result.stderr
+    assert str(tmp_path / "wget") in result.stderr
+    with sqlite3.connect(tmp_path / "search.sqlite3") as conn:
+        assert conn.execute(
+            "SELECT snapshot_id FROM search_index WHERE search_index MATCH ?",
+            ("preservedsearchneedle",),
+        ).fetchall() == [("snap-001",)]
+    assert (
+        tmp_path / "search_backend_sqlite/title__title.txt"
+    ).read_text() == title.read_text()
+    assert not (tmp_path / "search_backend_sqlite/wget").exists()
+
+
 def test_hook_indexes_pruned_tree_and_preserves_file_and_root_aliases(
     tmp_path: Path,
 ) -> None:

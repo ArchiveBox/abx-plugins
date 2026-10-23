@@ -120,18 +120,22 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
         # are valid inputs. Private .persona state is excluded even inside it.
         # Validate root aliases before walking, or indexing could copy secrets
         # into a public search database even when replay rejects the source.
-        plugin_stat = plugin_dir.lstat()
-        resolved_plugin = plugin_dir
-        if stat.S_ISLNK(plugin_stat.st_mode):
-            resolved_plugin = plugin_dir.resolve()
-            if not resolved_plugin.is_relative_to(snap_dir) or any(
-                part.casefold() == ".persona"
-                for part in resolved_plugin.relative_to(snap_dir).parts
-            ):
+        try:
+            plugin_stat = plugin_dir.lstat()
+            resolved_plugin = plugin_dir
+            if stat.S_ISLNK(plugin_stat.st_mode):
+                resolved_plugin = plugin_dir.resolve(strict=True)
+                if not resolved_plugin.is_relative_to(snap_dir) or any(
+                    part.casefold() == ".persona"
+                    for part in resolved_plugin.relative_to(snap_dir).parts
+                ):
+                    continue
+                if not resolved_plugin.is_dir():
+                    continue
+            elif not stat.S_ISDIR(plugin_stat.st_mode):
                 continue
-            if not resolved_plugin.is_dir():
-                continue
-        elif not stat.S_ISDIR(plugin_stat.st_mode):
+        except (OSError, RuntimeError) as error:
+            print(f"Unable to read search input {plugin_dir}: {error}", file=sys.stderr)
             continue
 
         # Match rglob's symlink behavior: follow a plugin-root alias and file

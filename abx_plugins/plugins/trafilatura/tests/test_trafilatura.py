@@ -60,6 +60,31 @@ def test_hook_script_exists():
     assert TRAFILATURA_HOOK.exists(), f"Hook script not found: {TRAFILATURA_HOOK}"
 
 
+def test_empty_html_has_no_extracted_content(tmp_path):
+    binary_path = require_trafilatura_binary()
+    dom = tmp_path / "dom"
+    dom.mkdir()
+    (dom / "output.html").write_text("<!doctype html><html><body></body></html>")
+    result = subprocess.run(
+        [str(TRAFILATURA_HOOK), "--url=https://example.com/empty"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "TRAFILATURA_BINARY": binary_path,
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None, result.stdout
+    assert record["status"] == "noresults", record
+    assert "no extracted content" in record["output_str"]
+    assert not list((tmp_path / "trafilatura").glob("content.*"))
+
+
 def test_extracts_article_without_closed_consent_dialog(tmp_path):
     """Real Ars DOM excerpts: metadata, consent overlay, and the full article."""
     binary_path = require_trafilatura_binary()
