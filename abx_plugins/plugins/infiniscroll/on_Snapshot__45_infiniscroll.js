@@ -360,9 +360,9 @@ async function scrollDown(page, options = {}) {
     scrollDistance = 1600,
     scrollLimit = 10,
     minHeight = 16000,
-    expandedTotal = 0,
-    article = null,
+    expandDetailsEnabled = false,
   } = options;
+  let { expandedTotal = 0, article = null } = options;
 
   const startTime = Date.now();
 
@@ -394,80 +394,97 @@ async function scrollDown(page, options = {}) {
   });
   await sleep(500);
 
-  while (scrollCount < scrollLimit) {
-    // Check timeout
-    const elapsed = Date.now() - startTime;
-    if (elapsed >= timeout) {
-      console.error(`Timeout reached after ${scrollCount} scrolls`);
-      break;
-    }
+  let needsExpansion = expandDetailsEnabled && !!article;
+  while (true) {
+    while (scrollCount < scrollLimit) {
+      // Check timeout
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= timeout) {
+        console.error(`Timeout reached after ${scrollCount} scrolls`);
+        break;
+      }
 
-    scrollPosition = await page.evaluate(
-      (article, requested) => {
-        // Use the live element: lazy assets and expanded sections can grow it.
-        if (!article?.isConnected) return requested;
-        return Math.min(
-          requested,
-          Math.max(
-            0,
-            article.getBoundingClientRect().bottom + scrollY - innerHeight,
-          ),
-        );
-      },
-      article,
-      (scrollCount + 1) * scrollDistance,
-    );
-    console.error(
-      `Scrolling down ${
-        scrollCount + 1
-      }x ${scrollDistance}px... (${scrollPosition}/${lastHeight})`,
-    );
-
-    await page.evaluate((yOffset) => {
-      window.scrollTo({ top: yOffset, left: 0, behavior: "instant" });
-    }, scrollPosition);
-
-    scrollCount++;
-    await sleep(scrollDelay);
-
-    // Check if new content was added (infinite scroll detection)
-    const newHeight = await getPageHeight();
-    const addedPx = newHeight - lastHeight;
-
-    if (addedPx > 0) {
-      console.error(
-        `Detected infini-scrolling: ${lastHeight}+${addedPx} => ${newHeight}`,
+      scrollPosition = await page.evaluate(
+        (article, requested) => {
+          // Use the live element: lazy assets and expanded sections can grow it.
+          if (!article?.isConnected) return requested;
+          return Math.min(
+            requested,
+            Math.max(
+              0,
+              article.getBoundingClientRect().bottom + scrollY - innerHeight,
+            ),
+          );
+        },
+        article,
+        scrollPosition + scrollDistance,
       );
-    } else if (scrollPosition >= newHeight + scrollDistance) {
-      // Reached the bottom
-      if (scrollCount > 2) {
-        console.error(`Reached bottom of page at ${newHeight}px`);
+      console.error(
+        `Scrolling down ${
+          scrollCount + 1
+        }x ${scrollDistance}px... (${scrollPosition}/${lastHeight})`,
+      );
+
+      await page.evaluate((yOffset) => {
+        window.scrollTo({ top: yOffset, left: 0, behavior: "instant" });
+      }, scrollPosition);
+
+      scrollCount++;
+      await sleep(scrollDelay);
+
+      // Check if new content was added (infinite scroll detection)
+      const newHeight = await getPageHeight();
+      const addedPx = newHeight - lastHeight;
+
+      if (addedPx > 0) {
+        console.error(
+          `Detected infini-scrolling: ${lastHeight}+${addedPx} => ${newHeight}`,
+        );
+      } else if (scrollPosition >= newHeight + scrollDistance) {
+        // Reached the bottom
+        if (scrollCount > 2) {
+          console.error(`Reached bottom of page at ${newHeight}px`);
+          break;
+        }
+      }
+
+      lastHeight = newHeight;
+      console.log(
+        `Scrolled ${lastHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`,
+      );
+
+      if (
+        article &&
+        (await article.evaluate(
+          (el) =>
+            el.isConnected &&
+            el.getBoundingClientRect().bottom <= innerHeight + 1,
+        ))
+      ) {
+        console.error("Reached end of original article");
+        break;
+      }
+
+      // Check if we've reached minimum height and can stop
+      if (lastHeight >= minHeight && scrollPosition >= lastHeight) {
+        console.error(`Reached minimum height target (${minHeight}px)`);
         break;
       }
     }
 
-    lastHeight = newHeight;
-    console.log(
-      `Scrolled ${lastHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`,
-    );
-
-    if (
-      article &&
-      (await article.evaluate(
-        (el) =>
-          el.isConnected &&
-          el.getBoundingClientRect().bottom <= innerHeight + 1,
-      ))
-    ) {
-      console.error("Reached end of original article");
-      break;
-    }
-
-    // Check if we've reached minimum height and can stop
-    if (lastHeight >= minHeight && scrollPosition >= lastHeight) {
-      console.error(`Reached minimum height target (${minHeight}px)`);
-      break;
-    }
+    if (!needsExpansion) break;
+    needsExpansion = false;
+    // Content revealed by scrolling can expand the original article. Cover
+    // that growth with the remaining scroll budget before returning to top.
+    const expansion = await expandDetails(page, {
+      timeout: Math.min(timeout / 4, 30000),
+      limit: 500,
+      delay: scrollDelay / 4,
+      article,
+    });
+    article = expansion.article;
+    expandedTotal += expansion.total;
+    if (!expansion.total) break;
   }
 
   // Scroll back to top
@@ -581,11 +598,12 @@ async function main() {
       scrollLimit,
       minHeight,
       expandedTotal: expandResult.total,
+      expandDetailsEnabled,
       article,
     });
 
-    // Expand again after scrolling (new content may have loaded)
-    if (expandDetailsEnabled) {
+    // Unbounded pages retain their existing expansion after returning to top.
+    if (expandDetailsEnabled && !article) {
       const expandResult2 = await expandDetails(page, {
         timeout: Math.min(timeout / 4, 30000),
         limit: 500,

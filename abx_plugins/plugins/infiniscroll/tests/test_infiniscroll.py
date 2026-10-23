@@ -649,6 +649,8 @@ def test_config_timeout_honored(infiniscroll_test_url):
     [
         "article",
         "short",
+        "late_expansion",
+        "late_large_expansion",
         "outside_details",
         "outside_button",
         "headline_mismatch",
@@ -702,6 +704,26 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
       <script>window.addEventListener('scroll', () => {{
         document.body.dataset.maxScroll = Math.max(Number(document.body.dataset.maxScroll || 0), window.scrollY);
       }}, {{passive: true}});</script></body></html>'''
+    if case in {"late_expansion", "late_large_expansion"}:
+        html = (
+            html.replace("<button onclick=", "<button hidden onclick=")
+            .replace(
+                "document.body.dataset.maxScroll = Math.max",
+                """if (window.scrollY + innerHeight >= document.querySelector('main').getBoundingClientRect().bottom + scrollY - 1) {
+              document.querySelector('main button')?.removeAttribute('hidden');
+            }
+            document.body.dataset.maxScroll = Math.max""",
+            )
+            .replace(
+                "button { display: block;",
+                "button:not([hidden]) { display: block;",
+            )
+        )
+    if case == "late_large_expansion":
+        html = html.replace(
+            "<p style=height:200px>Expanded real comment</p>",
+            "<p style=height:6000px>Expanded real comment</p><img loading=lazy width=100 height=100 src=/expanded-image.svg>",
+        )
     if case == "short":
         html = html.replace("height: 2400px", "height: 20px").replace(
             "height: 3000px",
@@ -713,6 +735,10 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
     )
     httpserver.expect_request("/article-image.svg").respond_with_data(
         '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="green"/></svg>',
+        content_type="image/svg+xml",
+    )
+    httpserver.expect_request("/expanded-image.svg").respond_with_data(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="orange"/></svg>',
         content_type="image/svg+xml",
     )
     httpserver.expect_request("/continuation-image.svg").respond_with_data(
@@ -770,14 +796,17 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
         assert state["detailsOpen"]
         assert state["imageLoaded"]
         assert "The valuable original conclusion." in state["text"]
-        assert state["maxScroll"] + state["viewport"] >= state["bottom"] - 1
+        assert state["maxScroll"] + state["viewport"] >= state["bottom"] - 1, (
+            state,
+            result.stderr,
+        )
         assert state["y"] == 0
         assert "Expanded real comment" in state["text"]
         if case in {"outside_details", "outside_button"}:
             assert "Valuable outside comments." in state["text"]
         if case == "outside_article":
             assert "Valuable outside continuation." in state["text"]
-        if case in {"article", "short"}:
+        if case in {"article", "short", "late_expansion", "late_large_expansion"}:
             assert state["maxScroll"] <= max(0, state["bottom"] - state["viewport"]) + 1
         else:
             assert state["maxScroll"] + state["viewport"] > state["bottom"] + 1000
