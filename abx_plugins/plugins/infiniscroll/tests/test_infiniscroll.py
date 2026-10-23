@@ -651,6 +651,7 @@ def test_config_timeout_honored(infiniscroll_test_url):
         "short",
         "late_expansion",
         "late_large_expansion",
+        "background_late_expansion",
         "outside_details",
         "outside_button",
         "headline_mismatch",
@@ -704,7 +705,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
       <script>window.addEventListener('scroll', () => {{
         document.body.dataset.maxScroll = Math.max(Number(document.body.dataset.maxScroll || 0), window.scrollY);
       }}, {{passive: true}});</script></body></html>'''
-    if case in {"late_expansion", "late_large_expansion"}:
+    if case in {"late_expansion", "late_large_expansion", "background_late_expansion"}:
         html = (
             html.replace("<button onclick=", "<button hidden onclick=")
             .replace(
@@ -754,6 +755,38 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
             "CHROME_RESOLUTION": "1280,720",
         },
     ) as (_, _, chrome_dir, env):
+        if case == "background_late_expansion":
+            background = """const chrome = require(process.argv[1]);
+              (async () => {
+                const {browser, page} = await chrome.connectToPage({chromeSessionDir: process.argv[2],
+                  timeoutMs: 10000, waitForNavigationComplete: true, puppeteer: chrome.resolvePuppeteerModule()});
+                const session = await page.createCDPSession();
+                const {windowId} = await session.send('Browser.getWindowForTarget');
+                await session.send('Browser.setWindowBounds', {windowId, bounds: {windowState: 'minimized'}});
+                await session.send('Emulation.setFocusEmulationEnabled', {enabled: false});
+                console.log(JSON.stringify({state: await page.evaluate(() => ({visibility: document.visibilityState, focus: document.hasFocus()})), window: await session.send("Browser.getWindowBounds", {windowId})}));
+                await browser.disconnect();
+              })().catch(err => {console.error(err); process.exit(1)});"""
+            background_result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    background,
+                    str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
+                    str(chrome_dir),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            assert background_result.returncode == 0, background_result.stderr
+            (tmp_path / "background-state.json").write_text(background_result.stdout)
+            background_state = json.loads(background_result.stdout)
+            assert background_state["state"]["focus"] is False, background_state
+            assert background_state["window"]["bounds"]["windowState"] == "minimized", (
+                background_state
+            )
         env.update({"INFINISCROLL_SCROLL_DELAY": "100"})
         result = subprocess.run(
             [str(INFINISCROLL_HOOK), f"--url={url}"],
@@ -774,7 +807,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
               bottom: document.querySelector('main').getBoundingClientRect().bottom + scrollY,
               imageLoaded: [...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0),
               detailsOpen: [...document.querySelectorAll('details')].every(el => el.open),
-              text: document.body.innerText, y: scrollY,
+              text: document.body.innerText, y: scrollY, visibility: document.visibilityState, focus: document.hasFocus(),
             }))));
             await browser.disconnect();
           })().catch(err => {console.error(err); process.exit(1)});"""
@@ -806,7 +839,13 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
             assert "Valuable outside comments." in state["text"]
         if case == "outside_article":
             assert "Valuable outside continuation." in state["text"]
-        if case in {"article", "short", "late_expansion", "late_large_expansion"}:
+        if case in {
+            "article",
+            "short",
+            "late_expansion",
+            "late_large_expansion",
+            "background_late_expansion",
+        }:
             assert state["maxScroll"] <= max(0, state["bottom"] - state["viewport"]) + 1
         else:
             assert state["maxScroll"] + state["viewport"] > state["bottom"] + 1000

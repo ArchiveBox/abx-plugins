@@ -562,6 +562,12 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
+    // Keep scroll events and lazy loading active in background capture tabs.
+    // Disconnect releases this hook's emulation session.
+    const scrollSession = await page.createCDPSession();
+    await scrollSession.send("Emulation.setFocusEmulationEnabled", {
+      enabled: true,
+    });
     if (isHomeFeed(url) || isHomeFeed(page.url())) {
       scrollLimit = Math.min(scrollLimit, 2);
       scrollDistance = Math.min(
