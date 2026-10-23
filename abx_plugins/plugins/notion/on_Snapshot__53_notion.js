@@ -117,12 +117,22 @@ async function main() {
     page.on("requestfailed", finished);
     let renderedItems = null;
     try {
-      await page.waitForFunction(
-        () => document.querySelector(".notion-page-content")?.innerText.trim(),
+      const ready = await page.waitForFunction(
+        () => {
+          if (document.querySelector(".notion-page-content")?.innerText.trim())
+            return "content";
+          // Private document URLs can retain their page ID on the login wall.
+          // Waiting for page content there spends the entire capture deadline.
+          const login = document.querySelector('.notion-login input[type="email"]');
+          return login?.getClientRects().length ? "login" : false;
+        },
         // Text-node updates do not trigger Puppeteer's mutation poller, and
         // hidden capture tabs can suspend its default animation-frame poller.
         { timeout: remaining(), polling: 100 },
       );
+      const needsLogin = (await ready.jsonValue()) === "login";
+      await ready.dispose();
+      if (needsLogin) throw new Error("Notion page requires login");
       const waitForPageData = async () => {
         lastActivity = Date.now();
         while (pending.size || Date.now() - lastActivity < 500) {

@@ -230,3 +230,49 @@ def test_product_page_returns_noresults(tmp_path, ensure_chrome_test_prereqs):
         assert record is not None, result.stdout
         assert record["status"] == "noresults", result.stdout
         assert not (chrome.parent / "notion").exists()
+
+
+def test_login_page_fails_without_waiting_for_capture_timeout(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+):
+    url = "https://app.notion.com/p/browserbase/Draft-Stagehand-v4-Launch-Blog-Post-38e3c11b6614803793c0d39ae629cea1"
+    with chrome_session(tmp_path, test_url=url, timeout=60) as (_, _, chrome, env):
+        login = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                r"""
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    await page.waitForSelector('.notion-login input[type="email"]', {visible: true});
+    if (await page.$('.notion-page-content')) throw new Error('Expected anonymous login wall');
+    await page.screenshot({path: process.argv[3]});
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+                str(HOOK.parent.parent / "chrome/chrome_utils.js"),
+                str(chrome),
+                str(tmp_path / "notion-login.png"),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=40,
+        )
+        assert login.returncode == 0, login.stderr
+        result = subprocess.run(
+            [str(HOOK), f"--url={url}"],
+            cwd=chrome.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 1, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "failed", result.stdout
+        assert record["output_str"] == "Notion page requires login", result.stdout
+        assert not (chrome.parent / "notion").exists()
