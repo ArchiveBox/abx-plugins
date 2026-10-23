@@ -24,6 +24,7 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
     // the ready main document. Rebind its surface and serialize final cleanup.
     navigation = navigation.then(async () => {
       if (stopped) return;
+      clearTimeout(timer); timer = null; pending = null;
       await session.send("Page.stopScreencast");
       if (!stopped) await session.send("Page.startScreencast", captureOptions);
     }).catch(error => {
@@ -44,14 +45,29 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
     const viewport = metrics.visualViewport || metrics.layoutViewport || {};
     session.on("Page.screencastFrame", frame => {
       if (stopped) return;
+      const firstFrame = pending === null;
       pending = frame;
       // Acknowledge receipt immediately: Chrome drops paints when its frame
       // window fills, so delaying ACKs can lose a static page's final image.
-      // Throttle delivery below while retaining the latest received frame.
+      // Stop native acquisition between samples instead of encoding frames
+      // that delivery would discard. Restart also captures a static final paint.
       void session.send("Page.screencastFrameAck", { sessionId: frame.sessionId }).catch(() => {});
-      const wait = minFrameMs - (Date.now() - lastFrameAt);
-      if (wait <= 0) { clearTimeout(timer); flush(); }
-      else if (!timer) timer = setTimeout(flush, wait);
+      if (!firstFrame) return;
+      navigation = navigation.then(async () => {
+        await session.send("Page.stopScreencast");
+        if (stopped) return;
+        clearTimeout(timer); flush();
+        timer = setTimeout(() => {
+          timer = null;
+          navigation = navigation.then(async () => {
+            if (!stopped) await session.send("Page.startScreencast", captureOptions);
+          }).catch(error => {
+            if (!stopped) console.error(`Screencast frame failed: ${error.message}`);
+          });
+        }, Math.max(0, minFrameMs - (Date.now() - lastFrameAt)));
+      }).catch(error => {
+        if (!stopped) console.error(`Screencast frame failed: ${error.message}`);
+      });
     });
     captureOptions = {
       format: "jpeg", quality,

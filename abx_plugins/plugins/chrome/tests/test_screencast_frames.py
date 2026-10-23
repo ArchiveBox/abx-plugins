@@ -1,6 +1,7 @@
 """Native screencast delivery must retain the final painted frame."""
 
 import json
+import re
 import subprocess
 
 import pytest
@@ -10,6 +11,66 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
     chrome_session,
 )
+
+
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+def test_screencast_limits_native_frame_acquisition(tmp_path, httpserver):
+    httpserver.expect_request("/").respond_with_data(
+        "<!doctype html><title>Screencast acquisition</title>"
+        "<style>@keyframes move {to {transform:translateX(100px)}}"
+        "div{width:600px;height:400px;background:repeating-linear-gradient(45deg,red 0 20px,blue 20px 40px);"
+        "animation:move .5s linear infinite alternate}</style><div></div>",
+        content_type="text/html",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data(
+        "",
+        content_type="image/x-icon",
+    )
+    with chrome_session(tmp_path, test_url=httpserver.url_for("/")) as (
+        _,
+        _,
+        chrome_dir,
+        env,
+    ):
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                r"""
+const fs=require('fs'),path=require('path');
+const utils=require(process.argv[1]);
+const {startPageScreencast}=require(path.join(path.dirname(process.argv[1]),'../chrome_screencast/screencast.js'));
+(async()=>{
+  const {browser,page}=await utils.connectToPage({chromeSessionDir:process.argv[2]});
+  let stop,frames=0,bytes=0;
+  try {
+    stop=await startPageScreencast(page,jpeg=>{frames++;bytes+=jpeg.length;fs.writeFileSync(process.argv[3],jpeg);},{fps:1,bringToFront:true});
+    await new Promise(resolve=>setTimeout(resolve,6000));
+    await stop();stop=null;
+    console.log(JSON.stringify({frames,bytes}));
+  } finally {if(stop)await stop();await browser.disconnect();}
+})().catch(error=>{console.error(error);process.exit(1);});
+""",
+                str(CHROME_UTILS),
+                str(chrome_dir),
+                str(tmp_path / "last-frame.jpg"),
+            ],
+            env=env | {"NODE_DEBUG": "puppeteer:protocol:RECV*"},
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        (tmp_path / "screencast-protocol.log").write_text(result.stderr)
+        assert result.returncode == 0, result.stderr[-2000:]
+        observed = json.loads(result.stdout)
+        # Count real incoming CDP events, not callbacks already throttled by JS.
+        acquired = len(
+            re.findall(r'"method"\s*:\s*"Page\.screencastFrame"', result.stderr),
+        )
+        assert 4 <= observed["frames"] <= 7, observed
+        assert observed["bytes"] > 1000
+        assert (tmp_path / "last-frame.jpg").read_bytes().startswith(b"\xff\xd8\xff")
+        assert observed["frames"] <= acquired <= 9, {"acquired": acquired, **observed}
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
