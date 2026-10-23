@@ -52,6 +52,13 @@ const html = fs.readFileSync(0, 'utf8');
 const $ = cheerio.load(html);
 const removed = { href: 0, src: 0, srcset: 0 };
 
+// Mercury's generic blacklist mistakes this clipping utility for hidden
+// content and removes entire article ancestors. Keep actual hidden classes.
+$('[class~="overflow-hidden"]').each((_index, element) => {
+    const node = $(element);
+    node.attr('class', node.attr('class').split(/\s+/).filter(name => name !== 'overflow-hidden').join(' '));
+});
+
 let baseUrl = $('base').first().attr('href') || pageUrl;
 try {
     legacyUrl.resolve(pageUrl, baseUrl);

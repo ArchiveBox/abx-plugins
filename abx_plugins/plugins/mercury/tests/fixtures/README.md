@@ -35,3 +35,11 @@ by the unmodified native Mercury 3.1.2 parser. The test checks the entire body,
 metadata, and unchanged input bytes without any provider-specific parser override.
 Article text and images remain copyright their respective TechCrunch owners;
 these fixtures are retained for regression testing, not as demo content.
+
+`posthog-sql-parser-dom.html.gz` is the byte-exact rendered DOM from
+`https://posthog.com/blog/sql-parser`, snapshot
+`06ad774b355d7bd18000dd5ec10c10d5`. Mercury mistook the layout class
+`overflow-hidden` for hidden content and removed the article's ancestor,
+returning only a cookie notification. `posthog-sql-parser-paragraphs.json`
+contains all 42 body paragraphs from that DOM's single article (excluding
+only the publication-date paragraph), for complete-body regression assertions.

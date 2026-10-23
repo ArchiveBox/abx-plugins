@@ -663,5 +663,84 @@ def test_captured_original_article_keeps_complete_body(tmp_path):
     assert "Father of the Internet" in metadata["title"]
 
 
+def test_overflow_clipped_article_keeps_complete_body(tmp_path):
+    source = gzip.decompress(
+        (CAPTURE_FIXTURES / "posthog-sql-parser-dom.html.gz").read_bytes(),
+    )
+    saved = tmp_path / "dom" / "output.html"
+    saved.parent.mkdir()
+    saved.write_bytes(source)
+    result = subprocess.run(
+        [str(MERCURY_HOOK), "--url", "https://posthog.com/blog/sql-parser"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "MERCURY_BINARY": require_mercury_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    text = (tmp_path / "mercury/content.txt").read_text()
+    paragraphs = json.loads(
+        (CAPTURE_FIXTURES / "posthog-sql-parser-paragraphs.json").read_text(),
+    )
+    assert len(paragraphs) == 42
+    for paragraph in paragraphs:
+        assert paragraph in text, paragraph
+    assert "Legally-required cookie banner" not in text
+    metadata = json.loads((tmp_path / "mercury/article.json").read_text())
+    assert (
+        metadata["title"]
+        == "I wrote a 70x faster SQL parser while barely looking at the code"
+    )
+    assert saved.read_bytes() == source
+
+
+def test_overflow_clipping_preserves_hidden_and_sidebar_exclusion(tmp_path):
+    paragraphs = [
+        f"Visible paragraph {index} explains a complete native article, with enough prose to exercise the parser's ordinary scoring. "
+        "Layout clipping controls the scroll container while the article itself remains visible and readable."
+        for index in range(4)
+    ]
+    source = (
+        "<!doctype html><title>Clipped article</title><div class='overflow-hidden'><article>"
+        + "".join(f"<p>{paragraph}</p>" for paragraph in paragraphs)
+        + "</article></div>"
+        + "".join(
+            f"<div class='{classes}'>"
+            + "<p>Unwanted navigation and hidden promotional text must never replace the visible article.</p>"
+            * 12
+            + "</div>"
+            for classes in ("hidden", "sidebar", "overflow-hidden hidden")
+        )
+    )
+    saved = tmp_path / "dom" / "output.html"
+    saved.parent.mkdir()
+    saved.write_text(source)
+    result = subprocess.run(
+        [str(MERCURY_HOOK), "--url", "https://example.com/article"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "MERCURY_BINARY": require_mercury_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    text = (tmp_path / "mercury/content.txt").read_text()
+    for paragraph in paragraphs:
+        assert paragraph in text
+    assert "Unwanted navigation" not in text
+    assert saved.read_text() == source
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
