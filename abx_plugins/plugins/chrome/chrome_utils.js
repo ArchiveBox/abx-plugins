@@ -83,6 +83,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       [responseTime, connectionId, timing?.requestTime].every((value) => Number.isFinite(value) && value > 0)
       ? JSON.stringify(["font-response", stream.url, stream.method, event.response.status,
         responseHeaders, responseTime, connectionId, timing]) : null;
+    if (!stream.cached && transportIdentity) fontBodies.set(transportIdentity, stream);
     if (!observableVary) {
       const previous = stream.cached && transportIdentity && fontBodies.get(transportIdentity);
       const previousHeaders = previous && new Map(headerIdentity(previous.requestHeaders));
@@ -95,7 +96,6 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       vary.map((name) => [name, requestHeaders.get(name)]), responseHeaders]);
     if (stream.cached) stream.previousFont = fontBodies.get(identity);
     if (!stream.previousFont) fontBodies.set(identity, stream);
-    if (!stream.cached && transportIdentity) fontBodies.set(transportIdentity, stream);
   });
   // Spool raw chunks to local scratch instead of retaining concurrent bodies
   // or decoding them according to potentially incorrect server MIME headers.

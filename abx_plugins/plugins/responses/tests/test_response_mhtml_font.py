@@ -81,6 +81,7 @@ def httpserver():
         "changed-origin",
         "service-worker",
         "observable-mismatch",
+        "unobservable-vary",
     ],
 )
 def test_mhtml_cached_font_preserves_original_bytes(tmp_path, httpserver, scenario):
@@ -102,6 +103,8 @@ def test_mhtml_cached_font_preserves_original_bytes(tmp_path, httpserver, scenar
         "Vary": "Origin, Referer" if scenario == "observable-mismatch" else "Origin",
         "Access-Control-Allow-Origin": "*",
     }
+    if scenario == "unobservable-vary":
+        headers["Vary"] = "X-Original-Host, X-Geo-Country, accept-encoding"
     for origin, body in [(first.rstrip("/"), original), (second.rstrip("/"), changed)]:
         httpserver.expect_request(
             "/font.woff",
@@ -279,6 +282,13 @@ const utils = require(process.argv[1]);
         cached = responses[cached_id]
         for field in ("responseTime", "connectionId", "timing", "headers"):
             assert cached[field] == latest[field], (field, latest, cached)
+        if scenario == "unobservable-vary":
+            assert latest["headers"]["Vary"] == headers["Vary"]
+            original_headers = {
+                name.lower()
+                for name in requests[original_ids[-1]]["request"]["headers"]
+            }
+            assert not {"x-original-host", "x-geo-country"} & original_headers
         if scenario == "service-worker":
             assert latest["fromServiceWorker"] is True
             assert latest["connectionId"] == 0
