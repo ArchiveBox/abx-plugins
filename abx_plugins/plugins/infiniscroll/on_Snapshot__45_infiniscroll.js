@@ -258,6 +258,13 @@ async function expandDetails(page, options = {}) {
           !element.getClientRects().length
         )
           return false;
+        // ARIA true means a menu popup, including labels for native controls.
+        if (
+          [element, element.control].some((control) =>
+            ["true", "menu"].includes(control?.getAttribute("aria-haspopup")),
+          )
+        )
+          return false;
         // "Show more" can be a navigation link (e.g. X's recommended
         // people sidebar), not an expansion control. Never leave the
         // captured document to expand content, including nested controls.

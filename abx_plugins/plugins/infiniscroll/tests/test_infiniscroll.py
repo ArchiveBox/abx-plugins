@@ -783,12 +783,27 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
             assert state["maxScroll"] + state["viewport"] > state["bottom"] + 1000
 
 
-@pytest.mark.parametrize("control_type", ["checkbox", "radio"])
+@pytest.mark.parametrize(
+    ("control_type", "popup", "popup_target"),
+    [
+        ("checkbox", "", "label"),
+        ("radio", "", "label"),
+        ("checkbox", "true", "control"),
+        ("checkbox", "menu", "control"),
+        ("checkbox", "true", "label"),
+        ("checkbox", "menu", "label"),
+        ("checkbox", "dialog", "control"),
+        ("checkbox", "dialog", "label"),
+    ],
+)
 def test_expansion_keeps_native_label_disclosures_open(
     httpserver,
     tmp_path,
     control_type,
+    popup,
+    popup_target,
 ):
+    popup_attribute = f'aria-haspopup="{popup}"' if popup else ""
     html = INFINISCROLL_TEST_PAGE_HTML.replace(
         '<main id="feed">',
         f'''
@@ -798,9 +813,9 @@ def test_expansion_keeps_native_label_disclosures_open(
         #disclosure:not(:checked) ~ .menu {{ display: none }}
         #disclosure:checked ~ label .show {{ display: none }}
       </style>
-      <input id="disclosure" type="{control_type}"
+      <input id="disclosure" type="{control_type}" {popup_attribute if popup_target == "control" else ""}
         onchange="document.body.dataset.disclosureOpen = this.checked">
-      <label role="button" for="disclosure"
+      <label role="button" for="disclosure" {popup_attribute if popup_target == "label" else ""}
         onclick="document.body.dataset.disclosureClicks = Number(document.body.dataset.disclosureClicks || 0) + 1">
         <span class="show">Show more</span><span class="hide">Hide expanded menu</span>
       </label>
@@ -832,8 +847,12 @@ def test_expansion_keeps_native_label_disclosures_open(
         )
         assert result.returncode == 0, result.stderr
         saved = save_dom(chrome_dir, env, url)
-        assert 'data-disclosure-clicks="1"' in saved, result.stderr
-        assert 'data-disclosure-open="true"' in saved
+        if popup in {"true", "menu"}:
+            assert 'data-disclosure-clicks="' not in saved, result.stderr
+            assert 'data-disclosure-open="' not in saved
+        else:
+            assert 'data-disclosure-clicks="1"' in saved, result.stderr
+            assert 'data-disclosure-open="true"' in saved
         assert "Expanded navigation content" in saved
 
 
