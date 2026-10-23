@@ -25,15 +25,11 @@ Environment variables:
 import signal
 import sys
 
-# Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
-# shutdown signal before the hard SIGKILL deadline. This hook is a finite
-# downloader, so treating SIGTERM as "stop now" corrupts the normal contract:
-# an in-flight download becomes a failed ArchiveResult even though cleanup would
-# have allowed it to finish within the hook timeout. Installing SIG_IGN before
-# any heavy imports or subprocess creation also makes downloader children inherit
-# the same disposition across exec, so the whole process group either finishes
-# its work and exits normally or is stopped by the later SIGKILL deadline.
-signal.signal(signal.SIGTERM, signal.SIG_IGN)
+# Finite downloads finish during snapshot cleanup's grace period. ffmpeg
+# installs its own SIGTERM handler, replacing an inherited SIG_IGN disposition;
+# block the signal before spawning children so it cannot interrupt a merge.
+# The runner still owns the entire group at its final SIGKILL deadline.
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
 
 if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("yt-dlp download started", flush=True)
@@ -42,8 +38,11 @@ import os
 import re
 import subprocess
 import threading
+from contextlib import suppress
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+
+import psutil
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
@@ -184,12 +183,16 @@ def selected_output(downloads: list[Path]) -> str | None:
 def stop_active_process() -> None:
     if ACTIVE_PROCESS is None or ACTIVE_PROCESS.poll() is not None:
         return
-    ACTIVE_PROCESS.terminate()
-    try:
-        ACTIVE_PROCESS.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        ACTIVE_PROCESS.kill()
-        ACTIVE_PROCESS.wait(timeout=5)
+    # This is an explicit deadline, unlike polite snapshot cleanup. Killing
+    # only yt-dlp leaves its active ffmpeg subprocess running without an owner.
+    with suppress(psutil.NoSuchProcess):
+        children = psutil.Process(ACTIVE_PROCESS.pid).children(recursive=True)
+        for child in reversed(children):
+            with suppress(psutil.NoSuchProcess):
+                child.kill()
+        psutil.wait_procs(children, timeout=5)
+    ACTIVE_PROCESS.kill()
+    ACTIVE_PROCESS.wait(timeout=5)
 
 
 def flush_result_and_exit(signum: int, frame) -> None:
