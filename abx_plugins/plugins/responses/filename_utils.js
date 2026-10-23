@@ -15,6 +15,8 @@ function getExtensionFromMimeType(mimeType) {
     "image/gif": "gif",
     "image/svg+xml": "svg",
     "image/webp": "webp",
+    "image/avif": "avif",
+    "image/jxl": "jxl",
     "font/woff": "woff",
     "font/woff2": "woff2",
     "font/ttf": "ttf",

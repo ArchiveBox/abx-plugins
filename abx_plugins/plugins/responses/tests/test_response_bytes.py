@@ -267,3 +267,67 @@ def test_streamed_document_renders_before_response_finishes(tmp_path):
             records = [json.loads(line) for line in index.read_text().splitlines()]
             document = next(r for r in records if r["url"] == url)
             assert (output / document["path"]).read_bytes() == prefix + suffix
+
+
+@pytest.mark.parametrize("extension", ["jxl", "avif"])
+def test_image_response_mime_overrides_misleading_url_suffix(
+    tmp_path,
+    httpserver,
+    extension,
+):
+    """Archive native image bytes under their actual response MIME extension."""
+    from pathlib import Path
+
+    fixtures = Path(__file__).parents[2] / "liteparse" / "tests" / "fixtures"
+    body = (fixtures / f"ocr.{extension}").read_bytes()
+    httpserver.expect_request("/image.png").respond_with_data(
+        body,
+        content_type=f"image/{extension}",
+    )
+    httpserver.expect_request("/").respond_with_data(
+        "<!doctype html><title>Native image response</title>"
+        '<script>fetch("/image.png").then(r=>r.arrayBuffer())</script>',
+        content_type="text/html",
+    )
+    url = httpserver.url_for("/")
+    image_url = httpserver.url_for("/image.png")
+    with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
+        _,
+        _,
+        chrome_dir,
+        env,
+    ):
+        output = chrome_dir.parent / "responses"
+        output.mkdir()
+        index = output / "index.jsonl"
+        process = start_process_and_wait_for_file(
+            [str(RESPONSES_HOOK), f"--url={url}"],
+            index,
+            cwd=output,
+            env=env,
+        )
+        try:
+            navigation = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert navigation.returncode == 0, navigation.stderr
+            wait_for_file(
+                index,
+                process=process,
+                ready=lambda p: image_url in p.read_text(),
+            )
+        finally:
+            process.terminate()
+            stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == 0, (stdout, stderr)
+        records = [json.loads(line) for line in index.read_text().splitlines()]
+        image = next(record for record in records if record["url"] == image_url)
+        saved = output / image["path"]
+        assert saved.read_bytes() == body
+        assert image["responseSha256"] == hashlib.sha256(body).hexdigest()
+        assert saved.suffix == f".{extension}", image
