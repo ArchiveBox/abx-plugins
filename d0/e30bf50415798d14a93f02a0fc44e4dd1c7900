@@ -1,0 +1,67 @@
+abx_plugins/plugins/chrome/config.json
+  s_10bc94d001be49::t_fcbfffd696a74d 12,19-20,43,49-50,54-55,57-58,63-64,70
+abx_plugins/plugins/claudecode/config.json
+  s_10bc94d001be49::t_92f12b5e69e3e9 12,19-20
+abx_plugins/plugins/defuddle/config.json
+  s_10bc94d001be49::t_29b15477029fcf 7-9,15,20,22,24-25
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_10bc94d001be49::t_0deaa446834654 74,76
+abx_plugins/plugins/forumdl/config.json
+  s_10bc94d001be49::t_8e7b60149b6f19 12,21-45,47-48
+abx_plugins/plugins/gallerydl/config.json
+  s_10bc94d001be49::t_fd877eb8d08b4c 13,16-20,22-24
+abx_plugins/plugins/importer_rss/config.json
+  s_10bc94d001be49::t_4d997b0f835bb8 18,24
+abx_plugins/plugins/liteparse/config.json
+  s_10bc94d001be49::t_cb53a04e923e39 14,19-21,23-25
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_10bc94d001be49::t_68bfd245fd89a4 340,465
+abx_plugins/plugins/mercury/config.json
+  s_10bc94d001be49::t_652e132964156d 7-9,15,20,22-23,25-27
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_10bc94d001be49::t_cc16e4a156a772 85
+abx_plugins/plugins/opencode/config.json
+  s_10bc94d001be49::t_f840d73ee25205 13,20-21,58,67,98
+abx_plugins/plugins/opencode/tests/test_collection_isolation.py
+  s_10bc94d001be49::t_d6dfd524b10199 13,361-363
+abx_plugins/plugins/opendataloader/config.json
+  s_10bc94d001be49::t_1e57a871dbabcc 14-15,20-23,25-26
+abx_plugins/plugins/papersdl/config.json
+  s_10bc94d001be49::t_3d1fd66ec117e9 12,23-32,34-37,39-40,42-52,54-65,67-68
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_10bc94d001be49::t_63fcbca6571a6c 241-317
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_10bc94d001be49::t_40764692895352 18,20
+abx_plugins/plugins/parse_rss_urls/tests/test_parse_rss_urls.py
+  s_10bc94d001be49::t_4d14d822ea5d82 28,30,47,49
+abx_plugins/plugins/trafilatura/config.json
+  s_10bc94d001be49::t_e96d623bdb6514 17,19-20
+abx_plugins/plugins/trafilatura/tests/test_trafilatura.py
+  s_10bc94d001be49::t_a0cf12e282cb03 103-104,107,126
+abx_plugins/plugins/ublock/config.json
+  s_10bc94d001be49::t_14eec7b4cc252a 20-21
+abx_plugins/plugins/ytdlp/config.json
+  s_10bc94d001be49::t_d372c082a3343a 13-14,19-22,24-25,30,37-38
+tests/test_chrome_abxbus_dependency.py
+  s_10bc94d001be49::t_f089397630cceb 154,164-165
+tests/test_chrome_stable_browser.py
+  s_10bc94d001be49::t_12b098581c285c 29,63
+tests/test_plugin_config_metadata.py
+  s_10bc94d001be49::t_713cddca5a506c 312-320,326,331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d0e30bf50415798d14a93f02a0fc44e4dd1c7900",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
