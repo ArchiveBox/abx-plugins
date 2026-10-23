@@ -1,0 +1,21 @@
+abx_plugins/plugins/liteparse/on_Snapshot__68_liteparse.py
+  s_10bc94d001be49::t_9a467f808b263f 40,546,551,615,663-680
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_10bc94d001be49::t_37f794836c87d1 1211-1311
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16a745167415e48dbb4099859ae75bc79bc7577e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
