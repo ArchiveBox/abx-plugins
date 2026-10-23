@@ -1,0 +1,22 @@
+abx_plugins/plugins/canva/tests/test_canva_authenticated.py
+  s_10bc94d001be49::t_4be570d9b3eb1d 66-67
+abx_plugins/plugins/canva/on_Snapshot__53_canva.js
+  s_10bc94d001be49::t_9e5545d3f9bc7c 211-219
+  s_10bc94d001be49::t_9374ec10fe5374 97-137,139-145,220-227,251-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "21cf3a9d8ebbb5953b74ff20ca7859d4fd488d34",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
