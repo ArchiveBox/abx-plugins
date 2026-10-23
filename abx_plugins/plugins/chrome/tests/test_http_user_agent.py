@@ -101,7 +101,7 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
                 "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/missing-save/"),
                 "ARCHIVEDOTORG_ENABLED": "true",
             },
-            "failed",
+            "noresults",
         ),
     )
     for plugin, target, extra, status in hooks:
@@ -116,9 +116,12 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
             text=True,
             timeout=30,
         )
-        assert result.returncode == (0 if status == "succeeded" else 1), result.stderr
+        assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
         assert record and record["status"] == status, result.stdout
+        if plugin == "archivedotorg":
+            assert record["output_str"] == "Archive.org returned HTTP 404"
+            assert "HTTP 404" in result.stderr
         requests = [request for request, _response in httpserver.log[before:]]
         assert requests
         assert all(request.headers["User-Agent"] == expected for request in requests)
