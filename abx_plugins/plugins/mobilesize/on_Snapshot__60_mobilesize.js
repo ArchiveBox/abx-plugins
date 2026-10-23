@@ -29,6 +29,8 @@
  * recorded by the existing monitors. This does not fetch every srcset entry or
  * guarantee lazy content below the mobile fold is loaded.
  */
+const startedAt = Date.now();
+console.error("[mobilesize] loading configuration (0ms)");
 const path = require("path");
 const {
   loadConfig, getEnvBool, getEnvInt, parseArgs, emitArchiveResultRecord,
@@ -36,6 +38,7 @@ const {
 } = require("../base/utils.js");
 const {connectToPage, waitForNavigationComplete, withTimeout} = require("../chrome/chrome_utils.js");
 const config = loadConfig();
+console.error(`[mobilesize] configuration loaded (${Date.now() - startedAt}ms)`);
 
 async function main() {
   if (!getEnvBool("MOBILESIZE_ENABLED", true)) {
@@ -72,7 +75,9 @@ async function main() {
   };
   // Wait separately so navigation and attachment consume the SAME budget.
   // connectToPage's waitForNavigationComplete option grants each a full timeout.
+  console.error(`[mobilesize] waiting for navigation (${Date.now() - startedAt}ms)`);
   await step(() => waitForNavigationComplete(chromeSessionDir, remaining()));
+  console.error(`[mobilesize] connecting to tab (${Date.now() - startedAt}ms)`);
   const {browser, page, cdpSession} = await step(async () => {
     const connection = await connectToPage({
       chromeSessionDir, timeoutMs: remaining(),
@@ -86,6 +91,7 @@ async function main() {
   try {
     // CDP connections use defaultViewport:null. Read the live dimensions rather
     // than CHROME_RESOLUTION: screenshot or the user may have changed them.
+    console.error(`[mobilesize] reading desktop viewport (${Date.now() - startedAt}ms)`);
     const original = await step(() => page.evaluate(() => ({
       width: innerWidth, height: innerHeight, deviceScaleFactor: devicePixelRatio,
       x: scrollX, y: scrollY,
@@ -101,17 +107,21 @@ async function main() {
     // screenshot hook's override. Detach focus FIRST, then restore dimensions
     // on the connection's existing CDP session. browser.disconnect releases
     // that connection without the explicit detach that undoes restoration.
+    console.error(`[mobilesize] enabling focus (${Date.now() - startedAt}ms)`);
     const focusSession = await step(() => page.createCDPSession());
     try {
       // Background tabs can otherwise defer picture/srcset reevaluation.
       await step(() => focusSession.send("Emulation.setFocusEmulationEnabled", {enabled:true}));
       // step owns the deadline; disable the connection's shorter per-command
       // timeout here so it cannot preempt the reserved restoration budget.
+      console.error(`[mobilesize] setting mobile viewport (${Date.now() - startedAt}ms)`);
       await step(() => cdpSession.send("Emulation.setDeviceMetricsOverride", {
         width, height, deviceScaleFactor: original.deviceScaleFactor, mobile:false,
       }, {timeout:0}));
       // Chrome may defer offscreen picture sources, so start at the mobile fold.
+      console.error(`[mobilesize] scrolling mobile viewport (${Date.now() - startedAt}ms)`);
       await step(() => page.evaluate(() => window.scrollTo({top:0, left:0, behavior:"instant"})));
+      console.error(`[mobilesize] waiting for mobile network (${Date.now() - startedAt}ms)`);
       await step(() => page.waitForNetworkIdle({idleTime:1000, timeout:Math.min(waitMs, remaining())})).catch(error => {
         if (error.name !== "TimeoutError") throw error;
         console.error(`Mobile viewport network wait reached ${waitMs / 1000}s; continuing`);
@@ -120,17 +130,24 @@ async function main() {
       // Each cleanup operation shares the same remaining deadline. A dead tab
       // cannot be restored, but must not leave this hook hanging indefinitely.
       try {
+        console.error(`[mobilesize] detaching focus (${Date.now() - startedAt}ms)`);
         await step(() => focusSession.detach(), deadline);
       } finally {
+        console.error(`[mobilesize] restoring desktop viewport (${Date.now() - startedAt}ms)`);
         await step(() => cdpSession.send("Emulation.setDeviceMetricsOverride", {
           width:original.width, height:original.height,
           deviceScaleFactor:original.deviceScaleFactor, mobile:false,
         }, {timeout:0}), deadline);
+        console.error(`[mobilesize] restoring desktop scroll (${Date.now() - startedAt}ms)`);
         await step(() => page.evaluate(({x, y}) => window.scrollTo({left:x, top:y, behavior:"instant"}), original), deadline);
       }
     }
     emitArchiveResultRecord("succeeded", `resized to ${width}x${height}, restored desktop viewport`);
-  } finally {await browser.disconnect();}
+  } finally {
+    console.error(`[mobilesize] disconnecting (${Date.now() - startedAt}ms)`);
+    await browser.disconnect();
+    console.error(`[mobilesize] disconnected (${Date.now() - startedAt}ms)`);
+  }
 }
 
 main().catch(error => {
