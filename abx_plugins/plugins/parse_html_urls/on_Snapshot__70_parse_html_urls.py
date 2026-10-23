@@ -101,13 +101,18 @@ class HrefParser(HTMLParser):
         self.rawdata = self.rawdata[consumed:]
 
     def _add_url(self, url: str) -> None:
-        normalized = normalize_url(url, root_url=self.root_url)
-        lowered = normalized.lower()
-        if lowered.startswith(HTTP_PREFIXES):
-            if iri_to_uri(normalized) != self.root_uri:
-                self.urls_found.add(
-                    unescape(normalized) if "&" in normalized else normalized,
-                )
+        try:
+            normalized = normalize_url(url, root_url=self.root_url)
+            if not normalized.lower().startswith(HTTP_PREFIXES):
+                return
+            normalized_uri = iri_to_uri(normalized)
+        except ValueError:
+            # One malformed href or prose URL must not discard other links.
+            return
+        if normalized_uri != self.root_uri:
+            self.urls_found.add(
+                unescape(normalized) if "&" in normalized else normalized,
+            )
 
     def handle_starttag(self, tag, attrs):
         if tag == "a":

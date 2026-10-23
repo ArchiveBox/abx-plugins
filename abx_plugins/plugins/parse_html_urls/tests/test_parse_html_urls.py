@@ -15,6 +15,52 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_html_urls.*"), None)
 class TestParseHtmlUrls:
     """Test the parse_html_urls extractor CLI."""
 
+    @pytest.mark.parametrize(
+        "invalid_url",
+        ["https://…", "https://[broken", "https://\u200d.example/"],
+    )
+    def test_invalid_link_does_not_discard_other_saved_links(
+        self,
+        tmp_path,
+        invalid_url,
+    ):
+        source = tmp_path / "singlefile/singlefile.html"
+        source.parent.mkdir()
+        source.write_text(
+            '<a href="https://archivebox.io/before">Before</a>'
+            f'<a href="{invalid_url}">Invalid</a> {invalid_url} '
+            '<a href="https://münchen.de/über">Unicode</a>'
+            '<a href="https://archivebox.io/after">After</a>',
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", "https://archivebox.io/tests/"],
+            cwd=tmp_path,
+            env={**os.environ, "SNAP_DIR": str(tmp_path)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        expected = {
+            "https://archivebox.io/before",
+            "https://münchen.de/über",
+            "https://archivebox.io/after",
+        }
+        assert {row["url"] for row in records if row["type"] == "Snapshot"} == expected
+        assert (
+            next(row for row in records if row["type"] == "ArchiveResult")["status"]
+            == "succeeded"
+        )
+        saved = tmp_path / "parse_html_urls/urls.jsonl"
+        assert {
+            json.loads(line)["url"] for line in saved.read_text().splitlines()
+        } == expected
+
     def test_saved_source_read_failure_preserves_existing_urls(self, tmp_path):
         source = tmp_path / "singlefile/singlefile.html"
         source.parent.mkdir(parents=True)
