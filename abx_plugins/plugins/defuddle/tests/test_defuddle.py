@@ -172,5 +172,38 @@ def test_prefers_dom_output_over_singlefile_when_both_exist(
     assert metadata.get("title") == "Example Domain"
 
 
+@pytest.mark.parametrize(
+    ("args", "extra", "expected"),
+    [
+        (["--version"], [], "0.19.5"),
+        ([], ["--property", "title"], "Example Domain"),
+    ],
+)
+def test_custom_arguments_keep_cli_output(tmp_path: Path, args, extra, expected):
+    source = create_example_html(tmp_path)
+    original_html = source.read_bytes()
+    env = os.environ.copy()
+    env.update(
+        SNAP_DIR=str(tmp_path),
+        DEFUDDLE_BINARY=require_defuddle_binary(),
+        DEFUDDLE_ARGS=json.dumps(args),
+        DEFUDDLE_ARGS_EXTRA=json.dumps(extra),
+    )
+    result = subprocess.run(
+        [str(DEFUDDLE_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    output_dir = tmp_path / "defuddle"
+    assert (output_dir / "content.txt").read_text() == expected
+    assert (output_dir / "content.html").read_text() == f"<pre>{expected}</pre>"
+    assert json.loads((output_dir / "article.json").read_text()) == {}
+    assert source.read_bytes() == original_html
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

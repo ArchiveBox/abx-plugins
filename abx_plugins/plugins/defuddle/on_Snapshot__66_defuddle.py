@@ -11,6 +11,7 @@ import html
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -34,6 +35,26 @@ HTML_FILE = "content.html"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
 
+_PARSER_API_SCRIPT = r"""
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import {Defuddle} from 'defuddle/node';
+const {parseHTML} = createRequire(import.meta.resolve('defuddle/node'))('linkedom');
+const {document} = parseHTML(fs.readFileSync(process.argv[1], 'utf8'));
+Defuddle(document, undefined, {separateMarkdown: true, removeSmallImages: false})
+    .then(result => {
+        const parsed = parseHTML(`<html><body>${result.content}</body></html>`);
+        if (!parsed.document.body.textContent?.trim()) {
+            throw new Error('No content could be extracted');
+        }
+        process.stdout.write(JSON.stringify(result));
+    })
+    .catch(error => {
+        console.error(error && error.stack ? error.stack : error);
+        process.exitCode = 1;
+    });
+"""
+
 
 def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
     if has_staticfile_output():
@@ -51,20 +72,31 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
         return "noresults", "No HTML source found"
 
     try:
-        cmd = [
-            binary,
-            *defuddle_args,
-            "parse",
-            html_source,
-            *defuddle_args_extra,
-        ]
-        if "--json" not in cmd and "-j" not in cmd:
-            cmd.append("--json")
+        if defuddle_args or defuddle_args_extra:
+            cmd = [binary, *defuddle_args, "parse", html_source, *defuddle_args_extra]
+            if "--json" not in cmd and "-j" not in cmd:
+                cmd.append("--json")
+        else:
+            node = shutil.which("node")
+            if not node:
+                raise RuntimeError("Node.js is unavailable for captured HTML parsing")
+            # The CLI cannot disable small-image removal, which treats percentage
+            # widths as pixels and discards valuable images from saved articles.
+            cmd = [
+                node,
+                "--input-type=module",
+                "-e",
+                _PARSER_API_SCRIPT,
+                html_source,
+            ]
         result = subprocess.run(
             cmd,
             capture_output=True,
             timeout=max(1, timeout - 5),
             text=True,
+            cwd=Path(binary).resolve().parent
+            if not (defuddle_args or defuddle_args_extra)
+            else None,
         )
 
         if result.returncode != 0:
