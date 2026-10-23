@@ -1,0 +1,29 @@
+.github/configs/ci-tooling.json
+  s_10bc94d001be49::t_8cb7ed8286d3a8 32-33,42-43,78-79
+.github/workflows/claude.yml
+  s_10bc94d001be49::t_06878484f67c5e 51
+.github/workflows/docs.yml
+  s_10bc94d001be49::t_a21d44ef685382 51
+.github/workflows/pages.yml
+  s_10bc94d001be49::t_f3977f0e5c578e 48
+.github/workflows/release.yml
+  s_10bc94d001be49::t_203b22c9a45304 96
+.github/workflows/test-parallel.yml
+  s_10bc94d001be49::t_072ab7e93d194c 88,121,151,210,411,544
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a1ec283075621d3eb1fc4d621647ccffa49a098",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
