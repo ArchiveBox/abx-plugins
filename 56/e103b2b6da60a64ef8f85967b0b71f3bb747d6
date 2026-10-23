@@ -1,0 +1,21 @@
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_10bc94d001be49::t_93fea4473b7f7f 683,699-716,740-751
+abx_plugins/plugins/opendataloader/on_Snapshot__67_opendataloader.py
+  s_10bc94d001be49::t_4268d1676a9459 292,393-396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "56e103b2b6da60a64ef8f85967b0b71f3bb747d6",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
