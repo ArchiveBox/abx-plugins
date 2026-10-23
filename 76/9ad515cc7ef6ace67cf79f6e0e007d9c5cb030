@@ -1,0 +1,19 @@
+abx_plugins/plugins/responses/tests/test_response_mhtml_font.py
+  s_10bc94d001be49::t_120b4c5779e3e4 39-41,43,48,50,54,56,58,186-210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "769ad515cc7ef6ace67cf79f6e0e007d9c5cb030",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
