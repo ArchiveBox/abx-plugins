@@ -130,6 +130,7 @@ async function main() {
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     };
     const openExportMenu = async () => {
+      console.error("Opening Miro export menu");
       await click('[data-testid="board-settings__toggle-icon"]');
       for (const [selector, submenu] of [
         [
@@ -166,12 +167,14 @@ async function main() {
           timeoutMs: remaining(),
           downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
           trigger: async () => {
+            console.error("Miro backup control ready");
             const box = await backup.boundingBox();
             if (!box) throw new Error("Miro backup control is not visible");
             await page.mouse.click(
               box.x + box.width / 2,
               box.y + box.height / 2,
             );
+            console.error("Miro backup control clicked; waiting for browser download");
           },
         })),
       );
@@ -208,12 +211,14 @@ async function main() {
           timeoutMs: remaining(),
           downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
           trigger: async () => {
+            console.error("Miro PDF export control ready");
             await click('[data-testid="board-settings__app_BOARD_EXPORT_PDF"]');
             // The provider's default PDF size is available on every export-enabled
             // plan; premium quality is never selected automatically.
             await click(
               '[data-testid="export-quality-settings-dialog__export-button"]:not([disabled])',
             );
+            console.error("Miro PDF export confirmed; waiting for browser download");
           },
         });
     downloads.push(...pdfDownloads);
@@ -250,7 +255,7 @@ async function main() {
   }
 }
 main().catch((error) => {
-  console.error(error.message);
+  console.error(error.stack || error.message);
   emitArchiveResultRecord("failed", error.message);
   process.exitCode = 1;
 });
