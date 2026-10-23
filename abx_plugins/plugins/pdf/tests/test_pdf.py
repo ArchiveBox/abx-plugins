@@ -3,7 +3,7 @@ Integration tests for pdf plugin
 
 Tests verify:
 1. Hook script exists
-2. Dependencies installed via chrome validation hooks
+2. Declared Chrome and PDF dependencies installed via abxpkg
 3. Verify deps with abxpkg
 4. PDF extraction works on https://example.com
 5. JSONL output is correct
@@ -24,6 +24,7 @@ from abx_plugins.plugins.base.testing import (
     get_hook_script,
     get_plugin_dir,
     install_binary_with_abxpkg,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -32,7 +33,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
 )
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+pytestmark = pytest.mark.usefixtures("ensure_pdf_test_prereqs")
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -41,6 +42,17 @@ if _PDF_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 PDF_HOOK = _PDF_HOOK
 TEST_URL = "https://example.com"
+
+
+@pytest.fixture(scope="module")
+def ensure_pdf_test_prereqs(ensure_chrome_test_prereqs):
+    """Install the declared renderer before measuring PDF capture deadlines."""
+    renderer = install_required_binary_from_config(
+        PLUGIN_DIR,
+        "pdftoppm",
+        env=get_test_env(),
+    )
+    assert renderer and renderer.loaded_abspath, "pdftoppm required for PDF previews"
 
 
 def test_hook_script_exists():
@@ -59,8 +71,6 @@ def test_verify_deps_with_abxpkg():
 
 def test_extracts_pdf_from_example_com(chrome_test_url):
     """Test full workflow: extract PDF from deterministic local fixture via hook."""
-    # Prerequisites checked by earlier test
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
