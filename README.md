@@ -94,6 +94,14 @@ data. Unbounded archived content such as titles and tags belongs in files, not
 environment variables or shell commands. Sonic reads snapshot metadata from
 `SNAP_DIR/index.jsonl`; archived title text is available in `title/title.txt`.
 
+SQLite and Sonic index saved plain text/Markdown, extracted article HTML from
+Readability, Defuddle, Mercury and Trafilatura, and native HTML document exports
+published under `files/` with `downloads.json`. Raw browser/HTTP HTML captures are
+excluded. Indexing reads at most 16 MiB per source and 64 MiB per snapshot; sources
+that exceed either remaining limit are reported on stderr and left untouched.
+Sonic snapshot metadata is also limited to 16 MiB before JSON decoding. These are
+search-index limits, not capture limits.
+
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
 - `TMP_DIR` - local runtime storage for disposable files (defaults to the host runtime's temporary directory); live screencast frames stay here, with each snapshot isolated by its `SNAP_DIR`, and only explicitly retained frames saved under `SNAP_DIR/chrome_screencast` on shutdown

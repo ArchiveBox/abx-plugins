@@ -46,7 +46,14 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 # File extensions eligible for full-text indexing
-INDEXABLE_EXTENSIONS = {".txt", ".md", ".html", ".htm"}
+INDEXABLE_EXTENSIONS = {".txt", ".md"}
+# These hooks emit extracted articles or native document exports as HTML.
+# Raw browser/HTTP captures are not text extraction inputs to search.
+HTML_TEXT_PLUGINS = {"readability", "defuddle", "mercury", "trafilatura"}
+# Search is a bounded derivative; embedded media must not exhaust the capture
+# worker. These limits apply to input bytes, before decoding or parsing HTML.
+MAX_INDEX_FILE_SIZE = 16 * 1024 * 1024
+MAX_INDEX_TOTAL_SIZE = 64 * 1024 * 1024
 # Directories to skip (search backends themselves, executor artifacts, non-text plugins)
 SKIP_DIRS = {
     "chrome",
@@ -77,7 +84,8 @@ def strip_html_tags(html: str) -> str:
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     # Quoted `>` characters do not end tags; leaking srcset data URLs here
     # can send megabytes of image bytes to the text index.
-    html = re.sub(r"""<(?:[^>"']|"[^"]*"|'[^']*')+>""", " ", html)
+    # Consume unquoted attributes as runs, not one backtracking frame per byte.
+    html = re.sub(r"""<(?:[^>"']++|"[^"]*"|'[^']*')++>""", " ", html)
     html = html.replace("&nbsp;", " ").replace("&amp;", "&")
     html = html.replace("&lt;", "<").replace("&gt;", ">")
     html = html.replace("&quot;", '"')
@@ -104,11 +112,11 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
     """Auto-discover text content to index from all plugin output directories.
 
     Walks every subdirectory of SNAP_DIR and collects .txt, .md, .html, .htm
-    files, stripping HTML tags where needed.  This avoids hardcoding which
-    plugins produce indexable output — any plugin that writes text files will
-    be picked up automatically.
+    files. Plain text and Markdown are discovered from any plugin; HTML is
+    read only from article extractors and document exports, never raw captures.
     """
     results = []
+    input_bytes = 0
     snap_dir = SNAP_DIR
 
     if not snap_dir.is_dir():
@@ -136,6 +144,10 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
         elif not stat.S_ISDIR(plugin_stat.st_mode):
             continue
 
+        # Provider hooks publish native document exports under files/ together
+        # with downloads.json. Those HTML documents are extracted content too.
+        has_document_exports = (resolved_plugin / "downloads.json").is_file()
+
         # Match rglob's symlink behavior: follow a plugin-root alias and file
         # aliases, but never recurse through nested directory symlinks. The
         # per-file fast path below relies on keeping followlinks=False.
@@ -143,9 +155,20 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
             dirnames[:] = [
                 name for name in dirnames if not should_skip_nested_dir(name)
             ]
-            for filename in filenames:
+            for filename in sorted(filenames):
                 match = Path(directory) / filename
-                if not filename.endswith(tuple(INDEXABLE_EXTENSIONS)):
+                is_html = match.suffix.lower() in (".html", ".htm")
+                if is_html:
+                    is_document_export = (
+                        has_document_exports
+                        and match.relative_to(plugin_dir).parts[0] == "files"
+                    )
+                    if (
+                        resolved_plugin.name not in HTML_TEXT_PLUGINS
+                        and not is_document_export
+                    ):
+                        continue
+                elif not filename.lower().endswith(tuple(INDEXABLE_EXTENSIONS)):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
@@ -170,11 +193,32 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
                 if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
                     continue
 
+                read_limit = min(
+                    MAX_INDEX_FILE_SIZE,
+                    MAX_INDEX_TOTAL_SIZE - input_bytes,
+                )
+                if source_stat.st_size > read_limit:
+                    print(
+                        f"Skipping {match}: search indexing limit ({read_limit} bytes)",
+                        file=sys.stderr,
+                    )
+                    continue
                 try:
-                    content = resolved.read_text(encoding="utf-8", errors="ignore")
+                    # Bound the read too: a file can grow after its stat.
+                    with resolved.open("rb") as source:
+                        raw_content = source.read(read_limit + 1)
+                    if len(raw_content) > read_limit:
+                        print(
+                            f"Skipping {match}: search indexing limit ({read_limit} bytes)",
+                            file=sys.stderr,
+                        )
+                        continue
+                    input_bytes += len(raw_content)
+                    content = raw_content.decode("utf-8", errors="ignore")
+                    del raw_content
                     if not content.strip():
                         continue
-                    if match.suffix.lower() in (".html", ".htm"):
+                    if is_html:
                         content = strip_html_tags(content)
                     if not content.strip():
                         continue

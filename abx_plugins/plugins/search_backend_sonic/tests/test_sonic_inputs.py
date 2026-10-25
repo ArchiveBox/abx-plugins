@@ -22,10 +22,22 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
     content = {
         "article/text.txt": "plaintextuniqueneedle",
         "article/nested/readme.md": "markdownuniqueneedle",
-        "article/nested/page.html": "<p>htmluniqueneedle</p>",
-        "article/page.htm": "<p>htmuniqueneedle</p>",
+        "readability/content.html": "<p>htmluniqueneedle</p>",
+        "defuddle/content.html": "<p>defuddleuniqueneedle</p>",
+        "trafilatura/content.html": "<p>trafilaturauniqueneedle</p>",
+        "mercury/content.html": "<p>mercuryuniqueneedle</p>",
+        "notion/files/public-page.html": "<p>notionuniqueneedle</p>",
+        "protondocs/files/document.html": "<p>protondocsuniqueneedle</p>",
+        "liteparse/document.pdf.txt": "ocruniqueneedle",
+        "opendataloader/document.md": "documentuniqueneedle",
+        "googledocs/document.txt": "googledocsuniqueneedle",
+        "singlefile/singlefile.html": "<p>excludedrawhtmluniqueneedle</p>",
+        "dom/output.html": "<p>excludedrawhtmluniqueneedle</p>",
+        "wget/index.html": "<p>excludedrawhtmluniqueneedle</p>",
+        "responses/body.html": "<p>excludedrawhtmluniqueneedle</p>",
+        "readability/page.htm": "<p>htmuniqueneedle</p>",
         "article/.txt": "hiddenfilenameuniqueneedle",
-        "article/quoted.html": (
+        "readability/quoted.html": (
             '<p>beforeimageuniqueneedle</p><img alt="a > b" '
             'src="data:image/png;base64,excludedattributeuniqueneedle">'
             "<span title='c > d' data-note='excludedattributeuniqueneedle'>"
@@ -36,6 +48,25 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
         target = snapshot / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text)
+    # Exercise the same publication contract used by real provider exports.
+    from abx_plugins.plugins.base.unpack_downloads import unpack_downloads
+
+    for plugin, name in (
+        ("notion", "public-page.html"),
+        ("protondocs", "document.html"),
+    ):
+        source = snapshot / plugin / "files" / name
+        transport = snapshot.parent / f"{snapshot.name}-{plugin}.html"
+        transport.write_bytes(source.read_bytes())
+        unpack_downloads(
+            snapshot / plugin,
+            {
+                "title": plugin,
+                "downloads": [
+                    {"filePath": str(transport), "suggestedFilename": name},
+                ],
+            },
+        )
     for directory in (
         "article/.hidden",
         "article/node_modules",
@@ -72,20 +103,24 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
     (snapshot / "article/private.txt").symlink_to(private / "secret.txt")
     (snapshot / "private_alias").symlink_to(private, target_is_directory=True)
     responses = snapshot / "responses"
-    responses.mkdir()
+    responses.mkdir(exist_ok=True)
     (responses / "body.txt").write_text("sharedresponseuniqueneedle")
     (snapshot / "article/response.txt").symlink_to("../responses/body.txt")
     expected = {
         name: text.replace("<p>", "").replace("</p>", "")
         for name, text in content.items()
+        if "excludedrawhtmluniqueneedle" not in text
     }
-    expected["article/quoted.html"] = "beforeimageuniqueneedle afterimageuniqueneedle"
+    expected["readability/quoted.html"] = (
+        "beforeimageuniqueneedle afterimageuniqueneedle"
+    )
     expected["article/alias.txt"] = content["article/text.txt"]
     expected["article/response.txt"] = "sharedresponseuniqueneedle"
     expected.update(
         {
             name.replace("article/", "article_alias/", 1): text
             for name, text in list(expected.items())
+            if name.startswith("article/")
         },
     )
     expected["responses/body.txt"] = "sharedresponseuniqueneedle"
@@ -109,10 +144,13 @@ import json, os, runpy, sys
 from pathlib import Path
 hook = runpy.run_path(sys.argv[1])
 scans = []
+opened = []
 resolutions = []
 file_stats = []
 def audit(event, args):
     # Path.iterdir uses listdir on Python 3.12 and scandir on newer Python.
+    if event == 'open':
+        opened.append(str(args[0]))
     if event in {'os.scandir', 'os.listdir'}:
         scans.append(os.fspath(args[0]))
 sys.addaudithook(audit)
@@ -126,7 +164,7 @@ def profile(frame, event, arg):
 sys.setprofile(profile)
 contents = hook['find_indexable_content']()
 sys.setprofile(None)
-print(json.dumps({'contents': contents, 'scans': scans, 'resolutions': resolutions, 'file_stats': file_stats}, default=str))
+print(json.dumps({'contents': contents, 'scans': scans, 'opened': opened, 'resolutions': resolutions, 'file_stats': file_stats}, default=str))
 """
     result = subprocess.run(
         [sys.executable, "-c", probe, str(hook)],
@@ -140,6 +178,13 @@ print(json.dumps({'contents': contents, 'scans': scans, 'resolutions': resolutio
     observed = json.loads(result.stdout)
     assert {item[0]: item[1] for item in observed["contents"]} == expected
     assert len(observed["contents"]) == len(expected)
+    for name in (
+        "singlefile/singlefile.html",
+        "dom/output.html",
+        "wget/index.html",
+        "responses/body.html",
+    ):
+        assert str(tmp_path / name) not in observed["opened"]
     # Ordinary files (including files reached through a validated root alias)
     # need one metadata read per visit, without resolving every parent again.
     regular = str(tmp_path / "article/text.txt")
@@ -155,6 +200,20 @@ print(json.dumps({'contents': contents, 'scans': scans, 'resolutions': resolutio
             "article_alias",
             "article_alias/nested",
             "responses",
+            "readability",
+            "defuddle",
+            "trafilatura",
+            "mercury",
+            "notion",
+            "notion/files",
+            "protondocs",
+            "protondocs/files",
+            "liteparse",
+            "opendataloader",
+            "googledocs",
+            "singlefile",
+            "dom",
+            "wget",
         )
     )
 
@@ -277,7 +336,7 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
                 == "f158646041729116873422eb771a3c100fc0083435d2f8a5719c1ef8c38519b8"
             )
             defuddle = tmp_path / "defuddle/content.txt"
-            defuddle.parent.mkdir()
+            defuddle.parent.mkdir(exist_ok=True)
             defuddle.write_bytes(captured_text)
             tail_term = "ระยะเวลารับสิทธิ์"
             assert captured_text.decode("utf-8").find(tail_term) > 10000
@@ -423,3 +482,63 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
         finally:
             daemon.terminate()
             daemon.wait(timeout=10)
+
+
+@pytest.mark.parametrize("backend,order", [("sonic", "91"), ("sqlite", "90")])
+def test_indexing_bounds_source_bytes_and_preserves_saved_outputs(
+    tmp_path,
+    backend,
+    order,
+):
+    article = tmp_path / "readability"
+    article.mkdir()
+    # Large data attributes are valid HTML and must not become searchable text.
+    page = article / "attribute.html"
+    page.write_text(
+        '<p>beforeimageuniqueneedle</p><img alt="a > b" src=data:image/gif;base64,'
+        + "A" * (4 * 1024**2)
+        + "><p>afterimageuniqueneedle</p>",
+    )
+    page_hash = hashlib.sha256(page.read_bytes()).hexdigest()
+    oversized = article / "oversized.html"
+    with oversized.open("wb") as stream:
+        stream.write(b"<p>oversizeduniqueneedle</p>")
+        stream.truncate(16 * 1024**2 + 1)
+    # Each file is admissible, but their combined input exceeds the snapshot cap.
+    for i in range(5):
+        with (article / f"text-{i}.txt").open("wb") as stream:
+            block = (f"document{i}uniqueneedle " * 1000).encode()
+            remaining = 16 * 1024**2
+            while remaining:
+                chunk = block[:remaining]
+                stream.write(chunk)
+                remaining -= len(chunk)
+    hook = (
+        Path(__file__).parents[2]
+        / f"search_backend_{backend}/on_Snapshot__{order}_index_{backend}.py"
+    )
+    probe = """
+import hashlib, json, resource, runpy, sys
+hook = runpy.run_path(sys.argv[1])
+contents = hook['find_indexable_content']()
+print(json.dumps({'contents': {x[0]: len(x[1]) for x in contents}, 'html': next(x[1] for x in contents if x[0].endswith('attribute.html')), 'rss': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", probe, str(hook)],
+        cwd=tmp_path,
+        env={**os.environ, "SNAP_DIR": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    observed = json.loads(result.stdout)
+    assert observed["html"] == "beforeimageuniqueneedle afterimageuniqueneedle"
+    assert "readability/oversized.html" not in observed["contents"]
+    assert sum(observed["contents"].values()) <= 64 * 1024**2
+    assert len(observed["contents"]) == 4  # HTML plus three 16 MiB text files.
+    assert "indexing limit" in result.stderr
+    rss_bytes = observed["rss"] if sys.platform == "darwin" else observed["rss"] * 1024
+    assert rss_bytes < 512 * 1024**2
+    assert hashlib.sha256(page.read_bytes()).hexdigest() == page_hash
+    assert oversized.stat().st_size == 16 * 1024**2 + 1

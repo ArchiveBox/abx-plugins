@@ -12,6 +12,22 @@ from abx_plugins.plugins.search_backend_sqlite.search import flush
 HOOK = Path(__file__).parent.parent / "on_Snapshot__90_index_sqlite.py"
 
 
+def extract_htmltotext(snapshot_dir: Path) -> None:
+    htmltotext = HOOK.parents[1] / "htmltotext/on_Snapshot__66_htmltotext.py"
+    extraction = subprocess.run(
+        [str(htmltotext), "--url=https://archivebox.io/tests/"],
+        cwd=snapshot_dir,
+        env={**os.environ, "SNAP_DIR": str(snapshot_dir)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert extraction.returncode == 0, extraction.stderr
+    assert json.loads(extraction.stdout.splitlines()[-1])["status"] == "succeeded"
+    extracted = (snapshot_dir / "htmltotext/htmltotext.txt").read_text()
+    assert "ArchiveBox Test Page" in extracted
+
+
 def run_hook(
     tmp_path: Path,
     snapshot_id: str = "snap-001",
@@ -52,6 +68,7 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
         "https://archivebox.io/tests/",
         "snap-001",
     )
+    extract_htmltotext(snapshot_dir)
     responses = snapshot_dir / "responses"
     responses.mkdir()
     (responses / "body.txt").write_text("sharedresponseuniqueneedle")
@@ -65,17 +82,21 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
     assert '"status": "succeeded"' in result.stdout
 
     output_dir = snapshot_dir / "search_backend_sqlite"
-    body_link = output_dir / "dom__output.html"
+    body_link = output_dir / "htmltotext__htmltotext.txt"
     title_link = output_dir / "title__title.txt"
     assert body_link.is_symlink()
     assert title_link.is_symlink()
     assert {path.name for path in output_dir.iterdir() if path.is_symlink()} == {
-        "dom__output.html",
+        "htmltotext__htmltotext.txt",
         "title__title.txt",
         "responses__body.txt",
         "dom__response.txt",
     }
-    assert body_link.resolve() == (snapshot_dir / "dom" / "output.html").resolve()
+    assert (
+        body_link.resolve()
+        == (snapshot_dir / "htmltotext" / "htmltotext.txt").resolve()
+    )
+    assert not (output_dir / "dom__output.html").exists()
     assert title_link.resolve() == (snapshot_dir / "title" / "title.txt").resolve()
 
     conn = sqlite3.connect(str(snapshot_dir / "search.sqlite3"))
@@ -211,8 +232,8 @@ def test_hook_indexes_long_source_paths_without_losing_links(
     source_dir = tmp_path / "wget" / component / component
     source_dir.mkdir(parents=True)
     sources = {
-        source_dir / "first.html": b"<p>needlealpha archived article</p>",
-        source_dir / "second.html": b"<p>needlebeta another article</p>",
+        source_dir / "first.txt": b"needlealpha archived article",
+        source_dir / "second.txt": b"needlebeta another article",
     }
     for source, content in sources.items():
         source.write_bytes(content)
@@ -255,6 +276,7 @@ def test_hook_cold_start_avoids_typed_schema_imports(
         "https://archivebox.io/tests/",
         "snap-cold-start",
     )
+    extract_htmltotext(snapshot_dir)
     (snapshot_dir / "search_backend_sqlite").mkdir(parents=True)
 
     env = os.environ.copy()
