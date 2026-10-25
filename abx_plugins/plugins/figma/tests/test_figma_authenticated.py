@@ -39,7 +39,7 @@ def test_authenticated_public_design(tmp_path, ensure_chrome_test_prereqs):
         assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
         assert record is not None, result.stdout
-        assert record["status"] == "succeeded", result.stdout
+        assert record["status"] == "succeeded", result.stdout + result.stderr
         output = chrome.parent / "figma"
         manifest = json.loads((output / "downloads.json").read_text())
         assert manifest["title"] == "Style Guide Starter (Copy) (Copy) – Figma"

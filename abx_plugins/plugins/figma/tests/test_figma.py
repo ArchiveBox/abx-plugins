@@ -86,7 +86,10 @@ def test_human_verification_with_empty_visible_body_has_noresults(
             record = parse_jsonl_output(result.stdout)
             assert record and record["status"] == "noresults", result.stdout
             assert record["output_str"] == "Figma requires human verification"
-            assert result.stderr.strip() == record["output_str"]
+            assert result.stderr.strip() == (
+                "Checking Figma document: Figma requires human verification\n"
+                "Figma requires human verification"
+            )
             assert not (chrome.parent / "figma" / "downloads.json").exists()
     finally:
         server.stop()
@@ -150,5 +153,11 @@ def test_public_export_requires_login_has_noresults(
         record = parse_jsonl_output(result.stdout)
         assert record and record["status"] == "noresults", result.stdout
         assert record["output_str"] == "Persona must be logged in to figma.com"
-        assert result.stderr.strip() == record["output_str"]
+        lines = result.stderr.strip().splitlines()
+        assert len(lines) == 2, result.stderr
+        assert lines[-1] == record["output_str"]
+        assert lines[0].endswith(": " + record["output_str"]), result.stderr
+        assert lines[0].startswith(("Clicking ", "Waiting for Figma downloads:")), (
+            result.stderr
+        )
         assert not (chrome.parent / "figma" / "downloads.json").exists()

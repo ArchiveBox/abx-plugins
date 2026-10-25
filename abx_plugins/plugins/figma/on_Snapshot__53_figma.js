@@ -268,7 +268,9 @@ async function main() {
     );
     emitArchiveResultRecord("succeeded", "figma/downloads.json");
   } catch (error) {
-    if (!(error instanceof ExportPrerequisiteError)) {
+    if (error instanceof ExportPrerequisiteError) {
+      console.error(`${phase}: ${error.message}`);
+    } else {
       console.error("Figma last export click:", JSON.stringify(lastClick));
       error.message = `${phase} (${timeoutMs - (deadline - Date.now())}ms elapsed, ${timeoutMs}ms budget): ${error.message}`;
       // Record the primary failure before target teardown can fail separately.
