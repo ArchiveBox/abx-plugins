@@ -1,0 +1,24 @@
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  s_10bc94d001be49::t_11d51a1c4e7ba9 184,190-191,194-195,204
+  s_10bc94d001be49::t_1743cb2b3956d1 187-189,192-193
+  s_10bc94d001be49::t_1537b810195a4c 196-198,202-203
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  s_10bc94d001be49::t_22ee316f864dd0 343-386
+  s_10bc94d001be49::t_43659ce1d4bd26 387-388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1bce5ffbee3c59afdd31d464559500abc893e5c6",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
