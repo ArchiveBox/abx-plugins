@@ -181,6 +181,8 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     );
     // A snapshot is replayed at other viewport sizes. SingleFile's default
     // optimizations discard currently hidden images and alternate media rules.
+    // Font pruning also drops fonts used only by other media rules and walks
+    // every element's computed/pseudo-element styles. Preserve those fonts too.
     // Use its normal configuration API, restoring the persona's preferences
     // after this capture while still holding the browser download lock.
     console.error(`[singlefile] phase=helper-profile started elapsed_ms=${Date.now() - saveStartedAt}`);
@@ -192,7 +194,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       const { options } = result.result;
       const profile = {};
       const captureProfile = {};
-      for (const key of ["removeHiddenElements", "removeUnusedStyles", "removeAlternativeMedias", "removeAlternativeImages"]) {
+      for (const key of ["removeHiddenElements", "removeUnusedStyles", "removeAlternativeMedias", "removeAlternativeImages", "removeUnusedFonts"]) {
         profile[key] = options[key];
         captureProfile[key] = false;
       }

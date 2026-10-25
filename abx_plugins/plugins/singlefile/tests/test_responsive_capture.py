@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -20,12 +21,27 @@ def test_singlefile_preserves_responsive_images(
 ):
     httpserver.expect_request("/").respond_with_data(
         """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>.mobile{display:none}@media(max-width:600px){.desktop{display:none}.mobile{display:block}}</style>
+        <style>
+        @font-face{font-family:ArchiveMobile;src:url('/mobile.woff') format('woff')}
+        .mobile{display:none}
+        @media(max-width:600px){.desktop{display:none}.mobile{display:block;font-family:ArchiveMobile}}
+        </style>
         </head><body><h1>Responsive archive</h1>
         <img id="desktop" class="desktop" src="/desktop.svg" width="80" height="60">
         <img id="mobile" class="mobile" src="/mobile.svg" width="80" height="60">
+        <p class="mobile">A font needed only when replayed on mobile</p>
         </body></html>""",
         content_type="text/html",
+    )
+    # This real font is unused at capture width, but required by the mobile
+    # replay. Keeping CSS alone is insufficient if its font body is discarded.
+    font = (
+        Path(__file__).resolve().parents[2]
+        / "responses/tests/fixtures/source-sans-pro.woff"
+    )
+    httpserver.expect_request("/mobile.woff").respond_with_data(
+        font.read_bytes(),
+        content_type="font/woff",
     )
     for name, color in (("desktop", "blue"), ("mobile", "green")):
         httpserver.expect_request(f"/{name}.svg").respond_with_data(
@@ -72,10 +88,12 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
         for (const [width, selector] of [[390, '#mobile'], [1280, '#desktop']]) {{
           await replay.setViewport({{ width, height: 844 }});
           await replay.goto({json.dumps((output / "singlefile.html").as_uri())});
+          await replay.evaluate(async () => {{ await document.fonts.ready; }});
           rendered.push(await replay.evaluate(selector => {{
             const image = document.querySelector(selector);
             return {{ src: image?.getAttribute('src'), width: image?.naturalWidth,
               display: image && getComputedStyle(image).display,
+              fonts: [...document.fonts].map(font => ({{family: font.family, status: font.status}})),
               heading: document.querySelector('h1')?.textContent }};
           }}, selector));
         }}
@@ -116,6 +134,9 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
         assert replay.returncode == 0, replay.stderr
         after_state = json.loads(replay.stdout)
         assert after_state["profiles"] == before_state["profiles"]
+        assert {"family": "ArchiveMobile", "status": "loaded"} in after_state[
+            "rendered"
+        ][0]["fonts"]
         for rendered in after_state["rendered"]:
             assert rendered["heading"] == "Responsive archive"
             assert rendered["width"] == 80, rendered
