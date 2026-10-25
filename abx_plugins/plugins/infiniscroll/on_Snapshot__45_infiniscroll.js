@@ -181,38 +181,27 @@ async function expandDetails(page, options = {}) {
 
   const startTime = Date.now();
 
-  // First, expand all <details> elements
+  // Expand content disclosures, preserving popup controls in their current state.
   const details = await page.evaluate((article) => {
     let count = 0;
+    // <details> also implements action menus and dialogs. Opening those
+    // contaminates the saved page; aria-haspopup distinguishes them from
+    // article disclosures without relying on a site's classes or markup layout.
+    const disclosures = [...document.querySelectorAll("details")].filter(
+      (el) => {
+        const summary = el.querySelector(":scope > summary");
+        const popup =
+          summary?.getAttribute("aria-haspopup") ||
+          el.getAttribute("aria-haspopup");
+        return !popup || popup === "false";
+      },
+    );
     // Comments and other expandable content may belong to this story even
     // when the publisher places them outside main. Keep the full-page path.
     const bounded =
-      !!article &&
-      [...document.querySelectorAll("details")].every((el) =>
-        article.contains(el),
-      );
-    // Generic <details> elements
-    document.querySelectorAll("details:not([open])").forEach((el) => {
-      el.open = true;
-      count++;
-    });
-    // Github README details sections
-    document.querySelectorAll("article details:not([open])").forEach((el) => {
-      el.open = true;
-      count++;
-    });
-    // Github issue discussion hidden comments
-    document
-      .querySelectorAll(
-        "div.js-discussion details:not(.details-overlay):not([open])",
-      )
-      .forEach((el) => {
-        el.open = true;
-        count++;
-      });
-    // HedgeDoc/Markdown details sections
-    document
-      .querySelectorAll(".markdown-body details:not([open])")
+      !!article && disclosures.every((el) => article.contains(el));
+    disclosures
+      .filter((el) => !el.open)
       .forEach((el) => {
         el.open = true;
         count++;

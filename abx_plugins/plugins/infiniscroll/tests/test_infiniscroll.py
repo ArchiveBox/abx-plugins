@@ -340,6 +340,52 @@ def test_comment_toggles_expand_without_collapsing_visible_replies(
         assert "Nested visible reply" in saved
 
 
+def test_details_expansion_preserves_popup_controls(httpserver, tmp_path):
+    html = """<!doctype html><title>Native disclosures</title>
+    <nav>
+      <details id="menu"><summary aria-haspopup="menu">Actions</summary><button>Delete</button></details>
+      <details id="dialog"><summary aria-haspopup="dialog">Open settings</summary><p>Settings</p></details>
+      <details id="reactions"><summary aria-haspopup="true">Reactions</summary><button>Like</button></details>
+    </nav>
+    <article>
+      <details id="content"><summary aria-haspopup="false">Article details</summary>
+        <p>Valuable article continuation</p>
+        <details id="nested"><summary>Nested explanation</summary><p>Nested valuable content</p></details>
+      </details>
+      <details id="already-open" open><summary>Already visible</summary><p>Visible article content</p></details>
+    </article>"""
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    url = httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
+    ) as (_, _, chrome_dir, env):
+        env.update(
+            {"INFINISCROLL_SCROLL_LIMIT": "1", "INFINISCROLL_SCROLL_DELAY": "40"},
+        )
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        saved = save_dom(chrome_dir, env, url)
+        for name in ("menu", "dialog", "reactions"):
+            tag = re.search(rf'<details\b[^>]*\bid="{name}"[^>]*>', saved)
+            assert tag and "open=" not in tag.group(), saved
+        for name in ("content", "nested", "already-open"):
+            tag = re.search(rf'<details\b[^>]*\bid="{name}"[^>]*>', saved)
+            assert tag and 'open=""' in tag.group(), saved
+        assert "Valuable article continuation" in saved
+        assert "Nested valuable content" in saved
+        assert "Visible article content" in saved
+
+
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert INFINISCROLL_HOOK is not None, "Infiniscroll hook not found"
