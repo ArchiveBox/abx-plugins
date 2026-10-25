@@ -37,6 +37,18 @@ public URLs. The explicit authenticated acceptance test requires an authorized
 manifest hashes. The anonymous restriction test uses an isolated unauthenticated
 profile. See `tests/RESULTS.md` for retained evidence and commands.
 
+Successful cookie import and a future cookie expiry do not prove Figma still
+accepts the session. When authenticated CI reaches the sign-in menu, validate a
+fresh, authorized Figma session with the
+[authenticated export test](tests/test_figma_authenticated.py) before refreshing CI. Keep the extension export's `SOURCE`, only Figma-scoped `cookies`
+and `origins`, and omit saved tab URLs. Store the temporary export with mode
+`0600`, then update only `FIGMA_AUTH_STORAGE_JSON` in the `provider-capture`
+environment of both `ArchiveBox/abx-plugins` and `ArchiveBox/ArchiveBox`. Preserve
+`PROVIDER_AUTH_STORAGE_JSON` and all other providers' sessions. Remove temporary
+credential exports and disposable browser profiles after validation. Normal CI
+jobs started after the refresh verify the new session; already-running jobs may
+still have the previous secret.
+
 The screenshot recipe uses the verified design and requires that authenticated
 session. Native exports from FigJam, Slides, Buzz, Sites and Make remain
 unverified. ArchiveBox gallery replay is checked separately.
