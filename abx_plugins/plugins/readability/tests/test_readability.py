@@ -552,5 +552,87 @@ def test_invalid_extractor_output_keeps_diagnostics(tmp_path):
     assert not (tmp_path / "readability" / "content.html").exists()
 
 
+def test_large_inline_fallback_does_not_duplicate_payload_across_hook_processes(
+    tmp_path: Path,
+):
+    import hashlib
+    import time
+
+    binary = require_readability_binary()
+    source = create_example_html(tmp_path)
+    before, after = source.read_text().split("</article>", 1)
+    before = before.replace(
+        "This domain is for use",
+        "Preserved Unicode article 🧪. This domain is for use",
+    )
+    # A valid SVG data URL plus non-BMP prose reproduces Unicode widening in
+    # the Python wrapper while its Node child independently loads the source.
+    with source.open("wb") as output:
+        output.write(
+            (
+                before
+                + "<img src=\"data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cmetadata%3E(diagram's)"
+            ).encode(),
+        )
+        for _ in range(64):
+            output.write(b"x" * (1024 * 1024))
+        output.write(b'%3C/metadata%3E%3C/svg%3E" alt="large"></article>')
+        output.write(after.encode())
+    with source.open("rb") as original:
+        original_hash = hashlib.file_digest(original, "sha256").hexdigest()
+    env = {**os.environ, "SNAP_DIR": str(tmp_path), "READABILITY_BINARY": binary}
+    peak = 0
+    started = time.monotonic()
+    with (
+        (tmp_path / "stdout.log").open("w+") as stdout,
+        (tmp_path / "stderr.log").open("w+") as stderr,
+    ):
+        with subprocess.Popen(
+            [str(READABILITY_HOOK), "--url", TEST_URL],
+            env=env,
+            stdout=stdout,
+            stderr=stderr,
+            start_new_session=True,
+        ) as process:
+            root = psutil.Process(process.pid)
+            identity = root.create_time()
+            try:
+                while process.poll() is None:
+                    assert root.create_time() == identity
+                    rss = 0
+                    try:
+                        children = root.children(recursive=True)
+                    except psutil.NoSuchProcess:
+                        break
+                    for child in [root, *children]:
+                        try:
+                            rss += child.memory_info().rss
+                        except psutil.NoSuchProcess:
+                            pass
+                    peak = max(peak, rss)
+                    assert peak < 384 * 1024**2, (
+                        f"Inline resources inflated hook process tree to {peak} bytes"
+                    )
+                    assert time.monotonic() - started < 30
+                    time.sleep(0.02)
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    process.wait(timeout=5)
+            stderr.seek(0)
+            assert process.returncode == 0, stderr.read()
+            stdout.seek(0)
+            record = parse_jsonl_output(stdout.read())
+    assert record is not None
+    assert record["status"] == "succeeded"
+    assert (
+        "Preserved Unicode article 🧪"
+        in (tmp_path / "readability/content.txt").read_text()
+    )
+    assert (tmp_path / "readability/content.html").stat().st_size < 100_000
+    with source.open("rb") as original:
+        assert hashlib.file_digest(original, "sha256").hexdigest() == original_hash
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

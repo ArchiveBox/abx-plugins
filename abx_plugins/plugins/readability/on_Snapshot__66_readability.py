@@ -178,6 +178,72 @@ blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475
 </style></head><body><main><article>{content}</article></main></body></html>'''
 
 
+def read_article_html(path: str) -> tuple[str, bool]:
+    # Match readability-extractor's data URL policy before UTF-8 decoding:
+    # one non-BMP character otherwise widens hundreds of MB of inline payload
+    # in Python while Node holds another copy. Keep the original capture intact.
+    source = Path(path).read_bytes()
+    strip_base64 = len(source) > 14_000_000
+    header = rb"data:[^,\s\"'<>:]*,"
+    base64 = rb"data:[^,\s\"'<>:]*;base64,[A-Za-z0-9+/=\s]+"
+    # Quoted base64 permits wrapping; generic URLs exclude whitespace so a
+    # srcset's other candidates survive. Only bare CSS URLs end at ')'.
+    urls = re.compile(
+        rb'"('
+        + base64
+        + b"|"
+        + header
+        + rb'[^"\s<>]+)"'
+        + rb"|'("
+        + base64
+        + b"|"
+        + header
+        + rb"[^'\s<>]+)'"
+        + rb"|\b(url\(\s*)("
+        + header
+        + rb"[^\s\"'<>)]*)"
+        + rb"|(?<![\w:-])("
+        + header
+        + rb"[^\s\"'<>]+)",
+        re.I,
+    )
+    base64_header = re.compile(rb"data:[^,]*;base64,", re.I)
+    stripped_urls = 0
+
+    def replace(match: re.Match[bytes]) -> bytes:
+        nonlocal stripped_urls
+        group = next(index for index in (1, 2, 4, 5) if match.start(index) >= 0)
+        start, end = match.span(group)
+        # Inspect spans rather than copying an enormous group just to size it.
+        if end - start <= 1024**2 and not (
+            strip_base64 and base64_header.match(source, start, end)
+        ):
+            return match.group()
+        stripped_urls += 1
+        quote = b'"' if group == 1 else b"'" if group == 2 else b""
+        prefix = match.group(3) if group == 4 else b""
+        return (
+            quote
+            + prefix
+            + b"data:image/png;base64,inline-images-stripped-by-archivebox-because-size-limit-exceeded=="
+            + quote
+        )
+
+    cleaned = urls.sub(replace, source)
+    if stripped_urls:
+        print(
+            f"[!] WARNING: Stripped {stripped_urls} inline data URLs exceeding extraction size limits",
+            file=sys.stderr,
+        )
+    # Retain read_text's universal-newline behavior for article offset parsing.
+    text = (
+        cleaned.decode("utf-8", errors="replace")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+    )
+    return text, bool(stripped_urls)
+
+
 def primary_article_html(source: str) -> str:
     """Exclude separately headed articles appended to a known primary article.
 
@@ -315,14 +381,14 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
             url,
             "utf-8",
         ]
-        source_html = Path(html_source).read_text(encoding="utf-8", errors="replace")
+        source_html, cleaned_source = read_article_html(html_source)
         print(
             f"[readability] phase=source-read elapsed_ms={(time.monotonic() - started_at) * 1000:.0f}",
             file=sys.stderr,
         )
         scoped_html = primary_article_html(source_html)
         with ExitStack() as files:
-            if scoped_html != source_html:
+            if cleaned_source or scoped_html != source_html:
                 scoped = files.enter_context(
                     tempfile.NamedTemporaryFile(
                         mode="w+",
