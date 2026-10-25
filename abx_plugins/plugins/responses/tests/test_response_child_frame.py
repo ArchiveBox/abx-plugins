@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import time
 from contextlib import ExitStack
 from urllib.parse import urlsplit, urlunsplit
 
@@ -16,6 +17,7 @@ from abx_plugins.plugins.responses.tests.test_responses import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import CHROME_UTILS
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
@@ -144,6 +146,7 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
             try:
                 if mode == "transient":
                     wait_for_file(index, process=process)
+                navigation_deadline = time.monotonic() + 60
                 nav = subprocess.run(
                     [str(CHROME_NAVIGATE_HOOK), f"--url={page_url}"],
                     cwd=chrome_dir,
@@ -154,6 +157,45 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
                 )
                 (tmp_path / "navigation.stdout.log").write_text(nav.stdout)
                 (tmp_path / "navigation.stderr.log").write_text(nav.stderr)
+                if mode == "transient" and nav.returncode == 0:
+                    # Network idle can precede cross-site frame attachment/load.
+                    # Stop the recorder only after the stable child's real fetch
+                    # consumed its body, within the original navigation budget.
+                    remaining = navigation_deadline - time.monotonic()
+                    assert remaining > 0
+                    completed = subprocess.run(
+                        [
+                            env["NODE_BINARY"],
+                            "-e",
+                            """
+const {connectToPage} = require(process.argv[1]);
+(async () => {
+  const deadline = Date.now() + Number(process.argv[4]);
+  const {browser, page} = await connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    const frame = await page.waitForFrame(frame => frame.url() === process.argv[3], {timeout: Math.max(1, deadline - Date.now())});
+    await frame.waitForFunction(expected => document.title === expected,
+      {timeout: Math.max(1, deadline - Date.now())}, process.argv[5]);
+    console.log(await frame.title());
+  } finally { browser.disconnect(); }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+""",
+                            str(CHROME_UTILS),
+                            str(chrome_dir),
+                            child_url,
+                            str(int(remaining * 1000)),
+                            f"Saved {len(payload)}",
+                        ],
+                        cwd=chrome_dir,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=remaining,
+                    )
+                    (tmp_path / "completion.stdout.log").write_text(completed.stdout)
+                    (tmp_path / "completion.stderr.log").write_text(completed.stderr)
+                    assert completed.returncode == 0, completed.stderr
+                    assert completed.stdout.strip() == f"Saved {len(payload)}"
             finally:
                 process.terminate()
                 stdout, stderr = process.communicate(timeout=30)
