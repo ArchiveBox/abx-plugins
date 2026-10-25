@@ -170,6 +170,13 @@ def selection_path(config):
 
 def save_selection(config, selection):
     filename = selection_path(config)
+    # Re-selecting a tab is idempotent. Replacing the same persistent file on
+    # every click adds filesystem writes to the request path under I/O pressure.
+    try:
+        if json.loads(filename.read_text()) == selection:
+            return
+    except (OSError, ValueError):
+        pass
     filename.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         mode="w",

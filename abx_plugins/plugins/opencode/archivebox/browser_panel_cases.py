@@ -14,7 +14,10 @@ import pytest
 import requests
 
 from abx_plugins import get_plugins_dir
-from abx_plugins.plugins.opencode.archivebox.browser import browser_live_dir
+from abx_plugins.plugins.opencode.archivebox.browser import (
+    browser_live_dir,
+    selection_path,
+)
 from abx_plugins.plugins.opencode.archivebox.conftest import _login_cookie
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -318,6 +321,8 @@ for(const endpoint of JSON.parse(process.argv[2])) {
                 "cpu": psutil.cpu_times()._asdict(),
             },
         ]
+        saved_selection = selection_path(configs[0])
+        selection_identity = None
         for _ in range(10):
             start = time.perf_counter()
             response = session.post(
@@ -330,6 +335,13 @@ for(const endpoint of JSON.parse(process.argv[2])) {
                 1000 * response.elapsed.total_seconds(),
             )
             assert response.status_code == 200, response.text
+            state = saved_selection.stat()
+            identity = (state.st_ino, state.st_mtime_ns)
+            if selection_identity is not None:
+                assert identity == selection_identity, (
+                    "Unchanged selection must not rewrite persistent state"
+                )
+            selection_identity = identity
         select_resources.append(
             {
                 "phase": "after",
