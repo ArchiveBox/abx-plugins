@@ -33,6 +33,21 @@ def _is_non_empty_string(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def test_hook_memory_defaults_keep_shared_chrome_exempt() -> None:
+    from abx_plugins.plugins.base.utils import load_config
+
+    ordinary = load_config(PLUGINS_ROOT / "parse_txt_urls" / "config.json", environ={})
+    chrome = load_config(PLUGINS_ROOT / "chrome" / "config.json", environ={})
+    assert ordinary.MEMORY_LIMIT == 2 * 1024**3
+    assert chrome.MEMORY_LIMIT == ordinary.MEMORY_LIMIT
+    assert chrome.CHROME_MEMORY_LIMIT == 0
+    configured = load_config(
+        PLUGINS_ROOT / "chrome" / "config.json",
+        environ={"CHROME_MEMORY_LIMIT": "1234"},
+    )
+    assert configured.CHROME_MEMORY_LIMIT == 1234
+
+
 def test_every_plugin_has_config_json_with_required_metadata() -> None:
     failures: list[str] = []
 
