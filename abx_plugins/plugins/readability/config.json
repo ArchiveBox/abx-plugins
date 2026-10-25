@@ -13,7 +13,7 @@
     {
       "name": "{READABILITY_BINARY}",
       "binproviders": "env,pnpm",
-      "min_version": "0.0.14",
+      "min_version": "0.0.15",
       "min_release_age": 0,
       "overrides": {
         "pnpm": {
