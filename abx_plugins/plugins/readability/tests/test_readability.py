@@ -567,6 +567,8 @@ def test_large_inline_fallback_does_not_duplicate_payload_across_hook_processes(
     )
     # A valid SVG data URL plus non-BMP prose reproduces Unicode widening in
     # the Python wrapper while its Node child independently loads the source.
+    # Keep this larger than the spare process-tree budget: retaining the raw
+    # byte buffer until Node starts must also fail, even without Unicode widening.
     with source.open("wb") as output:
         output.write(
             (
@@ -574,7 +576,7 @@ def test_large_inline_fallback_does_not_duplicate_payload_across_hook_processes(
                 + "<img src=\"data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cmetadata%3E(diagram's)"
             ).encode(),
         )
-        for _ in range(64):
+        for _ in range(224):
             output.write(b"x" * (1024 * 1024))
         output.write(b'%3C/metadata%3E%3C/svg%3E" alt="large"></article>')
         output.write(after.encode())
