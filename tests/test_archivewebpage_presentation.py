@@ -2,13 +2,46 @@ from __future__ import annotations
 
 import json
 import base64
+import os
 from html import escape as html_escape
 import struct
 import sys
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from abx_plugins.plugins.archivewebpage import presentation
+
+
+def test_replay_storage_fix_preserves_installed_bundle_and_rejects_changes(tmp_path):
+    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+    from abx_plugins.plugins.base.utils import load_config
+
+    plugin_dir = Path(presentation.__file__).parent
+    env = {**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
+    install_required_binary_from_config(plugin_dir, "archivewebpage", env=env)
+    config = load_config(
+        plugin_dir / "config.json",
+        environ=env,
+        hydrate_binaries=False,
+    )
+    extension_dir = presentation.find_extension_dir(config)
+    assert extension_dir is not None
+    source = extension_dir / "sw.js"
+    original = source.read_bytes()
+    result = presentation.serve_replay_asset("replay/sw.js", config)
+    assert result is not None
+    transformed, content_type, headers = result
+    assert transformed != original
+    assert source.read_bytes() == original
+    assert content_type == "application/javascript; charset=utf-8"
+    assert headers["Service-Worker-Allowed"] == "/"
+    indexed_result = presentation.serve_replay_asset("replay/sw-index.js", config)
+    assert indexed_result is not None
+    assert indexed_result[0] == transformed
+    with pytest.raises(RuntimeError, match="requires the pinned 0.17.0 worker bundle"):
+        presentation._replay_worker_body(original + b"\n")
 
 
 def test_replay_index_stops_file_reads_after_metadata_budget(tmp_path):

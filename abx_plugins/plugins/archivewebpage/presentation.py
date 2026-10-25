@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import json
 import base64
+import hashlib
 import mimetypes
 import struct
 from email.utils import formatdate
+from functools import lru_cache
 from html import escape as html_escape
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import zipfile
@@ -62,6 +64,41 @@ _REPLAY_STATIC_HTML = {
 _PLUGIN_DIR = Path(__file__).resolve().parent
 
 
+@lru_cache(maxsize=1)
+def _replay_worker_body(body: bytes) -> bytes:
+    # The official 0.17.0 worker embeds Wombat's Storage proxy. Archived apps
+    # can remove Object.prototype.__proto__; use actual prototype lookup so
+    # their hardening does not disable localStorage/sessionStorage in replay.
+    # Fail visibly on a dependency change instead of editing an unknown bundle.
+    if (
+        hashlib.sha256(body).hexdigest()
+        != "eb449aec15884416b045f3e21d2f5c88db840968a38ccf1b6b12e1c7e587cec9"
+    ):
+        raise RuntimeError(
+            "ArchiveWeb.page replay storage fix requires the pinned 0.17.0 worker bundle",
+        )
+    for before, after in (
+        (
+            b"var proto = target.__proto__;",
+            b"var proto = Object.getPrototypeOf(target);",
+        ),
+        (
+            b"(proto.__proto__ && proto.__proto__.hasOwnProperty(prop))",
+            b"(Object.getPrototypeOf(proto) && Object.getPrototypeOf(proto).hasOwnProperty(prop))",
+        ),
+        (
+            b"if (target.__proto__.hasOwnProperty(prop))",
+            b"if (Object.getPrototypeOf(target).hasOwnProperty(prop))",
+        ),
+    ):
+        if body.count(before) != 1:
+            raise RuntimeError(
+                "ArchiveWeb.page replay storage fix does not match the pinned worker bundle",
+            )
+        body = body.replace(before, after)
+    return body
+
+
 def is_replay_target(filename_or_path: str) -> bool:
     """Return True for a path the plugin renders an embedded replay for."""
     name = filename_or_path.lower()
@@ -107,7 +144,11 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
 
     body = file_path.read_bytes()
     if target == "sw.js":
-        body += b"\n" + (_PLUGIN_DIR / "replay_index.js").read_bytes()
+        body = (
+            _replay_worker_body(body)
+            + b"\n"
+            + (_PLUGIN_DIR / "replay_index.js").read_bytes()
+        )
     content_type = (
         "application/javascript; charset=utf-8"
         if file_path.suffix == ".js"

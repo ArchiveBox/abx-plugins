@@ -30,6 +30,7 @@ Each plugin lives under `plugins/<name>/` and may include:
 - optional `snapshot_thumbnail_cards` declarations in `config.json` identify ArchiveResult names whose existing `card.html` may represent a snapshot in list and grid views, with an explicit `order`
 - optional presentation metadata includes `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name`, `archive_result_aliases`, `default_output_path`, `icon_hidden`, `card_hidden`, `card_interactive`, `output_extension_preference`, `presentation_module`, and boolean `snapshot_<role>` declarations such as `snapshot_list_icon`, `snapshot_primary_preview`, and `snapshot_title_source`; hosts consume these declarations generically while plugin templates and presentation modules retain the rendering behavior
 - ArchiveWeb.page replay optionally reads the sibling `chrome/navigation.json` artifact to select the recorded final navigation for the requested URL. Missing, malformed, unrelated, or unrecorded navigation metadata preserves selection from the WACZ page index alone.
+- ArchiveWeb.page's pinned 0.17.0 replay worker uses a hash-validated Storage proxy correction so archived pages can remove the legacy `Object.prototype.__proto__` accessor. Only served worker bytes change; installed extension and archive bytes remain intact. Updating that dependency requires reviewing the worker hash and the three exact prototype-lookup replacements in `presentation.py`, then passing native replay Storage tests.
 - Chrome MHTML previews optionally use unambiguous saved font responses from the sibling `responses/index.jsonl` when native MHTML omits them. Native MIME parts take precedence; missing/malformed metadata or different font bodies for one URL leave the native preview unchanged. Downloaded MHTML bytes are never rewritten.
 - `config.json > required_binaries` binary dependency declarations (optional)
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
@@ -94,13 +95,16 @@ data. Unbounded archived content such as titles and tags belongs in files, not
 environment variables or shell commands. Sonic reads snapshot metadata from
 `SNAP_DIR/index.jsonl`; archived title text is available in `title/title.txt`.
 
-SQLite and Sonic index saved plain text/Markdown, extracted article HTML from
-Readability, Defuddle, Mercury and Trafilatura, and native HTML document exports
-published under `files/` with `downloads.json`. Raw browser/HTTP HTML captures are
-excluded. Indexing reads at most 16 MiB per source and 64 MiB per snapshot; sources
-that exceed either remaining limit are reported on stderr and left untouched.
-Sonic snapshot metadata is also limited to 16 MiB before JSON decoding. These are
-search-index limits, not capture limits.
+SQLite and Sonic first index saved plain text/Markdown (including LiteParse/OCR),
+extracted article HTML from Readability, Defuddle, Mercury and Trafilatura, and
+native HTML document exports published under `files/` with `downloads.json`.
+Data URLs and long ASCII encoded blobs are stripped in bounded streaming reads
+before any size thresholds are applied. Extracted text has a 5 MiB total budget.
+If it supplies less than 10 KiB, raw HTML with less than 100 KiB of cleaned source
+is used as a fallback, adding at most 256 KiB of text. HTML parsing itself is
+bounded to 16 MiB of cleaned input per source and 64 MiB per snapshot. Sonic
+snapshot metadata also has a 16 MiB cleaned-input bound before JSON decoding.
+Search limits never modify the saved capture files.
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
