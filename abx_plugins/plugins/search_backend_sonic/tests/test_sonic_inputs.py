@@ -18,7 +18,11 @@ from abx_plugins.plugins.search_backend_sonic.daemon import (
 from abx_plugins.plugins.search_backend_sonic.search import flush, search
 
 
-def write_discovery_files(snapshot: Path) -> dict[str, str]:
+def write_discovery_files(
+    snapshot: Path,
+    *,
+    with_fallback: bool = True,
+) -> dict[str, str]:
     content = {
         "article/text.txt": "plaintextuniqueneedle",
         "article/nested/readme.md": "markdownuniqueneedle",
@@ -109,7 +113,7 @@ def write_discovery_files(snapshot: Path) -> dict[str, str]:
     expected = {
         name: text.replace("<p>", "").replace("</p>", "")
         for name, text in content.items()
-        if "excludedrawhtmluniqueneedle" not in text
+        if with_fallback or "excludedrawhtmluniqueneedle" not in text
     }
     expected["readability/quoted.html"] = (
         "beforeimageuniqueneedle afterimageuniqueneedle"
@@ -133,7 +137,11 @@ def test_discovery_walks_content_once_and_prunes_runtime_trees(
     backend: str,
     order: str,
 ):
-    expected = write_discovery_files(tmp_path)
+    expected = write_discovery_files(tmp_path, with_fallback=False)
+    padding = "primary extracted words " * 500
+    (tmp_path / "article/padding.txt").write_text(padding)
+    expected["article/padding.txt"] = padding.strip()
+    expected["article_alias/padding.txt"] = padding.strip()
     hook = (
         Path(__file__).parents[2]
         / f"search_backend_{backend}/on_Snapshot__{order}_index_{backend}.py"
@@ -219,7 +227,7 @@ print(json.dumps({'contents': contents, 'scans': scans, 'opened': opened, 'resol
 
 
 def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Path):
-    discovery_content = write_discovery_files(tmp_path)
+    discovery_content = write_discovery_files(tmp_path, with_fallback=False)
     # The real Analog PDF plaintext contained 80,369 consecutive newlines.
     # A whitespace-only wire chunk is invalid in Sonic, but must not prevent
     # indexing the actual text on either side or change the saved source.
@@ -312,6 +320,8 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert search("forbiddencontexttag", environ=env) == []
             for term in set(discovery_content.values()):
                 assert search(term, environ=env) == ["explicit-sonic-id"], term
+            # The extracted PDF text exceeds the fallback threshold.
+            assert search("excludedrawhtmluniqueneedle", environ=env) == []
             assert search("excludedruntimeuniqueneedle", environ=env) == []
             assert search("excludedsecretuniqueneedle", environ=env) == []
             assert search("excludedattributeuniqueneedle", environ=env) == []
@@ -485,7 +495,7 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
 
 
 @pytest.mark.parametrize("backend,order", [("sonic", "91"), ("sqlite", "90")])
-def test_indexing_bounds_source_bytes_and_preserves_saved_outputs(
+def test_embedded_media_is_removed_with_bounded_memory(
     tmp_path,
     backend,
     order,
@@ -500,19 +510,7 @@ def test_indexing_bounds_source_bytes_and_preserves_saved_outputs(
         + "><p>afterimageuniqueneedle</p>",
     )
     page_hash = hashlib.sha256(page.read_bytes()).hexdigest()
-    oversized = article / "oversized.html"
-    with oversized.open("wb") as stream:
-        stream.write(b"<p>oversizeduniqueneedle</p>")
-        stream.truncate(16 * 1024**2 + 1)
-    # Each file is admissible, but their combined input exceeds the snapshot cap.
-    for i in range(5):
-        with (article / f"text-{i}.txt").open("wb") as stream:
-            block = (f"document{i}uniqueneedle " * 1000).encode()
-            remaining = 16 * 1024**2
-            while remaining:
-                chunk = block[:remaining]
-                stream.write(chunk)
-                remaining -= len(chunk)
+    (article / "small.txt").write_text("small extracted text")
     hook = (
         Path(__file__).parents[2]
         / f"search_backend_{backend}/on_Snapshot__{order}_index_{backend}.py"
@@ -534,11 +532,8 @@ print(json.dumps({'contents': {x[0]: len(x[1]) for x in contents}, 'html': next(
     assert result.returncode == 0, result.stderr
     observed = json.loads(result.stdout)
     assert observed["html"] == "beforeimageuniqueneedle afterimageuniqueneedle"
-    assert "readability/oversized.html" not in observed["contents"]
-    assert sum(observed["contents"].values()) <= 64 * 1024**2
-    assert len(observed["contents"]) == 4  # HTML plus three 16 MiB text files.
-    assert "indexing limit" in result.stderr
+    assert sum(observed["contents"].values()) < 100
+    assert len(observed["contents"]) == 2
     rss_bytes = observed["rss"] if sys.platform == "darwin" else observed["rss"] * 1024
-    assert rss_bytes < 512 * 1024**2
+    assert rss_bytes < 128 * 1024**2
     assert hashlib.sha256(page.read_bytes()).hexdigest() == page_hash
-    assert oversized.stat().st_size == 16 * 1024**2 + 1

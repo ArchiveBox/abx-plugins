@@ -88,6 +88,7 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
     assert title_link.is_symlink()
     assert {path.name for path in output_dir.iterdir() if path.is_symlink()} == {
         "htmltotext__htmltotext.txt",
+        "dom__output.html",
         "title__title.txt",
         "responses__body.txt",
         "dom__response.txt",
@@ -96,7 +97,9 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(
         body_link.resolve()
         == (snapshot_dir / "htmltotext" / "htmltotext.txt").resolve()
     )
-    assert not (output_dir / "dom__output.html").exists()
+    assert (
+        output_dir / "dom__output.html"
+    ).resolve() == snapshot_dir / "dom/output.html"
     assert title_link.resolve() == (snapshot_dir / "title" / "title.txt").resolve()
 
     conn = sqlite3.connect(str(snapshot_dir / "search.sqlite3"))

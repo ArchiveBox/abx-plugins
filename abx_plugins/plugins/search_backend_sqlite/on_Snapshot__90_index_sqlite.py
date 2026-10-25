@@ -26,6 +26,7 @@ import sqlite3
 import hashlib
 from pathlib import Path
 
+from abx_plugins.plugins.base.search_text import clean_index_text, read_indexable_text
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
 )
@@ -51,9 +52,13 @@ INDEXABLE_EXTENSIONS = {".txt", ".md"}
 # Raw browser/HTTP captures are not text extraction inputs to search.
 HTML_TEXT_PLUGINS = {"readability", "defuddle", "mercury", "trafilatura"}
 # Search is a bounded derivative; embedded media must not exhaust the capture
-# worker. These limits apply to input bytes, before decoding or parsing HTML.
+# worker. All limits count bytes after data URL / encoded-blob removal.
 MAX_INDEX_FILE_SIZE = 16 * 1024 * 1024
 MAX_INDEX_TOTAL_SIZE = 64 * 1024 * 1024
+MAX_INDEX_TEXT_SIZE = 5 * 1024 * 1024
+MIN_INDEX_TEXT_SIZE = 10 * 1024
+MAX_FALLBACK_HTML_SIZE = 100 * 1024
+MAX_FALLBACK_TEXT_SIZE = 256 * 1024
 # Directories to skip (search backends themselves, executor artifacts, non-text plugins)
 SKIP_DIRS = {
     "chrome",
@@ -113,11 +118,37 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
 
     Walks every subdirectory of SNAP_DIR and collects .txt, .md, .html, .htm
     files. Plain text and Markdown are discovered from any plugin; HTML is
-    read only from article extractors and document exports, never raw captures.
+    read first from article extractors and document exports. Small raw HTML
+    is a fallback only when less than 10 KiB of cleaned extracted text exists.
     """
     results = []
+    fallback_html = []
     input_bytes = 0
+    text_bytes = 0
     snap_dir = SNAP_DIR
+
+    def read_source(source_path: Path, is_html: bool, remaining: int) -> str:
+        nonlocal input_bytes
+        read_limit = min(MAX_INDEX_FILE_SIZE, MAX_INDEX_TOTAL_SIZE - input_bytes)
+        if read_limit <= 0:
+            return ""
+        content = read_indexable_text(source_path, read_limit + 1)
+        encoded = content.encode("utf-8")
+        if len(encoded) > read_limit:
+            print(
+                f"Limiting {source_path}: search indexing limit ({read_limit} cleaned bytes)",
+                file=sys.stderr,
+            )
+            content = encoded[:read_limit].decode("utf-8", errors="ignore")
+        input_bytes += min(len(encoded), read_limit)
+        if is_html:
+            content = strip_html_tags(content)
+        return (
+            clean_index_text(content)
+            .strip()
+            .encode("utf-8")[:remaining]
+            .decode("utf-8", errors="ignore")
+        )
 
     if not snap_dir.is_dir():
         return results
@@ -158,16 +189,15 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
             for filename in sorted(filenames):
                 match = Path(directory) / filename
                 is_html = match.suffix.lower() in (".html", ".htm")
+                is_primary = True
                 if is_html:
                     is_document_export = (
                         has_document_exports
                         and match.relative_to(plugin_dir).parts[0] == "files"
                     )
-                    if (
-                        resolved_plugin.name not in HTML_TEXT_PLUGINS
-                        and not is_document_export
-                    ):
-                        continue
+                    is_primary = (
+                        resolved_plugin.name in HTML_TEXT_PLUGINS or is_document_export
+                    )
                 elif not filename.lower().endswith(tuple(INDEXABLE_EXTENSIONS)):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
@@ -193,41 +223,43 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
                 if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
                     continue
 
-                read_limit = min(
-                    MAX_INDEX_FILE_SIZE,
-                    MAX_INDEX_TOTAL_SIZE - input_bytes,
-                )
-                if source_stat.st_size > read_limit:
-                    print(
-                        f"Skipping {match}: search indexing limit ({read_limit} bytes)",
-                        file=sys.stderr,
-                    )
+                source_id = f"{extractor}/{match.relative_to(plugin_dir).as_posix()}"
+                if not is_primary:
+                    fallback_html.append((source_id, resolved))
                     continue
                 try:
-                    # Bound the read too: a file can grow after its stat.
-                    with resolved.open("rb") as source:
-                        raw_content = source.read(read_limit + 1)
-                    if len(raw_content) > read_limit:
-                        print(
-                            f"Skipping {match}: search indexing limit ({read_limit} bytes)",
-                            file=sys.stderr,
-                        )
-                        continue
-                    input_bytes += len(raw_content)
-                    content = raw_content.decode("utf-8", errors="ignore")
-                    del raw_content
-                    if not content.strip():
-                        continue
-                    if is_html:
-                        content = strip_html_tags(content)
-                    if not content.strip():
-                        continue
-                    rel_path = match.relative_to(plugin_dir)
-                    results.append(
-                        (f"{extractor}/{rel_path.as_posix()}", content, resolved),
+                    content = read_source(
+                        resolved,
+                        is_html,
+                        MAX_INDEX_TEXT_SIZE - text_bytes,
                     )
-                except Exception:
+                    if content:
+                        results.append((source_id, content, resolved))
+                        text_bytes += len(content.encode("utf-8"))
+                        if text_bytes >= MAX_INDEX_TEXT_SIZE:
+                            return results
+                except (OSError, UnicodeError):
                     continue
+
+    if text_bytes < MIN_INDEX_TEXT_SIZE:
+        fallback_bytes = 0
+        for source_id, resolved in fallback_html:
+            try:
+                # Admission is based on cleaned HTML, not embedded-media size.
+                html = read_indexable_text(resolved, MAX_FALLBACK_HTML_SIZE)
+                if len(html.encode("utf-8")) >= MAX_FALLBACK_HTML_SIZE:
+                    continue
+                content = clean_index_text(strip_html_tags(html)).strip()
+                content = content.encode("utf-8")[
+                    : MAX_FALLBACK_TEXT_SIZE - fallback_bytes
+                ].decode("utf-8", errors="ignore")
+                if content:
+                    results.append((source_id, content, resolved))
+                    fallback_bytes += len(content.encode("utf-8"))
+                    if fallback_bytes >= MAX_FALLBACK_TEXT_SIZE:
+                        break
+            except (OSError, UnicodeError):
+                continue
 
     return results
 
