@@ -83,6 +83,8 @@ async function startPageScreencast(page, onFrame, { quality = 65, fps = 1, scale
       format: "jpeg", quality,
       maxWidth: Math.max(1, Math.floor((viewport.clientWidth || 1440) * scale)),
       maxHeight: Math.max(1, Math.floor((viewport.clientHeight || 900) * scale)), everyNthFrame: 1,
+      // Chrome otherwise starts up to three encodes before our first-frame stop.
+      maxFramesInFlight: 1,
     };
     acquiring = true;
     await session.send("Page.startScreencast", captureOptions);

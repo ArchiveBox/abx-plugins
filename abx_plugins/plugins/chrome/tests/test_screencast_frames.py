@@ -67,6 +67,13 @@ const {startPageScreencast}=require(path.join(path.dirname(process.argv[1]),'../
         acquired = len(
             re.findall(r'"method"\s*:\s*"Page\.screencastFrame"', result.stderr),
         )
+        capture_sessions = [
+            json.loads(line[line.index("{") :])["params"]["sessionId"]
+            for line in result.stderr.splitlines()
+            if re.search(r'"method"\s*:\s*"Page\.screencastFrame"', line)
+        ]
+        # Each real native start/stop cycle must encode only its sampled frame.
+        assert len(capture_sessions) == len(set(capture_sessions)), capture_sessions
         assert 4 <= observed["frames"] <= 7, observed
         assert all(
             b - a >= 900 for a, b in zip(observed["times"], observed["times"][1:])
