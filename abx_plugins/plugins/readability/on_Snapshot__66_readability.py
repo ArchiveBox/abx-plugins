@@ -29,6 +29,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from contextlib import ExitStack
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -285,6 +286,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
     Returns: (success, output_path, error_message)
     """
+    started_at = time.monotonic()
     if has_staticfile_output():
         return "noresults", "staticfile already handled"
     if is_non_html_document():
@@ -314,6 +316,10 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
             "utf-8",
         ]
         source_html = Path(html_source).read_text(encoding="utf-8", errors="replace")
+        print(
+            f"[readability] phase=source-read elapsed_ms={(time.monotonic() - started_at) * 1000:.0f}",
+            file=sys.stderr,
+        )
         scoped_html = primary_article_html(source_html)
         with ExitStack() as files:
             if scoped_html != source_html:
@@ -334,7 +340,14 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
                 text=True,
             )
 
-        if result.stdout:
+        # Article HTML/text already have saved artifacts. Keep successful logs
+        # small; these phase timings distinguish extraction from filesystem work
+        # when a hook's wall time is much longer than its native parser runtime.
+        print(
+            f"[readability] phase=extractor-finished elapsed_ms={(time.monotonic() - started_at) * 1000:.0f}",
+            file=sys.stderr,
+        )
+        if result.returncode != 0 and result.stdout:
             sys.stderr.write(result.stdout)
             sys.stderr.flush()
 
@@ -350,6 +363,8 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError:
+            sys.stderr.write(result.stdout)
+            sys.stderr.flush()
             return "noresults", "No content extracted"
 
         # Extract and save content
@@ -377,6 +392,10 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         write_text_atomic(output_dir / OUTPUT_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
         write_text_atomic(output_dir / METADATA_FILE, json.dumps(result_json, indent=2))
+        print(
+            f"[readability] phase=outputs-saved elapsed_ms={(time.monotonic() - started_at) * 1000:.0f}",
+            file=sys.stderr,
+        )
 
         return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 

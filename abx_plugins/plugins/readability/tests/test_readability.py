@@ -9,6 +9,7 @@ Tests verify:
 
 import json
 import os
+import re
 import signal
 import subprocess
 import tempfile
@@ -327,6 +328,19 @@ def test_direct_hook_resolves_dependencies_and_extracts_article():
         )
         assert "example" in txt_content.lower(), "Missing 'example' in text"
         assert "café in Montréal…" in txt_content
+        assert "café in Montréal…" not in result.stderr
+        assert '"textContent"' not in result.stderr
+        phases = re.findall(
+            r"\[readability\] phase=(\S+) elapsed_ms=(\d+)",
+            result.stderr,
+        )
+        assert [phase for phase, _ in phases] == [
+            "source-read",
+            "extractor-finished",
+            "outputs-saved",
+        ]
+        elapsed = [int(value) for _, value in phases]
+        assert elapsed == sorted(elapsed)
 
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
@@ -510,6 +524,32 @@ def test_prefers_dom_output_over_singlefile_when_both_exist(
     assert "archivebox" not in txt_content
     metadata = json.loads((output_dir / "article.json").read_text())
     assert isinstance(metadata, dict)
+
+
+def test_invalid_extractor_output_keeps_diagnostics(tmp_path):
+    """A real CLI option returning non-article output must remain diagnosable."""
+    binary = require_readability_binary()
+    create_example_html(tmp_path)
+    version = subprocess.check_output([binary, "--version"], text=True).strip()
+    result = subprocess.run(
+        [str(READABILITY_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "READABILITY_BINARY": binary,
+            "READABILITY_ARGS": '["--version"]',
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record is not None
+    assert record["status"] == "noresults"
+    assert version in result.stderr.splitlines()
+    assert not (tmp_path / "readability" / "content.html").exists()
 
 
 if __name__ == "__main__":
