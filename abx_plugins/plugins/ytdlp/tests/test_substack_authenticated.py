@@ -7,7 +7,8 @@ import json
 import os
 import shlex
 import subprocess
-from http.cookiejar import MozillaCookieJar
+import tempfile
+from http.cookiejar import Cookie, MozillaCookieJar
 from pathlib import Path
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
@@ -20,11 +21,10 @@ from abx_plugins.plugins.ytdlp.tests.test_ytdlp import (
 )
 
 
-def diagnose_substack_media_response(cookie_file, ytdlp_binary, impersonate=False):
+def diagnose_substack_media_response(cookie_file, ytdlp_binary):
     """Describe a separate request through the actual installed yt-dlp runtime."""
     diagnostic = {
         "client": "secondary yt-dlp request (not the original download)",
-        "impersonate": "any" if impersonate else None,
     }
     try:
         # Pytest's interpreter need not contain the hook's yt-dlp dependencies.
@@ -50,7 +50,6 @@ def diagnose_substack_media_response(cookie_file, ytdlp_binary, impersonate=Fals
                 "python",
                 "-",
                 str(cookie_file),
-                "1" if impersonate else "0",
             ],
             input=r"""
 import json
@@ -61,12 +60,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from yt_dlp.networking.exceptions import HTTPError
-from yt_dlp.networking.impersonate import ImpersonateTarget
 
-impersonate = sys.argv[2] == "1"
 diagnostic = {
     "client": "secondary yt-dlp request (not the original download)",
-    "impersonate": "any" if impersonate else None,
 }
 try:
     # YoutubeDL saves its jar on close. Diagnose from a private copy so this
@@ -77,8 +73,6 @@ try:
         cookies.chmod(0o600)
         options = {"cookiefile": str(cookies), "quiet": True,
                    "no_warnings": True, "socket_timeout": 10}
-        if impersonate:
-            options["impersonate"] = ImpersonateTarget()
         with YoutubeDL(options) as ydl:
             try:
                 response = ydl.urlopen(
@@ -89,7 +83,6 @@ try:
                 response = error.response
             with response:
                 diagnostic.update(
-                    impersonate=str(response.extensions.get("impersonate") or "") or None,
                     status=response.status,
                     final_hostname=urlsplit(response.url).hostname,
                     headers={name: response.headers.get(name, "")[:256]
@@ -120,6 +113,153 @@ print(json.dumps(diagnostic))
         # exception messages. This optional evidence must preserve the real failure.
         diagnostic["error_type"] = type(error).__name__
         return diagnostic
+
+
+def diagnose_substack_browser_response(cookie_file, ytdlp_binary):
+    """Compare the real persona browser and its live jar without retrying capture."""
+    from playwright.sync_api import sync_playwright
+
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+        CHROME_NAVIGATE_HOOK,
+        chrome_session,
+        require_chrome_runtime_impl,
+    )
+
+    diagnostic: dict[str, object] = {
+        "client": "secondary Chrome persona request (not the original download)",
+    }
+    try:
+        cookies = MozillaCookieJar(cookie_file)
+        cookies.load(ignore_discard=True)
+        expected = {
+            (cookie.domain, cookie.path, cookie.name): cookie.value
+            for cookie in cookies
+            if not cookie.is_expired()
+        }
+        require_chrome_runtime_impl()
+        # The browser profile and temporary export contain credentials. Keep both
+        # outside pytest's uploaded artifact tree; never replace the input persona.
+        with tempfile.TemporaryDirectory(
+            prefix="substack-browser-diagnostic-",
+        ) as private:
+            root = Path(private)
+            url = "https://andrewzimmern.substack.com/p/mussels-with-black-bean-sauce-recipe"
+            with chrome_session(
+                root,
+                test_url=url,
+                navigate=False,
+                env_overrides={
+                    "COOKIES_FILE": cookie_file,
+                    "AUTH_STORAGE_FILE": "",
+                    "CHROME_HEADLESS": "false",
+                },
+            ) as (_, _, chrome, env):
+                with sync_playwright() as playwright:
+                    browser = playwright.chromium.connect_over_cdp(
+                        (chrome / "cdp_url.txt").read_text().strip(),
+                    )
+                    context = browser.contexts[0]
+                    browser_session = browser.new_browser_cdp_session()
+                    imported = {
+                        (cookie["domain"], cookie["path"], cookie["name"]): cookie[
+                            "value"
+                        ]
+                        for cookie in browser_session.send("Storage.getCookies")[
+                            "cookies"
+                        ]
+                    }
+                    diagnostic.update(
+                        expected_cookie_count=len(expected),
+                        matching_cookie_count=sum(
+                            imported.get(key) == value
+                            for key, value in expected.items()
+                        ),
+                    )
+                    target = (chrome / "target_id.txt").read_text().strip()
+                    page = next(
+                        page
+                        for page in context.pages
+                        if context.new_cdp_session(page).send("Target.getTargetInfo")[
+                            "targetInfo"
+                        ]["targetId"]
+                        == target
+                    )
+                    navigation = subprocess.run(
+                        [
+                            str(CHROME_NAVIGATE_HOOK),
+                            f"--url={url}",
+                            "--snapshot-id=test-snapshot",
+                        ],
+                        cwd=chrome,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    diagnostic["navigation_exit_code"] = navigation.returncode
+                    # Native same-origin fetch uses Chrome's actual cookies and
+                    # transport. Do not manufacture a browser UA for yt-dlp.
+                    diagnostic["media"] = page.evaluate("""async () => {
+                        const response = await fetch('/api/v1/video/upload/52057d2b-a609-471e-9237-e6eeaac08ddb/src?type=hls',
+                            {credentials: 'include', signal: AbortSignal.timeout(10000)});
+                        const reader = response.body.getReader();
+                        let body = new Uint8Array(8192), size = 0;
+                        try {
+                            while (size < body.length) {
+                                const {value, done} = await reader.read();
+                                if (done) break;
+                                const count = Math.min(value.length, body.length - size);
+                                body.set(value.subarray(0, count), size); size += count;
+                            }
+                        } finally { await reader.cancel(); }
+                        const text = new TextDecoder().decode(body.subarray(0, size)).toLowerCase();
+                        return {status: response.status, final_hostname: new URL(response.url).hostname,
+                            headers: Object.fromEntries(['server', 'content-type', 'cf-mitigated']
+                                .map(name => [name, (response.headers.get(name) || '').slice(0, 256)])),
+                            body_has_hls_marker: text.startsWith('#extm3u'),
+                            body_has_challenge_marker: ['cf-chl-', '/cdn-cgi/challenge-platform/', 'verify you are human']
+                                .some(marker => text.includes(marker))};
+                    }""")
+                    live = browser_session.send("Storage.getCookies")["cookies"]
+                    jar_path = root / "cookies.txt"
+                    jar = MozillaCookieJar(str(jar_path))
+                    for cookie in live:
+                        expires = (
+                            int(cookie["expires"]) if cookie["expires"] > 0 else None
+                        )
+                        jar.set_cookie(
+                            Cookie(
+                                0,
+                                cookie["name"],
+                                cookie["value"],
+                                None,
+                                False,
+                                cookie["domain"],
+                                cookie["domain"].startswith("."),
+                                cookie["domain"].startswith("."),
+                                cookie["path"],
+                                True,
+                                cookie["secure"],
+                                expires,
+                                expires is None,
+                                None,
+                                None,
+                                {"HttpOnly": ""} if cookie["httpOnly"] else {},
+                            ),
+                        )
+                    jar.save(ignore_discard=True)
+                    jar_path.chmod(0o600)
+                    # Diagnostic only: distinguish an updated browser session from
+                    # transport rejection, without a production cookie persistence pass.
+                    diagnostic["live_browser_jar_ytdlp"] = (
+                        diagnose_substack_media_response(
+                            str(jar_path),
+                            ytdlp_binary,
+                        )
+                    )
+    except Exception as error:
+        diagnostic["error_type"] = type(error).__name__
+    return diagnostic
 
 
 def test_substack_json_script_downloads_real_video(
@@ -163,19 +303,22 @@ def test_substack_json_script_downloads_real_video(
     )
     assert "Loading request from" in result.stderr, result.stderr
     if result.returncode:
-        # Compare supported transports on the same failing host and persona.
-        # Upstream selects its browser profile/headers; neither result retries
-        # the capture or replaces the original strict download assertion below.
-        for impersonate in (False, True):
-            print(
-                json.dumps(
-                    diagnose_substack_media_response(
-                        os.environ["COOKIES_FILE"],
-                        ytdlp_runtime_env["YTDLP_BINARY"],
-                        impersonate=impersonate,
-                    ),
+        print(
+            json.dumps(
+                diagnose_substack_media_response(
+                    os.environ["COOKIES_FILE"],
+                    ytdlp_runtime_env["YTDLP_BINARY"],
                 ),
-            )
+            ),
+        )
+        print(
+            json.dumps(
+                diagnose_substack_browser_response(
+                    os.environ["COOKIES_FILE"],
+                    ytdlp_runtime_env["YTDLP_BINARY"],
+                ),
+            ),
+        )
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout

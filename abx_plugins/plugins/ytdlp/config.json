@@ -16,7 +16,7 @@
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "yt-dlp[default,curl-cffi]==2026.10.21",
+            "yt-dlp[default]==2026.10.21",
             "--exclude-newer-package=yt-dlp=2026-10-23T00:00:00Z"
           ],
           "min_release_age": 0
