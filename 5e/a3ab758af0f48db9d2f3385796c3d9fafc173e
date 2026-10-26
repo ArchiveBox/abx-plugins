@@ -1,0 +1,21 @@
+abx_plugins/plugins/ytdlp/tests/test_substack_authenticated.py
+  s_10bc94d001be49::t_412443ca6e658c 2-4
+tests/test_fixtures.py
+  s_10bc94d001be49::t_1aac362eac427c 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5ea3ab758af0f48db9d2f3385796c3d9fafc173e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
