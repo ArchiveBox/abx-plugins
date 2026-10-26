@@ -14,6 +14,125 @@ import pytest
 from abx_plugins.plugins.archivewebpage import presentation
 
 
+@pytest.mark.parametrize(
+    "supported, missing_record",
+    [(True, False), (False, False), (True, True)],
+)
+def test_replay_reports_real_document_or_unsupported_platform(
+    tmp_path,
+    httpserver,
+    require_chrome_runtime,
+    supported,
+    missing_record,
+):
+    """Use an actual insecure origin to exercise absent SW, without API overrides."""
+    from playwright.sync_api import sync_playwright
+    from werkzeug.wrappers import Response
+    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+    from abx_plugins.plugins.base.utils import load_config
+
+    plugin_dir = Path(presentation.__file__).parent
+    install_required_binary_from_config(
+        plugin_dir,
+        "archivewebpage",
+        env=dict(os.environ),
+    )
+    config = load_config(plugin_dir / "config.json", hydrate_binaries=False)
+    fixture = Path(__file__).parent / "fixtures/replay/iframetest.wacz"
+    source = "/archivewebpage/capture.wacz"
+    for asset in ("ui.js", "sw-index.js", "sw.js", "replay.html"):
+        response = presentation.serve_replay_asset(f"replay/{asset}", config)
+        assert response is not None
+        body, content_type, headers = response
+        httpserver.expect_request(f"/replay/{asset}").respond_with_data(
+            body,
+            content_type=content_type,
+            headers=headers,
+        )
+    archive = fixture.read_bytes()
+    viewer_html = presentation.render_replay_html(
+        "capture.wacz",
+        source,
+        None if missing_record else fixture,
+        fallback_url="https://example.invalid/not-in-archive" if missing_record else "",
+    )
+
+    def serve_capture(request):
+        # Match the real preview/raw URL contract: the worker only accepts an
+        # inline index from preview=1 at the same path as the actual archive.
+        if request.args.get("preview") == "1":
+            return Response(viewer_html, content_type="text/html")
+        if byte_range := request.headers.get("Range"):
+            start, end = byte_range.removeprefix("bytes=").split("-")
+            first = int(start) if start else max(0, len(archive) - int(end))
+            last = (
+                min(int(end), len(archive) - 1) if start and end else len(archive) - 1
+            )
+            return Response(
+                archive[first : last + 1],
+                status=206,
+                headers={
+                    "Content-Range": f"bytes {first}-{last}/{len(archive)}",
+                    "Accept-Ranges": "bytes",
+                },
+                content_type="application/wacz",
+            )
+        return Response(
+            archive,
+            content_type="application/wacz",
+            headers={"Accept-Ranges": "bytes"},
+        )
+
+    httpserver.expect_request(source).respond_with_handler(serve_capture)
+    httpserver.expect_request("/").respond_with_data(
+        f'<!doctype html><iframe id="replay" src="{source}?preview=1" style="width:100%;height:90vh"></iframe>'
+        '<script>window.messages=[];addEventListener("message",event=>{'
+        'if(event.source===document.getElementById("replay").contentWindow) messages.push(event.data);});</script>',
+        content_type="text/html",
+    )
+    url = httpserver.url_for("/")
+    if not supported:
+        url = url.replace("localhost", "replay.invalid")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=os.environ["CHROME_BINARY"],
+            args=[
+                "--no-sandbox",
+                "--host-resolver-rules=MAP replay.invalid 127.0.0.1",
+                "--no-proxy-server",
+            ],
+        )
+        page = browser.new_page()
+        page.goto(url, wait_until="domcontentloaded")
+        if supported and not missing_record:
+            page.wait_for_function(
+                "messages.some(message => message.type === 'archivebox-replay-painted')",
+            )
+            replay = next(frame for frame in page.frames if "/replay/w/" in frame.url)
+            assert "Outside iframe" in replay.locator("body").inner_text()
+            assert not page.evaluate(
+                "messages.some(message => message.type === 'archivebox-replay-error')",
+            )
+        else:
+            page.wait_for_function(
+                "messages.some(message => message.type === 'archivebox-replay-error')",
+            )
+            viewer = next(frame for frame in page.frames if "preview=1" in frame.url)
+            if missing_record:
+                assert viewer.evaluate("'serviceWorker' in navigator") is True
+                assert viewer.evaluate("window.archiveboxReplayError") == (
+                    "Requested page was not found in the saved WACZ"
+                )
+            else:
+                assert viewer.evaluate("'serviceWorker' in navigator") is False
+                assert viewer.get_by_role("link", name="Open in browser").is_visible()
+            assert not page.evaluate(
+                "messages.some(message => message.type === 'archivebox-replay-painted')",
+            )
+        page.screenshot(path=str(tmp_path / "replay.png"))
+        browser.close()
+
+
 def test_replay_storage_fix_preserves_installed_bundle_and_rejects_changes(tmp_path):
     from abx_plugins.plugins.base.testing import install_required_binary_from_config
     from abx_plugins.plugins.base.utils import load_config

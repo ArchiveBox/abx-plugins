@@ -43,17 +43,55 @@
         return worker;
     }
 
+    let replayPoll;
+    function replayDocumentLoaded(root) {
+        for (const element of root.querySelectorAll('*')) {
+            if (element.shadowRoot && replayDocumentLoaded(element.shadowRoot)) return true;
+            if (element.tagName !== 'IFRAME') continue;
+            try {
+                const child = element.contentWindow;
+                const doc = element.contentDocument;
+                if (!doc) continue;
+                // The viewer's loading events can finish before replay exists.
+                // Require the actual archived document, not its bootstrap UI.
+                if (child.location.pathname.includes('/replay/w/') &&
+                    doc.readyState !== 'loading' && doc.body) return true;
+                if (replayDocumentLoaded(doc)) return true;
+            } catch (error) {}
+        }
+        return false;
+    }
+
     function mountReplay() {
         const root = document.getElementById('replay-root');
         const replayElement = document.getElementById('replay-template').content.firstElementChild.cloneNode(true);
         replayElement.addEventListener('rwp-page-loading', (event) => {
+            // A later navigation must not reuse the prior document's readiness.
+            if (event.detail && event.detail.loading === true) window.archiveboxReplayReady = null;
             if (event.detail && event.detail.loading === false) {
+                // A missing-record response also has a loaded iframe body.
+                // Use the replay engine's result, not error-page text heuristics.
+                if (event.detail.replayNotFoundError) {
+                    clearInterval(replayPoll);
+                    window.archiveboxReplayError = 'Requested page was not found in the saved WACZ';
+                    window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: window.archiveboxReplayError}));
+                    parent.postMessage({type: 'archivebox-replay-error'}, '*');
+                    return;
+                }
                 window.archiveboxReplayReady = event.detail;
                 window.dispatchEvent(new CustomEvent('archivebox-replay-ready', {detail: event.detail}));
             }
         });
         root.replaceChildren(replayElement);
+        // A fallback can fully cover this frame, suppressing animation frames
+        // and paint entries. DOM readiness still works while it loads behind it.
+        replayPoll = setInterval(() => {
+            if (!window.archiveboxReplayReady || window.archiveboxReplayError || !replayDocumentLoaded(document)) return;
+            clearInterval(replayPoll);
+            parent.postMessage({type: 'archivebox-replay-painted'}, '*');
+        }, 50);
     }
+    window.addEventListener('pagehide', () => clearInterval(replayPoll), {once: true});
 
     // Download/activate the worker while the browser fetches and parses the UI.
     const replayWorkerReady = activateReplayWorker();
@@ -73,6 +111,7 @@
             .then(() => customElements.whenDefined('replay-web-page'))
             .then(mountReplay)
             .catch((error) => {
+                clearInterval(replayPoll);
                 window.archiveboxReplayError = String(error);
                 const root = document.getElementById('replay-root');
                 root.classList.add('replay-unavailable');
@@ -96,6 +135,9 @@
                 message.append(title, openBrowser, detail, download);
                 root.replaceChildren(message);
                 window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
+                // Unsupported replay must leave the parent's saved fallback
+                // visible; an error panel is never a successfully painted page.
+                parent.postMessage({type: 'archivebox-replay-error'}, '*');
             });
     }, {once: true});
     </script>
