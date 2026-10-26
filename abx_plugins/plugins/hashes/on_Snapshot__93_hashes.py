@@ -14,6 +14,7 @@ import json
 import os
 import re
 import stat
+import struct
 import sys
 import time
 from datetime import UTC, datetime
@@ -164,10 +165,14 @@ def create_hashes(snapshot_dir: Path) -> dict[str, Any]:
     }
 
 
-def hardlink_duplicates(snapshot_dir: Path, files: list[dict[str, Any]]) -> None:
-    """Share proven-identical bytes without changing ArchiveBox's public paths."""
+def deduplicate_files(snapshot_dir: Path, files: list[dict[str, Any]]) -> None:
+    """Share identical extents while keeping every output independently writable."""
+    if sys.platform != "linux":
+        return
+    import fcntl
+
     originals: dict[tuple[str, int], Path] = {}
-    for index, item in enumerate(files):
+    for item in files:
         key = (str(item["hash"]), int(item["size"]))
         # Empty files reclaim nothing; a zero digest means hashing failed, not equality.
         if key[1] <= 0 or key[0] == "0" * 64:
@@ -176,12 +181,8 @@ def hardlink_duplicates(snapshot_dir: Path, files: list[dict[str, Any]]) -> None
         source = originals.setdefault(key, path)
         if source == path:
             continue
-        temp_path = path.parent / f".abx-hardlink-{os.getpid()}-{index}"
-        # Never clean up a pre-existing path if link creation fails with EEXIST.
-        temp_created = False
         try:
-            source_stat, path_stat = source.stat(), path.stat()
-            # Hardlinks share inode metadata, so differing metadata must remain separate.
+            source_stat, path_stat = source.lstat(), path.lstat()
             if (
                 os.path.samestat(source_stat, path_stat)
                 or source_stat.st_dev != path_stat.st_dev
@@ -189,28 +190,42 @@ def hardlink_duplicates(snapshot_dir: Path, files: list[dict[str, Any]]) -> None
                 or not stat.S_ISREG(path_stat.st_mode)
                 or source_stat.st_size != key[1]
                 or path_stat.st_size != key[1]
-                or (source_stat.st_mode, source_stat.st_uid, source_stat.st_gid)
-                != (path_stat.st_mode, path_stat.st_uid, path_stat.st_gid)
             ):
                 continue
-            # A sibling link plus atomic replace keeps the public path present on every failure.
-            os.link(source, temp_path)
-            temp_created = True
-            # Late writers can stale the manifest; never merge a file that changed meanwhile.
-            if source.stat().st_mtime_ns != source_stat.st_mtime_ns:
-                continue
-            if path.stat().st_mtime_ns != path_stat.st_mtime_ns:
-                continue
-            os.replace(temp_path, path)
+            # Hardlinks let a later extractor overwrite another retained output
+            # and merge their timestamps. FIDEDUPERANGE keeps both inodes and
+            # metadata, verifies equality in the kernel, and makes future writes
+            # private. Its range limit is filesystem-dependent (commonly 16 MiB).
+            with source.open("rb") as src, path.open("r+b") as dst:
+                for offset in range(0, key[1], 16 * 1024 * 1024):
+                    length = min(16 * 1024 * 1024, key[1] - offset)
+                    # linux/fs.h: file_dedupe_range followed by one destination.
+                    request = bytearray(
+                        struct.pack(
+                            "=QQHHIqQQiI",
+                            offset,
+                            length,
+                            1,
+                            0,
+                            0,
+                            dst.fileno(),
+                            offset,
+                            0,
+                            0,
+                            0,
+                        ),
+                    )
+                    fcntl.ioctl(src.fileno(), 0xC0189436, request, True)
+                    _, _, _, _, _, _, _, deduped, status, _ = struct.unpack(
+                        "=QQHHIqQQiI",
+                        request,
+                    )
+                    if status != 0 or deduped != length:
+                        break
         except OSError:
-            # TODO: Decide whether to try a symlink before giving up when hardlinks are unavailable.
+            # Unsupported filesystems (including remote mounts) retain separate
+            # files. A failed space optimization must never change saved bytes.
             pass
-        finally:
-            if temp_created:
-                try:
-                    temp_path.unlink(missing_ok=True)
-                except OSError:
-                    pass
 
 
 def format_output_str(total_size: int, root_hash: str | None) -> str:
@@ -268,7 +283,7 @@ def main(url: str):
             flush=True,
         )
         phase_started = time.monotonic()
-        hardlink_duplicates(snapshot_dir, merkle_data["files"])
+        deduplicate_files(snapshot_dir, merkle_data["files"])
         print(
             f"phase=dedupe complete elapsed_ms={(time.monotonic() - phase_started) * 1000:.3f} {counts}",
             file=sys.stderr,

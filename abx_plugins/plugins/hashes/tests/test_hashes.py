@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import re
-import runpy
 import subprocess
 import tempfile
 from pathlib import Path
@@ -21,6 +20,70 @@ from abx_plugins.plugins.base.testing import parse_jsonl_output
 # Get the path to the hashes hook
 PLUGIN_DIR = Path(__file__).parent.parent
 HASHES_HOOK = PLUGIN_DIR / "on_Snapshot__93_hashes.py"
+
+
+def test_hashes_preserves_independent_outputs_on_real_wget_rerun(tmp_path, httpserver):
+    """Deduplication cannot let a later extractor overwrite another saved output."""
+    import shutil
+
+    wget = shutil.which("wget")
+    assert wget, "Real wget must be installed"
+    wget_hook = PLUGIN_DIR.parent / "wget" / "on_Snapshot__35_wget.finite.bg.py"
+    red = b"body { color: red; }\n"
+    blue = b"body { color: blue; }\n"
+    html = '<html><head><link rel="stylesheet" href="/style.css"></head><body>Archived article</body></html>'
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    httpserver.expect_request("/style.css").respond_with_data(
+        red,
+        content_type="text/css",
+    )
+    env = {
+        **os.environ,
+        "SNAP_DIR": str(tmp_path),
+        "WGET_BINARY": wget,
+        "HASHES_ENABLED": "true",
+        "WGET_WARC_ENABLED": "false",
+    }
+
+    def run_hook(hook):
+        result = subprocess.run(
+            [str(hook), f"--url={httpserver.url_for('/')}"],
+            env=env,
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        return result
+
+    run_hook(wget_hook)
+    downloaded = next((tmp_path / "wget").rglob("style.css"))
+    retained = tmp_path / "responses" / "retained.css"
+    retained.parent.mkdir()
+    retained.write_bytes(downloaded.read_bytes())
+    os.chmod(downloaded, 0o644)
+    os.chmod(retained, 0o644)
+    os.utime(downloaded, ns=(1600000000000000000, 1600000000000000000))
+    os.utime(retained, ns=(1700000000000000000, 1700000000000000000))
+    before = {path: path.stat().st_mtime_ns for path in (downloaded, retained)}
+    run_hook(HASHES_HOOK)
+    after = {path: path.stat().st_mtime_ns for path in before}
+    httpserver.clear()
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    httpserver.expect_request("/style.css").respond_with_data(
+        blue,
+        content_type="text/css",
+    )
+    run_hook(wget_hook)
+    assert downloaded.read_bytes() == blue
+    assert retained.read_bytes() == red, (
+        "Re-running Wget changed another extractor's retained bytes"
+    )
+    assert after == before, (
+        "Deduplication changed independently preserved file timestamps"
+    )
+    assert downloaded.stat().st_ino != retained.stat().st_ino
 
 
 class TestHashesPlugin:
@@ -99,8 +162,11 @@ class TestHashesPlugin:
             assert result.returncode == 0
             assert "skipped" in result.stdout
 
-    def test_hashes_hardlinks_exact_duplicate_files(self, tmp_path: Path):
-        """Exact duplicate outputs should keep both paths while sharing one inode."""
+    def test_hashes_keeps_duplicate_outputs_independently_writable(
+        self,
+        tmp_path: Path,
+    ):
+        """Space sharing must retain distinct inodes and independent future writes."""
         snap_dir = tmp_path / "snap"
         output_dir = snap_dir / "hashes"
         first = snap_dir / "responses" / "image.png"
@@ -121,7 +187,7 @@ class TestHashesPlugin:
 
         assert result.returncode == 0, result.stderr
         assert first.read_bytes() == duplicate.read_bytes()
-        assert first.stat().st_ino == duplicate.stat().st_ino
+        assert first.stat().st_ino != duplicate.stat().st_ino
         phases = re.findall(
             r"phase=(hash|dedupe) complete elapsed_ms=(\d+\.\d+) files=(\d+) bytes=(\d+)",
             result.stderr,
@@ -138,9 +204,11 @@ class TestHashesPlugin:
             "responses/image.png",
             "wget/image.png",
         }
+        duplicate.write_bytes(b"updated extractor output")
+        assert first.read_bytes() == b"same archived image" * 1024
 
-    def test_hardlink_failure_keeps_both_files(self, tmp_path: Path):
-        """A filesystem refusing hardlinks must leave both original paths intact."""
+    def test_hashes_leaves_readonly_duplicates_intact(self, tmp_path: Path):
+        """An optional space optimization cannot damage read-only saved files."""
         snap_dir = tmp_path / "snap"
         output_dir = snap_dir / "hashes"
         first = snap_dir / "responses" / "image.png"
@@ -149,42 +217,19 @@ class TestHashesPlugin:
             path.mkdir(parents=True)
         first.write_bytes(b"same archived image")
         duplicate.write_bytes(first.read_bytes())
-        old_cwd = Path.cwd()
-        old_snap_dir = os.environ.get("SNAP_DIR")
-        os.environ["SNAP_DIR"] = str(snap_dir)
-        try:
-            hardlink_duplicates = runpy.run_path(
-                str(HASHES_HOOK),
-                run_name="hashes_hook_test",
-            )["hardlink_duplicates"]
-        finally:
-            os.chdir(old_cwd)
-            if old_snap_dir is None:
-                os.environ.pop("SNAP_DIR")
-            else:
-                os.environ["SNAP_DIR"] = old_snap_dir
-
-        blocker = duplicate.parent / f".abx-hardlink-{os.getpid()}-1"
-        blocker.mkdir()
-        hardlink_duplicates(
-            snap_dir,
-            [
-                {
-                    "path": str(first.relative_to(snap_dir)),
-                    "hash": "a" * 64,
-                    "size": first.stat().st_size,
-                },
-                {
-                    "path": str(duplicate.relative_to(snap_dir)),
-                    "hash": "a" * 64,
-                    "size": duplicate.stat().st_size,
-                },
-            ],
+        duplicate.chmod(0o444)
+        result = subprocess.run(
+            [str(HASHES_HOOK), "--url=https://example.com"],
+            capture_output=True,
+            text=True,
+            cwd=output_dir,
+            env={**os.environ, "HASHES_ENABLED": "true", "SNAP_DIR": str(snap_dir)},
+            timeout=30,
         )
-
+        assert result.returncode == 0, result.stderr
         assert first.read_bytes() == duplicate.read_bytes() == b"same archived image"
         assert first.stat().st_ino != duplicate.stat().st_ino
-        assert blocker.is_dir()
+        assert duplicate.stat().st_mode & 0o777 == 0o444
 
     def test_hashes_merges_extra_context_into_archive_result(self):
         """Hashes hook should merge orchestrator-provided extra context into JSONL output."""
