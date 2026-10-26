@@ -8,6 +8,7 @@ from threading import Thread
 
 import pytest
 
+from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.staticfile.tests.test_staticfile import (
     PLUGIN_DIR,
     chrome_session,
@@ -113,16 +114,23 @@ const chrome = require(process.argv[1]);
             assert expected.startswith(b"%PDF-")
             staticfile_dir = chrome_dir.parent / "staticfile"
             staticfile_dir.mkdir()
-            code, stdout, stderr, nav, result, responses_dir, _, _ = (
-                run_staticfile_capture(
-                    staticfile_dir,
-                    chrome_dir,
-                    env,
-                    url,
-                    "test-inline-pdf",
-                    start_responses=responses_enabled,
-                    hook_timeout=45,
-                )
+            (
+                code,
+                stdout,
+                stderr,
+                nav,
+                result,
+                responses_dir,
+                responses_stdout,
+                responses_stderr,
+            ) = run_staticfile_capture(
+                staticfile_dir,
+                chrome_dir,
+                env,
+                url,
+                "test-inline-pdf",
+                start_responses=responses_enabled,
+                hook_timeout=45,
             )
             assert nav.returncode == 0, nav.stderr
             assert code == 0, stderr
@@ -130,6 +138,14 @@ const chrome = require(process.argv[1]);
             assert result["status"] == "succeeded", result
             assert (chrome_dir.parent / result["output_str"]).read_bytes() == expected
             if responses_enabled:
+                # Saving the PDF is insufficient if the response daemon cannot
+                # finish its own result or loses other captured response bodies.
+                response_result = parse_jsonl_output(responses_stdout)
+                assert response_result is not None, (responses_stdout, responses_stderr)
+                assert response_result["status"] == "succeeded", (
+                    response_result,
+                    responses_stderr,
+                )
                 entries = [
                     json.loads(line)
                     for line in (responses_dir / "index.jsonl").read_text().splitlines()

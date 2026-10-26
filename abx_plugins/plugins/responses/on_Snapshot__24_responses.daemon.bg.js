@@ -424,13 +424,19 @@ function emitResult(
 }
 
 async function handleShutdown(signal) {
-  console.error(`\nReceived ${signal}, emitting final results...`);
+  console.error(`\nReceived ${signal}, finishing response capture...`);
   if (page && responseListener) {
     page.off("requestfinished", responseListener);
   }
+  // Distinguish pending body writes from collector shutdown: a final count
+  // alone cannot show which await prevented the terminal result from emitting.
+  const writesStarted = Date.now();
   await pendingResponseWork;
+  console.error(`Response writes finished after ${Date.now() - writesStarted}ms`);
   try {
+    const closeStarted = Date.now();
     await originalResponses?.close();
+    console.error(`Original response capture closed after ${Date.now() - closeStarted}ms`);
   } catch (error) {
     const message = `${error.name}: ${error.message}`;
     console.error(`ERROR: Cannot close response capture: ${message}`);
