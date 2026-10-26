@@ -8,6 +8,9 @@ import os
 import subprocess
 from http.cookiejar import MozillaCookieJar
 from pathlib import Path
+from urllib.error import HTTPError
+from urllib.parse import urlsplit
+from urllib.request import HTTPCookieProcessor, build_opener
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 
@@ -17,6 +20,52 @@ from abx_plugins.plugins.ytdlp.tests.test_ytdlp import (
     installed_ytdlp_runtime_env as installed_ytdlp_runtime_env,
     ytdlp_runtime_env as ytdlp_runtime_env,
 )
+
+
+def diagnose_substack_media_response(cookie_file):
+    """Describe one secondary stdlib response, never its credentials or body."""
+    diagnostic: dict[str, object] = {
+        "client": "secondary stdlib urllib request (not yt-dlp)",
+    }
+    try:
+        cookies = MozillaCookieJar(cookie_file)
+        cookies.load(ignore_discard=True)
+        opener = build_opener(HTTPCookieProcessor(cookies))
+        try:
+            response = opener.open(
+                "https://andrewzimmern.substack.com/api/v1/video/upload/"
+                "52057d2b-a609-471e-9237-e6eeaac08ddb/src?type=hls",
+                timeout=10,
+            )
+        except HTTPError as error:
+            response = error
+        with response:
+            diagnostic.update(
+                status=response.status,
+                final_hostname=urlsplit(response.url).hostname,
+                headers={
+                    name: response.headers.get(name, "")[:256]
+                    for name in ("server", "content-type", "cf-mitigated")
+                },
+            )
+            body = response.read(8192).lower()
+            diagnostic["body_has_challenge_marker"] = any(
+                marker in body
+                for marker in (
+                    b"cf-chl-",
+                    b"/cdn-cgi/challenge-platform/",
+                    b"verify you are human",
+                )
+            )
+            diagnostic["body_has_access_denied_marker"] = any(
+                marker in body
+                for marker in (b"access denied", b"<code>accessdenied</code>")
+            )
+    except Exception as error:
+        # URLs and response text can contain session material, including inside
+        # exception messages. This optional evidence must preserve the real failure.
+        diagnostic["error_type"] = type(error).__name__
+    return diagnostic
 
 
 def test_substack_json_script_downloads_real_video(
@@ -59,6 +108,10 @@ def test_substack_json_script_downloads_real_video(
         timeout=140,
     )
     assert "Loading request from" in result.stderr, result.stderr
+    if result.returncode:
+        # The CLI loses HTTP response headers. Keep the strict failure, and
+        # identify this bounded follow-up as a different client, not a retry.
+        print(json.dumps(diagnose_substack_media_response(os.environ["COOKIES_FILE"])))
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout
