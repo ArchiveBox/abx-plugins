@@ -1,0 +1,30 @@
+abx_plugins/plugins/papersdl/papers-dl-patches/README.md
+  s_10bc94d001be49::t_7aeea675f357ae 42,45-48
+  s_10bc94d001be49::t_a262174393fe4e 43-44
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_10bc94d001be49::t_f7d2abb79a57b0 441
+  s_10bc94d001be49::t_0b6101d786f694 388,445-449,451-452
+  s_10bc94d001be49::t_5042dc898ed26f 444,450,453-455
+  s_10bc94d001be49::t_90f7482e9b2fe5 383-387,389-391,395,443,456-461
+  s_10bc94d001be49::t_aba244324d6cdc 439-440,442
+  s_10bc94d001be49::t_54faeaaa617d19 462-463,469
+abx_plugins/plugins/papersdl/papers-dl-patches/fetch/fetch.py
+  s_10bc94d001be49::t_e95fc1d97a9885 228-231,233-235
+  s_10bc94d001be49::t_b3769a375d0265 236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4dbb3fabc61a6ec04ee190fda502608a328a308",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
