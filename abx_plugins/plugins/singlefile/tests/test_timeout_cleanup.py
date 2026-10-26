@@ -91,12 +91,19 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             ) as hook,
         ):
             deadline = time.monotonic() + 8
+            acquired = "[singlefile] phase=download-lock elapsed_ms="
+            # Exclusive creation makes the lock visible before its PID JSON is
+            # written. The helper publishes this phase only after acquisition
+            # finishes, so suspend it after that boundary, not file existence.
             while (
-                not lock.exists()
+                acquired not in (tmp_path / "hook.stderr.log").read_text()
                 and hook.poll() is None
                 and time.monotonic() < deadline
             ):
                 time.sleep(0.05)
+            assert acquired in (tmp_path / "hook.stderr.log").read_text(), (
+                "Real SingleFile helper did not finish acquiring its download lock"
+            )
             assert lock.exists(), (
                 "Real SingleFile helper did not acquire its download lock"
             )
