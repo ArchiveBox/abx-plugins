@@ -1,0 +1,25 @@
+abx_plugins/plugins/opentimestamps/config.json
+  s_10bc94d001be49::t_0eaa5620fb1d47 45,48
+abx_plugins/plugins/opentimestamps/tests/test_opentimestamps.py
+  s_10bc94d001be49::t_0eaa5620fb1d47 186,192-199
+  s_10bc94d001be49::t_911538e0a0b10d 173-185,187-191,200-213
+abx_plugins/plugins/opentimestamps/README.md
+  s_10bc94d001be49::t_0eaa5620fb1d47 85,88-92
+  s_10bc94d001be49::t_6a48dad465d66b 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e942620ee99f94e3a6f05afe2628057b055f5b6e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
