@@ -1,8 +1,22 @@
-<!-- ArchiveWebPage thumbnail - WACZ preview tile. Clicking anywhere on the card
+{% load core_tags %}
+{% snapshot_results snapshot 'screenshot,chrome_extension_screenshot,chrome_extension_viewport' as screenshots %}
+{% with screenshot=screenshots.0 %}
+{% snapshot_result_file_url snapshot screenshot 'screenshot.png' as screenshot_url %}
+{% if screenshot.plugin == 'chrome_extension_screenshot' %}
+    {% snapshot_result_file_url snapshot screenshot 'screenshot-1.png' as extension_first %}
+{% endif %}
+{% with thumbnail_url=extension_first|default:screenshot_url %}
+<!-- Reuse the screenshot card's crop/lazy loading, keeping the original WACZ
+     information visible when the optional sibling screenshot is absent or fails.
+     Clicking anywhere on the card
      loads the full replayweb.page viewer in the main iframe (handled by the
      snapshot.html thumbnail-click-overlay). -->
+<div style="width:100%;height:100%;overflow:hidden;">
+{% if thumbnail_url %}
+    <img src="{{ thumbnail_url }}" alt="Screenshot of page" class="extractor-thumbnail screenshot-thumbnail" style="display:block;width:100%;height:100%;object-fit:cover;object-position:top center;background:#333;" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+{% endif %}
 <div class="extractor-thumbnail archivewebpage-thumbnail"
-     style="width: 100%; height: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; box-sizing: border-box; background: #1a1a2e; color: #e6e6f0; overflow: hidden;">
+     style="width: 100%; height: 100%; display: {% if thumbnail_url %}none{% else %}flex{% endif %}; align-items: center; gap: 10px; padding: 10px; box-sizing: border-box; background: #1a1a2e; color: #e6e6f0; overflow: hidden;">
     <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="#7ed4ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
         <rect x="3" y="7" width="18" height="13" rx="1.5"/>
         <path d="M3 11h18"/>
@@ -31,3 +45,6 @@
     document.currentScript.previousElementSibling.querySelector('.archive-size').textContent = formatSize({{ result.output_size|default:0 }});
 })();
 </script>
+</div>
+{% endwith %}
+{% endwith %}
