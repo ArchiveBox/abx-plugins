@@ -5,12 +5,10 @@ import gzip
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 from http.cookiejar import MozillaCookieJar
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.parse import urlsplit
-from urllib.request import HTTPCookieProcessor, build_opener
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 
@@ -22,50 +20,92 @@ from abx_plugins.plugins.ytdlp.tests.test_ytdlp import (
 )
 
 
-def diagnose_substack_media_response(cookie_file):
-    """Describe one secondary stdlib response, never its credentials or body."""
-    diagnostic: dict[str, object] = {
-        "client": "secondary stdlib urllib request (not yt-dlp)",
-    }
+def diagnose_substack_media_response(cookie_file, ytdlp_binary):
+    """Describe a separate request through the actual installed yt-dlp runtime."""
+    diagnostic = {"client": "secondary yt-dlp request (not the original download)"}
     try:
-        cookies = MozillaCookieJar(cookie_file)
-        cookies.load(ignore_discard=True)
-        opener = build_opener(HTTPCookieProcessor(cookies))
-        try:
-            response = opener.open(
-                "https://andrewzimmern.substack.com/api/v1/video/upload/"
-                "52057d2b-a609-471e-9237-e6eeaac08ddb/src?type=hls",
-                timeout=10,
-            )
-        except HTTPError as error:
-            response = error
-        with response:
-            diagnostic.update(
-                status=response.status,
-                final_hostname=urlsplit(response.url).hostname,
-                headers={
-                    name: response.headers.get(name, "")[:256]
-                    for name in ("server", "content-type", "cf-mitigated")
-                },
-            )
-            body = response.read(8192).lower()
-            diagnostic["body_has_challenge_marker"] = any(
-                marker in body
-                for marker in (
-                    b"cf-chl-",
-                    b"/cdn-cgi/challenge-platform/",
-                    b"verify you are human",
+        # Pytest's interpreter need not contain the hook's yt-dlp dependencies.
+        # Its installed console script identifies the exact interpreter; a stdlib
+        # request would exercise a different TLS/header/cookie implementation.
+        with Path(ytdlp_binary).resolve().open("rb") as launcher:
+            shebang = shlex.split(launcher.readline(4096).decode().removeprefix("#!"))
+        if (
+            len(shebang) != 1
+            or not Path(shebang[0]).is_absolute()
+            or not Path(shebang[0]).is_file()
+            or not Path(shebang[0]).name.startswith("python")
+        ):
+            raise ValueError("yt-dlp does not identify a Python interpreter")
+        result = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--no-project",
+                "--no-sync",
+                "--python",
+                shebang[0],
+                "python",
+                "-",
+                str(cookie_file),
+            ],
+            input=r"""
+import json
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+from urllib.parse import urlsplit
+from yt_dlp import YoutubeDL
+from yt_dlp.networking.exceptions import HTTPError
+
+diagnostic = {"client": "secondary yt-dlp request (not the original download)"}
+try:
+    # YoutubeDL saves its jar on close. Diagnose from a private copy so this
+    # extra request cannot change the persona used by the failed capture.
+    with tempfile.TemporaryDirectory(prefix="ytdlp-diagnostic-") as private:
+        cookies = Path(private) / "cookies.txt"
+        shutil.copyfile(sys.argv[1], cookies)
+        cookies.chmod(0o600)
+        with YoutubeDL({"cookiefile": str(cookies), "quiet": True,
+                       "no_warnings": True, "socket_timeout": 10}) as ydl:
+            try:
+                response = ydl.urlopen(
+                    "https://andrewzimmern.substack.com/api/v1/video/upload/"
+                    "52057d2b-a609-471e-9237-e6eeaac08ddb/src?type=hls"
                 )
-            )
-            diagnostic["body_has_access_denied_marker"] = any(
-                marker in body
-                for marker in (b"access denied", b"<code>accessdenied</code>")
-            )
+            except HTTPError as error:
+                response = error.response
+            with response:
+                diagnostic.update(
+                    status=response.status,
+                    final_hostname=urlsplit(response.url).hostname,
+                    headers={name: response.headers.get(name, "")[:256]
+                             for name in ("server", "content-type", "cf-mitigated")},
+                )
+                body = response.read(8192).lower()
+                diagnostic["body_has_challenge_marker"] = any(
+                    marker in body for marker in (
+                        b"cf-chl-", b"/cdn-cgi/challenge-platform/", b"verify you are human"
+                    )
+                )
+                diagnostic["body_has_access_denied_marker"] = any(
+                    marker in body for marker in (b"access denied", b"<code>accessdenied</code>")
+                )
+except Exception as error:
+    diagnostic["error_type"] = type(error).__name__
+print(json.dumps(diagnostic))
+""",
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        result.check_returncode()
+        return json.loads(result.stdout)
     except Exception as error:
         # URLs and response text can contain session material, including inside
         # exception messages. This optional evidence must preserve the real failure.
         diagnostic["error_type"] = type(error).__name__
-    return diagnostic
+        return diagnostic
 
 
 def test_substack_json_script_downloads_real_video(
@@ -110,8 +150,15 @@ def test_substack_json_script_downloads_real_video(
     assert "Loading request from" in result.stderr, result.stderr
     if result.returncode:
         # The CLI loses HTTP response headers. Keep the strict failure, and
-        # identify this bounded follow-up as a different client, not a retry.
-        print(json.dumps(diagnose_substack_media_response(os.environ["COOKIES_FILE"])))
+        # label this bounded follow-up separately; it cannot turn failure green.
+        print(
+            json.dumps(
+                diagnose_substack_media_response(
+                    os.environ["COOKIES_FILE"],
+                    ytdlp_runtime_env["YTDLP_BINARY"],
+                ),
+            ),
+        )
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout
