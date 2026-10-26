@@ -225,18 +225,15 @@ def rename(out_dir, path, name=None, identifier=None) -> str:
 
     try:
         if name is None:
+            # The query already identifies the paper. Rediscovering an identity
+            # from PDF text can resolve a bibliography DOI and name these bytes
+            # after a cited work. Unavailable/ambiguous metadata must keep the
+            # content-hash name, not start another identity search.
             identifiers = parse_ids_from_text(identifier or "", ["doi"])
-            raw_validation_info = None
-            if len(identifiers) == 1:
-                # The fetch already resolved this paper. Do not rediscover its
-                # identifier by extracting the PDF and searching Google again.
-                known = identifiers[0]
-                raw_validation_info = pdf2doi.finders.validate(known["id"], known["type"])
-            if not raw_validation_info:
-                result_info = pdf2doi.pdf2doi(path)
-                if not result_info:
-                    return path
-                raw_validation_info = result_info["validation_info"]
+            if len(identifiers) != 1:
+                return path
+            known = identifiers[0]
+            raw_validation_info = pdf2doi.finders.validate(known["id"], known["type"])
             if not raw_validation_info:
                 return path
             if isinstance(raw_validation_info, (str, bytes, bytearray)):

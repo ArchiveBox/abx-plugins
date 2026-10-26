@@ -39,9 +39,13 @@ arXiv PDF URLs omit the citation's `arXiv:` label while retaining subject and ve
 Publisher title markup/entities are decoded before naming PDFs, and path separators
 are replaced so paper titles remain filenames inside the output directory.
 
-Known DOI queries reuse identifier metadata when naming the downloaded paper,
-avoiding repeated PDF extraction and Google searches. Queries without usable DOI
-metadata retain the existing PDF title discovery.
+Known DOI queries reuse identifier metadata when naming the downloaded
+paper. Naming never rediscovers identifiers from PDF body citations: that can
+incorrectly name the downloaded paper after a referenced work and adds unnecessary
+metadata searches. Without a known DOI and usable metadata, retain the existing
+content-hash filename without altering the PDF bytes. This includes arXiv-only
+queries; optional naming must not introduce another remote lookup or identity
+inference after the PDF has already downloaded successfully.
 
 Before naming a PDF, a single DOI declared in its Subject metadata must agree
 with a single requested DOI. Conflicting documents (such as a corrigendum offered

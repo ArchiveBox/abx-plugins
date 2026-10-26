@@ -380,11 +380,19 @@ def test_config_timeout():
         }, result_json
 
 
-def test_real_public_paper_download():
+@pytest.mark.parametrize(
+    ("paper_id", "title"),
+    [
+        ("1706.03762", "Attention Is All You Need"),
+        ("2001.08361", "Scaling Laws for Neural Language Models"),
+        ("2310.13548", "TOWARDS UNDERSTANDING SYCOPHANCY IN LANGUAGE MODELS"),
+    ],
+)
+def test_real_public_paper_download(paper_id, title):
     """Test that papers-dl downloads a real public paper PDF via DOI or arXiv URL."""
     binary_path = require_papersdl_binary()
 
-    paper_url = "https://arxiv.org/abs/1706.03762"
+    paper_url = f"https://arxiv.org/abs/{paper_id}"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -428,12 +436,37 @@ def test_real_public_paper_download():
         )
 
         output_path = pdf_files[0]
+        # An arXiv-only query has no known DOI metadata. Keep the byte-derived
+        # name rather than resolving a DOI from the paper's bibliography.
+        pdf_bytes = output_path.read_bytes()
+        assert output_path.name == f"{hashlib.md5(pdf_bytes).hexdigest()}.pdf", (
+            result.stderr
+        )
+        first_page = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--no-project",
+                "--no-sync",
+                "--python",
+                str(Path(binary_path).resolve().with_name("python")),
+                "python",
+                "-c",
+                "import pymupdf, sys; doc = pymupdf.open(sys.argv[1]); print(doc[0].get_text())",
+                str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        assert title.lower() in " ".join(first_page.lower().split()), first_page
+        assert paper_id in first_page, first_page
         assert result_json["output_str"] == f"papersdl/{output_path.name}", result_json
         assert output_path.stat().st_size > 0, (
             f"Downloaded paper file is empty: {output_path}"
         )
 
-        # A resumed capture overwrites its own files. The second successful
+        # A restarted capture overwrites its own files. The second successful
         # download must remain visible instead of being reported as noresults.
         original_bytes = output_path.read_bytes()
         repeated = subprocess.run(
