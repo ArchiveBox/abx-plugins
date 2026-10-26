@@ -170,6 +170,47 @@ def test_hash_failure_invalidates_completion_and_preserves_manifest(tmp_path):
         assert (tmp_path / "hashes/hashes.json").read_bytes() == manifest
 
 
+def test_live_stamp_preserves_quorum_with_one_unavailable_calendar(tmp_path):
+    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+
+    plugin = PLUGINS / "opentimestamps"
+    binary = install_required_binary_from_config(plugin, "ots")
+    assert binary.abspath
+    defaults = json.loads((plugin / "config.json").read_text())["properties"]
+    calendars = defaults["OPENTIMESTAMPS_CALENDARS"]["default"].copy()
+    capture_files(tmp_path)
+    code, _, stderr = run_plugin("hashes", tmp_path, HASHES_ENABLED="true")
+    assert code == 0, stderr
+    manifest = (tmp_path / "hashes/hashes.json").read_bytes()
+
+    # A closed loopback port produces a real refused connection. Replacing
+    # one default endpoint proves redundancy without reducing the proof quorum
+    # or depending on a public calendar being broken during the test.
+    with socket.socket() as unavailable:
+        unavailable.bind(("127.0.0.1", 0))
+        calendars[0] = f"http://127.0.0.1:{unavailable.getsockname()[1]}"
+    code, record, stderr = run_plugin(
+        "opentimestamps",
+        tmp_path,
+        OPENTIMESTAMPS_ENABLED="true",
+        OPENTIMESTAMPS_BINARY=str(binary.abspath),
+        OPENTIMESTAMPS_CALENDARS=json.dumps(calendars),
+        HASHES_ENABLED="true",
+    )
+    assert code == 0 and record["status"] == "succeeded", stderr
+    assert "Connection refused" in stderr
+    output = tmp_path / "opentimestamps"
+    assert (output / "hashes.json").read_bytes() == manifest
+    submission = json.loads((output / "submission.json").read_text())
+    assert submission["required_calendar_replies"] == 2
+    assert submission["manifest_sha256"] == hashlib.sha256(manifest).hexdigest()
+    assert len(set(submission["pending_attestations"])) >= 2
+    assert all("127.0.0.1" not in uri for uri in submission["pending_attestations"])
+    info = (output / "proof-info.txt").read_text()
+    assert f"File sha256 hash: {hashlib.sha256(manifest).hexdigest()}" in info
+    assert (output / "hashes.json.ots").stat().st_size > 0
+
+
 def test_live_stamp_and_failed_rerun_preserves_evidence(tmp_path):
     import subprocess
 

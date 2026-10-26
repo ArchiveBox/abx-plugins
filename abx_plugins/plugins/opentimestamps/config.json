@@ -42,10 +42,10 @@
     "OPENTIMESTAMPS_CALENDARS": {
       "type": "array",
       "items": {"type": "string"},
-      "default": ["https://alice.btc.calendar.opentimestamps.org", "https://bob.btc.calendar.opentimestamps.org"],
+      "default": ["https://a.pool.opentimestamps.org", "https://b.pool.opentimestamps.org", "https://a.pool.eternitywall.com", "https://ots.btc.catallaxy.com"],
       "minItems": 1,
       "uniqueItems": true,
-      "description": "Calendar URLs to submit to. Use HTTPS for public services or HTTP for a local calendar."
+      "description": "Calendar URLs to submit to. Defaults to the upstream client's four-calendar pool so one unavailable calendar does not prevent the required two replies. Use HTTPS for public services or HTTP for a local calendar."
     },
     "OPENTIMESTAMPS_REQUIRED_CALENDARS": {
       "type": "integer",

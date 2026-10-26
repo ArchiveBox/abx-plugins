@@ -82,8 +82,14 @@ commitments and recursive inclusion of prior timestamp proofs.
 | `OPENTIMESTAMPS_ENABLED` | `false` | Opt in to remote calendar submission. |
 | `OPENTIMESTAMPS_BINARY` | `ots` | Upstream Python client executable. |
 | `OPENTIMESTAMPS_TIMEOUT` | `60` | Hook budget in seconds, including submission. |
-| `OPENTIMESTAMPS_CALENDARS` | Alice and Bob HTTPS calendars | JSON array of calendar URLs. |
+| `OPENTIMESTAMPS_CALENDARS` | Upstream client's four HTTPS pool URLs | JSON array of calendar URLs. |
 | `OPENTIMESTAMPS_REQUIRED_CALENDARS` | `2` | Required successful calendar replies. |
+
+The default pool matches the pinned OpenTimestamps client: `a.pool.opentimestamps.org`,
+`b.pool.opentimestamps.org`, `a.pool.eternitywall.com`, and `ots.btc.catallaxy.com`.
+Requiring two replies from four calendars preserves the proof quorum while allowing
+an individual calendar to be unavailable; requiring both of only two removed that
+upstream redundancy. Submissions run concurrently, without retries.
 
 For one self-hosted calendar, configure both its URL and a required count of one.
 No API key or Bitcoin wallet is needed for submission. `HASHES_ENABLED` must be
