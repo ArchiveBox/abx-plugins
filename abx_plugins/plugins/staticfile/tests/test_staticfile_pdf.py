@@ -158,3 +158,104 @@ const chrome = require(process.argv[1]);
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_pdf_response_collector_closes_with_live_viewer_frames(tmp_path):
+    web = tmp_path / "www"
+    web.mkdir()
+    (web / "index.html").write_text(
+        "<!doctype html><h1>Original PDF with live viewer frames</h1>",
+    )
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        partial(SimpleHTTPRequestHandler, directory=str(web)),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with chrome_session(
+            tmp_path,
+            test_url=f"{origin}/document.pdf",
+            navigate=False,
+            timeout=45,
+        ) as (_, _, chrome_dir, env):
+            result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    """
+const chrome = require(process.argv[1]);
+const fs = require('fs');
+(async () => {
+  const {browser} = await chrome.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    const source = await browser.newPage();
+    await source.goto(process.argv[3] + '/index.html');
+    await source.pdf({path: process.argv[4]});
+    await source.close();
+    const expected = fs.readFileSync(process.argv[4]);
+    if (!expected.subarray(0, 5).equals(Buffer.from('%PDF-'))) throw Error('Invalid source PDF');
+    // A bounded sequence exercises the real child-attachment race; every
+    // capture must preserve its PDF and close, with no retry after a failure.
+    for (let iteration = 0; iteration < 10; iteration++) {
+      const page = await browser.newPage();
+      const capture = await chrome.captureOriginalResponseBodies(page, {resourceTypes: []});
+      let queue = Promise.resolve();
+      let capturedPdf = false;
+      const errors = [];
+      const listener = request => {
+        const response = request.response();
+        if (!response || response.status() >= 400) return;
+        queue = queue.then(async () => {
+          try {
+            const body = await capture.read(response);
+            if (response.url() === process.argv[3] + '/document.pdf' && body) {
+              if (!body.equals(expected)) throw Error('Original PDF bytes changed');
+              capturedPdf = true;
+            }
+          } catch (error) { errors.push(error); }
+        });
+      };
+      page.on('requestfinished', listener);
+      await page.goto(process.argv[3] + '/document.pdf', {waitUntil: 'load', timeout: 20000});
+      const viewer = await page.waitForFrame(frame => frame.url().startsWith('chrome-extension://'), {timeout: 10000});
+      await viewer.waitForSelector('pdf-viewer', {timeout: 10000});
+      await page.waitForFrame(frame => frame.parentFrame() === viewer, {timeout: 10000});
+      page.off('requestfinished', listener);
+      await queue;
+      // Closing the tab first hides orphaned collector sessions by destroying
+      // its children. A recorder must finish while the PDF viewer stays open.
+      await capture.close();
+      if (!capturedPdf) throw Error('Original PDF was not captured');
+      if (errors.length) throw errors[0];
+      if (!await viewer.$eval('pdf-viewer', node => node.isConnected)) throw Error('Closing collector damaged live PDF viewer');
+      if (iteration === 9) {
+        await page.bringToFront();
+        const pageNumber = await viewer.waitForSelector('::-p-aria(Page number)', {timeout: 10000});
+        if (await pageNumber.evaluate(input => input.value) !== '1') throw Error('PDF viewer did not render its first page');
+        await page.screenshot({path: process.argv[5]});
+      }
+      await page.close();
+    }
+    console.log(JSON.stringify({completed: 10}));
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error.stack); process.exit(1); });
+""",
+                    str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
+                    str(chrome_dir),
+                    origin,
+                    str(web / "document.pdf"),
+                    str(tmp_path / "live-pdf-viewer.png"),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout) == {"completed": 10}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

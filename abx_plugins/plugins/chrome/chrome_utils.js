@@ -237,6 +237,8 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   if (documents) setup.push(session.send("Fetch.enable", { patterns: [{ resourceType: "Document", requestStage: "Response" }] }));
   const children = new Map();
   const watched = new Map();
+  const ownedCollectors = new Set();
+  let closing = false;
   let setupError;
   const mainClient = page.mainFrame().client;
   const attach = (child, documents = true) => {
@@ -258,13 +260,14 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     client.on("Target.attachedToTarget", onAttached);
   };
   const configureCollector = (client) => {
+    ownedCollectors.add(client);
     const onAttached = ({ sessionId }) => {
       const child = client.connection()?.session(sessionId);
       if (!child) return;
       // Register each child's network profile under this collector's root
       // before it runs: synchronous XHR/short-lived workers can finish before
       // their renderer can stream bytes. Always release our debugger pause.
-      const work = configureCollector(child).finally(async () => {
+      const work = closing ? client.send("Target.detachFromTarget", { sessionId }) : configureCollector(child).finally(async () => {
         if (!child.detached) await child.send("Runtime.runIfWaitingForDebugger");
       });
       pending.add(work);
@@ -354,6 +357,21 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       return body;
     },
     async close() {
+      closing = true;
+      // Detaching a parent does not dispose its nested Puppeteer sessions.
+      // Release owned descendants first, otherwise their pending commands can
+      // outlive the parent forever. Late attachments are detached above without
+      // configuring more descendants. Detach through the owning parent: the
+      // browser-level detach API cannot find nested auto-attached sessions.
+      // Borrowed renderer sessions stay intact.
+      for (const client of [...ownedCollectors].reverse()) {
+        if (client === durableCollector || client.detached) continue;
+        try {
+          await client.parentSession().send("Target.detachFromTarget", { sessionId: client.id() });
+        } catch (error) {
+          if (error.name !== "TargetCloseError" || !client.detached) setupError ||= error;
+        }
+      }
       if (durableCollector && !sharedCollector && !durableCollector.detached) {
         // Stop pausing new targets before removing their setup listeners.
         // Existing durable bodies remain owned by the root until readers drain.
