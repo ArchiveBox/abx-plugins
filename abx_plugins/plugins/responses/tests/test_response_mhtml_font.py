@@ -11,7 +11,7 @@ from time import perf_counter
 
 import pytest
 from jinja2 import Environment
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.testing import start_process_and_wait_for_file
@@ -433,6 +433,13 @@ const utils = require(process.argv[1]);
                 rendered = page.frame_locator("iframe")
                 if surface == "card":
                     rendered = rendered.frame_locator("iframe")
+                # The outer load event precedes the viewer's async MHTML/font
+                # fetches and srcdoc assignment. Wait for the actual document,
+                # not the initial about:blank body, before checking exact text.
+                expect(rendered.locator("body")).to_have_text(
+                    "Original font bytes \uf000",
+                    use_inner_text=True,
+                )
                 assert (
                     rendered.locator("body").inner_text()
                     == "Original font bytes \uf000"
