@@ -1,10 +1,12 @@
 """Source parsers consume one capture attempt instead of retrying its origin."""
 
 import json
+import socket
 import subprocess
 from pathlib import Path
 
 import pytest
+from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -14,6 +16,50 @@ from abx_plugins.plugins.parse_rss_urls.parse_rss_test_helpers import parse_rss_
 
 
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
+
+
+@pytest.fixture
+def httpserver():
+    # Chrome may pre-open an idle socket while a parser fetches another URL.
+    # Serve independent connections concurrently rather than blocking the parser
+    # behind a browser connection that has not sent a request yet.
+    with HTTPServer(threaded=True) as server:
+        yield server
+
+
+def test_parser_http_request_completes_with_idle_browser_connection(
+    tmp_path,
+    httpserver,
+):
+    body = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><DT><A HREF="https://archivebox.io/tests/">Saved</A></DL>'
+    httpserver.expect_request("/bookmarks").respond_with_data(
+        body,
+        content_type="text/html",
+    )
+    hook = next((PLUGINS / "parse_netscape_urls").glob("on_Snapshot__*"))
+    # Browsers can establish a TCP connection before sending an HTTP request.
+    # Keep a real connection idle while the actual parser makes its own request;
+    # a serial fixture otherwise waits on that socket instead of serving it.
+    with socket.create_connection((httpserver.host, httpserver.port)):
+        result = subprocess.run(
+            [str(hook), f"--url={httpserver.url_for('/bookmarks')}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    assert result.returncode == 0, result.stderr
+    records = [
+        json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")
+    ]
+    assert [row["url"] for row in records if row.get("type") == "Snapshot"] == [
+        "https://archivebox.io/tests/",
+    ]
+    assert (
+        next(row for row in records if row.get("type") == "ArchiveResult")["status"]
+        == "succeeded"
+    )
+    assert [request.path for request, _ in httpserver.log] == ["/bookmarks"]
 
 
 @pytest.mark.parametrize("failure_status", [None, 404, 503])
