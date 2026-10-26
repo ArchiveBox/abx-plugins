@@ -21,7 +21,12 @@ from abx_plugins.plugins.ytdlp.tests.test_ytdlp import (
 )
 
 
-def diagnose_substack_media_response(cookie_file, ytdlp_binary, with_referer=False):
+def diagnose_substack_media_response(
+    cookie_file,
+    ytdlp_binary,
+    with_referer=False,
+    strict_domain=False,
+):
     """Describe a separate request through the actual installed yt-dlp runtime."""
     diagnostic = {
         "client": "secondary yt-dlp request (not the original download)",
@@ -51,12 +56,14 @@ def diagnose_substack_media_response(cookie_file, ytdlp_binary, with_referer=Fal
                 "-",
                 str(cookie_file),
                 "1" if with_referer else "0",
+                "1" if strict_domain else "0",
             ],
             input=r"""
 import json
 import shutil
 import sys
 import tempfile
+from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
@@ -83,11 +90,30 @@ try:
             }
             diagnostic["request_headers"] = options["http_headers"]
         with YoutubeDL(options) as ydl:
+            media_url = (
+                "https://andrewzimmern.substack.com/api/v1/video/upload/"
+                "52057d2b-a609-471e-9237-e6eeaac08ddb/src?type=hls"
+            )
+            if sys.argv[3] == "1":
+                # Chrome excludes host-only parent cookies that the default
+                # Netscape policy returns to subdomains. Requests copies jars
+                # without their policy, so filter this private diagnostic jar
+                # using the supported policy before the single known request.
+                jar = ydl.cookiejar
+                before = len(jar.get_cookies_for_url(media_url))
+                jar.set_policy(DefaultCookiePolicy(
+                    strict_ns_domain=DefaultCookiePolicy.DomainStrictNonDomain,
+                ))
+                selected = jar.get_cookies_for_url(media_url)
+                jar.clear()
+                for cookie in selected:
+                    jar.set_cookie(cookie)
+                diagnostic["strict_cookie_selection"] = {
+                    "default_selected_count": before,
+                    "strict_selected_count": len(selected),
+                }
             try:
-                response = ydl.urlopen(
-                    "https://andrewzimmern.substack.com/api/v1/video/upload/"
-                    "52057d2b-a609-471e-9237-e6eeaac08ddb/src?type=hls"
-                )
+                response = ydl.urlopen(media_url)
             except HTTPError as error:
                 response = error.response
             with response:
@@ -329,6 +355,17 @@ def test_substack_json_script_downloads_real_video(
                     os.environ["COOKIES_FILE"],
                     ytdlp_runtime_env["YTDLP_BINARY"],
                     with_referer=True,
+                ),
+            ),
+        )
+        # Isolate a proven request-cookie difference without changing the
+        # original download, its UA/transport, or its strict media assertions.
+        print(
+            json.dumps(
+                diagnose_substack_media_response(
+                    os.environ["COOKIES_FILE"],
+                    ytdlp_runtime_env["YTDLP_BINARY"],
+                    strict_domain=True,
                 ),
             ),
         )
