@@ -150,6 +150,10 @@ async function main() {
       frame = page,
       selector = role === "button" ? "button" : `[role="${role}"]`,
     ) => {
+      // The outer hook deadline can kill us before diagnostics or tab cleanup
+      // finish. Preserve the awaited control and original error before either
+      // operation touches a possibly destroyed execution context.
+      console.error(`Waiting for Canva export control: ${role} ${name}`);
       const handle = await frame
         .waitForFunction(
           (role, name, selector) => {
@@ -230,7 +234,10 @@ async function main() {
           name,
           selector,
         )
-        .catch(async () => {
+        .catch(async (error) => {
+          console.error(
+            `Canva export control unavailable: ${role} ${name}: ${error.stack || error.message}`,
+          );
           await reportControls(frame, selector);
           throw new Error(`Canva export control unavailable: ${role} ${name}`);
         });
@@ -243,6 +250,9 @@ async function main() {
         const { x, y } = await element.clickablePoint();
         await page.mouse.click(x, y);
       } catch (error) {
+        console.error(
+          `Canva export click failed: ${role} ${name}: ${error.stack || error.message}`,
+        );
         await reportControls(frame, selector, element);
         throw new Error(`Canva export click failed: ${role} ${name}: ${error.message}`);
       } finally {
@@ -317,12 +327,16 @@ async function main() {
     );
     await click("button", "Download");
     await click("combobox", "File type");
+    console.error("Waiting for Canva export options");
     await page
       .waitForSelector('[role="option"]', {
         visible: true,
         timeout: remaining(),
       })
       .catch(async (error) => {
+        console.error(
+          `Canva export options unavailable: ${error.stack || error.message}`,
+        );
         await reportControls(page, '[role="option"]');
         throw error;
       });

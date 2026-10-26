@@ -50,7 +50,14 @@ def test_public_export_restriction(
         record = parse_jsonl_output(result.stdout)
         assert record and record["status"] == status, result.stdout
         assert record["output_str"] == reason, result.stdout
-        assert result.stderr.strip() == reason
+        # Control readiness is logged before waiting so a killed hook still
+        # identifies its last phase. The prerequisite itself remains exact.
+        expected_diagnostics = (
+            ["Waiting for Canva export control: button View template"]
+            if url == URL
+            else []
+        )
+        assert result.stderr.strip().splitlines() == [*expected_diagnostics, reason]
         assert not (chrome.parent / "canva" / "downloads.json").exists()
 
 
