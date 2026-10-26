@@ -55,7 +55,14 @@ def collect_files(
     exclude_dirs: list[str] | None = None,
 ) -> list[tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
-    exclude_dirs = exclude_dirs or ["hashes", "opentimestamps", ".git", "__pycache__"]
+    exclude_dirs = exclude_dirs or [
+        "hashes",
+        "opentimestamps",
+        ".git",
+        "__pycache__",
+        "chrome_profile",
+        "archivebox-extensions",
+    ]
     files = []
 
     for root, dirs, filenames in os.walk(snapshot_dir):
@@ -63,11 +70,24 @@ def collect_files(
         if Path(root) == snapshot_dir:
             # Session state belongs to the runner and can change after this
             # snapshot finishes (or be shared with the next snapshot).
-            dirs[:] = [d for d in dirs if d not in {".persona", ".abx-dl", "chrome"}]
+            dirs[:] = [d for d in dirs if d not in {".persona", ".abx-dl"}]
 
         for filename in filenames:
             filepath = Path(root) / filename
             rel_path = filepath.relative_to(snapshot_dir)
+
+            # Crawl cleanup can run after the snapshot's final-file hooks when
+            # both share one output root. Exclude only disposable Chrome session
+            # markers, not retained evidence such as random_seed.json or cmd.sh.
+            if rel_path.parent == Path("chrome") and filename in {
+                "cdp_url.txt",
+                "target_id.txt",
+                "chrome.pid",
+                "browser.json",
+                "url.txt",
+                "navigation.json",
+            }:
+                continue
 
             # The runner keeps appending lifecycle records after hashing. These
             # are execution bookkeeping, not archived content or evidence.

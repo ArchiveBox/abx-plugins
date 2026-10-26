@@ -388,6 +388,7 @@ function resolveChromeLaunchOptions(options = {}) {
   const linuxWithoutDisplay =
     process.platform === "linux" && !String(process.env.DISPLAY || "").trim();
   return {
+    CRAWL_DIR: path.resolve(getOption(options, "CRAWL_DIR", getCrawlDir())),
     CHROME_USER_DATA_DIR: path.resolve(getOption(options, "CHROME_USER_DATA_DIR", path.join(personaDir, "chrome_profile"))),
     CHROME_DOWNLOADS_DIR: path.resolve(getOption(options, "CHROME_DOWNLOADS_DIR", path.join(personaDir, "chrome_downloads"))),
     CHROMEWEBSTORE_EXTENSIONS_DIR: getOption(options, "CHROMEWEBSTORE_EXTENSIONS_DIR", "") || getExtensionsDir(),
@@ -1091,6 +1092,28 @@ async function killZombieChrome(snapDir = null, options = {}) {
 // Chrome launching
 // ============================================================================
 
+async function getCrawlRandomSeed(crawlDir) {
+  // Persist independently of session markers: restarting Chrome or launching
+  // concurrent snapshot-isolated browsers must retain the same crawl seed.
+  const seedFile = path.join(crawlDir, "chrome", "crawl_seed.txt");
+  const releaseLock = await acquireSessionLock(`${seedFile}.lock`);
+  try {
+    if (fs.existsSync(seedFile)) {
+      const seed = Number(fs.readFileSync(seedFile, "utf8").trim());
+      if (!Number.isInteger(seed) || seed <= 0 || seed >= 2 ** 31) {
+        throw new Error(`Invalid Chrome crawl seed in ${seedFile}`);
+      }
+      return seed;
+    }
+    // V8 accepts a signed 32-bit seed; zero asks V8 to use system randomness.
+    const seed = crypto.randomInt(1, 2 ** 31);
+    writeFileAtomic(seedFile, `${seed}\n`);
+    return seed;
+  } finally {
+    releaseLock();
+  }
+}
+
 /**
  * Launch Chromium and return the live browser process + browser-level CDP endpoint.
  *
@@ -1133,6 +1156,7 @@ async function launchChromium(options = {}) {
     CHROME_CHECK_SSL_VALIDITY,
     CHROME_ARGS,
     CHROME_ARGS_EXTRA,
+    CRAWL_DIR,
   } = resolveChromeLaunchOptions(options);
   const userDataDir = CHROME_USER_DATA_DIR;
 
@@ -1230,6 +1254,24 @@ async function launchChromium(options = {}) {
   // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
   // Dynamic args come after base so they can override if needed
   const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
+
+  const randomSeed = await getCrawlRandomSeed(CRAWL_DIR);
+  // Chromium uses the last --js-flags switch. Merge V8 flags and replace any
+  // supplied seed so all locally launched browsers use the recorded crawl seed.
+  const jsFlags = [];
+  for (let index = 0; index < chromiumArgs.length; index += 1) {
+    const arg = chromiumArgs[index];
+    if (arg === "--js-flags" || arg.startsWith("--js-flags=")) {
+      const value = arg === "--js-flags"
+        ? chromiumArgs.splice(index + 1, 1)[0] || ""
+        : arg.slice("--js-flags=".length);
+      jsFlags.push(value.replace(/(^|\s)--random[-_]seed(?:=|\s+)\S+/g, "$1").trim());
+      chromiumArgs.splice(index, 1);
+      index -= 1;
+    }
+  }
+  jsFlags.push(`--random-seed=${randomSeed}`);
+  chromiumArgs.push(`--js-flags=${jsFlags.filter(Boolean).join(" ")}`);
 
   // All tabs of one browser share Chrome's HTTP/1.1 connection pool, which
   // allows only 6 connections per host. With CHROME_ISOLATION=crawl those tabs
@@ -1403,6 +1445,7 @@ async function launchChromium(options = {}) {
         port: debugPort,
         process: chromiumProcess,
         userDataDir,
+        randomSeed,
       };
 
       return result;
@@ -2432,6 +2475,7 @@ function readBrowserMetadata(chromeSessionDir) {
       return null;
     }
     return {
+      ...(Object.hasOwn(parsed, "random_seed") ? { random_seed: parsed.random_seed } : {}),
       ready: parsed.ready === true,
       extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [],
       ...(parsed.userAgentOverride ? { userAgentOverride: parsed.userAgentOverride } : {}),
@@ -2441,11 +2485,12 @@ function readBrowserMetadata(chromeSessionDir) {
   }
 }
 
-function writeBrowserMetadata(chromeSessionDir, extensions = [], userAgentOverride = null) {
+function writeBrowserMetadata(chromeSessionDir, extensions = [], userAgentOverride = null, randomSeed = undefined) {
   writeFileAtomic(
     path.join(path.resolve(chromeSessionDir), "browser.json"),
     JSON.stringify(
       {
+        ...(randomSeed !== undefined ? { random_seed: randomSeed } : {}),
         ready: true,
         extensions: Array.isArray(extensions) ? extensions : [],
         ...(userAgentOverride ? { userAgentOverride } : {}),
@@ -5412,6 +5457,7 @@ async function ensureChromeSession(options = {}) {
     : cdpUrl;
   let resolvedUserDataDir = userDataDir;
   let launchedNewBrowser = false;
+  let randomSeed = reusingSession ? existingSession.state?.browser?.random_seed ?? null : null;
 
   if (!resolvedCdpUrl) {
     if (!processIsLocal) {
@@ -5446,6 +5492,7 @@ async function ensureChromeSession(options = {}) {
       throw new Error(result.error || "Failed to launch Chromium");
     }
 
+    randomSeed = result.randomSeed;
     resolvedPid = result.pid;
     resolvedCdpUrl = result.cdpUrl;
     resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
@@ -5551,7 +5598,7 @@ async function ensureChromeSession(options = {}) {
     : null;
   importState.save();
   // Snapshot hooks inherit browser.json; navigation re-applies this identity.
-  writeBrowserMetadata(outputDir, installedExtensions, personaHydration?.userAgentOverride);
+  writeBrowserMetadata(outputDir, installedExtensions, personaHydration?.userAgentOverride, randomSeed);
 
     return {
       stopPersonaHydration: personaHydration?.stop || null,

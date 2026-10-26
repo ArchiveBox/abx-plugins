@@ -297,3 +297,38 @@ def test_hook_receives_cli_args(tmp_path):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_hashes_include_chrome_evidence_but_not_profiles_or_session_markers(tmp_path):
+    retained = {
+        "chrome/random_seed.json": '{"random_seed": 12345}',
+        "chrome/cmd.sh": "chrome --js-flags=--random-seed=12345",
+        "chrome/extensions/extension.json": '{"version": "1.0"}',
+    }
+    excluded = {
+        "chrome/browser.json": '{"ready": true}',
+        "chrome/chrome.pid": "123",
+        "chrome/cdp_url.txt": "ws://localhost:9222/devtools/browser/session",
+        "chrome/navigation.json": '{"url": "https://example.com"}',
+        "chrome/chrome_profile/Default/Preferences": "{}",
+        "chrome/archivebox-extensions/example/manifest.json": "{}",
+        ".persona/Default/chrome_profile/Local State": "{}",
+    }
+    for name, content in (retained | excluded).items():
+        file = tmp_path / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(content)
+    result = subprocess.run(
+        [str(HASHES_HOOK), "--url=https://example.com"],
+        cwd=tmp_path,
+        env=os.environ | {"SNAP_DIR": str(tmp_path), "HASHES_ENABLED": "true"},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((tmp_path / "hashes/hashes.json").read_text())
+    assert {row["path"]: row["hash"] for row in manifest["files"]} == {
+        name: hashlib.sha256(content.encode()).hexdigest()
+        for name, content in retained.items()
+    }

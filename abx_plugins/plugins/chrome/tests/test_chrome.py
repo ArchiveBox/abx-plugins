@@ -1601,6 +1601,12 @@ def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_br
                 timeout=60,
                 env=adopt_env,
             )
+            assert (
+                json.loads((adopted_chrome_dir / "browser.json").read_text())[
+                    "random_seed"
+                ]
+                is None
+            )
             assert first_launch.returncode == 0, (
                 f"first adopted launch should succeed:\nStdout: {first_launch.stdout}\nStderr: {first_launch.stderr}"
             )
@@ -1932,6 +1938,15 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                 assert session.tab_process.poll() is None
                 browser_metadata = json.loads(
                     (session.chrome_dir / "browser.json").read_text(),
+                )
+                assert browser_metadata["random_seed"] == int(
+                    (crawl_dir / "chrome" / "crawl_seed.txt").read_text(),
+                )
+                assert (
+                    json.loads((session.chrome_dir / "random_seed.json").read_text())[
+                        "random_seed"
+                    ]
+                    == browser_metadata["random_seed"]
                 )
                 extension_entry = next(
                     (
@@ -5230,3 +5245,154 @@ const utils = require(process.argv[1]);
             timeout=30,
         )
         assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
+def test_random_seed_is_fixed_per_crawl_and_hashed(tmp_path, httpserver, isolation):
+    """Real launches replay Math.random and retain seed evidence after cleanup."""
+    httpserver.expect_request("/random").respond_with_data(
+        "<script>window.samples = Array.from({length: 8}, () => Math.random())</script>",
+        content_type="text/html",
+    )
+    url = httpserver.url_for("/random")
+    seeds, samples = [], []
+    for index, crawl_name in enumerate(("first", "first", "second")):
+        snap_dir = tmp_path / f"snapshot-{index}"
+        chrome_dir = snap_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+        crawl_dir = tmp_path / crawl_name
+        crawl_chrome = crawl_dir / "chrome"
+        crawl_chrome.mkdir(parents=True, exist_ok=True)
+        env = _isolated_test_env(tmp_path / f"runtime-{index}") | {
+            "CRAWL_DIR": str(crawl_dir),
+            "SNAP_DIR": str(snap_dir),
+            "CHROME_ISOLATION": isolation,
+            "CHROME_HEADLESS": "true",
+            # Both occurrences must survive merging, while a user-supplied seed
+            # must not override the seed chosen for this crawl.
+            "CHROME_ARGS_EXTRA": json.dumps(
+                [
+                    "--js-flags=--expose-gc --random-seed=0",
+                    "--js-flags=--stack-trace-limit=23",
+                ],
+            ),
+        }
+        launch_dir = crawl_chrome if isolation == "crawl" else chrome_dir
+        launch_hook = (
+            CHROME_LAUNCH_HOOK if isolation == "crawl" else CHROME_SNAPSHOT_LAUNCH_HOOK
+        )
+        tab_process = None
+        with (launch_dir / "launch.stderr.log").open("w+") as stderr:
+            launch_process = subprocess.Popen(
+                [str(launch_hook)],
+                cwd=launch_dir,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=stderr,
+                text=True,
+            )
+            try:
+                wait_for_chrome_session_state(
+                    launch_dir,
+                    env=env,
+                    timeout_seconds=60,
+                    require_browser_ready=True,
+                )
+                tab_process = launch_snapshot_tab(
+                    snapshot_chrome_dir=chrome_dir,
+                    tab_env=env,
+                    test_url=url,
+                    snapshot_id=f"seed-{index}",
+                    crawl_id=crawl_name,
+                )
+                evidence = json.loads((chrome_dir / "random_seed.json").read_text())
+                seed = evidence["random_seed"]
+                assert isinstance(seed, int) and 0 < seed < 2**31
+                assert (
+                    json.loads((chrome_dir / "browser.json").read_text())["random_seed"]
+                    == seed
+                )
+                assert f"--random-seed={seed}" in (launch_dir / "cmd.sh").read_text()
+                seeds.append(seed)
+                navigation = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                    cwd=chrome_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                assert navigation.returncode == 0, navigation.stderr
+                script = """
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    console.log(JSON.stringify(await page.evaluate(() => ({
+      samples: window.samples, gc: typeof gc, stackLimit: Error.stackTraceLimit,
+    }))));
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+                probe = subprocess.run(
+                    [
+                        env["NODE_BINARY"],
+                        "-e",
+                        script,
+                        str(CHROME_UTILS),
+                        str(chrome_dir),
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                assert probe.returncode == 0, probe.stderr
+                page = json.loads(probe.stdout)
+                assert page["gc"] == "function"
+                assert page["stackLimit"] == 23
+                assert len(page["samples"]) == 8
+                samples.append(page["samples"])
+            finally:
+                if tab_process:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=20)
+                kill_chromium_session(launch_process, launch_dir)
+        # Hash after daemon cleanup: seed evidence must survive session removal.
+        seed_file = chrome_dir / "random_seed.json"
+        original = seed_file.read_bytes()
+        hashes_hook = (
+            CHROME_UTILS.parent.parent / "hashes" / "on_Snapshot__93_hashes.py"
+        )
+        roots = []
+        for payload in (original, json.dumps({"random_seed": seed + 1}).encode()):
+            seed_file.write_bytes(payload)
+            result = subprocess.run(
+                [str(hashes_hook), f"--url={url}"],
+                cwd=snap_dir,
+                env=env | {"HASHES_ENABLED": "true"},
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert result.returncode == 0, result.stderr
+            manifest = json.loads((snap_dir / "hashes" / "hashes.json").read_text())
+            entry = next(
+                row
+                for row in manifest["files"]
+                if row["path"] == "chrome/random_seed.json"
+            )
+            assert entry["hash"] == hashlib.sha256(payload).hexdigest()
+            assert any(
+                row["path"].startswith("chrome/") and row != entry
+                for row in manifest["files"]
+            )
+            for row in manifest["files"]:
+                assert (
+                    hashlib.sha256((snap_dir / row["path"]).read_bytes()).hexdigest()
+                    == row["hash"]
+                )
+            roots.append(manifest["root_hash"])
+        assert roots[0] != roots[1]
+    assert seeds[0] == seeds[1] != seeds[2]
+    assert samples[0] == samples[1] != samples[2]
