@@ -27,6 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
@@ -826,20 +827,40 @@ def test_failed_media_download_is_not_successful_metadata(
     status,
 ):
     """A real HTML5 media download can write metadata before its HTTP failure."""
-    httpserver.expect_request("/article").respond_with_data(
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(
+        "# Netscape HTTP Cookie File\n"
+        "#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t2145916800\tsid\tauthorized\n",
+    )
+    httpserver.expect_request(
+        "/article",
+        headers={"Cookie": "sid=authorized"},
+    ).respond_with_data(
         "<!doctype html><title>Unavailable clip</title>"
         '<video controls src="/missing.mp4"></video>',
         content_type="text/html",
     )
-    httpserver.expect_request("/missing.mp4").respond_with_data(
+    httpserver.expect_request(
+        "/missing.mp4",
+        headers={"Cookie": "sid=authorized"},
+    ).respond_with_data(
         "Unavailable",
         status=status,
         content_type="text/plain",
     )
     result = subprocess.run(
-        [str(YTDLP_HOOK), "--url", httpserver.url_for("/article")],
+        [
+            str(YTDLP_HOOK),
+            "--url",
+            httpserver.url_for("/article").replace("localhost", "127.0.0.1"),
+        ],
         cwd=tmp_path,
-        env={**os.environ, **ytdlp_runtime_env, "SNAP_DIR": str(tmp_path)},
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_COOKIES_FILE": str(cookies),
+        },
         capture_output=True,
         text=True,
         timeout=60,
@@ -847,6 +868,7 @@ def test_failed_media_download_is_not_successful_metadata(
     saved_metadata = list((tmp_path / "ytdlp").glob("*.info.json"))
     assert len(saved_metadata) == 1, (result.stdout, result.stderr)
     assert json.loads(saved_metadata[0].read_text())["title"] == "Unavailable clip (1)"
+    assert "sid=authorized" not in saved_metadata[0].read_text()
     assert not list((tmp_path / "ytdlp").glob("*.mp4"))
     assert result.returncode == 1, (result.stdout, result.stderr)
     record = parse_jsonl_output(result.stdout)
@@ -862,12 +884,20 @@ def test_timed_out_media_download_is_not_successful_metadata(
     keep_previous_media,
 ):
     """Native bandwidth limiting leaves real metadata and an unfinished download."""
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(
+        "# Netscape HTTP Cookie File\n"
+        "#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t2145916800\tsid\tauthorized\n",
+    )
     media_bytes = _build_test_wav_bytes(duration_seconds=120)
-    httpserver.expect_request("/sample.wav").respond_with_data(
+    httpserver.expect_request(
+        "/sample.wav",
+        headers={"Cookie": "sid=authorized"},
+    ).respond_with_data(
         media_bytes,
         content_type="audio/wav",
     )
-    media_test_url = httpserver.url_for("/sample.wav")
+    media_test_url = httpserver.url_for("/sample.wav").replace("localhost", "127.0.0.1")
     output_dir = tmp_path / "ytdlp"
     output_dir.mkdir()
     previous = output_dir / "previous.wav"
@@ -882,6 +912,7 @@ def test_timed_out_media_download_is_not_successful_metadata(
             **ytdlp_runtime_env,
             "SNAP_DIR": str(tmp_path),
             "YTDLP_TIMEOUT": "10",
+            "YTDLP_COOKIES_FILE": str(cookies),
             "YTDLP_ARGS_EXTRA": '["--limit-rate=64K", "--buffer-size=64K", "--no-resize-buffer"]',
         },
         capture_output=True,
@@ -891,6 +922,7 @@ def test_timed_out_media_download_is_not_successful_metadata(
     metadata = list(output_dir.glob("*.info.json"))
     assert len(metadata) == 1, (result.stdout, result.stderr)
     assert json.loads(metadata[0].read_text())["url"] == media_test_url
+    assert "sid=authorized" not in metadata[0].read_text()
     partials = list(output_dir.glob("*.part"))
     assert len(partials) == 1, (result.stdout, result.stderr)
     assert 0 < partials[0].stat().st_size < len(media_bytes)
@@ -1095,11 +1127,13 @@ def test_generic_thumbnail_urls_preserve_image_and_media(
 
 
 @pytest.mark.parametrize("cookie_key", ["COOKIES_FILE", "YTDLP_COOKIES_FILE"])
+@pytest.mark.parametrize("container", ["wav", "mkv"])
 def test_http_only_persona_cookies_reach_media_request(
     tmp_path,
     httpserver,
     ytdlp_runtime_env,
     cookie_key,
+    container,
 ):
     """The real hook must pass HttpOnly-only personas through both config paths."""
     cookies = tmp_path / "cookies.txt"
@@ -1108,10 +1142,18 @@ def test_http_only_persona_cookies_reach_media_request(
         "#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t2145916800\tsid\tauthorized\n",
     )
     media = _build_test_wav_bytes()
+    metadata_during_requests = []
+
+    def serve_media(_request):
+        # The second real media request follows yt-dlp's metadata write. No raw
+        # sidecar may be public even while the subprocess has not finished yet.
+        metadata_during_requests.append(list((tmp_path / "ytdlp").glob("*.info.json")))
+        return Response(media, content_type="audio/wav")
+
     httpserver.expect_request(
         "/private.wav",
         headers={"Cookie": "sid=authorized"},
-    ).respond_with_data(media, content_type="audio/wav")
+    ).respond_with_handler(serve_media)
     url = httpserver.url_for("/private.wav").replace("localhost", "127.0.0.1")
     result = subprocess.run(
         [str(YTDLP_HOOK), f"--url={url}"],
@@ -1124,6 +1166,11 @@ def test_http_only_persona_cookies_reach_media_request(
             },
             **ytdlp_runtime_env,
             "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": json.dumps(
+                ["--remux-video", "mkv", "--embed-info-json"]
+                if container == "mkv"
+                else [],
+            ),
             cookie_key: str(cookies),
         },
         capture_output=True,
@@ -1134,13 +1181,139 @@ def test_http_only_persona_cookies_reach_media_request(
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout
     # yt-dlp embeds metadata in the WAV container; its audio must remain exact.
-    with wave.open(str(tmp_path / record["output_str"]), "rb") as captured:
-        with wave.open(io.BytesIO(media), "rb") as original:
+    captured_path = tmp_path / record["output_str"]
+    if container == "wav":
+        with (
+            wave.open(str(captured_path), "rb") as captured,
+            wave.open(io.BytesIO(media), "rb") as original,
+        ):
             assert captured.getparams() == original.getparams()
             assert captured.readframes(captured.getnframes()) == original.readframes(
                 original.getnframes(),
             )
+    else:
+        assert captured_path.suffix == ".mkv"
+        ffmpeg = Path(ytdlp_runtime_env["FFMPEG_BINARY"]).resolve()
+        probe = subprocess.run(
+            [
+                str(ffmpeg.with_name("ffprobe")),
+                "-v",
+                "error",
+                "-show_streams",
+                "-of",
+                "json",
+                str(captured_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert probe.returncode == 0, probe.stderr
+        assert {
+            stream["codec_type"] for stream in json.loads(probe.stdout)["streams"]
+        } == {"audio"}
+        decoded = subprocess.run(
+            [str(ffmpeg), "-v", "error", "-i", str(captured_path), "-f", "s16le", "-"],
+            capture_output=True,
+            timeout=30,
+        )
+        assert decoded.returncode == 0, decoded.stderr
+        with wave.open(io.BytesIO(media), "rb") as original:
+            assert decoded.stdout == original.readframes(original.getnframes())
+        assert b"sid=authorized" not in captured_path.read_bytes()
     assert httpserver.log
+    assert all(
+        request.headers.get("Cookie") == "sid=authorized"
+        for request, _ in httpserver.log
+    )
+    httpserver.check_assertions()
+    assert len(metadata_during_requests) >= 2
+    assert all(not paths for paths in metadata_during_requests)
+    sidecars = list((tmp_path / "ytdlp").glob("*.info.json"))
+    assert len(sidecars) == 1
+    assert sidecars[0].name == "private.info.json"
+    metadata = json.loads(sidecars[0].read_text())
+    assert metadata["title"] == "private"
+    assert metadata["url"] == url
+    assert "sid=authorized" not in sidecars[0].read_text()
+    assert "cookies" not in metadata
+    assert all("cookies" not in fmt for fmt in metadata["formats"])
+
+
+def test_playlist_metadata_never_uses_public_cookie_output_override(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+):
+    """Both playlist and video JSON retain metadata without serializing the jar."""
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(
+        "# Netscape HTTP Cookie File\n"
+        "#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t2145916800\tsid\tauthorized\n",
+    )
+    headers = {"Cookie": "sid=authorized"}
+    httpserver.expect_request("/playlist", headers=headers).respond_with_data(
+        "<!doctype html><title>Authorized playlist</title>"
+        '<video src="/first.wav"></video><video src="/second.wav"></video>',
+        content_type="text/html",
+    )
+    media = _build_test_wav_bytes()
+    for path in ("/first.wav", "/second.wav"):
+        httpserver.expect_request(path, headers=headers).respond_with_data(
+            media,
+            content_type="audio/wav",
+        )
+    url = httpserver.url_for("/playlist").replace("localhost", "127.0.0.1")
+    result = subprocess.run(
+        [str(YTDLP_HOOK), f"--url={url}"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_COOKIES_FILE": str(cookies),
+            "YTDLP_ARGS_EXTRA": json.dumps(
+                [
+                    "--output",
+                    f"infojson:{tmp_path}/leaked-video.info.json",
+                    "--output",
+                    f"pl_infojson:{tmp_path}/leaked-playlist.info.json",
+                    "--paths",
+                    f"infojson:{tmp_path}",
+                    "--paths",
+                    f"pl_infojson:{tmp_path}",
+                ],
+            ),
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    assert not list(tmp_path.glob("leaked-*.info.json"))
+    sidecars = list((tmp_path / "ytdlp").glob("*.info.json"))
+    assert len(sidecars) == 3, [path.name for path in sidecars]
+    metadata = [json.loads(path.read_text()) for path in sidecars]
+    assert {data["_type"] for data in metadata} == {"playlist", "video"}
+    assert {data["title"] for data in metadata} == {
+        "Authorized playlist",
+        "Authorized playlist (1)",
+        "Authorized playlist (2)",
+    }
+    assert all("sid=authorized" not in path.read_text() for path in sidecars)
+    saved_media = list((tmp_path / "ytdlp").glob("*.wav"))
+    assert len(saved_media) == 2
+    for path in saved_media:
+        with wave.open(str(path), "rb") as captured:
+            with wave.open(io.BytesIO(media), "rb") as original:
+                assert captured.getparams() == original.getparams()
+                assert captured.readframes(
+                    captured.getnframes(),
+                ) == original.readframes(
+                    original.getnframes(),
+                )
     assert all(
         request.headers.get("Cookie") == "sid=authorized"
         for request, _ in httpserver.log

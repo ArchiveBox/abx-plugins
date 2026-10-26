@@ -161,7 +161,7 @@
         "YTDLP_EXTRA_ARGS",
         "YOUTUBEDL_ARGS"
       ],
-      "description": "Extra arguments to append to yt-dlp command"
+      "description": "Extra arguments to append to yt-dlp command. Media output templates remain configurable; info JSON sidecars use sanitized title-based filenames and raw JSON attachments are disabled to keep cookies out of archives."
     }
   },
   "category": "media",

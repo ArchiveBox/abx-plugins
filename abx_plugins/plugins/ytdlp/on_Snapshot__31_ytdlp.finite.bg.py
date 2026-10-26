@@ -35,8 +35,10 @@ if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("yt-dlp download started", flush=True)
 
 import os
+import json
 import re
 import subprocess
+import tempfile
 import threading
 from contextlib import suppress
 from pathlib import Path
@@ -254,6 +256,23 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     if "--newline" not in cmd:
         cmd.append("--newline")
 
+    # yt-dlp stores request cookies in info.json, including nested formats. Keep
+    # its raw metadata outside the served archive even if this hook is killed.
+    # Reserve both metadata destinations after user args; media templates remain
+    # configurable, but metadata uses the normal sanitized title-based filenames.
+    metadata_dir = tempfile.TemporaryDirectory(prefix="archivebox-ytdlp-metadata-")
+    # --add-metadata also attaches raw info.json to MKV/MKA. Keep ordinary
+    # title/chapters metadata, but use only the sanitized sidecar for full JSON.
+    cmd.append("--no-embed-info-json")
+    for kind in ("infojson", "pl_infojson"):
+        cmd.extend(
+            [
+                "--paths",
+                f"{kind}:{metadata_dir.name}",
+                "--output",
+                f"{kind}:%(title)s.%(ext)s",
+            ],
+        )
     cmd.append(url)
 
     try:
@@ -350,6 +369,31 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
         return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
+    finally:
+        # Preserve useful metadata on failed/timed-out downloads too. Sanitize a
+        # separate serialized copy, never the live info dict or authentication jar.
+        # The private directory also prevents exposure before this boundary runs.
+        try:
+            for source in Path(metadata_dir.name).glob("*.info.json"):
+                data = json.loads(source.read_text())
+
+                def without_cookies(value):
+                    if isinstance(value, dict):
+                        return {
+                            key: without_cookies(item)
+                            for key, item in value.items()
+                            if key.lower() not in {"cookies", "cookie", "set-cookie"}
+                        }
+                    if isinstance(value, list):
+                        return [without_cookies(item) for item in value]
+                    return value
+
+                (output_dir / source.name).write_text(
+                    json.dumps(without_cookies(data), ensure_ascii=False, indent=2)
+                    + "\n",
+                )
+        finally:
+            metadata_dir.cleanup()
 
 
 @click.command(
