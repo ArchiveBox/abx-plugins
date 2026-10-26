@@ -240,7 +240,9 @@ const fs = require('fs');
     }
     console.log(JSON.stringify({completed: 10}));
   } finally { await browser.disconnect(); }
-})().catch(error => { console.error(error.stack); process.exit(1); });
+// Puppeteer retains the originating protocol command in error.cause; printing
+// only .stack hides the call site when a target closes before its response.
+})().catch(error => { console.error(error); process.exit(1); });
 """,
                     str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
                     str(chrome_dir),

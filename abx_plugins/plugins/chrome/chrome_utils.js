@@ -267,12 +267,16 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       // Register each child's network profile under this collector's root
       // before it runs: synchronous XHR/short-lived workers can finish before
       // their renderer can stream bytes. Always release our debugger pause.
+      const commandSession = closing ? client : child;
       const work = closing ? client.send("Target.detachFromTarget", { sessionId }) : configureCollector(child).finally(async () => {
         if (!child.detached) await child.send("Runtime.runIfWaitingForDebugger");
       });
       pending.add(work);
       work.catch((error) => {
-        if (error.name !== "TargetCloseError" || !child.detached) setupError ||= error;
+        // Detach runs on the parent, while setup runs on the child. Chrome can
+        // dispose the parent before acknowledging a detach; its child object
+        // need not receive a separate disconnected event in Puppeteer.
+        if (error.name !== "TargetCloseError" || !commandSession.detached) setupError ||= error;
       }).finally(() => pending.delete(work));
     };
     watched.set(client, onAttached);
@@ -366,10 +370,13 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       // Borrowed renderer sessions stay intact.
       for (const client of [...ownedCollectors].reverse()) {
         if (client === durableCollector || client.detached) continue;
+        const parent = client.parentSession();
         try {
-          await client.parentSession().send("Target.detachFromTarget", { sessionId: client.id() });
+          await parent.send("Target.detachFromTarget", { sessionId: client.id() });
         } catch (error) {
-          if (error.name !== "TargetCloseError" || !client.detached) setupError ||= error;
+          // The command belongs to the parent. Closing that owner already
+          // releases its capture session, even if the child's local flag is stale.
+          if (error.name !== "TargetCloseError" || !parent?.detached) setupError ||= error;
         }
       }
       if (durableCollector && !sharedCollector && !durableCollector.detached) {
