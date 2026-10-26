@@ -53,6 +53,10 @@ const utils = require(process.argv[1]);
     return {visibility: document.visibilityState, focused: document.hasFocus(), width: innerWidth, height: innerHeight};
   });
   console.error(`MHTML font viewport=${JSON.stringify(rendered)}`);
+  // Match the screenshot hook: focus emulation reports a visible document but
+  // does not activate the headless compositor after navigation. Activate the
+  // target before requesting pixels so font setup cannot wait on an idle frame.
+  await page.bringToFront();
   phase('screenshot');
   // Python kills this process at 30s. Before that loses the CDP connection,
   // distinguish a compositor command awaiting Chrome from a local Puppeteer
