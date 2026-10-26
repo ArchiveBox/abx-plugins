@@ -81,12 +81,23 @@ async function runStartHandshake(
     const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
         let handshakeStage = "connect";
+        const handshakeStarted = Date.now();
+        const receivedMessages = [];
+        let disconnectError = null;
+        // A timeout alone cannot distinguish a delayed collection lookup from
+        // a disconnected port. Retain bounded protocol types/timings only:
+        // collection titles, URLs and other message payloads stay out of logs.
+        const diagnostics = () => JSON.stringify({
+          elapsed_ms: Date.now() - handshakeStarted,
+          received: receivedMessages,
+          disconnect_error: disconnectError,
+        });
         function withTimeout(promise, ms, message) {
           return Promise.race([
             promise,
             new Promise((_, reject) =>
               setTimeout(
-                () => reject(new Error(`${message} (${handshakeStage})`)),
+                () => reject(new Error(`${message} (${handshakeStage}; ${diagnostics()})`)),
                 ms
               )
             ),
@@ -101,7 +112,15 @@ async function runStartHandshake(
             const port = chrome.runtime.connect({ name: "popup-port" });
             const recvQueue = [];
             const waiters = [];
+            port.onDisconnect.addListener(() => {
+              disconnectError = chrome.runtime.lastError?.message || "port disconnected";
+            });
             port.onMessage.addListener((message) => {
+              receivedMessages.push({
+                type: typeof message?.type === "string" ? message.type.slice(0, 64) : "unknown",
+                elapsed_ms: Date.now() - handshakeStarted,
+              });
+              if (receivedMessages.length > 8) receivedMessages.shift();
               const waiterIndex = waiters.findIndex(({ predicate }) =>
                 predicate(message)
               );
@@ -125,7 +144,7 @@ async function runStartHandshake(
                 waiter.timeout = setTimeout(() => {
                   const waiterIndex = waiters.indexOf(waiter);
                   if (waiterIndex !== -1) waiters.splice(waiterIndex, 1);
-                  reject(new Error(`timed out waiting for ${label}`));
+                  reject(new Error(`timed out waiting for ${label} (${diagnostics()})`));
                 }, ms);
                 waiters.push(waiter);
               });
