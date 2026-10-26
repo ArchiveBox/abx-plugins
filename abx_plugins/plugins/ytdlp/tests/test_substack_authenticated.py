@@ -20,9 +20,12 @@ from abx_plugins.plugins.ytdlp.tests.test_ytdlp import (
 )
 
 
-def diagnose_substack_media_response(cookie_file, ytdlp_binary):
+def diagnose_substack_media_response(cookie_file, ytdlp_binary, impersonate=False):
     """Describe a separate request through the actual installed yt-dlp runtime."""
-    diagnostic = {"client": "secondary yt-dlp request (not the original download)"}
+    diagnostic = {
+        "client": "secondary yt-dlp request (not the original download)",
+        "impersonate": "any" if impersonate else None,
+    }
     try:
         # Pytest's interpreter need not contain the hook's yt-dlp dependencies.
         # Its installed console script identifies the exact interpreter; a stdlib
@@ -47,6 +50,7 @@ def diagnose_substack_media_response(cookie_file, ytdlp_binary):
                 "python",
                 "-",
                 str(cookie_file),
+                "1" if impersonate else "0",
             ],
             input=r"""
 import json
@@ -57,8 +61,13 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from yt_dlp.networking.exceptions import HTTPError
+from yt_dlp.networking.impersonate import ImpersonateTarget
 
-diagnostic = {"client": "secondary yt-dlp request (not the original download)"}
+impersonate = sys.argv[2] == "1"
+diagnostic = {
+    "client": "secondary yt-dlp request (not the original download)",
+    "impersonate": "any" if impersonate else None,
+}
 try:
     # YoutubeDL saves its jar on close. Diagnose from a private copy so this
     # extra request cannot change the persona used by the failed capture.
@@ -66,8 +75,11 @@ try:
         cookies = Path(private) / "cookies.txt"
         shutil.copyfile(sys.argv[1], cookies)
         cookies.chmod(0o600)
-        with YoutubeDL({"cookiefile": str(cookies), "quiet": True,
-                       "no_warnings": True, "socket_timeout": 10}) as ydl:
+        options = {"cookiefile": str(cookies), "quiet": True,
+                   "no_warnings": True, "socket_timeout": 10}
+        if impersonate:
+            options["impersonate"] = ImpersonateTarget()
+        with YoutubeDL(options) as ydl:
             try:
                 response = ydl.urlopen(
                     "https://andrewzimmern.substack.com/api/v1/video/upload/"
@@ -77,12 +89,14 @@ try:
                 response = error.response
             with response:
                 diagnostic.update(
+                    impersonate=str(response.extensions.get("impersonate") or "") or None,
                     status=response.status,
                     final_hostname=urlsplit(response.url).hostname,
                     headers={name: response.headers.get(name, "")[:256]
                              for name in ("server", "content-type", "cf-mitigated")},
                 )
                 body = response.read(8192).lower()
+                diagnostic["body_has_hls_marker"] = body.startswith(b"#extm3u")
                 diagnostic["body_has_challenge_marker"] = any(
                     marker in body for marker in (
                         b"cf-chl-", b"/cdn-cgi/challenge-platform/", b"verify you are human"
@@ -149,16 +163,19 @@ def test_substack_json_script_downloads_real_video(
     )
     assert "Loading request from" in result.stderr, result.stderr
     if result.returncode:
-        # The CLI loses HTTP response headers. Keep the strict failure, and
-        # label this bounded follow-up separately; it cannot turn failure green.
-        print(
-            json.dumps(
-                diagnose_substack_media_response(
-                    os.environ["COOKIES_FILE"],
-                    ytdlp_runtime_env["YTDLP_BINARY"],
+        # Compare supported transports on the same failing host and persona.
+        # Upstream selects its browser profile/headers; neither result retries
+        # the capture or replaces the original strict download assertion below.
+        for impersonate in (False, True):
+            print(
+                json.dumps(
+                    diagnose_substack_media_response(
+                        os.environ["COOKIES_FILE"],
+                        ytdlp_runtime_env["YTDLP_BINARY"],
+                        impersonate=impersonate,
+                    ),
                 ),
-            ),
-        )
+            )
     assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "succeeded", result.stdout
