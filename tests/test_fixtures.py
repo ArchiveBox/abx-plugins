@@ -123,6 +123,7 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     }
     assert pinned_providers == {
         PLUGINS_ROOT / "figma/tests/test_figma_authenticated.py",
+        PLUGINS_ROOT / "ytdlp/tests/test_substack_authenticated.py",
     }
     for item in provider_matrix:
         assert item["ugnas"] == (REPO_ROOT / item["path"] in pinned_providers)

@@ -1,4 +1,7 @@
 # ci-environment: provider-capture
+# ci-runner: ugnas
+# Like Figma, the synced session needs residential egress for native downloads;
+# hosted yt-dlp receives a challenge even when that runner's Chrome succeeds.
 """Full Substack media acceptance using the authorized persona cookie file."""
 
 import gzip
