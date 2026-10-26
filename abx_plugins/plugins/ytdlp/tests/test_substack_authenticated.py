@@ -21,7 +21,7 @@ from abx_plugins.plugins.ytdlp.tests.test_ytdlp import (
 )
 
 
-def diagnose_substack_media_response(cookie_file, ytdlp_binary):
+def diagnose_substack_media_response(cookie_file, ytdlp_binary, with_referer=False):
     """Describe a separate request through the actual installed yt-dlp runtime."""
     diagnostic = {
         "client": "secondary yt-dlp request (not the original download)",
@@ -50,6 +50,7 @@ def diagnose_substack_media_response(cookie_file, ytdlp_binary):
                 "python",
                 "-",
                 str(cookie_file),
+                "1" if with_referer else "0",
             ],
             input=r"""
 import json
@@ -73,6 +74,14 @@ try:
         cookies.chmod(0o600)
         options = {"cookiefile": str(cookies), "quiet": True,
                    "no_warnings": True, "socket_timeout": 10}
+        if sys.argv[2] == "1":
+            # Compare upstream-supported embedding-page context, not a made-up
+            # browser fingerprint. Keep yt-dlp's own UA and transport untouched.
+            options["http_headers"] = {
+                "Referer": "https://andrewzimmern.substack.com/p/mussels-with-black-bean-sauce-recipe",
+                "Accept": "*/*",
+            }
+            diagnostic["request_headers"] = options["http_headers"]
         with YoutubeDL(options) as ydl:
             try:
                 response = ydl.urlopen(
@@ -308,6 +317,18 @@ def test_substack_json_script_downloads_real_video(
                 diagnose_substack_media_response(
                     os.environ["COOKIES_FILE"],
                     ytdlp_runtime_env["YTDLP_BINARY"],
+                ),
+            ),
+        )
+        # A real Chrome GET carries its embedding page as Referer. This bounded
+        # comparison isolates that supported context before any extractor change;
+        # it cannot turn the original failed capture into a passing test.
+        print(
+            json.dumps(
+                diagnose_substack_media_response(
+                    os.environ["COOKIES_FILE"],
+                    ytdlp_runtime_env["YTDLP_BINARY"],
+                    with_referer=True,
                 ),
             ),
         )

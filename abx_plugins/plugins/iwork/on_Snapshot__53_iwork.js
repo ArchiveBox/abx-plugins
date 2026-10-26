@@ -169,6 +169,9 @@ async function main() {
           );
           const state = await (await handle.getProperty("state")).jsonValue();
           const element = (await handle.getProperty("element")).asElement();
+          // The shared deadline covers UI interaction and Apple's export queue.
+          // Log before awaiting a click so a timeout identifies which was pending.
+          console.error(`iWork export control: ${state} (${Date.now() - (deadline - timeoutMs)}ms)`);
           if (state === "guest") {
             await page.waitForSelector("#participant-name", {
               visible: true,
@@ -187,7 +190,10 @@ async function main() {
             await page.keyboard.press("Enter");
           } else await element.asLocator().setTimeout(remaining()).click();
           await handle.dispose();
-          if (state === "pdf") return;
+          if (state === "pdf") {
+            console.error(`iWork PDF export requested (${Date.now() - (deadline - timeoutMs)}ms)`);
+            return;
+          }
           if (
             ["intro", "guest", "collaboration", "participants"].includes(state)
           )
