@@ -1482,6 +1482,10 @@ def has_netscape_cookie_entries(path: Path | str | None) -> bool:
             return False
         for raw_line in cookies_path.read_text(errors="replace").splitlines():
             line = raw_line.strip()
+            # Netscape HttpOnly rows carry real credentials despite the '#';
+            # skipping them silently disables cookies for HttpOnly-only personas.
+            if line.startswith("#HttpOnly_"):
+                line = line.removeprefix("#HttpOnly_")
             if not line or line.startswith("#"):
                 continue
             parts = line.split("\t")

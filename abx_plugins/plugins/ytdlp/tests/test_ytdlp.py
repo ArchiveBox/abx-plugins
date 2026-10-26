@@ -1094,6 +1094,60 @@ def test_generic_thumbnail_urls_preserve_image_and_media(
     )
 
 
+@pytest.mark.parametrize("cookie_key", ["COOKIES_FILE", "YTDLP_COOKIES_FILE"])
+def test_http_only_persona_cookies_reach_media_request(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+    cookie_key,
+):
+    """The real hook must pass HttpOnly-only personas through both config paths."""
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(
+        "# Netscape HTTP Cookie File\n"
+        "#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t2145916800\tsid\tauthorized\n",
+    )
+    media = _build_test_wav_bytes()
+    httpserver.expect_request(
+        "/private.wav",
+        headers={"Cookie": "sid=authorized"},
+    ).respond_with_data(media, content_type="audio/wav")
+    url = httpserver.url_for("/private.wav").replace("localhost", "127.0.0.1")
+    result = subprocess.run(
+        [str(YTDLP_HOOK), f"--url={url}"],
+        cwd=tmp_path,
+        env={
+            **{
+                key: value
+                for key, value in os.environ.items()
+                if key not in {"COOKIES_FILE", "YTDLP_COOKIES_FILE"}
+            },
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            cookie_key: str(cookies),
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", result.stdout
+    # yt-dlp embeds metadata in the WAV container; its audio must remain exact.
+    with wave.open(str(tmp_path / record["output_str"]), "rb") as captured:
+        with wave.open(io.BytesIO(media), "rb") as original:
+            assert captured.getparams() == original.getparams()
+            assert captured.readframes(captured.getnframes()) == original.readframes(
+                original.getnframes(),
+            )
+    assert httpserver.log
+    assert all(
+        request.headers.get("Cookie") == "sid=authorized"
+        for request, _ in httpserver.log
+    )
+    httpserver.check_assertions()
+
+
 def test_extracts_local_media_url(media_test_url, ytdlp_runtime_env):
     """Test yt-dlp extraction against deterministic local media served by httpserver."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1343,78 +1397,6 @@ def test_generic_html5_ignores_comments_without_losing_visible_media(
         httpserver.url_for("/second.wav"),
     }
     assert not any(request.path == "/missing.wav" for request, _ in httpserver.log)
-
-
-def test_substack_json_script_downloads_real_video(tmp_path, ytdlp_runtime_env):
-    """Parse actual new-format HTML and decode its complete public media bytes."""
-    page = gzip.decompress(
-        (
-            Path(__file__).parent / "fixtures/substack-json-script-video.html.gz"
-        ).read_bytes(),
-    )
-    assert hashlib.sha256(page).hexdigest() == (
-        "85b64ba067f2defc06ec7d5b71aeb1c34fb5424e6eb2242878cefd95e77f205c"
-    )
-    slug = "mussels-with-black-bean-sauce-recipe"
-    output = tmp_path / "ytdlp"
-    output.mkdir()
-    saved_page = output / f"{slug}_https_-_andrewzimmern.substack.com_p_{slug}.dump"
-    saved_page.write_bytes(page)
-    result = subprocess.run(
-        [str(YTDLP_HOOK), f"--url=https://andrewzimmern.substack.com/p/{slug}"],
-        cwd=tmp_path,
-        env={
-            **os.environ,
-            **ytdlp_runtime_env,
-            "SNAP_DIR": str(tmp_path),
-            "YTDLP_ARGS_EXTRA": '["--load-pages"]',
-        },
-        capture_output=True,
-        text=True,
-        timeout=140,
-    )
-    assert "Loading request from" in result.stderr, result.stderr
-    assert result.returncode == 0, result.stderr
-    record = parse_jsonl_output(result.stdout)
-    assert record and record["status"] == "succeeded", result.stdout
-    assert saved_page.read_bytes() == page
-    videos = list(output.glob("*.mp4"))
-    assert len(videos) == 1, list(output.iterdir())
-    info = json.loads(videos[0].with_suffix(".info.json").read_text())
-    assert info["id"] == "47368578", info
-    assert info["title"] == "Mussels with Black Bean Sauce: Recipe of the Week #7"
-    assert info["uploader_id"] == "577659", info
-    ffmpeg = Path(ytdlp_runtime_env["FFMPEG_BINARY"]).resolve()
-    probe = subprocess.run(
-        [
-            str(ffmpeg.with_name("ffprobe")),
-            "-v",
-            "error",
-            "-show_format",
-            "-show_streams",
-            "-of",
-            "json",
-            str(videos[0]),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert probe.returncode == 0, probe.stderr
-    media = json.loads(probe.stdout)
-    assert 59 < float(media["format"]["duration"]) < 62, media
-    assert {stream["codec_type"] for stream in media["streams"]} >= {
-        "video",
-        "audio",
-    }, media
-    decoded = subprocess.run(
-        [str(ffmpeg), "-v", "error", "-i", str(videos[0]), "-f", "null", "-"],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert decoded.returncode == 0, decoded.stderr
-    assert not decoded.stderr, decoded.stderr
 
 
 @pytest.mark.parametrize("damage", ["missing", "malformed"])

@@ -567,6 +567,7 @@ jobs:
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
+        if: "!contains(matrix.test.path, '/ytdlp/')"
         env:
           # Refresh Figma independently without replacing the working Canva/Miro persona.
           PROVIDER_AUTH_STORAGE_JSON: ${{ contains(matrix.test.path, '/figma/') && secrets.FIGMA_AUTH_STORAGE_JSON || secrets.PROVIDER_AUTH_STORAGE_JSON }}
@@ -582,13 +583,29 @@ jobs:
             echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
             echo "PERSONAS_DIR=$RUNNER_TEMP/provider-personas"
           } >> "$GITHUB_ENV"
+      - name: Prepare authorized media cookies
+        if: contains(matrix.test.path, '/ytdlp/')
+        env:
+          SUBSTACK_COOKIES_TXT: ${{ secrets.SUBSTACK_COOKIES_TXT }}
+        run: |
+          set -Eeuo pipefail
+          # CLI media downloaders consume the persona's Netscape export, not
+          # browser auth.json. Keep this provider separate from the other secrets.
+          : "${SUBSTACK_COOKIES_TXT:?Missing provider-capture Substack cookies}"
+          umask 077
+          cookies_file="$(mktemp "$RUNNER_TEMP/provider-cookies.XXXXXX")"
+          printf '%s' "$SUBSTACK_COOKIES_TXT" > "$cookies_file"
+          {
+            echo "COOKIES_FILE=$cookies_file"
+            echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
+          } >> "$GITHUB_ENV"
       - name: Run real authenticated provider acceptance
         env:
           TEST_PATH: ${{ matrix.test.path }}
           CHROME_HEADLESS: "false"
         run: |
           set -Eeuo pipefail
-          test -f "$AUTH_STORAGE_FILE"
+          test -f "${COOKIES_FILE:-${AUTH_STORAGE_FILE:-}}"
           test -f "$TEST_PATH"
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
             --basetemp="$RUNNER_TEMP/provider-pytest" \
@@ -616,7 +633,7 @@ jobs:
       - name: Remove authentication and browser profiles
         if: always()
         run: |
-          rm -f "$RUNNER_TEMP"/provider-auth.*
+          rm -f "$RUNNER_TEMP"/provider-auth.* "$RUNNER_TEMP"/provider-cookies.*
           rm -rf "$RUNNER_TEMP/provider-pytest" "$RUNNER_TEMP/provider-personas" \
             "$RUNNER_TEMP/provider-runtime" "$RUNNER_TEMP/provider-pytest-cache"
 
