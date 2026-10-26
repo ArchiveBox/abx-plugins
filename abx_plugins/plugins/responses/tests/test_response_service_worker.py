@@ -18,12 +18,22 @@ from abx_plugins.plugins.responses.tests.test_responses import (
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-@pytest.mark.parametrize("mislabeled_binary", [False, True])
-@pytest.mark.parametrize("cross_site_frame", [False, True])
+@pytest.mark.parametrize(
+    "cross_site_frame,mislabeled_binary,streamed_worker",
+    [
+        (False, False, False),
+        (False, True, False),
+        (True, False, False),
+        (True, True, False),
+        (False, True, True),
+        (True, True, True),
+    ],
+)
 def test_service_worker_cached_bodies_preserve_bytes_without_refetching(
     tmp_path,
     mislabeled_binary,
     cross_site_frame,
+    streamed_worker,
 ):
     image = (
         Path(__file__).parents[4] / "docs/assets/plugins/singlefile.png"
@@ -62,7 +72,23 @@ def test_service_worker_cached_bodies_preserve_bytes_without_refetching(
             + ")).then(()=>self.skipWaiting())));"
             "self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));"
             "self.addEventListener('fetch',event=>event.respondWith("
-            "caches.match(event.request).then(cached=>cached||fetch(event.request))));",
+            "caches.match(event.request).then(async cached=>{"
+            "if(!cached)return fetch(event.request);"
+            + (
+                # A real worker can stream cached content instead of returning
+                # its Response directly. Exercise original-byte delivery even
+                # when a text MIME type would corrupt getResponseBody fallback.
+                "if(new URL(event.request.url).pathname==='/binary.txt'){"
+                "const bytes=new Uint8Array(await cached.arrayBuffer());"
+                "return new Response(new ReadableStream({async start(controller){"
+                "controller.enqueue(bytes.slice(0,1));"
+                "await new Promise(resolve=>setTimeout(resolve,100));"
+                "controller.enqueue(bytes.slice(1));controller.close();"
+                "}}),{headers:cached.headers});}"
+                if streamed_worker
+                else ""
+            )
+            + "return cached;})));",
             content_type="application/javascript",
         )
         url = server.url_for("/")
@@ -144,21 +170,36 @@ const {connectToPage}=require(process.argv[1]);
                 json.loads(line)
                 for line in (output / "index.jsonl").read_text().splitlines()
             ]
-            if mislabeled_binary:
-                # Chrome's renderer decodes mislabeled SW bodies as text. Keep
-                # the existing byte-integrity failure instead of publishing
-                # those changed bytes or calling this partial capture complete.
+            binary_url = (child_origin if cross_site_frame else origin) + "binary.txt"
+            binary_saved = [row for row in rows if row["url"] == binary_url]
+            # Chrome may expose original streamed bytes even for a text MIME
+            # type; only its decoded fallback loses binary fidelity. Require
+            # exact saved bytes plus success, or the specific integrity failure
+            # plus no corrupt artifact, rather than requiring a backend to fail.
+            unavailable_binary = mislabeled_binary and not binary_saved
+            if streamed_worker:
+                assert binary_saved, (stdout, stderr)
+            results = [
+                json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+            ]
+            assert len(results) == 1, results
+            assert results[0]["type"] == "ArchiveResult"
+            if unavailable_binary:
                 assert recorder.returncode == 1, (stdout, stderr)
                 assert "Original response bytes unavailable" in stderr
                 assert "1 response capture error(s)" in stdout
+                assert results[0]["status"] == "failed"
             else:
                 assert recorder.returncode == 0, (stdout, stderr)
+                assert results[0]["status"] == "succeeded"
+                assert "response capture error" not in stdout
+                assert "Original response bytes unavailable" not in stderr
             for asset, (expected, _) in assets.items():
                 expected_url = (
                     child_origin if cross_site_frame else origin
                 ) + asset.lstrip("/")
                 saved = [row for row in rows if row["url"] == expected_url]
-                if asset == "/binary.txt":
+                if asset == "/binary.txt" and unavailable_binary:
                     assert not saved
                     assert sum(request.path == asset for request, _ in server.log) == 1
                     continue
