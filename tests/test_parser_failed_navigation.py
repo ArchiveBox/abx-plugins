@@ -16,6 +16,7 @@ from abx_plugins.plugins.parse_rss_urls.parse_rss_test_helpers import parse_rss_
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
 
 
+@pytest.mark.parametrize("failure_status", [None, 404, 503])
 @pytest.mark.parametrize(
     ("plugin", "body", "content_type"),
     [
@@ -48,6 +49,7 @@ def test_parser_does_not_retry_failed_capture(
     plugin,
     body,
     content_type,
+    failure_status,
 ):
     url = httpserver.url_for("/source")
     with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
@@ -56,7 +58,15 @@ def test_parser_does_not_retry_failed_capture(
         chrome,
         env,
     ):
-        httpserver.stop()
+        if failure_status is None:
+            httpserver.stop()
+        else:
+            httpserver.expect_request("/source").respond_with_data(
+                '<html><head><link rel="icon" href="data:,"></head>'
+                "<body>Source unavailable</body></html>",
+                status=failure_status,
+                content_type="text/html",
+            )
         try:
             navigation = subprocess.run(
                 [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
@@ -67,11 +77,19 @@ def test_parser_does_not_retry_failed_capture(
                 timeout=45,
             )
         finally:
-            httpserver.start()
-        assert navigation.returncode != 0, navigation.stdout
+            if failure_status is None:
+                httpserver.start()
         recorded = json.loads((chrome / "navigation.json").read_text())
-        assert "ERR_CONNECTION_REFUSED" in recorded["error"], recorded
-        assert not recorded["status"], recorded
+        if failure_status is None:
+            assert navigation.returncode != 0, navigation.stdout
+            assert "ERR_CONNECTION_REFUSED" in recorded["error"], recorded
+            assert not recorded["status"], recorded
+        else:
+            assert navigation.returncode == 0, navigation.stderr
+            assert recorded["status"] == failure_status, recorded
+            assert recorded.get("error") is None, recorded
+            assert [request.path for request, _ in httpserver.log] == ["/source"]
+            httpserver.clear()
         assert recorded["url"] == url
         assert httpserver.url_for("/source") == url
         httpserver.expect_request("/source").respond_with_data(

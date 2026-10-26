@@ -1270,16 +1270,18 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
 
 
 def has_failed_source_navigation(url: str, snap_dir: Path) -> bool:
-    """Whether this source already failed transport without an HTTP response."""
+    """Whether this source already failed navigation or returned an HTTP error."""
     try:
         navigation = json.loads((snap_dir / "chrome/navigation.json").read_text())
     except (OSError, ValueError):
         return False
-    return (
-        isinstance(navigation, dict)
-        and navigation.get("url") == url
-        and navigation.get("status") is None
-        and "net::ERR_" in str(navigation.get("error", ""))
+    if not isinstance(navigation, dict) or navigation.get("url") != url:
+        return False
+    status = navigation.get("status")
+    # Capture already tried this source. An HTTP error must not turn each
+    # parser into another network retry; saved/imported text takes precedence.
+    return (isinstance(status, int) and 400 <= status < 600) or (
+        status is None and "net::ERR_" in str(navigation.get("error", ""))
     )
 
 
@@ -1311,9 +1313,9 @@ def read_snapshot_source_text(
 ) -> str:
     """Read captured/imported source, with HTTP fallback for standalone parsers.
 
-    A completed transport failure with no HTTP response leaves no input to
-    parse. Do not turn every postprocessor into another network retry. Saved
-    bodies still take precedence, and a failure for another URL is unrelated.
+    Completed navigation is this capture's attempt. Transport or HTTP failures
+    do not authorize a new origin request per parser. Saved/imported text still
+    takes precedence, and a failure for another URL is unrelated.
     """
     source_paths = iter_staticfile_text_inputs(snap_dir)
     if source_paths:
