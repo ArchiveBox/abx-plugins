@@ -431,3 +431,135 @@ def test_replay_index_contains_exact_metadata_but_no_warc_response_bytes():
                 offset == entry.header_offset and len(data) > entry.compress_size
                 for offset, data in ranges
             )
+
+
+@pytest.mark.parametrize("scheme", ["auto", "light", "dark"])
+@pytest.mark.parametrize("preference", ["light", "dark"])
+def test_replay_canvas_preserves_recorded_color_scheme(
+    tmp_path,
+    httpserver,
+    require_chrome_runtime,
+    scheme,
+    preference,
+):
+    """Check composited pixels: transparent dark documents can have white text on white."""
+    from playwright.sync_api import sync_playwright
+    from werkzeug.wrappers import Response
+    from abx_plugins.plugins.base.testing import install_required_binary_from_config
+    from abx_plugins.plugins.base.utils import load_config
+
+    plugin_dir = Path(presentation.__file__).parent
+    install_required_binary_from_config(
+        plugin_dir,
+        "archivewebpage",
+        env=dict(os.environ),
+    )
+    config = load_config(plugin_dir / "config.json", hydrate_binaries=False)
+    fixture = Path(__file__).parent / f"fixtures/replay/color-scheme-{scheme}.wacz"
+    original = fixture.read_bytes()
+    source = "/archivewebpage/capture.wacz"
+    for asset in ("ui.js", "sw-index.js", "sw.js", "replay.html"):
+        response = presentation.serve_replay_asset(f"replay/{asset}", config)
+        assert response is not None
+        body, content_type, headers = response
+        httpserver.expect_request(f"/replay/{asset}").respond_with_data(
+            body,
+            content_type=content_type,
+            headers=headers,
+        )
+    viewer = presentation.render_replay_html("capture.wacz", source, fixture)
+
+    def serve_capture(request):
+        if request.args.get("preview") == "1":
+            return Response(viewer, content_type="text/html")
+        if byte_range := request.headers.get("Range"):
+            start, end = byte_range.removeprefix("bytes=").split("-")
+            first = int(start) if start else max(0, len(original) - int(end))
+            last = (
+                min(int(end), len(original) - 1) if start and end else len(original) - 1
+            )
+            return Response(
+                original[first : last + 1],
+                status=206,
+                headers={
+                    "Content-Range": f"bytes {first}-{last}/{len(original)}",
+                    "Accept-Ranges": "bytes",
+                },
+                content_type="application/wacz",
+            )
+        return Response(
+            original,
+            content_type="application/wacz",
+            headers={"Accept-Ranges": "bytes"},
+        )
+
+    httpserver.expect_request(source).respond_with_handler(serve_capture)
+    httpserver.expect_request("/").respond_with_data(
+        f'<!doctype html><iframe id="replay" src="{source}?preview=1" style="width:100%;height:90vh"></iframe>'
+        '<script>window.painted=false;addEventListener("message",event=>{'
+        'if(event.source===document.getElementById("replay").contentWindow && '
+        'event.data.type==="archivebox-replay-painted") painted=true;});</script>',
+        content_type="text/html",
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=os.environ["CHROME_BINARY"],
+            args=["--no-sandbox"],
+        )
+        page = browser.new_page(
+            color_scheme=preference,
+            viewport={"width": 800, "height": 600},
+        )
+        timings = {}
+        ui_requests = 0
+        for load in ("cold", "warm"):
+            response = (
+                page.goto(httpserver.url_for("/"), wait_until="domcontentloaded")
+                if load == "cold"
+                else page.reload(wait_until="domcontentloaded")
+            )
+            assert response is not None
+            timings[load] = (
+                response.request.timing["responseStart"]
+                - response.request.timing["requestStart"]
+            )
+            page.wait_for_function("window.painted")
+            replay = next(frame for frame in page.frames if "/replay/w/" in frame.url)
+            assert replay.locator("p").inner_text() == "Readable archived text"
+            screenshot = replay.locator("body").screenshot(
+                path=str(tmp_path / f"replay-canvas-{load}.png"),
+            )
+            # Decode the actual screenshot using the browser's image decoder. DOM
+            # colors alone miss transparent iframe compositing onto the host UI.
+            pixels = page.evaluate(
+                """async encoded => {
+                const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0));
+                const bitmap = await createImageBitmap(new Blob([bytes], {type: 'image/png'}));
+                const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+                const context = canvas.getContext('2d');
+                context.drawImage(bitmap, 0, 0);
+                return [[48, 48], [120, 120]].map(([x,y]) => Array.from(context.getImageData(x,y,1,1).data));
+            }""",
+                base64.b64encode(screenshot).decode(),
+            )
+            (tmp_path / f"pixels-{load}.json").write_text(json.dumps(pixels))
+            ink, canvas = pixels
+            dark = scheme == "dark" or (scheme == "auto" and preference == "dark")
+            assert all(value > 200 if dark else value < 50 for value in ink[:3]), pixels
+            assert all(value < 50 if dark else value > 200 for value in canvas[:3]), (
+                pixels
+            )
+            assert sum(abs(a - b) for a, b in zip(ink[:3], canvas[:3])) > 500, pixels
+            assert fixture.read_bytes() == original
+            requests = sum(
+                request.path == "/replay/ui.js" for request, _ in httpserver.log
+            )
+            if load == "cold":
+                assert requests > 0
+                ui_requests = requests
+            else:
+                # The fix lives in the current preview, so an immutable cached UI
+                # bundle must not prevent already-viewed captures from recovering.
+                assert requests == ui_requests
+        (tmp_path / "ttfb-ms.json").write_text(json.dumps(timings))
+        browser.close()

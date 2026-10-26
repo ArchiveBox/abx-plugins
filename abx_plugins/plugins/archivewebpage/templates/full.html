@@ -55,7 +55,13 @@
                 // The viewer's loading events can finish before replay exists.
                 // Require the actual archived document, not its bootstrap UI.
                 if (child.location.pathname.includes('/replay/w/') &&
-                    doc.readyState !== 'loading' && doc.body) return true;
+                    doc.readyState !== 'loading' && doc.body) {
+                    // Matching color schemes permit a transparent document canvas.
+                    // Give this frame its own Canvas backdrop so the viewer's white
+                    // background cannot show behind dark-mode foreground colors.
+                    element.style.backgroundColor = 'Canvas';
+                    return true;
+                }
                 if (replayDocumentLoaded(doc)) return true;
             } catch (error) {}
         }
