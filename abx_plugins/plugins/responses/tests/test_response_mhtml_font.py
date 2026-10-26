@@ -47,12 +47,25 @@ const utils = require(process.argv[1]);
   phase('connect');
   const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
   phase('font readiness');
-  await page.evaluate(async () => {
+  const rendered = await page.evaluate(async () => {
     await document.fonts.ready;
     if (![...document.fonts].some(font => font.family === 'Saved' && font.status === 'loaded')) throw new Error('Original font did not render');
+    return {visibility: document.visibilityState, focused: document.hasFocus(), width: innerWidth, height: innerHeight};
   });
+  console.error(`MHTML font viewport=${JSON.stringify(rendered)}`);
   phase('screenshot');
-  await page.screenshot({path: process.argv[4]});
+  // Python kills this process at 30s. Before that loses the CDP connection,
+  // distinguish a compositor command awaiting Chrome from a local Puppeteer
+  // wait. These are public diagnostic errors, not protocol bodies/cookies.
+  const pending = setTimeout(() => {
+    console.error('MHTML font pending protocol:', browser.debugInfo.pendingProtocolErrors.map(error => error.message));
+  }, 25000);
+  pending.unref();
+  try {
+    await page.screenshot({path: process.argv[4]});
+  } finally {
+    clearTimeout(pending);
+  }
   phase('no-store fetch');
   await page.evaluate(async url => { await (await fetch(url, {cache: 'no-store'})).arrayBuffer(); }, process.argv[3]);
   // The temporary Fetch Resource replaces the FontResource in Blink's weak
