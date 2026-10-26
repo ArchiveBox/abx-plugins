@@ -1,0 +1,21 @@
+tests/test_parser_failed_navigation.py
+  s_10bc94d001be49::t_f30f7eaeb4540e 4,28-51
+  s_10bc94d001be49::t_c48bfa600fdf5b 9,21-27
+  s_10bc94d001be49::t_8fec6e192e87f2 52-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0612265332f2d589a4bac16e818c0e44baa0b15b",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
