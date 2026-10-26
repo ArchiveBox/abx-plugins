@@ -38,13 +38,20 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
   // Ordinary documents retain Network's text handling: Fetch body reads hold
   // navigation until EOF, preventing streamed HTML from rendering as it arrives.
   const session = suppliedSession || page.mainFrame().client;
+  // Durable mode redirects body reads to Chrome's network-service collector,
+  // which does not contain ServiceWorker/CacheStorage responses. Keep it on a
+  // separate session so the ordinary renderer can still supply those bytes;
+  // share the collector for network bodies even after their renderer detaches.
+  const durableCollector = resourceTypes
+    ? sharedCollector || await page.createCDPSession()
+    : null;
   const listeners = [];
   const listen = (event, callback) => {
     session.on(event, callback);
@@ -65,7 +72,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   });
   listen("Network.responseReceived", (event) => {
     const stream = streams.get(event.requestId);
-    if (!stream || stream.resourceType !== "Font") return;
+    if (!stream) return;
+    stream.fromServiceWorker = Boolean(event.response.fromServiceWorker);
+    if (stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
     // CDP omits transport-added Accept-Encoding, including on the original
@@ -173,7 +182,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         // and let newer responses evict their raw bytes from Chrome's cache.
         // Durable bodies belong to the root session's collector. The owning
         // renderer can detach immediately after receiving the complete body.
-        const result = await mainClient.send("Network.getResponseBody", { requestId: event.requestId });
+        const result = await (stream.fromServiceWorker ? session : durableCollector).send("Network.getResponseBody", { requestId: event.requestId });
         const body = Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
         if (body.length !== stream.receivedBytes) {
           throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}`);
@@ -224,16 +233,16 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const setup = [];
   if (resourceTypes) {
     setup.push(session.send("Network.enable"));
-    setup.push(session.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 }));
   }
   if (documents) setup.push(session.send("Fetch.enable", { patterns: [{ resourceType: "Document", requestStage: "Response" }] }));
   const children = new Map();
   const watched = new Map();
+  let setupError;
   const mainClient = page.mainFrame().client;
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents });
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -248,17 +257,46 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     watched.set(client, onAttached);
     client.on("Target.attachedToTarget", onAttached);
   };
+  const configureCollector = (client) => {
+    const onAttached = ({ sessionId }) => {
+      const child = client.connection()?.session(sessionId);
+      if (!child) return;
+      // Register each child's network profile under this collector's root
+      // before it runs: synchronous XHR/short-lived workers can finish before
+      // their renderer can stream bytes. Always release our debugger pause.
+      const work = configureCollector(child).finally(async () => {
+        if (!child.detached) await child.send("Runtime.runIfWaitingForDebugger");
+      });
+      pending.add(work);
+      work.catch((error) => {
+        if (error.name !== "TargetCloseError" || !child.detached) setupError ||= error;
+      }).finally(() => pending.delete(work));
+    };
+    watched.set(client, onAttached);
+    client.on("Target.attachedToTarget", onAttached);
+    return Promise.all([
+      client.send("Network.enable"),
+      client.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 }),
+      client.send("Target.setAutoAttach", {
+        autoAttach: true, waitForDebuggerOnStart: true, flatten: true,
+        filter: [{ type: "iframe" }, { type: "worker" }, { type: "shared_worker" }],
+      }),
+    ]);
+  };
+  if (durableCollector && !sharedCollector) setup.push(configureCollector(durableCollector));
   if (!suppliedSession) {
     watch(mainClient);
     for (const frame of page.frames()) {
       if (frame.client !== mainClient) attach(frame.client);
     }
   }
-  let setupError;
   try {
     await Promise.all(setup);
   } catch (error) {
-    if (!suppliedSession) throw error;
+    if (!suppliedSession) {
+      if (durableCollector && !durableCollector.detached) await durableCollector.detach();
+      throw error;
+    }
     // A short-lived child can close during setup. Retain its error for the
     // owning response, but still return its reader so cleanup can drain it.
     setupError = error;
@@ -281,11 +319,11 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       if (!stream && resourceTypes && resourceType !== "document" &&
           (!resourceTypes.length || resourceTypes.includes(resourceType))) {
         // Puppeteer's requestfinished can precede this CDP session's queued
-        // request events. Read the durable body before deciding it was untracked.
+        // request events. Read its owning body store before deciding it was untracked.
         let result;
         let error;
         try {
-          result = await mainClient.send("Network.getResponseBody", { requestId: id });
+          result = await (response.fromServiceWorker() ? session : durableCollector).send("Network.getResponseBody", { requestId: id });
         } catch (caught) {
           error = caught;
         }
@@ -316,6 +354,13 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       return body;
     },
     async close() {
+      if (durableCollector && !sharedCollector && !durableCollector.detached) {
+        // Stop pausing new targets before removing their setup listeners.
+        // Existing durable bodies remain owned by the root until readers drain.
+        await durableCollector.send("Target.setAutoAttach", {
+          autoAttach: false, waitForDebuggerOnStart: false, flatten: true,
+        });
+      }
       for (const [client, onAttached] of watched) client.off("Target.attachedToTarget", onAttached);
       const closed = await Promise.allSettled([...children.values()].map(async (reader) => (await reader).close()));
       page.off("close", onClosed);
@@ -329,6 +374,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       for (const [event, callback] of listeners) session.off(event, callback);
       onClosed();
       await Promise.allSettled([...streams.values()].map((stream) => stream.saved));
+      if (durableCollector && !sharedCollector && !durableCollector.detached) await durableCollector.detach();
       if (directory && !sharedDirectory) await fs.promises.rm(await directory, { recursive: true, force: true });
       // An unused worker can exit during Network setup. Its destruction is
       // not a failed response; any owned HTTP work still reports the error.
