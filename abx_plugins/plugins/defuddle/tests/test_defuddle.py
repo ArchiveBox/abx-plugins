@@ -172,6 +172,54 @@ def test_prefers_dom_output_over_singlefile_when_both_exist(
     assert metadata.get("title") == "Example Domain"
 
 
+@pytest.mark.parametrize("base_href", ["", "/reference/"])
+def test_saved_article_resolves_links_against_original_url(tmp_path: Path, base_href):
+    source = tmp_path / "dom" / "output.html"
+    source.parent.mkdir()
+    source.write_text(
+        "<html><head><title>Archived article links</title>"
+        + (f'<base href="{base_href}">' if base_href else "")
+        + "</head><body><article><h1>Archived article links</h1>"
+        + "<p>This article preserves useful references and illustrations when read from a saved copy. "
+        "Readers should be able to follow the original author and related articles.</p>"
+        * 5
+        + '<p>Read the <a href="/reference-index">reference index</a>, '
+        '<a href="related">related article</a>, and <a href="#details">details below</a>.</p>'
+        '<h2 id="details">Details</h2><p>Contact <a href="mailto:reader@example.test">the author</a>.</p>'
+        '<img src="diagram.svg" alt="Saved diagram" width="640" height="320">'
+        "</article></body></html>",
+    )
+    original = source.read_bytes()
+    result = subprocess.run(
+        [
+            str(DEFUDDLE_HOOK),
+            "--url",
+            "https://publication.example.test/articles/current",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "DEFUDDLE_BINARY": require_defuddle_binary(),
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    content = (tmp_path / "defuddle" / "content.html").read_text()
+    directory = base_href or "/articles/"
+    assert 'href="https://publication.example.test/reference-index"' in content
+    assert f'href="https://publication.example.test{directory}related"' in content
+    assert 'href="#details"' in content
+    assert 'href="mailto:reader@example.test"' in content
+    assert f'src="https://publication.example.test{directory}diagram.svg"' in content
+    # Resolving attributes must not introduce a global base that would send
+    # archive-local response/image references back to the live website.
+    assert "<base" not in content
+    assert source.read_bytes() == original
+
+
 @pytest.mark.parametrize(
     ("args", "extra", "expected"),
     [

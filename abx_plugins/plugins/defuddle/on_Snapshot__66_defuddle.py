@@ -41,7 +41,9 @@ import {createRequire} from 'node:module';
 import {Defuddle} from 'defuddle/node';
 const {parseHTML} = createRequire(import.meta.resolve('defuddle/node'))('linkedom');
 const {document} = parseHTML(fs.readFileSync(process.argv[1], 'utf8'));
-Defuddle(document, undefined, {separateMarkdown: true, removeSmallImages: false})
+// Saved linkedom documents have no URL. Give the parser the original address
+// so its own resolver preserves relative links, base elements and fragments.
+Defuddle(document, process.argv[2], {separateMarkdown: true, removeSmallImages: false})
     .then(result => {
         const parsed = parseHTML(`<html><body>${result.content}</body></html>`);
         if (!parsed.document.body.textContent?.trim()) {
@@ -88,6 +90,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
                 "-e",
                 _PARSER_API_SCRIPT,
                 html_source,
+                url,
             ]
         result = subprocess.run(
             cmd,
