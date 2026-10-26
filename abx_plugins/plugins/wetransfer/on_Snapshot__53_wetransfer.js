@@ -18,6 +18,7 @@ const {
   readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
+  withTimeout,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -117,25 +118,55 @@ async function main() {
       const controller = new AbortController();
       const consent = async () => {
         while (true) {
-          // A survey can cover the consent button after navigation. Like other
-          // provider exports, act on the topmost control: a covered click merely
-          // dismisses the survey backdrop without accepting the transfer terms.
+          // A survey can cover the consent button after navigation. We still
+          // need a real click to dismiss its backdrop before accepting terms.
           const control = await page.waitForFunction(() => {
             return [...document.querySelectorAll("button")].find(button => {
               const label = (button.getAttribute("aria-label") || button.textContent).trim();
               if (label !== "I agree" && !(button.closest('[role="dialog"]') && /^(skip(?:\s|$)|close$)/i.test(label))) return false;
               if (button.disabled) return false;
               const box = button.getBoundingClientRect();
-              return box.width && box.height && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+              return box.width && box.height;
             });
           }, { timeout: remaining(), polling: 100, signal: controller.signal });
           try {
             const button = control.asElement();
             const label = await button.evaluate(element => (element.getAttribute("aria-label") || element.textContent).trim());
             const selector = `::-p-aria([name=${JSON.stringify(label)}][role="button"])`;
-            // React can replace the button after observation. Resolve the live
-            // control for the click, just as we do for the Download button.
-            await page.locator(selector).setTimeout(remaining()).click({signal: controller.signal});
+            // The provider can place a survey backdrop over this control after
+            // observation. Record where the trusted browser click lands so a
+            // backdrop dismissal is distinguished from accepting the terms.
+            const receipt = await page.evaluateHandle(() => {
+              const controller = new AbortController();
+              const result = new Promise(resolve => {
+                document.addEventListener("click", event => {
+                  if (!event.isTrusted) return;
+                  controller.abort();
+                  const clicked = event.composedPath().find(node => node instanceof HTMLButtonElement);
+                  const target = event.target instanceof Element ? event.target : null;
+                  resolve({
+                    label: clicked ? (clicked.getAttribute("aria-label") || clicked.textContent).trim() : null,
+                    overlay: Boolean(target?.closest('[role="dialog"]') || target?.querySelector('[role="dialog"]')),
+                  });
+                }, {capture: true, signal: controller.signal});
+              });
+              return {result, controller};
+            });
+            let delivered;
+            try {
+              [delivered] = await withTimeout(() => Promise.all([
+                receipt.evaluate(({result}) => result),
+                page.locator(selector).setTimeout(remaining()).click({signal: controller.signal}),
+              ]), remaining(), "WeTransfer consent click timed out");
+            } finally {
+              if (!delivered) await receipt.evaluate(({controller}) => controller.abort()).catch(() => {});
+              await receipt.dispose();
+            }
+            if (delivered.label !== label) {
+              if (!delivered.overlay) throw new Error("WeTransfer click reached an unexpected control");
+              console.error("Dismissed WeTransfer overlay before accepting terms");
+              continue;
+            }
             if (label === "I agree") break;
             console.error("Dismissed optional WeTransfer dialog");
             await page.waitForSelector(selector, { hidden: true, timeout: remaining(), signal: controller.signal });
