@@ -10,17 +10,17 @@
     {
       "name": "{GALLERYDL_BINARY}",
       "binproviders": "env,uv,apt,brew",
-      "min_version": "1.32.17",
+      "min_version": "1.32.18",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "gallery-dl==1.32.17"
+            "gallery-dl==1.32.18"
           ],
           "min_release_age": 0
         }
       },
-      "max_version": "1.32.17",
+      "max_version": "1.32.18",
       "min_release_age": 0
     }
   ],
