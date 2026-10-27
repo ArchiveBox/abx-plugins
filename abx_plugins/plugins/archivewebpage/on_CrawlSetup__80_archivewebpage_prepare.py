@@ -30,6 +30,24 @@ version = json.loads(manifest_path.read_text())["version"]
 if version != "0.17.0":
     raise RuntimeError("ArchiveWeb.page service-worker patch requires release 0.17.0")
 script = (source / "bg.js").read_text()
+# V8's crawl seed deliberately repeats Math.random() after a worker restart.
+# AWP uses that RNG for persistent collection IDs: a restarted worker can
+# overwrite an existing collection instead of creating a new one. Storage
+# identities must remain unique independently of captured-page determinism.
+# These are the three bundled copies of wabac's randomId implementation; keep
+# its alphanumeric format while using the browser's unseeded Web Crypto UUIDs.
+old_random_id = (
+    "return Math.random().toString(36).substring(2,15)"
+    "+Math.random().toString(36).substring(2,15)"
+)
+if script.count(old_random_id) != 3:
+    raise RuntimeError(
+        "ArchiveWeb.page collection-ID patch does not match pinned release",
+    )
+script = script.replace(
+    old_random_id,
+    'return crypto.randomUUID().replaceAll("-","")',
+)
 old = '"Network.setBypassServiceWorker",{bypass:!0}'
 if script.count(old) != 1:
     raise RuntimeError(
@@ -130,7 +148,7 @@ for before, after in popup_patches:
         )
     script = script.replace(before, after)
 destination = (
-    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers5"
+    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers6"
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not destination.exists():

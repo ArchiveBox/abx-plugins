@@ -334,6 +334,136 @@ def _start_snapshot_recording(
     return snapshot_dir, env
 
 
+def test_worker_restart_preserves_seeded_collection_identities(
+    archivewebpage_crawl,
+    httpserver,
+    tmp_path,
+):
+    """A restarted MV3 worker must not reuse a persistent collection identity."""
+    body = b"<!doctype html><h1>Original seeded capture stays intact</h1>"
+    httpserver.expect_request("/").respond_with_data(body, content_type="text/html")
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    url = httpserver.url_for("/")
+    env, crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    first, first_env = _start_snapshot_recording(
+        tmp_path,
+        env,
+        tab_processes,
+        snapshot_id="before-worker-restart",
+        url=url,
+    )
+    first_state = json.loads((first / "archivewebpage/recording.json").read_text())
+    seed = (crawl_chrome_dir / "crawl_seed.txt").read_text()
+    script = r"""
+const fs = require('fs');
+const utils = require(process.argv[1]);
+const awp = require(process.argv[2]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[3]});
+  try {
+    const {id} = awp.resolveAwpExtension(process.argv[3]);
+    const helper = await awp.openAwpHelperTab(browser, id, 10000);
+    try {
+      const state = await helper.evaluate(async ({collId, tabId, stop}) => {
+        if (stop) {
+          // Stop through AWP's normal UI protocol, retaining the unexported
+          // collection exactly as a worker restart between captures would.
+          const port = chrome.runtime.connect({name: 'popup-port'});
+          try {
+            await new Promise(resolve => {
+              let stopping = false;
+              port.onMessage.addListener(message => {
+                if (message?.type !== 'status') return;
+                if (!stopping && message.recording) {
+                  stopping = true;
+                  port.postMessage({type: 'stopRecording'});
+                } else if (stopping && !message.recording) resolve();
+              });
+              port.postMessage({type: 'startUpdates', tabId});
+            });
+          } finally { port.disconnect(); }
+        }
+        const index = await fetch('/w/api/coll-index');
+        if (!index.ok) throw new Error(`Collection list failed: ${index.status}`);
+        const archive = await fetch(`/w/api/c/${encodeURIComponent(collId)}/dl?format=wacz&pages=all&filename=preserved`);
+        if (!archive.ok) throw new Error(`Collection export failed: ${archive.status}`);
+        return {collections: await index.json(), bytes: Array.from(new Uint8Array(await archive.arrayBuffer()))};
+      }, {collId: process.argv[4], tabId: Number(process.argv[5]), stop: process.argv[6] === 'restart'});
+      fs.writeFileSync(process.argv[7], Buffer.from(state.bytes));
+      console.log(JSON.stringify({extensionId: id, collections: state.collections}));
+    } finally { await helper.close(); }
+    if (process.argv[6] === 'restart') {
+      const worker = browser.targets().find(target => target.type() === 'service_worker' && target.url() === `chrome-extension://${id}/bg.js`);
+      if (!worker) throw new Error('Actual AWP service worker is missing');
+      const stopped = new Promise(resolve => browser.on('targetdestroyed', target => { if (target === worker) resolve(); }));
+      const control = await page.target().createCDPSession();
+      try {
+        await control.send('ServiceWorker.enable');
+        await control.send('ServiceWorker.stopAllWorkers');
+        await stopped;
+      } finally { await control.detach(); }
+    }
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+
+    def inspect(snapshot_dir, snapshot_env, *, restart):
+        archive = tmp_path / ("before.wacz" if restart else "after.wacz")
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(AWP_INTERNAL),
+                str(snapshot_dir / "chrome"),
+                first_state["collId"],
+                str(first_state["chromeTabId"]),
+                "restart" if restart else "read",
+                str(archive),
+            ],
+            env=snapshot_env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        with zipfile.ZipFile(archive) as wacz:
+            assert wacz.testzip() is None
+            assert body in gzip.decompress(wacz.read("archive/data.warc.gz"))
+        return json.loads(result.stdout)
+
+    before = inspect(first, first_env, restart=True)
+    second = tmp_path / "after-worker-restart"
+    (second / "chrome").mkdir(parents=True)
+    second_env = env | {"SNAP_DIR": str(second)}
+    tab_processes.append(
+        launch_snapshot_tab(
+            snapshot_chrome_dir=second / "chrome",
+            tab_env=second_env,
+            test_url=url,
+            snapshot_id=second.name,
+            crawl_id="test-archivewebpage-lifecycle",
+        ),
+    )
+    start = _run_start_hook(second, second_env, url)
+    after = inspect(second, second_env, restart=False)
+    # V8's fixed crawl seed resets Math.random in a restarted worker. Collection
+    # IDs outlive that worker: both original metadata and actual WARC bytes must
+    # survive, rather than accepting a reused ID merely to satisfy the handshake.
+    before_titles = {
+        coll["id"]: coll["title"] for coll in before["collections"]["colls"]
+    }
+    after_titles = {coll["id"]: coll["title"] for coll in after["collections"]["colls"]}
+    assert before["extensionId"] == after["extensionId"]
+    assert (crawl_chrome_dir / "crawl_seed.txt").read_text() == seed
+    assert before_titles.items() <= after_titles.items(), (before, after, start.stderr)
+    assert start.returncode == 0, start.stderr
+    second_state = json.loads((second / "archivewebpage/recording.json").read_text())
+    assert second_state["collId"] not in before_titles
+    assert second_state["collId"] in after_titles
+
+
 def _open_child_target(snapshot_chrome_dir: Path, env: dict[str, str]) -> str:
     script = r"""
 const chromeUtils = require(process.argv[1]);
