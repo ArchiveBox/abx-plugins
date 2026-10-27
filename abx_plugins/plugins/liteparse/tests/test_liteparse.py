@@ -392,6 +392,50 @@ def test_config_disabled_skips():
         assert result_json["output_str"] == "LITEPARSE_ENABLED=False", result_json
 
 
+def test_extract_office_documents_with_declared_converter(tmp_path):
+    # CSV/TSV also go through LibreOffice upstream; without a declared
+    # converter these succeed only on developer machines with Office installed.
+    office = install_required_binary_from_config(PLUGIN_DIR, "soffice")
+    assert office and office.abspath
+    sources = {
+        "table.csv": b'Name,Count\n"Copper, metal",42\nQuartz,17\n',
+        "table.tsv": b"Name\tCount\nSilver\t36\nGarnet\t28\n",
+        "document.rtf": b"{\\rtf1\\ansi Quartz and copper document.}",
+    }
+    documents = tmp_path / "responses"
+    documents.mkdir()
+    for name, content in sources.items():
+        (documents / name).write_bytes(content)
+    result = _run_hook(
+        tmp_path,
+        TEST_URL,
+        extra_env={
+            "LITEPARSE_OCR_ENABLED": "false",
+            "LITEPARSE_FORMATS": '["text","json"]',
+            "PATH": f"{Path(office.abspath).parent}{os.pathsep}{os.environ['PATH']}",
+        },
+        install_tesseract=False,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", (record, result.stderr)
+    expected = {
+        "table.csv": ("Copper", "metal", "42", "Quartz", "17"),
+        "table.tsv": ("Silver", "36", "Garnet", "28"),
+        "document.rtf": ("Quartz", "copper", "document"),
+    }
+    for name, words in expected.items():
+        text = (tmp_path / "liteparse" / f"{name}.txt").read_text()
+        pages = json.loads((tmp_path / "liteparse" / f"{name}.json").read_text())[
+            "pages"
+        ]
+        structured = "\n".join(page["text"] for page in pages)
+        for word in words:
+            assert word in text
+            assert word in structured
+        assert (documents / name).read_bytes() == sources[name]
+
+
 def test_noresults_without_sources():
     """No sources -> noresults."""
     require_liteparse_binary()

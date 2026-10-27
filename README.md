@@ -107,6 +107,14 @@ bounded to 16 MiB of cleaned input per source and 64 MiB per snapshot. Sonic
 snapshot metadata also has a 16 MiB cleaned-input bound before JSON decoding.
 Search limits never modify the saved capture files.
 
+LiteParse declares LibreOffice alongside its parser because upstream converts
+Office documents and spreadsheets, including CSV/TSV, to PDF before extracting
+text and structured pages. The apt dependency includes Writer, Calc, and Impress
+for the advertised document families; macOS uses the LibreOffice cask with its
+required installation actions enabled (`--skip-post-install` is formula-only). Keeping
+this in `required_binaries` makes clean installs behave like developer machines
+without adding a second document parser or changing archived source bytes.
+
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
 - `TMP_DIR` - local runtime storage for disposable files (defaults to the host runtime's temporary directory); live screencast frames stay here, with each snapshot isolated by its `SNAP_DIR`, and only explicitly retained frames saved under `SNAP_DIR/chrome_screencast` on shutdown

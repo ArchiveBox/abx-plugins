@@ -75,6 +75,26 @@
           ]
         }
       }
+    },
+    {
+      "name": "soffice",
+      "binproviders": "env,apt,brew",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "libreoffice-writer",
+            "libreoffice-calc",
+            "libreoffice-impress"
+          ]
+        },
+        "brew": {
+          "install_args": [
+            "--cask",
+            "libreoffice"
+          ],
+          "postinstall_scripts": true
+        }
+      }
     }
   ],
   "output_mimetypes": [
