@@ -31,6 +31,7 @@ import requests
 
 from abx_plugins.plugins.base.testing import (
     get_hydrated_required_binary,
+    get_hydrated_required_binaries,
     install_required_binary_from_config,
     parse_jsonl_output,
 )
@@ -75,6 +76,30 @@ _tesseract_binary_path: str | None = None
 _imagemagick_binary_path: str | None = None
 _tessdata_dir: str | None = None
 _downloaded_cache: dict[str, bytes] = {}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def liteparse_dependencies(tmp_path_factory):
+    # The executable hook's shebang installs every declared dependency before
+    # Python can check LITEPARSE_ENABLED. Provision through that same config
+    # before measuring hook behavior: killing a first-time Office installation
+    # at a capture test's 30-second deadline leaves APT holding its system lock.
+    # Enumerating the declarations also keeps setup complete when tools are added.
+    previous_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
+    os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir or str(
+        tmp_path_factory.mktemp("liteparse_lib"),
+    )
+    try:
+        for record in get_hydrated_required_binaries(PLUGIN_DIR):
+            binary = install_required_binary_from_config(PLUGIN_DIR, record["name"])
+            assert binary and binary.abspath, record
+            assert Path(binary.abspath).is_file(), binary.abspath
+        yield
+    finally:
+        if previous_lib_dir is None:
+            os.environ.pop("ABXPKG_LIB_DIR", None)
+        else:
+            os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir
 
 
 def get_liteparse_binary_path() -> str | None:
