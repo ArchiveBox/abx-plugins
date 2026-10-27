@@ -1,12 +1,14 @@
 """Responses from an isolated cross-site frame keep their own CDP identity."""
 
 import json
+import socket
 import subprocess
 import time
 from contextlib import ExitStack
 from urllib.parse import urlsplit, urlunsplit
 
 import pytest
+from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.testing import (
     start_process_and_wait_for_file,
@@ -20,6 +22,15 @@ from abx_plugins.plugins.responses.tests.test_responses import (
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import CHROME_UTILS
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
+
+@pytest.fixture
+def httpserver():
+    # Chrome can leave speculative connections idle while transient frames are
+    # removed. A single-thread origin waits for their first request and starves
+    # unrelated requests (including favicon), preventing real networkidle0.
+    with HTTPServer(threaded=True) as server:
+        yield server
 
 
 @pytest.mark.parametrize(
@@ -124,6 +135,12 @@ def test_cross_site_child_response_preserves_original_bytes(tmp_path, httpserver
         stderr_path = tmp_path / "responses.stderr.log"
         with ExitStack() as logs:
             if mode == "transient":
+                # Browsers can open a connection before sending an HTTP request.
+                # Keep a real idle connection open throughout capture so the
+                # origin must still serve navigation, frame bodies, and favicon.
+                logs.enter_context(
+                    socket.create_connection((httpserver.host, httpserver.port)),
+                )
                 # Fetch pauses belong to the collector's CDP session, so a
                 # separate observer cannot show which request blocked loading.
                 # Stream protocol logs directly to disk: an undrained stderr
