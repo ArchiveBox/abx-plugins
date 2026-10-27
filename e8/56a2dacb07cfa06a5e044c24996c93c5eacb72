@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/tests/test_chrome_bootstrap_timeout.py
+  s_10bc94d001be49::t_04ccf8a57588c1 5,21,25-38,42,56-58,64-82
+  s_10bc94d001be49::t_5c1b9eb6c41fd9 13,17,45-55,59-63,83
+  s_10bc94d001be49::t_b537637c248ead 84-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e856a2dacb07cfa06a5e044c24996c93c5eacb72",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
