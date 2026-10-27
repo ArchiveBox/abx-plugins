@@ -43,35 +43,9 @@ if _SNAPSHOT_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
 SNAPSHOT_HOOK = _SNAPSHOT_HOOK
 SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
-SINGLEFILE_PREPARE_HOOK = PLUGIN_DIR / "on_CrawlSetup__80_singlefile_prepare.py"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 TEST_URL = "https://archivebox.io/tests/"
-
-
-def _prepare_singlefile_extension(tmp_path, crawl_id, state):
-    crawl_dir = tmp_path / "crawl" / crawl_id
-    env = get_test_env()
-    env.update(
-        {
-            "CRAWL_DIR": str(crawl_dir),
-            "PERSONAS_DIR": str(tmp_path / "personas"),
-            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(state["extensions_dir"]),
-            "ABXPKG_CHROMEWEBSTORE_ROOT": str(state["extensions_dir"].parent),
-        },
-    )
-    result = subprocess.run(
-        [str(SINGLEFILE_PREPARE_HOOK)],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=60,
-    )
-    metadata_path = crawl_dir / "chrome" / "extensions" / "singlefile.extension.json"
-    assert result.returncode == 0, result.stderr
-    assert metadata_path.is_file(), result.stderr
-    return Path(json.loads(metadata_path.read_text())["unpacked_path"])
 
 
 @pytest.fixture
@@ -300,114 +274,16 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
     assert "ArchiveBox preserves the already loaded document" in html_content
 
 
-def test_singlefile_prepared_copy_preserves_css_url_serialization(
-    tmp_path,
-    singlefile_install_state,
-):
-    state = singlefile_install_state
-    crawl_id = "singlefile-prepared-crawl"
-    prepared_path = _prepare_singlefile_extension(tmp_path, crawl_id, state)
-    original_path = state["unpacked_path"]
-    original_bundle = original_path / "lib" / "single-file.js"
-    prepared_bundle = prepared_path / "lib" / "single-file.js"
-    assert prepared_bundle.is_file()
-
-    node_script = r"""
-const fs = require('node:fs');
-const vm = require('node:vm');
-const original = fs.readFileSync(process.argv[1], 'utf8');
-const prepared = fs.readFileSync(process.argv[2], 'utf8');
-const image = fs.readFileSync(process.argv[3]).toString('base64');
-function extract(source, startMarker, endMarker, label) {
-  const start = source.indexOf(startMarker);
-  const end = source.indexOf(endMarker, start);
-  if (start < 0 || end < 0) throw new Error(`Pinned CSS URL ${label} not found`);
-  return source.slice(start, end);
-}
-function serializers(source) {
-  const decoderSource = extract(source, 'function hE(e){', 'function pE(e){', 'decoder');
-  const encoderSource = extract(source, 'function pE(e){', 'var gE="Url"', 'encoder');
-  const helpers = source.match(/function Xw\(e\)\{return e>=48&&e<=57\}function \$w\(e\)\{return Xw\(e\)\|\|e>=65&&e<=70\|\|e>=97&&e<=102\}/)?.[0];
-  const constants = source.match(/var sE=32,lE=92,cE=34,dE=39,mE=40,uE=41;/)?.[0]; // codespell:ignore ue
-  const decoderHelpers = [
-    'function af(e){return 10===e||13===e||12===e}',
-    'function of(e){return af(e)||32===e||9===e}',
-    'function rf(e,n){return!(92!==e||af(n)||0===n)}',
-    'function hf(e,n){return n<e.length?e.charCodeAt(n):0}',
-    'function pf(e,n,t){return 13===t&&10===hf(e,n+1)?2:1}',
-    'function yf(e,n){if($w(hf(e,(n+=2)-1))){for(let t=Math.min(e.length,n+5);n<t&&$w(hf(e,n));n++);let t=hf(e,n);of(t)&&(n+=pf(e,n,t))}return n}',
-    'function xf(e){if(1===e.length&&!$w(e.charCodeAt(0)))return e[0];let n=parseInt(e,16);return(0===n||n>=55296&&n<=57343||n>1114111)&&(n=65533),String.fromCodePoint(n)}',
-  ];
-  if (!helpers || !constants || decoderHelpers.some(helper => !source.includes(helper))) throw new Error('Pinned CSS URL serializer helpers not found');
-  const context = vm.createContext({});
-  vm.runInContext(`${helpers};${decoderHelpers.join(';')};${constants};${decoderSource};${encoderSource};this.decode=hE;this.encode=pE`, context);
-  return {decode: context.decode, encode: context.encode, decoderSource, encoderSource};
-}
-const old = serializers(original);
-const optimized = serializers(prepared);
-if (original.replace(old.decoderSource, optimized.decoderSource).replace(old.encoderSource, optimized.encoderSource) !== prepared) throw new Error('Prepared bundle changed bytes outside the URL decoder and encoder');
-const controlsAndAscii = Array.from({length: 128}, (_, index) => String.fromCharCode(index)).join('');
-const cases = [controlsAndAscii, `quotes\" apostrophe' parens() slash/ backslash\\ Ω 🧭`, `\u0001A\u001f9\u007fZ`, `null\u0000A`];
-const payload = `data:image/png;base64,${image}`;
-const unsafePrefix = `https://example.invalid/unsafe(path)/?payload=${image}`;
-const large = [payload, unsafePrefix];
-for (const input of [...cases, ...large]) {
-  const oldEncoded = old.encode(input);
-  const newEncoded = optimized.encode(input);
-  if (oldEncoded !== newEncoded) throw new Error(`URL encoding changed for input length ${input.length}`);
-  if (old.decode(oldEncoded) !== optimized.decode(newEncoded)) throw new Error(`URL decoding changed for input length ${input.length}`);
-}
-function heapGrowth(transform, inputs) {
-  global.gc();
-  const before = process.memoryUsage().heapUsed;
-  const outputs = inputs.map(transform);
-  const outputBytes = outputs.reduce((total, value) => total + Buffer.byteLength(value), 0);
-  return {growth: process.memoryUsage().heapUsed - before, outputBytes};
-}
-const inputBytes = large.reduce((total, value) => total + Buffer.byteLength(value), 0);
-const encodedLarge = large.map(old.encode);
-const encodedBytes = encodedLarge.reduce((total, value) => total + Buffer.byteLength(value), 0);
-const originalEncodeHeap = heapGrowth(old.encode, large);
-const preparedEncodeHeap = heapGrowth(optimized.encode, large);
-const originalDecodeHeap = heapGrowth(old.decode, encodedLarge);
-const preparedDecodeHeap = heapGrowth(optimized.decode, encodedLarge);
-process.stdout.write(JSON.stringify({inputBytes, encodedBytes, originalEncodeHeap, preparedEncodeHeap, originalDecodeHeap, preparedDecodeHeap}));
-"""
-    image_fixture = (
-        PLUGIN_DIR.parent / "importers_browser" / "setup" / "extension-setup.png"
-    )
-    node_env = get_test_env()
-    node_result = subprocess.run(
-        [
-            node_env["NODE_BINARY"],
-            "--expose-gc",
-            "-e",
-            node_script,
-            str(original_bundle),
-            str(prepared_bundle),
-            str(image_fixture),
-        ],
-        capture_output=True,
-        text=True,
-        env=node_env,
-        timeout=30,
-    )
-    assert node_result.returncode == 0, node_result.stderr
-    memory = json.loads(node_result.stdout)
-    assert memory["originalEncodeHeap"]["growth"] > memory["inputBytes"] * 8, memory
-    assert memory["preparedEncodeHeap"]["growth"] < memory["inputBytes"] * 8, memory
-    assert memory["originalDecodeHeap"]["growth"] > memory["encodedBytes"] * 8, memory
-    assert memory["preparedDecodeHeap"]["growth"] < memory["encodedBytes"] * 8, memory
-
-
-def test_singlefile_chrome_uses_prepared_copy_for_large_css_urls(
+def test_singlefile_chrome_preserves_large_css_urls(
     tmp_path,
     httpserver,
     singlefile_install_state,
 ):
     state = singlefile_install_state
-    crawl_id = "singlefile-prepared-browser-crawl"
-    prepared_path = _prepare_singlefile_extension(tmp_path, crawl_id, state)
+    # SingleFile 1.32.0 incorporates our css-tree URL allocation fix upstream.
+    # Exercise the installed extension, not a second locally patched bundle:
+    # all embedded resources must survive the real browser capture byte-for-byte.
+    crawl_id = "singlefile-large-css-browser-crawl"
     image_fixture = (
         PLUGIN_DIR.parent / "importers_browser" / "setup" / "extension-setup.png"
     )
@@ -420,7 +296,7 @@ def test_singlefile_chrome_uses_prepared_copy_for_large_css_urls(
     with chrome_session(
         tmp_path,
         crawl_id=crawl_id,
-        snapshot_id="singlefile-prepared-snapshot",
+        snapshot_id="singlefile-large-css-snapshot",
         test_url=url,
         navigate=True,
         timeout=30,
@@ -436,7 +312,7 @@ def test_singlefile_chrome_uses_prepared_copy_for_large_css_urls(
         actual_source = Path(
             extension.get("source_unpacked_path", extension["unpacked_path"]),
         )
-        assert actual_source.resolve() == prepared_path.resolve(), extension
+        assert actual_source.resolve() == state["unpacked_path"].resolve(), extension
         output_dir = chrome_dir.parent / "singlefile"
         output_dir.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
