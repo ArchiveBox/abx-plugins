@@ -83,6 +83,12 @@
       "minimum": 0,
       "description": "Best-effort per-hook process-tree RSS limit in bytes, checked once per second; 0 disables enforcement"
     },
+    "MEMORY_MIN_FREE": {
+      "type": "integer",
+      "default": 536870912,
+      "minimum": 0,
+      "description": "Best-effort host RAM reserve in bytes; stop owned hook trees using at least 256 MiB RSS when available host RAM falls below this threshold, including uncapped Chrome; 0 disables this reserve"
+    },
     "USER_AGENT": {
       "type": "string",
       "default": "",

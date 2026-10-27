@@ -41,11 +41,14 @@ def test_hook_memory_defaults_keep_shared_chrome_exempt() -> None:
     assert ordinary.MEMORY_LIMIT == 2 * 1024**3
     assert chrome.MEMORY_LIMIT == ordinary.MEMORY_LIMIT
     assert chrome.CHROME_MEMORY_LIMIT == 0
+    assert ordinary.MEMORY_MIN_FREE == 512 * 1024**2
+    assert chrome.MEMORY_MIN_FREE == ordinary.MEMORY_MIN_FREE
     configured = load_config(
         PLUGINS_ROOT / "chrome" / "config.json",
-        environ={"CHROME_MEMORY_LIMIT": "1234"},
+        environ={"CHROME_MEMORY_LIMIT": "1234", "MEMORY_MIN_FREE": "0"},
     )
     assert configured.CHROME_MEMORY_LIMIT == 1234
+    assert configured.MEMORY_MIN_FREE == 0
 
 
 def test_every_plugin_has_config_json_with_required_metadata() -> None:
