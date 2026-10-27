@@ -135,6 +135,8 @@ print(json.dumps(result))
     api = url + "/admin/agent/browser/"
     timings = {
         "list_ms": [],
+        "list_send_to_headers_ms": [],
+        "list_client_cpu_ms": [],
         "select_ms": [],
         "select_send_to_headers_ms": [],
         "stream_first_byte_ms": [],
@@ -160,9 +162,17 @@ print(json.dumps(result))
         return result.stdout
 
     def inventory():
+        # Startup overlaps real Chrome launches. Retain client CPU and the
+        # send-to-headers interval so a slow wall-clock sample can be traced
+        # without assuming the inventory query itself consumed that time.
+        client_cpu = time.thread_time()
         started = time.perf_counter()
         response = session.get(api + "list", timeout=5)
         timings["list_ms"].append(1000 * (time.perf_counter() - started))
+        timings["list_client_cpu_ms"].append(1000 * (time.thread_time() - client_cpu))
+        timings["list_send_to_headers_ms"].append(
+            response.elapsed.total_seconds() * 1000,
+        )
         assert response.status_code == 200, response.text
         return response.json()
 
