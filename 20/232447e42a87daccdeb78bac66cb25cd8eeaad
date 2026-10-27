@@ -1,0 +1,21 @@
+abx_plugins/plugins/liteparse/config.json
+  s_10bc94d001be49::t_1c243c4a139561 82
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_10bc94d001be49::t_1c0be7b98f7f3f 34,81-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "20232447e42a87daccdeb78bac66cb25cd8eeaad",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
