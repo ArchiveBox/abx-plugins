@@ -1,0 +1,21 @@
+abx_plugins/plugins/singlefile/on_CrawlSetup__80_singlefile_prepare.py
+  s_10bc94d001be49::t_41a402c63fcb4e 7,9-11,14,26-99
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_10bc94d001be49::t_399dd32e91ebb7 13,46,52-76,303-456
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e79566d1c80a23a793a7cc44bea60a43304ba4e2",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
