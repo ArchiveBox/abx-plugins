@@ -359,6 +359,35 @@ async function main() {
         timeoutMs
       );
       endPhase("export");
+      // The WACZ now owns these bytes. Keeping the temporary recorder database
+      // duplicated every snapshot in the persona (tens of GB on long crawls).
+      // Use AWP's exact-collection API: it closes the exporter DB before deleting
+      // it, without touching sibling recordings, cookies, or other origin data.
+      // This must follow successful file publication, never run in finally:
+      // a failed export still needs its recording, while cleanup failure must
+      // not discard a valid WACZ or turn the saved capture into a failure.
+      // Cleanup gets the small existing hook budget, not another full export
+      // deadline that could prevent an already-saved capture reporting success.
+      beginPhase("cleanup");
+      try {
+        await helperPage.evaluate(
+          async ({ collId, timeoutMs }) => {
+            const response = await fetch(`/w/api/c/${encodeURIComponent(collId)}`, {
+              method: "DELETE",
+              signal: AbortSignal.timeout(timeoutMs),
+            });
+            if (!response.ok) {
+              throw new Error(`Recording cleanup returned HTTP ${response.status}`);
+            }
+          },
+          { collId: state.collId, timeoutMs: budgetMs }
+        );
+      } catch (error) {
+        console.error(
+          `[archivewebpage] WARN: exported recording cleanup failed: ${error.message || error}`
+        );
+      }
+      endPhase("cleanup");
     } finally {
       await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }

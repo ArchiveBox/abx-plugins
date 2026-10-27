@@ -1042,6 +1042,88 @@ const path = require("node:path");
         assert output.stat().st_size > 0
 
 
+@pytest.mark.parametrize("publication_fails", [False, True])
+def test_export_releases_only_its_published_recording(
+    archivewebpage_crawl,
+    tmp_path,
+    chrome_test_url,
+    publication_fails,
+):
+    """The exported WACZ replaces temporary recorder storage, never a sibling or failed export."""
+    env, _chrome_dir, tabs = archivewebpage_crawl
+    snapshot, snapshot_env = _start_snapshot_recording(
+        tmp_path / "recordings",
+        env,
+        tabs,
+        snapshot_id="export",
+        url=chrome_test_url,
+    )
+    sibling, sibling_env = _start_snapshot_recording(
+        tmp_path / "recordings",
+        env,
+        tabs,
+        snapshot_id="recording",
+        url=chrome_test_url,
+    )
+    state = json.loads((snapshot / "archivewebpage/recording.json").read_text())
+    sibling_state = json.loads((sibling / "archivewebpage/recording.json").read_text())
+    output = snapshot / "archivewebpage/archivewebpage.wacz"
+    if publication_fails:
+        # Real destination collision: the recorder remains the only owned copy.
+        output.mkdir()
+    stopped = _run_stop_hook(snapshot, snapshot_env, chrome_test_url)
+    assert (stopped.returncode != 0) == publication_fails, stopped.stderr
+    result = parse_jsonl_output(stopped.stdout)
+    assert result is not None, stopped.stdout
+    assert result["status"] == ("failed" if publication_fails else "succeeded"), result
+    if not publication_fails:
+        with zipfile.ZipFile(output) as archive:
+            assert archive.testzip() is None
+            assert "datapackage.json" in archive.namelist()
+
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const awp = require(process.argv[2]);
+(async () => {
+  const {browser} = await chromeUtils.connectToPage({chromeSessionDir: process.argv[3]});
+  try {
+    const {id} = awp.resolveAwpExtension(process.argv[3]);
+    const helper = await awp.openAwpHelperTab(browser, id, 10000);
+    try {
+      console.log(JSON.stringify(await helper.evaluate(async () => {
+        const response = await fetch('/w/api/coll-index');
+        if (!response.ok) throw new Error(`Collection list failed: ${response.status}`);
+        return {collections: await response.json(), databases: await indexedDB.databases()};
+      })));
+    } finally { await helper.close(); }
+  } finally { await browser.disconnect(); }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+    observed = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(AWP_INTERNAL),
+            str(sibling / "chrome"),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert observed.returncode == 0, observed.stderr
+    storage = json.loads(observed.stdout)
+    ids = {collection["id"] for collection in storage["collections"]["colls"]}
+    databases = {database["name"] for database in storage["databases"]}
+    assert (state["collId"] in ids) == publication_fails, storage
+    assert (f"db:{state['collId']}" in databases) == publication_fails, storage
+    assert sibling_state["collId"] in ids, storage
+    assert f"db:{sibling_state['collId']}" in databases, storage
+    assert _read_awp_status(sibling / "chrome", sibling_env)["recording"] is True
+
+
 @pytest.mark.parametrize("failure", ["held-lock", "publication"])
 def test_export_failure_releases_download_lock(archivewebpage_crawl, tmp_path, failure):
     """A real lock timeout or filesystem publication error must allow the next export."""
