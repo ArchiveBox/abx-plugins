@@ -1,0 +1,19 @@
+abx_plugins/plugins/opencode/archivebox/conftest.py
+  s_10bc94d001be49::t_25e5fdb2377d3f 3,6-10,13,65,67-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "71bf2114c1dbf7dfc430fdad8413a3df18dac052",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
