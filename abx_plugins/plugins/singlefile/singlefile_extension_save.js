@@ -161,6 +161,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   let downloadedPath;
   let originalProfileOptions;
   let captureStarted = false;
+  let captureError = null;
   try {
     // Download behavior belongs to the live CDP connection. The launch
     // connection has already disconnected, so relying on it sends extension
@@ -323,6 +324,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     );
     console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
   } catch (error) {
+    captureError = error;
     if (captureStarted) {
       // Either the capture deadline or a CDP failure can end our wait.
       // Use the extension's pending-task API: the captured renderer may be
@@ -347,6 +349,12 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           method: "config.updateProfile", ...options,
         }), originalProfileOptions);
       }
+    } catch (error) {
+      // Browser interruption can detach the helper during capture and cleanup.
+      // Retain the initiating error, but still fail a successful capture if its
+      // normal profile restoration fails.
+      if (!captureError) throw error;
+      console.error(`SingleFile profile restoration failed: ${error.stack || error.message}`);
     } finally {
       if (releaseDownloadLock) {
         await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {

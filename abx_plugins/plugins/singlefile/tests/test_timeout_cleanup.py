@@ -155,7 +155,7 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 @pytest.mark.parametrize(
     "failure",
-    ["download-deadline", "protocol-timeout", "paused-target"],
+    ["download-deadline", "protocol-timeout", "paused-target", "closed-helper"],
 )
 def test_singlefile_timeout_cancels_exact_tab_and_keeps_other_capture(
     tmp_path,
@@ -259,6 +259,19 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
    await session.send('Emulation.setVirtualTimePolicy',{{policy:'pause'}});
   }}
  }}
+ if(mode==='close-helper'){{
+  const observers=(await browser.pages()).filter(candidate=>candidate!==helper && candidate.url()===helper.url());
+  if(observers.length!==1)throw new Error(`Expected one capture observer, got ${{observers.length}}`);
+  await observers[0].close();
+ }}
+ if(mode==='cancel-owned'){{
+  await helper.evaluate(async(url)=>{{
+   const tasks=await chrome.runtime.sendMessage({{method:'downloads.getInfo'}});
+   for(const task of tasks.filter(task=>task.url===url)){{
+    await chrome.runtime.sendMessage({{method:'downloads.cancel',taskId:String(task.id)}});
+   }}
+  }},url);
+ }}
  if(mode==='cleanup'){{
   await helper.evaluate(async(url)=>{{
    const tab=(await chrome.tabs.query({{}})).find(tab=>tab.url===url+'?other');
@@ -305,7 +318,7 @@ const {{ saveSinglefileWithExtension }} = require({json.dumps(str(SINGLEFILE_HEL
    await cu.loadExtensionFromTarget([extension], target);
    await saveSinglefileWithExtension(page, extension, {{timeoutMs:{60000 if failure == "protocol-timeout" else 7000}}});
  }} finally {{ await browser.disconnect(); }}
-}})().catch(error => {{ console.error(error); process.exitCode=1; }});
+}})().catch(error => {{ console.log(JSON.stringify({{name:error.name,message:error.message}})); console.error(error); process.exitCode=1; }});
 """
             capture_command = [env["NODE_BINARY"], "-e", capture_script]
         capture_started = time.monotonic()
@@ -338,6 +351,8 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             tasks = control("other-paused" if failure == "paused-clock" else "other")
             assert sorted(task["url"] for task in tasks) == [url, url + "?other"]
             try:
+                if failure == "closed-helper":
+                    control("close-helper")
                 if failure == "paused-target":
                     paused_target = subprocess.Popen(
                         [env["NODE_BINARY"], "-e", pause_script],
@@ -372,7 +387,24 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             if failure != "protocol-timeout"
             else "Runtime.callFunctionOn timed out"
         )
-        assert expected_error in stderr, stderr
+        if failure == "closed-helper":
+            # Closing the real observer rejects its pending CDP evaluation. The
+            # subsequent failed profile restore must not replace that exception.
+            error = json.loads(stdout)
+            assert error["name"] == "TargetCloseError", error
+            assert "Runtime.callFunctionOn" in error["message"], error
+            assert "Target closed" in error["message"], error
+            assert "SingleFile profile restoration failed:" in stderr, stderr
+            assert "Attempted to use detached Frame" in stderr, stderr
+            # Cancellation cannot execute through the closed observer. Cancel
+            # the retained real task explicitly before checking the other tab.
+            assert sorted(task["url"] for task in control("observe")) == [
+                url,
+                url + "?other",
+            ]
+            control("cancel-owned")
+        else:
+            assert expected_error in stderr, stderr
         if failure == "download-deadline":
             assert "chrome_utils.js:" in stderr, stderr
             phases = [
