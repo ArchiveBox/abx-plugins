@@ -4073,7 +4073,9 @@ let exportShutdownPromise = null;
 function installExportPageShutdown() {
   if (exportShutdownInstalled) return;
   exportShutdownInstalled = true;
-  const install = require("../base/daemon_lifecycle.js").captureShutdownSignals();
+  // Exporters are finite hooks: share safe signal delivery without inheriting
+  // a recorder daemon's lifetime after downloads and browser disconnect finish.
+  const install = require("../base/daemon_lifecycle.js").captureShutdownSignals({ keepAlive: false });
   install((signal) => {
     if (exportShutdownPromise) return exportShutdownPromise;
     const exitCode = process.exitCode ?? (signal === "SIGINT" ? 130 : 143);

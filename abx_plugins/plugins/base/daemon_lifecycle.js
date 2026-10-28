@@ -4,7 +4,7 @@
  * Capture SIGTERM/SIGINT immediately, then hand them to a daemon's real
  * shutdown handler once browser setup is far enough along to clean up safely.
  */
-function captureShutdownSignals() {
+function captureShutdownSignals({ keepAlive = true } = {}) {
   let pendingSignal = null;
   let shutdownHandler = null;
 
@@ -24,7 +24,9 @@ function captureShutdownSignals() {
   // alive. Keep daemon owners running if their browser connection disappears,
   // so the orchestrator can still deliver the normal shutdown signal and let
   // the owner drain writes and emit its terminal ArchiveResult.
-  setInterval(() => {}, 60 * 60 * 1000);
+  // Finite export helpers also use this signal handoff, but must exit normally
+  // after closing their targets rather than waiting for an owner to stop them.
+  if (keepAlive) setInterval(() => {}, 60 * 60 * 1000);
 
   return function installShutdownHandler(handler) {
     // Keep the OS signal watchers installed: replacing the last listener can

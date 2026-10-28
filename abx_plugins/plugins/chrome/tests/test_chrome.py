@@ -102,7 +102,11 @@ class _ConcurrentChromeSession:
 
 
 @pytest.mark.parametrize("synchronous_startup", [False, True])
-def test_daemon_lifecycle_replays_signal_received_during_startup(synchronous_startup):
+@pytest.mark.parametrize("keep_alive", [False, True])
+def test_daemon_lifecycle_replays_signal_received_during_startup(
+    synchronous_startup,
+    keep_alive,
+):
     install_handler = (
         "install((signal) => {\n"
         "  process.stdout.write(`HANDLED:${signal}\\n`);\n"
@@ -115,7 +119,7 @@ def test_daemon_lifecycle_replays_signal_received_during_startup(synchronous_sta
         else "setTimeout(() => {\n" + install_handler + "}, 250);\n"
     )
     script = (
-        f"const install = require({json.dumps(str(DAEMON_LIFECYCLE))}).captureShutdownSignals();\n"
+        f"const install = require({json.dumps(str(DAEMON_LIFECYCLE))}).captureShutdownSignals({{keepAlive: {json.dumps(keep_alive)}}});\n"
         "process.stdout.write('READY\\n');\n"
         + startup
         + "setTimeout(() => process.exit(2), 5000);\n"
@@ -139,6 +143,44 @@ def test_daemon_lifecycle_replays_signal_received_during_startup(synchronous_sta
 
     assert process.returncode == 0, stderr
     assert "HANDLED:SIGTERM" in stdout
+
+
+def test_export_page_owner_exits_after_normal_completion(tmp_path, chrome_test_url):
+    """Finite exporters share signal handling, but must not inherit daemon lifetime."""
+    with chrome_session(tmp_path, test_url=chrome_test_url) as (
+        _process,
+        _pid,
+        chrome_dir,
+        env,
+    ):
+        script = f"""
+const assert = require('node:assert/strict');
+const utils = require({json.dumps(str(CHROME_UTILS))});
+(async () => {{
+  const chromeSessionDir = process.argv[1];
+  const {{browser, page}} = await utils.connectToPage({{chromeSessionDir}});
+  const exported = await utils.openExportPage({{page, chromeSessionDir}});
+  await exported.goto({json.dumps(chrome_test_url)}, {{waitUntil: 'domcontentloaded'}});
+  assert.equal(await exported.title(), 'Example Domain');
+  await utils.closeExportPage({{page: exported, chromeSessionDir}});
+  assert.equal(exported.isClosed(), true);
+  assert.equal(page.isClosed(), false);
+  await browser.disconnect();
+  console.log('EXPORT_COMPLETE');
+}})().catch(error => {{ console.error(error); process.exitCode = 1; }});
+"""
+        # Do not process.exit() in the child: the real finite hook must exit on
+        # its own after releasing its browser connection and export target.
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(chrome_dir)],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "EXPORT_COMPLETE"
+        assert not list((chrome_dir / "export-tabs").glob("*.json"))
 
 
 def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
