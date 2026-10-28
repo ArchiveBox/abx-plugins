@@ -254,9 +254,10 @@ def read_article_html(path: str) -> tuple[str, bool]:
 def primary_article_html(source: str) -> str:
     """Exclude separately headed articles appended to a known primary article.
 
-    A unique H1 must agree with explicit Article JSON-LD. Without that evidence,
-    leave selection to Readability. Keep the primary article's nested sections
-    and unheaded article blocks, which may be continuations of the same story.
+    Exactly one H1 must agree with explicit Article JSON-LD. Other H1s must
+    belong to bounded articles, not ambiguous page-level headings. Without that
+    evidence, leave selection to Readability. Keep the primary article's nested
+    sections and unheaded blocks, which may continue the same story.
     """
     if "application/ld+json" not in source:
         return source
@@ -310,6 +311,11 @@ def primary_article_html(source: str) -> str:
                     for node in nodes:
                         if not isinstance(node, dict):
                             continue
+                        # JSON-LD commonly wraps Article nodes in @graph. Match
+                        # infiniscroll's metadata handling, including headlines
+                        # containing HTML entities rather than literal glyphs.
+                        if isinstance(node.get("@graph"), list):
+                            nodes.extend(node["@graph"])
                         types = node.get("@type", [])
                         types = [types] if isinstance(types, str) else types
                         if not isinstance(types, list) or not all(
@@ -322,21 +328,32 @@ def primary_article_html(source: str) -> str:
                         ):
                             headline = node.get("headline")
                             if isinstance(headline, str):
-                                self.headlines.add(" ".join(headline.split()))
+                                self.headlines.add(
+                                    " ".join(html.unescape(headline).split()),
+                                )
                 except (ValueError, TypeError):
                     pass
                 self.script = None
 
     parser = Articles()
     parser.feed(source)
-    primary = [h for h in parser.headings if h[0] == "h1"]
-    if (
-        parser.depth
-        or len(primary) != 1
-        or " ".join(primary[0][2].split()) not in parser.headlines
-    ):
+    primary = [
+        h
+        for h in parser.headings
+        if h[0] == "h1" and " ".join(h[2].split()) in parser.headlines
+    ]
+    if parser.depth or len(primary) != 1:
         return source
     _, primary_start, primary_title = primary[0]
+    # Appended stories legitimately have their own H1. A heading outside any
+    # complete article has no safe removal boundary, so keep native selection.
+    if any(
+        tag == "h1"
+        and position != primary_start
+        and not any(start <= position < end for start, end in parser.articles)
+        for tag, position, _ in parser.headings
+    ):
+        return source
     primary_title = " ".join(primary_title.split())
     chunks = []
     cursor = 0

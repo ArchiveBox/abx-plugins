@@ -1,6 +1,9 @@
 """Real Readability extraction must retain the captured primary article."""
 
 import os
+import gzip
+import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -132,4 +135,76 @@ def test_ambiguous_or_continuing_articles_keep_native_selection(tmp_path, case):
     )
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "readability" / "content.txt").read_text() == native_text
+    assert source.read_bytes() == original.encode("utf-8")
+
+
+@pytest.mark.parametrize("metadata", ["unique", "unmatched", "ambiguous"])
+def test_metadata_selects_one_of_multiple_captured_article_headings(tmp_path, metadata):
+    installed = install_required_binary_from_config(PLUGIN, "readability-extractor")
+    assert installed and installed.abspath
+    original = gzip.decompress(
+        (FIXTURE.parent / "multiple-article-headings.html.gz").read_bytes(),
+    ).decode("utf-8")
+    if metadata != "unique":
+        match = re.search(
+            r'(<script type="application/ld\+json"[^>]*>)(.*?)(</script>)',
+            original,
+            re.S,
+        )
+        assert match
+        data = json.loads(match[2])
+        if metadata == "unmatched":
+            data["@graph"][0]["headline"] = "Unmatched article metadata"
+        else:
+            data["@graph"].append(
+                {
+                    "@type": "NewsArticle",
+                    "headline": "Ancient shipwreck discovered off Turkey could be world’s oldest",
+                },
+            )
+        original = (
+            original[: match.start(2)] + json.dumps(data) + original[match.end(2) :]
+        )
+    source = tmp_path / "dom" / "output.html"
+    source.parent.mkdir()
+    source.write_text(original)
+    result = subprocess.run(
+        [
+            str(PLUGIN / "on_Snapshot__66_readability.py"),
+            "--url",
+            "https://divemagazine.com/scuba-diving-news/"
+            "ss-united-states-to-be-sunk-as-worlds-largest-artificial-reef-in-november",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "READABILITY_BINARY": str(installed.abspath),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    text = (tmp_path / "readability" / "content.txt").read_text()
+    if metadata == "unique":
+        assert "once the fastest passenger liner in the world" in text
+        assert "including arrangements for a public livestream" in text
+        assert "4,700 years" not in text
+        assert "ancient shipwreck" not in text
+    else:
+        native = subprocess.run(
+            [
+                str(installed.abspath),
+                str(source),
+                "https://divemagazine.com/scuba-diving-news/"
+                "ss-united-states-to-be-sunk-as-worlds-largest-artificial-reef-in-november",
+                "utf-8",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert native.returncode == 0, native.stderr
+        assert text == json.loads(native.stdout)["textContent"]
     assert source.read_bytes() == original.encode("utf-8")

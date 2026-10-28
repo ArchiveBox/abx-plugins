@@ -14,3 +14,18 @@ and exercise ambiguous metadata and legitimate nested/continuing article blocks.
 
 Article text and images remain copyright their respective QZ authors/owners;
 this source excerpt is retained only as a regression fixture, not demo content.
+
+# Multiple article headings and JSON-LD graph regression
+
+`multiple-article-headings.html.gz` preserves the eight complete article elements
+and original JSON-LD graph from snapshot `06ae1408338c7e2e80007fac726528b0`,
+captured on 2026-10-28 for
+https://divemagazine.com/scuba-diving-news/ss-united-states-to-be-sunk-as-worlds-largest-artificial-reef-in-november .
+Navigation, executable scripts and styles were omitted. Each appended story has
+its own H1; only the original story matches the graph's HTML-encoded headline.
+Native Readability selected the longer unrelated ancient-shipwreck story.
+Tests require the correct article's beginning and ending, reject the other story,
+and retain native selection when metadata is unmatched or ambiguous.
+
+Article text and images remain copyright their respective DIVE authors/owners;
+this saved excerpt is retained only as a regression fixture, not demo content.
