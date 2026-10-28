@@ -93,6 +93,32 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const bodies = new Map();
   const streams = new Map();
   const fontBodies = new Map();
+  const readCachedServiceWorkerBody = async (stream) => {
+    if (!stream.fromServiceWorker || stream.method !== "GET" || !stream.frameId ||
+        !stream.cacheStorageCacheName ||
+        stream.serviceWorkerResponseSource !== "cache-storage") return null;
+    const { storageKey } = await session.send("Storage.getStorageKey", {
+      frameId: stream.frameId,
+    });
+    const { caches } = await session.send("CacheStorage.requestCacheNames", {
+      storageKey,
+    });
+    const matchingCaches = caches.filter(
+      (cache) => cache.cacheName === stream.cacheStorageCacheName,
+    );
+    if (matchingCaches.length !== 1) return null;
+    // requestCachedResponse performs CacheStorage's normal Vary-aware match.
+    const requestHeaders = Object.entries(stream.requestHeaders || {}).map(
+      ([name, value]) => ({ name, value: String(value) }),
+    );
+    const { response } = await session.send("CacheStorage.requestCachedResponse", {
+      cacheId: matchingCaches[0].cacheId,
+      requestURL: stream.url,
+      requestHeaders,
+    });
+    if (typeof response?.body !== "string") return null;
+    return Buffer.from(response.body, "base64");
+  };
   const headerIdentity = (headers) => Object.entries(headers || {})
     .map(([name, value]) => [name.toLowerCase(), value]).sort(([a], [b]) => a.localeCompare(b));
   listen("Network.requestServedFromCache", ({ requestId }) => {
@@ -103,6 +129,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     const stream = streams.get(event.requestId);
     if (!stream) return;
     stream.fromServiceWorker = Boolean(event.response.fromServiceWorker);
+    stream.frameId = event.frameId || stream.frameId;
+    stream.cacheStorageCacheName = event.response.cacheStorageCacheName;
+    stream.serviceWorkerResponseSource = event.response.serviceWorkerResponseSource;
     if (stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
@@ -179,7 +208,15 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
           !event.type || event.type === "Document" ||
           (resourceTypes.length && !resourceTypes.includes(event.type.toLowerCase()))) return;
       const filename = path.join(directory, crypto.randomUUID());
-      const stream = { filename, receivedBytes: 0, resourceType: event.type, url: event.request.url, method: event.request.method, requestHeaders: event.request.headers };
+      const stream = {
+        filename,
+        receivedBytes: 0,
+        resourceType: event.type,
+        url: event.request.url,
+        method: event.request.method,
+        requestHeaders: event.request.headers,
+        frameId: event.frameId,
+      };
       stream.done = new Promise((resolve) => { stream.finish = () => { stream.complete = true; resolve(); }; });
       streams.set(event.requestId, stream);
       fs.writeFileSync(filename, "");
@@ -207,6 +244,24 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
           stream.filename = stream.previousFont.filename;
           return;
         }
+        // Network.getResponseBody can re-encode CacheStorage text responses.
+        // Read the exact cached body through CDP when Chrome has no streamed
+        // bytes, using the frame's storage partition and the original headers.
+        let cachedBody;
+        try {
+          cachedBody = await readCachedServiceWorkerBody(stream);
+        } catch (error) {
+          stream.cacheStorageError = error;
+        }
+        if (cachedBody && cachedBody.length === stream.receivedBytes) {
+          await fs.promises.writeFile(filename, cachedBody);
+          return;
+        }
+        if (cachedBody) {
+          stream.cacheStorageError = new Error(
+            `CacheStorage body length differs from the response: expected ${stream.receivedBytes}, received ${cachedBody.length}`,
+          );
+        }
         // Spool completed bodies before the remote output queue can delay them
         // and let newer responses evict their raw bytes from Chrome's cache.
         // Durable bodies belong to the root session's collector. The owning
@@ -214,7 +269,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         const result = await (stream.fromServiceWorker ? session : durableCollector).send("Network.getResponseBody", { requestId: event.requestId });
         const body = Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
         if (body.length !== stream.receivedBytes) {
-          throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}`);
+          const cacheError = stream.cacheStorageError
+            ? `; CacheStorage lookup failed: ${stream.cacheStorageError.message}`
+            : "";
+          throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}${cacheError}`);
         }
         await fs.promises.writeFile(filename, body);
       });
