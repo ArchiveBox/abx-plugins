@@ -749,6 +749,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
     elif case in {"outside_story", "delayed_outside_story"}:
         delay = 900 if case == "delayed_outside_story" else 0
         outside = f"""<button id="next-story" onclick="
+          document.body.dataset.probeScroll = scrollY;
           document.body.dataset.storyRequests = Number(document.body.dataset.storyRequests || 0) + 1;
           this.disabled = true;
           setTimeout(() => {{
@@ -778,6 +779,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
       {outside}
       <script>window.addEventListener('scroll', () => {{
         document.body.dataset.maxScroll = Math.max(Number(document.body.dataset.maxScroll || 0), window.scrollY);
+        if (scrollY > 0) document.body.dataset.lastScroll = scrollY;
       }}, {{passive: true}});</script></body></html>'''
     if case in {"late_expansion", "late_large_expansion", "background_late_expansion"}:
         html = (
@@ -884,6 +886,8 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
               imageLoaded: [...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0),
               detailsOpen: [...document.querySelectorAll('details')].every(el => el.open),
               storyRequests: Number(document.body.dataset.storyRequests || 0),
+              probeScroll: Number(document.body.dataset.probeScroll || 0),
+              lastScroll: Number(document.body.dataset.lastScroll || 0),
               text: document.body.innerText, y: scrollY, visibility: document.visibilityState, focus: document.hasFocus(),
             }))));
             await browser.disconnect();
@@ -932,6 +936,16 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
             "background_late_expansion",
         }:
             assert state["maxScroll"] <= max(0, state["bottom"] - state["viewport"]) + 1
+        elif case in {"outside_story", "delayed_outside_story"}:
+            # Probing an outside button can scroll beyond main before its
+            # content identifies a new story. Chrome may coalesce that scroll
+            # event, so the all-time maximum cannot prove the later boundary.
+            # Once discovered, scrolling must finish at the original article,
+            # then return to top, without requesting another story (above).
+            assert (
+                abs(state["lastScroll"] - max(0, state["bottom"] - state["viewport"]))
+                <= 1
+            )
         else:
             assert state["maxScroll"] + state["viewport"] > state["bottom"] + 1000
 
