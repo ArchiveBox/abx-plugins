@@ -70,7 +70,11 @@ async function dumpDom(url, timeoutMs) {
     const domContent = await page.evaluate(() => {
       // Serialize computed image and SVG sizes on a clone: stylesheets are discarded
       // by article extractors, and the live page must remain untouched.
-      const clone = document.documentElement.cloneNode(true);
+      // Import into an inert document: cloning in the live custom-element
+      // registry reruns constructors, which can expand templates again and
+      // change both the cloned image order and the original page's state.
+      const clone = document.implementation.createHTMLDocument("")
+        .importNode(document.documentElement, true);
       const originals = document.querySelectorAll('img,svg');
       clone.querySelectorAll('img,svg').forEach((img, index) => {
         const original = originals[index];

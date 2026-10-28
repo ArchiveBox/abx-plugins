@@ -12,6 +12,7 @@ Tests verify:
 """
 
 import os
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -151,18 +152,37 @@ def test_config_save_dom_false_skips():
         assert result_json["output_str"] == "DOM_ENABLED=False", result_json
 
 
-def test_preserves_stylesheet_image_sizes(require_chrome_runtime, httpserver, tmp_path):
+@pytest.mark.parametrize("custom_element", [False, True])
+def test_preserves_stylesheet_image_sizes(
+    require_chrome_runtime,
+    httpserver,
+    tmp_path,
+    custom_element,
+):
     """A real browser must retain different CSS sizes before extraction strips CSS."""
     from html.parser import HTMLParser
     from abx_plugins.plugins.base.utils import preserve_article_image_dimensions
 
+    # Like the production Astro menu, this real custom element expands its
+    # template when constructed. Cloning in its active document runs it again.
+    menu = (
+        """<menu-button><template><svg viewBox="0 0 48 24"><path d="M0 0h48v24"/></svg></template></menu-button>
+<script>customElements.define('menu-button', class extends HTMLElement {
+  constructor() {
+    super();
+    this.appendChild(this.querySelector('template').content.cloneNode(true));
+    document.body.dataset.constructions = String(Number(document.body.dataset.constructions || 0) + 1);
+  }
+});</script>"""
+        if custom_element
+        else ""
+    )
     httpserver.expect_request("/").respond_with_data(
         "<!doctype html><html><head><style>.icon{width:36px;height:36px}"
-        ".photo{width:640px;height:320px}</style></head><body>"
+        ".photo{width:640px;height:320px}menu-button svg{width:48px;height:24px}</style></head><body>"
         '<img class="icon" src="/icon.svg"><img class="photo" src="/photo.svg">'
         '<div style="display:none"><svg class="icon" viewBox="0 0 24 24">'
-        '<path d="M0 0h24v24"/></svg></div>'
-        "</body></html>",
+        '<path d="M0 0h24v24"/></svg></div>' + menu + "</body></html>",
         content_type="text/html",
     )
     for name in ("icon", "photo"):
@@ -185,6 +205,39 @@ def test_preserves_stylesheet_image_sizes(require_chrome_runtime, httpserver, tm
         )
         assert result.returncode == 0, result.stderr
         source = (dom_dir / "output.html").read_text()
+        if custom_element:
+            live = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    """
+const chrome = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await chrome.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    console.log(JSON.stringify(await page.evaluate(() => ({
+      constructions: document.body.dataset.constructions,
+      renderedSvgCount: document.querySelectorAll('menu-button svg').length,
+      inlineStyles: [...document.querySelectorAll('img,svg')].map(element => element.getAttribute('style')),
+    }))));
+  } finally { browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+                    str(PLUGIN_DIR.parent / "chrome/chrome_utils.js"),
+                    str(chrome_dir),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert live.returncode == 0, live.stderr
+            assert json.loads(live.stdout) == {
+                "constructions": "1",
+                "renderedSvgCount": 1,
+                "inlineStyles": [None, None, None, None],
+            }
+            assert 'width="48px" height="24px"' in source
     assert 'width="36px" height="36px"' in source
     restored = preserve_article_image_dimensions(
         '<img src="/icon.svg"><img src="/photo.svg">',
