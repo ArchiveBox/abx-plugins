@@ -444,8 +444,19 @@ class TestResponsesWithChrome:
                 wait_for_file(
                     index,
                     process=process,
-                    ready=lambda path: path.stat().st_size > 0,
+                    ready=lambda path: any(
+                        json.loads(line).get("url") == chrome_test_url
+                        for line in path.read_text().splitlines()
+                    ),
                 )
+                main_record = next(
+                    json.loads(line)
+                    for line in index.read_text().splitlines()
+                    if json.loads(line).get("url") == chrome_test_url
+                )
+                saved_body = output / main_record["path"]
+                saved_bytes = saved_body.read_bytes()
+                assert saved_bytes
                 os.kill(chrome_pid, signal.SIGKILL)
                 with pytest.raises(subprocess.TimeoutExpired):
                     # Outlast the hook's short progress debounce timer: signal
@@ -463,7 +474,16 @@ class TestResponsesWithChrome:
                 if line.startswith("{")
                 and json.loads(line).get("type") == "ArchiveResult"
             ]
-            assert archive_results, f"Missing final ArchiveResult: {stdout}\n{stderr}"
+            assert len(archive_results) == 1, (stdout, stderr)
+            result = archive_results[0]
+            assert result["status"] == (
+                "succeeded" if process.returncode == 0 else "failed"
+            )
+            assert saved_body.read_bytes() == saved_bytes
+            assert (
+                result["output_str"]
+                == (Path("responses") / main_record["path"]).as_posix()
+            ), result
 
 
 if __name__ == "__main__":
