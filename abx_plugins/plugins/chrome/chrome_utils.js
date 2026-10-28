@@ -52,6 +52,35 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const durableCollector = resourceTypes
     ? sharedCollector || await page.createCDPSession()
     : null;
+  const whileAttached = async (client, work) => {
+    // Chrome reports a detached parent without necessarily reporting every
+    // nested session. Puppeteer's child setup callbacks can then remain pending
+    // forever. Bound setup/teardown to the lifetime of its actual owners, not
+    // a timeout or private Puppeteer callback mutation. Response body reads and
+    // saved-file writes are deliberately outside this cancellation boundary.
+    const owners = new Set();
+    let owner = client;
+    while (owner && !owners.has(owner)) {
+      owners.add(owner);
+      owner = owner.parentSession();
+    }
+    const connection = client.connection();
+    let onDetached;
+    const closed = new Promise((resolve) => {
+      onDetached = (detached) => {
+        if (!detached || owners.has(detached)) resolve(false);
+      };
+      connection.on("sessiondetached", onDetached);
+      page.browser().once("disconnected", onDetached);
+      if ([...owners].some((item) => item.detached)) onDetached();
+    });
+    try {
+      return await Promise.race([closed, work.then(() => true)]);
+    } finally {
+      connection.off("sessiondetached", onDetached);
+      page.browser().off("disconnected", onDetached);
+    }
+  };
   const listeners = [];
   const listen = (event, callback) => {
     session.on(event, callback);
@@ -268,9 +297,16 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       // before it runs: synchronous XHR/short-lived workers can finish before
       // their renderer can stream bytes. Always release our debugger pause.
       const commandSession = closing ? client : child;
-      const work = closing ? client.send("Target.detachFromTarget", { sessionId }) : configureCollector(child).finally(async () => {
-        if (!child.detached) await child.send("Runtime.runIfWaitingForDebugger");
-      });
+      const work = closing ? whileAttached(child, client.send("Target.detachFromTarget", { sessionId })) : (async () => {
+        let attached = true;
+        try {
+          attached = await configureCollector(child);
+        } finally {
+          // A live setup failure must release its debugger pause. Ownership
+          // loss needs no command: its vanished ancestry cannot be rediscovered.
+          if (attached && !child.detached) await whileAttached(child, child.send("Runtime.runIfWaitingForDebugger"));
+        }
+      })();
       pending.add(work);
       work.catch((error) => {
         // Detach runs on the parent, while setup runs on the child. Chrome can
@@ -281,14 +317,14 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     };
     watched.set(client, onAttached);
     client.on("Target.attachedToTarget", onAttached);
-    return Promise.all([
+    return whileAttached(client, Promise.all([
       client.send("Network.enable"),
       client.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 }),
       client.send("Target.setAutoAttach", {
         autoAttach: true, waitForDebuggerOnStart: true, flatten: true,
         filter: [{ type: "iframe" }, { type: "worker" }, { type: "shared_worker" }],
       }),
-    ]);
+    ]));
   };
   if (durableCollector && !sharedCollector) setup.push(configureCollector(durableCollector));
   if (!suppliedSession) {
@@ -298,7 +334,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     }
   }
   try {
-    await Promise.all(setup);
+    await whileAttached(session, Promise.all(setup));
   } catch (error) {
     if (!suppliedSession) {
       if (durableCollector && !durableCollector.detached) await durableCollector.detach();
@@ -371,8 +407,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       for (const client of [...ownedCollectors].reverse()) {
         if (client === durableCollector || client.detached) continue;
         const parent = client.parentSession();
+        if (!parent || parent.detached) continue;
         try {
-          await parent.send("Target.detachFromTarget", { sessionId: client.id() });
+          await whileAttached(client, parent.send("Target.detachFromTarget", { sessionId: client.id() }));
         } catch (error) {
           // The command belongs to the parent. Closing that owner already
           // releases its capture session, even if the child's local flag is stale.
@@ -1163,28 +1200,6 @@ async function killZombieChrome(snapDir = null, options = {}) {
 // Chrome launching
 // ============================================================================
 
-async function getCrawlRandomSeed(crawlDir) {
-  // Persist independently of session markers: restarting Chrome or launching
-  // concurrent snapshot-isolated browsers must retain the same crawl seed.
-  const seedFile = path.join(crawlDir, "chrome", "crawl_seed.txt");
-  const releaseLock = await acquireSessionLock(`${seedFile}.lock`);
-  try {
-    if (fs.existsSync(seedFile)) {
-      const seed = Number(fs.readFileSync(seedFile, "utf8").trim());
-      if (!Number.isInteger(seed) || seed <= 0 || seed >= 2 ** 31) {
-        throw new Error(`Invalid Chrome crawl seed in ${seedFile}`);
-      }
-      return seed;
-    }
-    // V8 accepts a signed 32-bit seed; zero asks V8 to use system randomness.
-    const seed = crypto.randomInt(1, 2 ** 31);
-    writeFileAtomic(seedFile, `${seed}\n`);
-    return seed;
-  } finally {
-    releaseLock();
-  }
-}
-
 /**
  * Launch Chromium and return the live browser process + browser-level CDP endpoint.
  *
@@ -1227,7 +1242,6 @@ async function launchChromium(options = {}) {
     CHROME_CHECK_SSL_VALIDITY,
     CHROME_ARGS,
     CHROME_ARGS_EXTRA,
-    CRAWL_DIR,
   } = resolveChromeLaunchOptions(options);
   const userDataDir = CHROME_USER_DATA_DIR;
 
@@ -1326,9 +1340,11 @@ async function launchChromium(options = {}) {
   // Dynamic args come after base so they can override if needed
   const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
 
-  const randomSeed = await getCrawlRandomSeed(CRAWL_DIR);
-  // Chromium uses the last --js-flags switch. Merge V8 flags and replace any
-  // supplied seed so all locally launched browsers use the recorded crawl seed.
+  // Keep native entropy by default. A fixed V8 seed repeats Math.random in
+  // independent documents, so a page and its export popup can generate the
+  // same server-side client ID and break each other's live sessions. Explicit
+  // user seeds remain available for controlled replay. Chromium uses the last
+  // --js-flags switch, so merge those switches without discarding user flags.
   const jsFlags = [];
   for (let index = 0; index < chromiumArgs.length; index += 1) {
     const arg = chromiumArgs[index];
@@ -1336,13 +1352,17 @@ async function launchChromium(options = {}) {
       const value = arg === "--js-flags"
         ? chromiumArgs.splice(index + 1, 1)[0] || ""
         : arg.slice("--js-flags=".length);
-      jsFlags.push(value.replace(/(^|\s)--random[-_]seed(?:=|\s+)\S+/g, "$1").trim());
+      jsFlags.push(value.trim());
       chromiumArgs.splice(index, 1);
       index -= 1;
     }
   }
-  jsFlags.push(`--random-seed=${randomSeed}`);
-  chromiumArgs.push(`--js-flags=${jsFlags.filter(Boolean).join(" ")}`);
+  const mergedJsFlags = jsFlags.filter(Boolean).join(" ");
+  if (mergedJsFlags) chromiumArgs.push(`--js-flags=${mergedJsFlags}`);
+  // Record only an explicit, representable seed, not invented provenance for
+  // Chrome's native entropy. V8 uses the last supplied value; zero means entropy.
+  const seedFlag = [...mergedJsFlags.matchAll(/(?:^|\s)--random[-_]seed(?:=|\s+)([+-]?\d+)(?=\s|$)/g)].at(-1);
+  const randomSeed = seedFlag && Number.isSafeInteger(Number(seedFlag[1])) ? Number(seedFlag[1]) : null;
 
   // All tabs of one browser share Chrome's HTTP/1.1 connection pool, which
   // allows only 6 connections per host. With CHROME_ISOLATION=crawl those tabs

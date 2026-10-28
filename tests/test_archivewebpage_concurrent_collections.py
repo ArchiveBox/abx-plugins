@@ -334,6 +334,11 @@ def _start_snapshot_recording(
     return snapshot_dir, env
 
 
+@pytest.mark.parametrize(
+    "archivewebpage_crawl",
+    [{"CHROME_ARGS_EXTRA": json.dumps(["--js-flags=--random-seed=12345"])}],
+    indirect=True,
+)
 def test_worker_restart_preserves_seeded_collection_identities(
     archivewebpage_crawl,
     httpserver,
@@ -353,7 +358,10 @@ def test_worker_restart_preserves_seeded_collection_identities(
         url=url,
     )
     first_state = json.loads((first / "archivewebpage/recording.json").read_text())
-    seed = (crawl_chrome_dir / "crawl_seed.txt").read_text()
+    assert (
+        json.loads((crawl_chrome_dir / "browser.json").read_text())["random_seed"]
+        == 12345
+    )
     script = r"""
 const fs = require('fs');
 const utils = require(process.argv[1]);
@@ -448,7 +456,7 @@ const awp = require(process.argv[2]);
     )
     start = _run_start_hook(second, second_env, url)
     after = inspect(second, second_env, restart=False)
-    # V8's fixed crawl seed resets Math.random in a restarted worker. Collection
+    # An explicit V8 seed resets Math.random in a restarted worker. Collection
     # IDs outlive that worker: both original metadata and actual WARC bytes must
     # survive, rather than accepting a reused ID merely to satisfy the handshake.
     before_titles = {
@@ -456,7 +464,10 @@ const awp = require(process.argv[2]);
     }
     after_titles = {coll["id"]: coll["title"] for coll in after["collections"]["colls"]}
     assert before["extensionId"] == after["extensionId"]
-    assert (crawl_chrome_dir / "crawl_seed.txt").read_text() == seed
+    assert (
+        json.loads((crawl_chrome_dir / "browser.json").read_text())["random_seed"]
+        == 12345
+    )
     assert before_titles.items() <= after_titles.items(), (before, after, start.stderr)
     assert start.returncode == 0, start.stderr
     second_state = json.loads((second / "archivewebpage/recording.json").read_text())

@@ -56,6 +56,57 @@ const chrome = require(process.argv[1]);
         assert result.returncode == 0, result.stderr
 
 
+def test_response_setup_error_on_live_session_is_not_cancelled(
+    tmp_path,
+    chrome_test_url,
+):
+    with chrome_session(
+        tmp_path,
+        test_url=chrome_test_url,
+        navigate=False,
+        timeout=45,
+    ) as (_, _, chrome_dir, env):
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                """
+const chrome = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await chrome.connectToPage({chromeSessionDir: process.argv[2]});
+  // A real browser-target session does not support Network. It produces a genuine
+  // setup error while every owner remains alive, unlike a disappearing frame.
+  const session = await browser.target().createCDPSession();
+  try {
+    const capture = await chrome.captureOriginalResponseBodies(page, {session, resourceTypes: [], documents: false});
+    const response = await page.goto(process.argv[3], {waitUntil: 'load', timeout: 10000});
+    let failure;
+    try { await capture.read(response); } catch (error) { failure = error; }
+    if (!failure || !failure.message.includes('Network.enable')) throw Error('Live setup failure was lost');
+    if (session.detached) throw Error('Test session unexpectedly closed');
+    let cleanupFailure;
+    try { await capture.close(); } catch (error) { cleanupFailure = error; }
+    if (!cleanupFailure || !cleanupFailure.message.includes('Network.enable')) throw Error('Live cleanup failure was lost');
+    await session.send('Browser.getVersion');
+    if (await page.evaluate(() => document.readyState) !== 'complete') throw Error('Caller page was damaged');
+  } finally {
+    await session.detach();
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+                str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
+                str(chrome_dir),
+                chrome_test_url,
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+
+
 @pytest.mark.parametrize("responses_enabled", [True, False])
 def test_inline_pdf_preserves_original_bytes(tmp_path, responses_enabled):
     web = tmp_path / "www"
@@ -160,7 +211,11 @@ const chrome = require(process.argv[1]);
         thread.join()
 
 
-def test_pdf_response_collector_closes_with_live_viewer_frames(tmp_path):
+@pytest.mark.parametrize("navigate_during_close", [False, True])
+def test_pdf_response_collector_closes_with_live_viewer_frames(
+    tmp_path,
+    navigate_during_close,
+):
     web = tmp_path / "www"
     web.mkdir()
     (web / "index.html").write_text(
@@ -226,11 +281,17 @@ const fs = require('fs');
       await queue;
       // Closing the tab first hides orphaned collector sessions by destroying
       // its children. A recorder must finish while the PDF viewer stays open.
+      // A real navigation can remove collector children while their parent
+      // session is still alive. Closing capture must tolerate that lifecycle
+      // transition without confusing it with a lost response body.
+      const navigation = process.argv[6] === 'true' ? page.goto('about:blank') : null;
       await capture.close();
+      if (navigation) await navigation;
       if (!capturedPdf) throw Error('Original PDF was not captured');
       if (errors.length) throw errors[0];
-      if (!await viewer.$eval('pdf-viewer', node => node.isConnected)) throw Error('Closing collector damaged live PDF viewer');
-      if (iteration === 9) {
+      if (navigation && page.url() !== 'about:blank') throw Error('Concurrent navigation did not finish');
+      if (!navigation && !await viewer.$eval('pdf-viewer', node => node.isConnected)) throw Error('Closing collector damaged live PDF viewer');
+      if (!navigation && iteration === 9) {
         await page.bringToFront();
         const pageNumber = await viewer.waitForSelector('::-p-aria(Page number)', {timeout: 10000});
         if (await pageNumber.evaluate(input => input.value) !== '1') throw Error('PDF viewer did not render its first page');
@@ -249,6 +310,7 @@ const fs = require('fs');
                     origin,
                     str(web / "document.pdf"),
                     str(tmp_path / "live-pdf-viewer.png"),
+                    str(navigate_during_close).lower(),
                 ],
                 env=env,
                 capture_output=True,

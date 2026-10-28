@@ -1939,9 +1939,8 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                 browser_metadata = json.loads(
                     (session.chrome_dir / "browser.json").read_text(),
                 )
-                assert browser_metadata["random_seed"] == int(
-                    (crawl_dir / "chrome" / "crawl_seed.txt").read_text(),
-                )
+                assert browser_metadata["random_seed"] is None
+                assert not (crawl_dir / "chrome" / "crawl_seed.txt").exists()
                 assert (
                     json.loads((session.chrome_dir / "random_seed.json").read_text())[
                         "random_seed"
@@ -5248,15 +5247,21 @@ const utils = require(process.argv[1]);
 
 
 @pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
-def test_random_seed_is_fixed_per_crawl_and_hashed(tmp_path, httpserver, isolation):
-    """Real launches replay Math.random and retain seed evidence after cleanup."""
+@pytest.mark.parametrize("explicit_seed", [None, 0, 12345])
+def test_random_seed_is_opt_in_and_hashed(
+    tmp_path,
+    httpserver,
+    isolation,
+    explicit_seed,
+):
+    """Native entropy keeps document IDs distinct; explicit replay remains available."""
     httpserver.expect_request("/random").respond_with_data(
         "<script>window.samples = Array.from({length: 8}, () => Math.random())</script>",
         content_type="text/html",
     )
     url = httpserver.url_for("/random")
     seeds, samples = [], []
-    for index, crawl_name in enumerate(("first", "first", "second")):
+    for index, crawl_name in enumerate(("first", "first")):
         snap_dir = tmp_path / f"snapshot-{index}"
         chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir(parents=True)
@@ -5268,12 +5273,19 @@ def test_random_seed_is_fixed_per_crawl_and_hashed(tmp_path, httpserver, isolati
             "SNAP_DIR": str(snap_dir),
             "CHROME_ISOLATION": isolation,
             "CHROME_HEADLESS": "true",
-            # Both occurrences must survive merging, while a user-supplied seed
-            # must not override the seed chosen for this crawl.
+            # Merge unrelated V8 flags without imposing a shared random stream:
+            # live pages can use Math.random to allocate server-side client IDs.
+            # Explicit seeds obey V8's last-value precedence, including its alias.
             "CHROME_ARGS_EXTRA": json.dumps(
                 [
-                    "--js-flags=--expose-gc --random-seed=0",
-                    "--js-flags=--stack-trace-limit=23",
+                    "--js-flags=--expose-gc"
+                    + (" --random_seed=17" if explicit_seed is not None else ""),
+                    "--js-flags=--stack-trace-limit=23"
+                    + (
+                        f" --random-seed={explicit_seed}"
+                        if explicit_seed is not None
+                        else ""
+                    ),
                 ],
             ),
         }
@@ -5307,12 +5319,17 @@ def test_random_seed_is_fixed_per_crawl_and_hashed(tmp_path, httpserver, isolati
                 )
                 evidence = json.loads((chrome_dir / "random_seed.json").read_text())
                 seed = evidence["random_seed"]
-                assert isinstance(seed, int) and 0 < seed < 2**31
+                assert seed == explicit_seed
+                assert not (crawl_chrome / "crawl_seed.txt").exists()
                 assert (
                     json.loads((chrome_dir / "browser.json").read_text())["random_seed"]
                     == seed
                 )
-                assert f"--random-seed={seed}" in (launch_dir / "cmd.sh").read_text()
+                command = (launch_dir / "cmd.sh").read_text()
+                if explicit_seed is None:
+                    assert "--random-seed" not in command
+                else:
+                    assert f"--random-seed={seed}" in command
                 seeds.append(seed)
                 navigation = subprocess.run(
                     [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
@@ -5353,6 +5370,39 @@ const utils = require(process.argv[1]);
                 assert page["stackLimit"] == 23
                 assert len(page["samples"]) == 8
                 samples.append(page["samples"])
+                # A second live document is the important collision case: a
+                # capture and its export popup must not share generated IDs.
+                second_probe = subprocess.run(
+                    [
+                        env["NODE_BINARY"],
+                        "-e",
+                        """
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  const second = await page.browserContext().newPage();
+  try {
+    await second.goto(process.argv[3]);
+    console.log(JSON.stringify(await second.evaluate(() => window.samples)));
+  } finally { await second.close(); await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+                        str(CHROME_UTILS),
+                        str(chrome_dir),
+                        url,
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                assert second_probe.returncode == 0, second_probe.stderr
+                second_samples = json.loads(second_probe.stdout)
+                assert len(second_samples) == 8
+                if explicit_seed:
+                    assert second_samples == page["samples"]
+                else:
+                    assert second_samples != page["samples"]
             finally:
                 if tab_process:
                     tab_process.send_signal(signal.SIGTERM)
@@ -5365,7 +5415,10 @@ const utils = require(process.argv[1]);
             CHROME_UTILS.parent.parent / "hashes" / "on_Snapshot__93_hashes.py"
         )
         roots = []
-        for payload in (original, json.dumps({"random_seed": seed + 1}).encode()):
+        for payload in (
+            original,
+            json.dumps({"random_seed": (seed or 0) + 1}).encode(),
+        ):
             seed_file.write_bytes(payload)
             result = subprocess.run(
                 [str(hashes_hook), f"--url={url}"],
@@ -5394,5 +5447,8 @@ const utils = require(process.argv[1]);
                 )
             roots.append(manifest["root_hash"])
         assert roots[0] != roots[1]
-    assert seeds[0] == seeds[1] != seeds[2]
-    assert samples[0] == samples[1] != samples[2]
+    assert seeds == [explicit_seed, explicit_seed]
+    if explicit_seed:
+        assert samples[0] == samples[1]
+    else:
+        assert samples[0] != samples[1]

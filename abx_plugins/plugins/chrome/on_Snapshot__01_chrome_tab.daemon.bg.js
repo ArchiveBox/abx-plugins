@@ -130,7 +130,7 @@ function emitResult(statusOverride) {
 
 function publishSuccess(outputStr, versionOverride = "") {
   // Durable capture evidence, deliberately separate from mutable session markers.
-  // External/legacy sessions have no plugin-controlled launch seed.
+  // Native entropy and external/legacy sessions have no known fixed launch seed.
   writeFileAtomic(
     path.join(OUTPUT_DIR, "random_seed.json"),
     JSON.stringify({ random_seed: readBrowserMetadata(OUTPUT_DIR)?.random_seed ?? null }, null, 2) + "\n"

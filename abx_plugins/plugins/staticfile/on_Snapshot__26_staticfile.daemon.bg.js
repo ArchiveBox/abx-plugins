@@ -566,7 +566,13 @@ async function setupStaticFileListener() {
           timeout
         );
         if (responsesOutputPath) {
-          savedOutputPath = responsesOutputPath;
+          // The URL-shaped alias may have no extension and is not inventoried
+          // as captured bytes. Publish its canonical response file so manifests
+          // and previews retain the real MIME suffix without duplicating it.
+          savedOutputPath = path.relative(
+            SNAP_DIR,
+            fs.realpathSync(path.join(SNAP_DIR, responsesOutputPath))
+          ).split(path.sep).join("/");
           finish();
           return;
         }

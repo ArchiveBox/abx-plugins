@@ -109,10 +109,12 @@ entry does not select a bundled plugin for a crawl.
 
 ## JavaScript random seed
 
-Local launches use `--js-flags=--random-seed=<seed>` with a randomly chosen,
-nonzero 31-bit V8 seed per crawl. `CRAWL_DIR/chrome/crawl_seed.txt` retains it
-across browser restarts and concurrent snapshot-isolated launches. Existing V8
-flags are merged; the crawl seed replaces any `random-seed` override in them.
+Local launches use Chrome's native randomness by default. Forcing one V8 seed
+across documents repeats `Math.random()` sequences: a page and its export popup
+can generate the same server-side client ID and invalidate each other's session.
+For controlled replay, explicitly pass `--js-flags=--random-seed=<seed>` through
+`CHROME_ARGS` or `CHROME_ARGS_EXTRA`. Existing V8 flags are merged and the last
+explicit seed wins. Zero requests native randomness; no crawl seed file is created.
 
 Each snapshot saves `chrome/random_seed.json` (`{"random_seed": 12345}`) before
 capture, and `browser.json` also exposes `random_seed`. The standalone seed
@@ -122,8 +124,9 @@ Profiles (`.persona`, `chrome_profile`, `archivebox-extensions`) are not capture
 output. Disposable session markers (`cdp_url.txt`, `chrome.pid`, `target_id.txt`,
 `url.txt`, `browser.json`, `navigation.json`) are excluded individually because
 crawl cleanup can delete them after snapshot hashing.
-External CDP browsers and reused legacy sessions record `null`: this plugin
-cannot set or verify their launch seed.
+Native randomness without an explicit seed, external CDP browsers, and reused
+legacy sessions record `null`: no fixed launch seed is known. An explicit zero is
+recorded as `0`, while still requesting native randomness.
 
 This controls V8's pseudorandom sequence, including `Math.random()`, not Web
 Crypto randomness, clocks, network responses, or all sources of page variation.

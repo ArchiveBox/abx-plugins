@@ -57,6 +57,10 @@ def staticfile_test_urls(httpserver):
         JSON_FIXTURE_BYTES,
         content_type="application/json",
     )
+    httpserver.expect_request("/extensionless").respond_with_data(
+        JSON_FIXTURE_BYTES,
+        content_type="application/json",
+    )
     httpserver.expect_request("/redirect-json").respond_with_data(
         "",
         status=302,
@@ -70,6 +74,7 @@ def staticfile_test_urls(httpserver):
     return {
         "html_url": httpserver.url_for("/html"),
         "json_url": httpserver.url_for("/test.json"),
+        "extensionless_url": httpserver.url_for("/extensionless"),
         "redirect_json_url": httpserver.url_for("/redirect-json"),
         "redirect_html_url": httpserver.url_for("/redirect-html"),
     }
@@ -456,9 +461,14 @@ const chrome = require(process.argv[1]);
             staticfile_dir.iterdir(),
         )
 
-    def test_staticfile_downloads_static_file_pages(self, staticfile_test_urls):
+    @pytest.mark.parametrize("url_key", ["json_url", "extensionless_url"])
+    def test_staticfile_downloads_static_file_pages(
+        self,
+        staticfile_test_urls,
+        url_key,
+    ):
         """Staticfile hook should download deterministic static-file fixtures."""
-        test_url = staticfile_test_urls["json_url"]
+        test_url = staticfile_test_urls[url_key]
         snapshot_id = "test-staticfile-json"
 
         with chrome_session(
@@ -497,7 +507,13 @@ const chrome = require(process.argv[1]);
         assert archive_result.get("status") == "succeeded", archive_result
         assert archive_result.get("content_type") == "application/json", archive_result
         expected_output = expected_responses_output(test_url)
-        assert archive_result.get("output_str") == expected_output, archive_result
+        assert (
+            archive_result.get("output_str")
+            == (snapshot_chrome_dir.parent / expected_output)
+            .resolve()
+            .relative_to(snapshot_chrome_dir.parent)
+            .as_posix()
+        ), archive_result
         assert (snapshot_chrome_dir.parent / expected_output).exists(), (
             f"Expected responses artifact at {expected_output}"
         )
@@ -507,6 +523,8 @@ const chrome = require(process.argv[1]);
         assert (
             json.loads((staticfile_dir / "result.json").read_text()) == archive_result
         )
+        assert archive_result["output_str"].startswith("responses/all/")
+        assert archive_result["output_str"].endswith(".json")
         responses_output = snapshot_chrome_dir.parent / expected_output
         output_bytes = responses_output.read_bytes()
         assert output_bytes == JSON_FIXTURE_BYTES, "Responses JSON bytes mismatch"
@@ -551,7 +569,13 @@ const chrome = require(process.argv[1]);
         assert archive_result.get("status") == "succeeded", archive_result
         assert archive_result.get("content_type") == "application/json", archive_result
         expected_output = expected_responses_output(staticfile_test_urls["json_url"])
-        assert archive_result.get("output_str") == expected_output, archive_result
+        assert (
+            archive_result.get("output_str")
+            == (snapshot_chrome_dir.parent / expected_output)
+            .resolve()
+            .relative_to(snapshot_chrome_dir.parent)
+            .as_posix()
+        ), archive_result
         assert (snapshot_chrome_dir.parent / expected_output).exists(), (
             f"Expected responses artifact at {expected_output}"
         )
