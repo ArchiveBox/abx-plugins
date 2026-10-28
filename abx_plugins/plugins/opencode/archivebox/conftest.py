@@ -1,16 +1,9 @@
 """Fixtures for the host integration suite, imported by ArchiveBox conftest."""
 
-import json
 import os
 import re
-import subprocess
-import time
-from collections import deque
-from pathlib import Path
-from threading import Event, Thread
 from types import SimpleNamespace
 
-import psutil
 import pytest
 import requests
 
@@ -62,67 +55,8 @@ def installed_opencode(opencode_archive_config):
         ["install", "opencode"],
         cwd=opencode_archive_config.data_dir,
         env=opencode_archive_config.env,
-        wait=False,
+        timeout=1200,
     )
-    # Nested npm completed in CI, but its outer pnpm installer hung and killed
-    # its descendants before failure artifacts could show the stalled stage.
-    # Sample only slow installs, without recording arguments or environment.
-    samples = deque(maxlen=12)
-    stopped = Event()
-    started = time.monotonic()
-
-    def sample_install():
-        if install.pid is None:
-            return
-        try:
-            process = psutil.Process(install.pid)
-            if stopped.wait(30):
-                return
-            while process.is_running():
-                descendants = [process, *process.children(recursive=True)]
-                rows = []
-                for child in descendants[:64]:
-                    try:
-                        cpu = child.cpu_times()
-                        row = {
-                            "pid": child.pid,
-                            "create_time": child.create_time(),
-                            "name": Path(child.name()).name,
-                            "status": child.status(),
-                            "cpu_seconds": cpu.user + cpu.system,
-                        }
-                        try:
-                            row["wchan"] = (
-                                Path(f"/proc/{child.pid}/wchan").read_text().strip()
-                            )
-                        except OSError:
-                            pass
-                        if child.is_running():
-                            rows.append(row)
-                    except (psutil.Error, OSError):
-                        continue
-                samples.append(
-                    {"elapsed_seconds": time.monotonic() - started, "processes": rows},
-                )
-                if stopped.wait(10):
-                    return
-        except (psutil.Error, OSError):
-            return
-
-    sampler = Thread(target=sample_install, daemon=True)
-    sampler.start()
-    try:
-        try:
-            install.communicate(timeout=1200)
-        except subprocess.TimeoutExpired:
-            install.terminate()
-            install.wait(timeout=5)
-            raise
-    finally:
-        stopped.set()
-        sampler.join()
-        if install.returncode != 0 and samples:
-            print("OpenCode install process samples: " + json.dumps(list(samples)))
     assert install.returncode == 0, install.stderr or install.stdout
     _reset_runtime_config()
 
