@@ -1,0 +1,23 @@
+abx_plugins/plugins/responses/tests/test_responses.py
+  s_10bc94d001be49::t_9cc620972e16a1 448-450
+  s_10bc94d001be49::t_5d9943c1f0eaef 13,414-447,451-463
+  s_10bc94d001be49::t_ac080afe4c3a0e 464-467
+abx_plugins/plugins/base/daemon_lifecycle.js
+  s_10bc94d001be49::t_c5ec11aa8db325 23-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24de1bbd272eb70ff30214ee0a1067648003c90c",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
