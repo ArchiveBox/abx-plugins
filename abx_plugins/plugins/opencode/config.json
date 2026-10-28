@@ -64,7 +64,8 @@
           "min_release_age": 0,
           "postinstall_scripts": true,
           "install_args": [
-            "opencode-ai@1.19.4"
+            "opencode-ai@1.19.4",
+            "--no-optional"
           ]
         }
       }

@@ -64,6 +64,11 @@ ancestor/nested Git repositories and verifies indexing exclusions and file reads
 
 ArchiveBox's Dockerfile installs this plugin's dependencies in its app layers;
 the abx-dl downloader image does not include OpenCode.
+The pnpm install omits optional packages because all four Linux x64 binary
+variants match the package's OS/CPU filters, installing about 1 GB of binaries
+even though only one is selected. OpenCode's required upstream postinstall selects and installs
+the appropriate binary itself, including libc and CPU compatibility checks.
+Keep postinstall enabled with `--no-optional`; disabling it would leave no binary.
 The agent remains disabled by default; installing its executable does not enable
 the route or start the service.
 
