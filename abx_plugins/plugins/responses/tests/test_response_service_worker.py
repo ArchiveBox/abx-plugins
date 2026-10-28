@@ -129,8 +129,14 @@ const {connectToPage}=require(process.argv[1]);
 (async()=>{
  const {browser,page}=await connectToPage({chromeSessionDir:process.argv[2]});
  try {
-  const target=process.argv[4]==='true'?page.frames().find(frame=>frame.url().endsWith('/child')):page;
-  if(!target)throw new Error('Child frame did not load');
+  const deadline=Date.now()+25000;
+  // The navigation hook waits for the main DOMContentLoaded only; a
+  // cross-site child can commit afterward, so wait within this probe budget.
+  const target=process.argv[4]==='true'
+    ?await page.waitForFrame(frame=>frame.url()===process.argv[5],{timeout:Math.max(1,deadline-Date.now())})
+    :page;
+  if(process.argv[4]==='true')await target.waitForFunction(
+    ()=>document.title==='Service worker response capture',{timeout:Math.max(1,deadline-Date.now())});
   await target.evaluate(async()=>{
    await navigator.serviceWorker.register('/sw.js');
    await navigator.serviceWorker.ready;
@@ -152,6 +158,7 @@ const {connectToPage}=require(process.argv[1]);
                         str(chrome),
                         json.dumps(list(assets)),
                         str(cross_site_frame).lower(),
+                        child_origin + "child",
                     ],
                     env=env,
                     capture_output=True,
