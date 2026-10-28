@@ -1023,5 +1023,59 @@ def test_expansion_keeps_native_label_disclosures_open(
         assert "Expanded navigation content" in saved
 
 
+@pytest.mark.parametrize("empty_document", [False, True])
+def test_scrolls_html_without_body(httpserver, tmp_path, empty_document):
+    """Page scripts may remove the body or root while retaining a live document."""
+    html = """<!doctype html><html style="height:3600px"><head></head>
+    <body><p>Root content remains available</p>
+    <button onclick="this.insertAdjacentHTML('beforebegin', '<p>Expanded root content</p>'); this.remove()">Load more</button>
+    <script>
+    addEventListener('DOMContentLoaded', () => {
+      document.documentElement.append(document.querySelector('p'), document.querySelector('button'));
+      document.body.remove();
+      REMOVE_ROOT
+    });
+    </script></body></html>""".replace(
+        "REMOVE_ROOT",
+        "document.documentElement.remove();" if empty_document else "",
+    )
+    httpserver.expect_request("/").respond_with_data(html, content_type="text/html")
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    url = httpserver.url_for("/")
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+    ) as (_, _, chrome_dir, env):
+        result = subprocess.run(
+            [str(INFINISCROLL_HOOK), f"--url={url}"],
+            cwd=chrome_dir.parent,
+            env={
+                **env,
+                "INFINISCROLL_SCROLL_LIMIT": "2",
+                "INFINISCROLL_SCROLL_DELAY": "100",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{") and json.loads(line).get("type") == "ArchiveResult"
+        ]
+        assert len(records) == 1, result.stdout
+        assert records[0]["status"] == "succeeded", records
+        expected_height = "0" if empty_document else "3,600"
+        assert records[0]["output_str"] == f"scrolled {expected_height}px"
+        assert "Finished 2 scrolls" in result.stderr, result.stderr
+        if not empty_document:
+            saved = save_dom(chrome_dir, env, url)
+            assert "Root content remains available" in saved
+            assert "<p>Expanded root content</p>" in saved
+            assert "<body" not in saved
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -316,7 +316,7 @@ async function expandDetails(page, options = {}) {
           if (!link.isConnected || !canExpand(link) || (stopOutside && !article.contains(link))) continue;
 
           try {
-            const before = document.body.innerText;
+            const before = (document.body || document.documentElement)?.innerText || "";
             if (bounded && (!article.isConnected || !article.contains(link)))
               bounded = false;
             if (bounded) {
@@ -339,7 +339,7 @@ async function expandDetails(page, options = {}) {
             link.click();
             expanded++;
             await wait(delay);
-            if (document.body.innerText === before) inactive.add(link);
+            if (((document.body || document.documentElement)?.innerText || "") === before) inactive.add(link);
           } catch (e) {
             inactive.add(link);
           }
@@ -387,14 +387,15 @@ async function scrollDown(page, options = {}) {
 
   const startTime = Date.now();
 
-  // Get page height using multiple methods (some pages use different scroll containers)
+  // Page scripts can remove the body/root during updates. Measure whichever
+  // elements exist; a missing body must not hide remaining root content.
   const getPageHeight = () =>
     page.evaluate(() => {
       return Math.max(
-        document.body.scrollHeight || 0,
-        document.body.offsetHeight || 0,
-        document.documentElement.scrollHeight || 0,
-        document.documentElement.offsetHeight || 0,
+        document.body?.scrollHeight || 0,
+        document.body?.offsetHeight || 0,
+        document.documentElement?.scrollHeight || 0,
+        document.documentElement?.offsetHeight || 0,
       );
     });
 
