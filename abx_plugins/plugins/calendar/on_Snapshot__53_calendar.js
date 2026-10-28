@@ -50,7 +50,10 @@ function calendarUrls(value, explicit = false) {
         }
         if (!/^[^\s/@]+@[^\s/]+$/.test(id)) return [];
         return [
-          `https://calendar.google.com/calendar/ical/${encodeURIComponent(id)}/public/basic.ics`,
+          [
+            `https://calendar.google.com/calendar/ical/${encodeURIComponent(id)}/public/basic.ics`,
+            true,
+          ],
         ];
       });
   }
@@ -58,14 +61,15 @@ function calendarUrls(value, explicit = false) {
     url.searchParams.get("format") ||
     url.searchParams.get("outlook-ical") ||
     "";
-  if (
+  const required =
     explicit ||
     subscription ||
     /\.(ics|ical|ifb)$/i.test(url.pathname) ||
-    /\/(?:ical|icalendar)\/?$/i.test(url.pathname) ||
-    /^(ics|ical|icalendar)$/i.test(format)
-  )
-    return [url.href];
+    /^(ics|ical|icalendar)$/i.test(format);
+  // A directory named icalendar can be an ordinary article/category page.
+  // Keep discovering feeds there, but HTML is not a failed declared calendar.
+  if (required || /\/(?:ical|icalendar)\/?$/i.test(url.pathname))
+    return [[url.href, required]];
   return [];
 }
 
@@ -108,10 +112,13 @@ async function main() {
       );
     const candidates = new Map();
     function addCandidates(value, explicit = false, textHint = false) {
-      for (const candidate of calendarUrls(value, explicit))
-        candidates.set(candidate, true);
+      for (const [candidate, required] of calendarUrls(value, explicit))
+        candidates.set(
+          candidate,
+          required || candidates.get(candidate) || false,
+        );
       if (textHint)
-        for (const candidate of calendarUrls(value, true))
+        for (const [candidate] of calendarUrls(value, true))
           if (!candidates.has(candidate)) candidates.set(candidate, false);
     }
     addCandidates(url, isCalendarMime);
@@ -143,8 +150,7 @@ async function main() {
         })),
       };
     });
-    if (discovered.calendarText)
-      addCandidates(page.url(), true);
+    if (discovered.calendarText) addCandidates(page.url(), true);
     for (const link of discovered.links)
       addCandidates(link.url, link.explicit, link.textHint);
     if (!candidates.size)
@@ -182,7 +188,9 @@ async function main() {
         // Still download real text-only calendar links, but ignore HTML pages.
         if (
           !explicit &&
-          /^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(contentType || "")
+          /^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(
+            contentType || "",
+          )
         )
           continue;
         throw Error("Calendar URL did not return an ICS calendar");

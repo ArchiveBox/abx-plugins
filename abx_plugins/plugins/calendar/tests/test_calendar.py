@@ -266,6 +266,16 @@ def test_unrelated_page_preserves_target(tmp_path, ensure_chrome_test_prereqs):
     ("links", "feed", "expected"),
     [
         ('<a href="/industrial">ICS</a>', False, "noresults"),
+        ('<a href="/tags/icalendar/">iCalendar articles</a>', False, "noresults"),
+        ('<a href="/topics/ical">Calendar articles</a>', False, "noresults"),
+        ('<a href="/subscription/ical">Subscribe</a>', True, "succeeded"),
+        ('<a href="/tags/icalendar/" type="text/calendar">Feed</a>', False, "failed"),
+        (
+            '<a href="/tags/icalendar/" type="text/calendar">Feed</a>'
+            '<a href="/tags/icalendar/">Articles</a>',
+            False,
+            "failed",
+        ),
         ('<a href="/subscription">ICS</a>', True, "succeeded"),
         ('<a href="/subscription">Download ICS</a>', True, "succeeded"),
         ('<a href="/subscription">Export as ICS file</a>', True, "succeeded"),
@@ -300,15 +310,16 @@ def test_calendar_link_evidence(
         b"SUMMARY:ArchiveBox calendar capture\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
     )
     httpserver.expect_request("/").respond_with_data(links, content_type="text/html")
-    for endpoint in ("/industrial", "/events.ics"):
+    for endpoint in ("/industrial", "/events.ics", "/tags/icalendar/", "/topics/ical"):
         httpserver.expect_request(endpoint).respond_with_data(
             "<html><h1>Industrial Control Systems</h1></html>",
             content_type="text/html",
         )
-    httpserver.expect_request("/subscription").respond_with_data(
-        calendar,
-        content_type="text/calendar",
-    )
+    for endpoint in ("/subscription", "/subscription/ical"):
+        httpserver.expect_request(endpoint).respond_with_data(
+            calendar,
+            content_type="text/calendar",
+        )
     url = httpserver.url_for("/")
     with chrome_session(
         tmp_path,
@@ -353,6 +364,14 @@ def test_calendar_link_evidence(
             if t["type"] == "page"
         } == before
         assert any(
-            request.path in {"/industrial", "/events.ics", "/subscription"}
+            request.path
+            in {
+                "/industrial",
+                "/events.ics",
+                "/subscription",
+                "/tags/icalendar/",
+                "/topics/ical",
+                "/subscription/ical",
+            }
             for request, _ in httpserver.log
         )
