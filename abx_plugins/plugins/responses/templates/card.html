@@ -58,6 +58,10 @@
         const seen = new Set();
         const selected = [];
         const add = (item, info, sourceKey) => {
+            // SVG fonts are valid image/svg+xml responses, but render as empty
+            // image boxes. Keep their captured bytes available; omit them only
+            // from this visual preview when CDP identified them as fonts.
+            if (String(info?.resourceType || '').toLowerCase() === 'font') return;
             const hash = info?.responseSha256;
             const url = info?.url || sourceKey || captureKey(item.dataset.name);
             const keys = [hash, url].filter(Boolean);
