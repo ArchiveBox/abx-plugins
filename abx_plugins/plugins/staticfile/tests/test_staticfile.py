@@ -9,6 +9,10 @@ import json
 import subprocess
 import shutil
 import tempfile
+import time
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -199,6 +203,76 @@ class TestStaticfileWithChrome:
     def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @pytest.mark.parametrize("responses_enabled", [True, False])
+    def test_browser_download_without_attachment_header(self, responses_enabled):
+        # Chrome downloads non-renderable documents even without attachment headers.
+        # Use the real author's pinned Office document, served by a normal HTTP server.
+        source = subprocess.run(
+            [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--location",
+                "--max-time",
+                "20",
+                "https://raw.githubusercontent.com/Horsmann/sharepoint-to-text/"
+                "6f2e77ca4b5fcf4e42550b9d1bb3cd51a4078dec/sharepoint2text/tests/resources/"
+                "modern_ms/word_structure.docx",
+            ],
+            capture_output=True,
+            timeout=25,
+        )
+        assert source.returncode == 0, source.stderr
+        expected_bytes = source.stdout
+        assert expected_bytes.startswith(b"PK")
+        web = self.temp_dir / "www"
+        web.mkdir()
+        (web / "word_structure.docx").write_bytes(expected_bytes)
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0),
+            partial(SimpleHTTPRequestHandler, directory=str(web)),
+        )
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        test_url = f"http://127.0.0.1:{server.server_port}/word_structure.docx"
+        try:
+            with chrome_session(
+                self.temp_dir,
+                test_url=test_url,
+                navigate=False,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            ) as (_, _, chrome_dir, env):
+                env["RESPONSES_ENABLED"] = "true" if responses_enabled else "false"
+                staticfile_dir = chrome_dir.parent / "staticfile"
+                staticfile_dir.mkdir()
+                started = time.monotonic()
+                result = run_staticfile_capture(
+                    staticfile_dir,
+                    chrome_dir,
+                    env,
+                    test_url,
+                    "browser-download",
+                    start_responses=responses_enabled,
+                    hook_timeout=45,
+                )
+                elapsed = time.monotonic() - started
+                hook_code, stdout, stderr, nav, archive_result, *_ = result
+                assert hook_code == 0, stderr
+                assert archive_result is not None, stdout
+                assert archive_result["status"] == "succeeded", archive_result
+                saved = chrome_dir.parent / archive_result["output_str"]
+                assert saved.read_bytes() == expected_bytes
+                assert nav.returncode == 1
+                assert "ERR_ABORTED" in nav.stderr
+                # A completed local download must not consume the 30-second
+                # response-artifact wait: downloaded documents have no such body.
+                assert elapsed < 10, elapsed
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_attachment_png_is_saved_from_browser_download(self):
         """A main-frame attachment is preserved despite another tab's download."""

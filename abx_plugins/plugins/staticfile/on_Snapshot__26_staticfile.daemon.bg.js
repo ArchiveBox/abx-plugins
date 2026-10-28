@@ -278,21 +278,21 @@ function isSavedResponseReady(filePath) {
   }
 }
 
-async function waitForResponsesOutput(outputInfo, timeoutMs) {
+async function waitForResponsesOutput(outputInfo, timeoutMs, downloadStarted) {
   if (!outputInfo) return null;
 
   const startupDeadline = Date.now() + Math.min(timeoutMs, 2000);
-  while (Date.now() < startupDeadline) {
+  while (Date.now() < startupDeadline && !downloadStarted()) {
     if (fs.existsSync(RESPONSES_INDEX_PATH)) break;
     await sleep(100);
   }
 
-  if (!fs.existsSync(RESPONSES_INDEX_PATH)) {
+  if (!fs.existsSync(RESPONSES_INDEX_PATH) || downloadStarted()) {
     return null;
   }
 
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  while (Date.now() < deadline && !downloadStarted()) {
     if (isSavedResponseReady(outputInfo.absolutePath)) {
       return outputInfo.relativePath;
     }
@@ -551,19 +551,12 @@ async function setupStaticFileListener() {
         headers["content-disposition"] || ""
       );
       const deadline = Date.now() + timeout;
-      if (isAttachment) {
-        savedOutputPath = await saveBrowserDownload(
-          await waitForDownloadUntil(deadline),
-          deadline
-        );
-        finish();
-        return;
-      }
-      if (responsesEnabled) {
+      if (!isAttachment && responsesEnabled) {
         const responsesOutputInfo = getResponsesOutputInfo(url, detectedContentType);
         const responsesOutputPath = await waitForResponsesOutput(
           responsesOutputInfo,
-          timeout
+          timeout,
+          () => Boolean(downloadGuid)
         );
         if (responsesOutputPath) {
           // The URL-shaped alias may have no extension and is not inventoried
@@ -576,6 +569,18 @@ async function setupStaticFileListener() {
           finish();
           return;
         }
+      }
+
+      // Chrome also downloads unsupported document types without an attachment
+      // header. Its main-frame download event is authoritative: those bytes will
+      // never appear in responses/, so do not spend the hook budget waiting there.
+      if (isAttachment || downloadGuid) {
+        savedOutputPath = await saveBrowserDownload(
+          await waitForDownloadUntil(deadline),
+          deadline
+        );
+        finish();
+        return;
       }
 
       console.error("Saving static file fallback locally...");
