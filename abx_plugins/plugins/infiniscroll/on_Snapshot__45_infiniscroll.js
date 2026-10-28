@@ -172,17 +172,31 @@ async function getArticle(page) {
   return article;
 }
 
+// A known article may have outside comments, but a separate visible H1 in
+// another semantic article is evidence that expansion has entered another story.
+// H2 headings alone are common in comments and do not establish that boundary.
+function hasOtherArticle(main) {
+  const primary = main?.isConnected && main.querySelector("h1");
+  return !!primary && [...document.querySelectorAll('article h1, [role="article"] h1')].some(
+    (heading) => !main.contains(heading) && heading.getClientRects().length > 0 &&
+      heading.textContent.trim().replace(/\s+/g, " ") !== primary.textContent.trim().replace(/\s+/g, " "),
+  );
+}
+
 /**
  * Expand <details> elements and click "load more" buttons for comments.
  * Based on archivebox.ts expandComments function.
  */
 async function expandDetails(page, options = {}) {
-  const { timeout = 30000, limit = 500, delay = 500, article = null } = options;
+  const { timeout = 30000, limit = 500, delay = 500, initialArticle = options.article || null } = options;
+  let { article = null } = options;
+  const stopOutside = await page.evaluate(hasOtherArticle, initialArticle);
+  if (stopOutside) article = initialArticle;
 
   const startTime = Date.now();
 
   // Expand content disclosures, preserving popup controls in their current state.
-  const details = await page.evaluate((article) => {
+  const details = await page.evaluate((article, stopOutside) => {
     let count = 0;
     // <details> also implements action menus and dialogs. Opening those
     // contaminates the saved page; aria-haspopup distinguishes them from
@@ -193,7 +207,7 @@ async function expandDetails(page, options = {}) {
         const popup =
           summary?.getAttribute("aria-haspopup") ||
           el.getAttribute("aria-haspopup");
-        return !popup || popup === "false";
+        return (!popup || popup === "false") && (!stopOutside || article.contains(el));
       },
     );
     // Comments and other expandable content may belong to this story even
@@ -207,7 +221,7 @@ async function expandDetails(page, options = {}) {
         count++;
       });
     return { count, bounded };
-  }, article);
+  }, article, stopOutside);
   const detailsExpanded = details.count;
 
   if (detailsExpanded > 0) {
@@ -216,8 +230,21 @@ async function expandDetails(page, options = {}) {
 
   // Then click "load more" buttons for comments
   const expansion = await page.evaluate(
-    async ({ timeout, limit, delay }, article) => {
-      let bounded = !!article;
+    async ({ timeout, limit, delay, bounded: initialBounded }, article) => {
+      let bounded = initialBounded;
+      let stopOutside = false;
+      const checkArticles = () => {
+        // Repeat the small predicate here because this loop runs in the page,
+        // without the Node helper closure. Retain the original identity after
+        // outside comments require unbounded scrolling; a later AJAX story can
+        // arrive between clicks, rather than during the first click's delay.
+        const primary = article?.isConnected && article.querySelector("h1");
+        if (primary && [...document.querySelectorAll('article h1, [role="article"] h1')].some(
+          (heading) => !article.contains(heading) && heading.getClientRects().length > 0 &&
+            heading.textContent.trim().replace(/\s+/g, " ") !== primary.textContent.trim().replace(/\s+/g, " "),
+        )) stopOutside = true;
+        if (stopOutside) bounded = true;
+      };
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
       const inactive = new WeakSet();
@@ -267,12 +294,14 @@ async function expandDetails(page, options = {}) {
         }
         return true;
       };
-      const getLoadMoreLinks = () =>
-        [
+      const getLoadMoreLinks = () => {
+        checkArticles();
+        return [
           ...document.querySelectorAll(
             'faceplate-partial[loading=action], a, button, [role="button"]',
           ),
-        ].filter(canExpand);
+        ].filter(canExpand).filter((link) => !stopOutside || article.contains(link));
+      };
 
       let expanded = 0;
       let loadMoreLinks = getLoadMoreLinks();
@@ -283,7 +312,8 @@ async function expandDetails(page, options = {}) {
       while (loadMoreLinks.length > 0) {
         for (const link of loadMoreLinks) {
           // An earlier click can change another control in this same batch.
-          if (!link.isConnected || !canExpand(link)) continue;
+          checkArticles();
+          if (!link.isConnected || !canExpand(link) || (stopOutside && !article.contains(link))) continue;
 
           try {
             const before = document.body.innerText;
@@ -326,8 +356,8 @@ async function expandDetails(page, options = {}) {
 
       return { expanded, bounded };
     },
-    { timeout, limit, delay },
-    details.bounded ? article : null,
+    { timeout, limit, delay, bounded: details.bounded },
+    initialArticle,
   );
   const numExpanded = expansion.expanded;
 
@@ -336,7 +366,7 @@ async function expandDetails(page, options = {}) {
   }
 
   return {
-    article: expansion.bounded ? article : null,
+    article: expansion.bounded ? initialArticle : null,
     detailsExpanded,
     commentsExpanded: numExpanded,
     total: detailsExpanded + numExpanded,
@@ -353,6 +383,7 @@ async function scrollDown(page, options = {}) {
     expandDetailsEnabled = false,
   } = options;
   let { expandedTotal = 0, article = null } = options;
+  const initialArticle = options.initialArticle || article;
 
   const startTime = Date.now();
 
@@ -394,6 +425,9 @@ async function scrollDown(page, options = {}) {
         break;
       }
 
+      // AJAX expansion can finish after expandDetails returns. Recheck the
+      // preserved original identity while scrolling, without a browser observer.
+      if (!article && await page.evaluate(hasOtherArticle, initialArticle)) article = initialArticle;
       scrollPosition = await page.evaluate(
         (article, requested) => {
           // Use the live element: lazy assets and expanded sections can grow it.
@@ -499,6 +533,7 @@ async function scrollDown(page, options = {}) {
       limit: 500,
       delay: scrollDelay / 4,
       article,
+      initialArticle,
     });
     article = expansion.article;
     expandedTotal += expansion.total;
@@ -605,6 +640,7 @@ async function main() {
         limit: 500,
         delay: scrollDelay / 4,
         article,
+        initialArticle,
       });
       article = expandResult.article;
     }
@@ -618,6 +654,7 @@ async function main() {
       expandedTotal: expandResult.total,
       expandDetailsEnabled,
       article,
+      initialArticle,
     });
 
     // Unbounded pages retain their existing expansion after returning to top.
@@ -627,6 +664,7 @@ async function main() {
         limit: 500,
         delay: scrollDelay / 4,
         article,
+        initialArticle,
       });
       expandResult.total += expandResult2.total;
       expandResult.detailsExpanded += expandResult2.detailsExpanded;

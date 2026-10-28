@@ -700,6 +700,10 @@ def test_config_timeout_honored(infiniscroll_test_url):
         "background_late_expansion",
         "outside_details",
         "outside_button",
+        "outside_comment_article",
+        "outside_same_headline",
+        "outside_story",
+        "delayed_outside_story",
         "headline_mismatch",
         "canonical_mismatch",
         "ambiguous_schema",
@@ -730,6 +734,30 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
         outside = "<details><summary>Comments</summary><p>Valuable outside comments.</p></details>"
     elif case == "outside_button":
         outside = """<button onclick="this.insertAdjacentHTML('beforebegin', '<p>Valuable outside comments.</p>'); this.remove()">Load more</button>"""
+    elif case == "outside_comment_article":
+        outside = """<button onclick="this.insertAdjacentHTML('beforebegin', '<article><h2>Reader comments</h2><p>Valuable outside comments.</p></article>'); this.remove()">Load more</button>"""
+    elif case == "outside_same_headline":
+        outside = """<button id="continue-story">Load more</button><script>
+          document.querySelector('#continue-story').addEventListener('click', function () {
+            if (!document.querySelector('#continuation')) {
+              this.insertAdjacentHTML('beforebegin', '<article id="continuation"><h1>A   complete   long   article</h1></article>');
+            } else {
+              document.querySelector('#continuation').insertAdjacentHTML('beforeend', '<p>Valuable outside continuation.</p>');
+              this.remove();
+            }
+          });</script>"""
+    elif case in {"outside_story", "delayed_outside_story"}:
+        delay = 900 if case == "delayed_outside_story" else 0
+        outside = f"""<button id="next-story" onclick="
+          document.body.dataset.storyRequests = Number(document.body.dataset.storyRequests || 0) + 1;
+          this.disabled = true;
+          setTimeout(() => {{
+            const count = Number(document.body.dataset.stories || 0) + 1;
+            document.body.dataset.stories = count;
+            this.insertAdjacentHTML('beforebegin', '<article><h1>Another independent story ' + count + '</h1><p style=height:2500px>Unrelated story content.</p></article>');
+            this.disabled = false;
+            if (count === 2) this.remove();
+          }}, {delay});">Load more</button>"""
     elif case == "ambiguous_main":
         outside = "<main>Another article with its own main.</main>"
     elif case == "outside_article":
@@ -834,6 +862,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
                 background_state
             )
         env.update({"INFINISCROLL_SCROLL_DELAY": "100"})
+        started = time.monotonic()
         result = subprocess.run(
             [str(INFINISCROLL_HOOK), f"--url={url}"],
             cwd=chrome_dir.parent,
@@ -842,6 +871,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
             text=True,
             timeout=30,
         )
+        elapsed = time.monotonic() - started
         assert result.returncode == 0, result.stderr
         # Read native layout/loading state without modifying the document.
         script = """const chrome = require(process.argv[1]);
@@ -853,6 +883,7 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
               bottom: document.querySelector('main').getBoundingClientRect().bottom + scrollY,
               imageLoaded: [...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0),
               detailsOpen: [...document.querySelectorAll('details')].every(el => el.open),
+              storyRequests: Number(document.body.dataset.storyRequests || 0),
               text: document.body.innerText, y: scrollY, visibility: document.visibilityState, focus: document.hasFocus(),
             }))));
             await browser.disconnect();
@@ -872,6 +903,10 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
         )
         assert state_result.returncode == 0, state_result.stderr
         state = json.loads(state_result.stdout)
+        (tmp_path / "scroll-state.json").write_text(
+            json.dumps({**state, "elapsed": elapsed}),
+        )
+        (tmp_path / "infiniscroll.stderr.log").write_text(result.stderr)
         assert state["detailsOpen"]
         assert state["imageLoaded"]
         assert "The valuable original conclusion." in state["text"]
@@ -881,9 +916,13 @@ def test_article_scroll_covers_live_main_and_lazy_asset(httpserver, tmp_path, ca
         )
         assert state["y"] == 0
         assert "Expanded real comment" in state["text"]
-        if case in {"outside_details", "outside_button"}:
+        if case in {"outside_details", "outside_button", "outside_comment_article"}:
             assert "Valuable outside comments." in state["text"]
-        if case == "outside_article":
+        if case in {"outside_story", "delayed_outside_story"}:
+            assert "Another independent story 1" in state["text"]
+            assert "Another independent story 2" not in state["text"]
+            assert state["storyRequests"] == 1
+        if case in {"outside_article", "outside_same_headline"}:
             assert "Valuable outside continuation." in state["text"]
         if case in {
             "article",
