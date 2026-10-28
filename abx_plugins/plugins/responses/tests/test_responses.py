@@ -10,6 +10,7 @@ import base64
 import os
 import posixpath
 import shutil
+import signal
 import subprocess
 import tempfile
 from urllib.parse import urlparse
@@ -409,6 +410,60 @@ class TestResponsesWithChrome:
                     "status": "succeeded",
                     "output_str": expected_output,
                 }, archive_result
+
+    def test_chrome_loss_keeps_recorder_alive_until_owner_shutdown(
+        self,
+        chrome_test_url,
+    ):
+        """A lost browser must not let Node exit before the owner closes the hook."""
+        with chrome_session(
+            self.temp_dir,
+            test_url=chrome_test_url,
+            navigate=False,
+            timeout=30,
+        ) as (_, chrome_pid, snapshot_chrome_dir, env):
+            output = snapshot_chrome_dir.parent / "responses"
+            output.mkdir()
+            index = output / "index.jsonl"
+            process = start_process_and_wait_for_file(
+                [str(RESPONSES_HOOK), f"--url={chrome_test_url}"],
+                index,
+                cwd=output,
+                env=env,
+            )
+            try:
+                navigation = subprocess.run(
+                    [str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_url}"],
+                    cwd=snapshot_chrome_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                assert navigation.returncode == 0, navigation.stderr
+                wait_for_file(
+                    index,
+                    process=process,
+                    ready=lambda path: path.stat().st_size > 0,
+                )
+                os.kill(chrome_pid, signal.SIGKILL)
+                with pytest.raises(subprocess.TimeoutExpired):
+                    # Outlast the hook's short progress debounce timer: signal
+                    # listeners and the unresolved Promise are not Node handles.
+                    process.wait(timeout=5)
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                stdout, stderr = process.communicate(timeout=30)
+
+            assert process.returncode in (0, 1), (stdout, stderr)
+            archive_results = [
+                json.loads(line)
+                for line in stdout.splitlines()
+                if line.startswith("{")
+                and json.loads(line).get("type") == "ArchiveResult"
+            ]
+            assert archive_results, f"Missing final ArchiveResult: {stdout}\n{stderr}"
 
 
 if __name__ == "__main__":

@@ -20,6 +20,12 @@ function captureShutdownSignals() {
   process.on("SIGTERM", onSigterm);
   process.on("SIGINT", onSigint);
 
+  // Signal listeners and unresolved Promises do not keep Node's event loop
+  // alive. Keep daemon owners running if their browser connection disappears,
+  // so the orchestrator can still deliver the normal shutdown signal and let
+  // the owner drain writes and emit its terminal ArchiveResult.
+  setInterval(() => {}, 60 * 60 * 1000);
+
   return function installShutdownHandler(handler) {
     // Keep the OS signal watchers installed: replacing the last listener can
     // discard a signal queued while synchronous startup blocks the event loop.
