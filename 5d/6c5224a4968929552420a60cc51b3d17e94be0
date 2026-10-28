@@ -1,0 +1,28 @@
+abx_plugins/plugins/base/utils.py
+  s_10bc94d001be49::t_328ec0abb7672d 20,1731-1799
+  s_10bc94d001be49::t_a764b5625652bb 1800-1802
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_10bc94d001be49::t_926257ceeb3b3a 160-198,200-202
+  s_10bc94d001be49::t_096c2225136c34 199
+  s_10bc94d001be49::t_225f8607167dee 203-204
+abx_plugins/plugins/mercury/on_Snapshot__66_mercury.py
+  s_10bc94d001be49::t_eaeb4715332079 33,235,239,336
+abx_plugins/plugins/readability/on_Snapshot__66_readability.py
+  s_10bc94d001be49::t_80eeec5221985b 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d6c5224a4968929552420a60cc51b3d17e94be0",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
