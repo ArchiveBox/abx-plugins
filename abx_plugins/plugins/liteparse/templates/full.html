@@ -61,7 +61,8 @@
     for(const {group,button} of chips){button.setAttribute('aria-pressed',String(group===selected));button.textContent=group+' '+entries.filter(entry=>(group==='All'||entry.group===group)&&entry.search.toLowerCase().includes(query)).length}
     count.textContent=visible+' / '+entries.length;empty.hidden=visible>0;
   }
-  const jsonText=text=>{const data=JSON.parse(text);if(Array.isArray(data.pages))return data.pages.map((page,index)=>{const rawItems=page.text_items||page.textItems,items=Array.isArray(rawItems)?rawItems.map(item=>item&&item.text).filter(Boolean):[];const body=page.text||items.join('\n');return body?'Page '+(page.page_number||page.page||index+1)+'\n'+body:''}).filter(Boolean).join('\n\n');return [data.text,data.content,data.body].find(value=>typeof value==='string')||JSON.stringify(data,null,2)};
+  // Office outputs preserve native sections/slides/sheets; only PDF outputs have pages.
+  const jsonText=text=>{const data=JSON.parse(text);if(Array.isArray(data))return data.flatMap(item=>item.document?.units||[]).map(unit=>[unit.text?.startsWith(unit.title)?null:unit.title,unit.text].filter(Boolean).join('\n')).join('\n\n');if(Array.isArray(data.pages))return data.pages.map((page,index)=>{const rawItems=page.text_items||page.textItems,items=Array.isArray(rawItems)?rawItems.map(item=>item&&item.text).filter(Boolean):[];const body=page.text||items.join('\n');return body?'Page '+(page.page_number||page.page||index+1)+'\n'+body:''}).filter(Boolean).join('\n\n');return [data.text,data.content,data.body].find(value=>typeof value==='string')||JSON.stringify(data,null,2)};
   const previews=new IntersectionObserver(items=>{for(const item of items){if(item.isIntersecting){previews.unobserve(item.target);load(item.target.entry)}}},{rootMargin:'200px'});
   function showFilename(entry){
     const path=entry.source?.path.replace(/^\.\//,'').replace(/^responses\//,'');

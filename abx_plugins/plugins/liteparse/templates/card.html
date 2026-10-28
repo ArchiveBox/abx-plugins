@@ -68,7 +68,10 @@
         fetch(raw(document.url)).then(response => { if (!response.ok) throw new Error(response.status); return response.text(); }).then(value => {
             if (document.json) {
                 const data = JSON.parse(value);
-                value = Array.isArray(data.pages) ? data.pages.map(page => page.text || (page.text_items || page.textItems || []).map(item => item?.text || '').join('\n')).join('\n\n') : [data.text, data.content, data.body].find(item => typeof item === 'string') || '';
+                // Office JSON retains native sections/slides/sheets, not invented PDF pages.
+                // Read their text so JSON-only captures get the same usable preview.
+                if (Array.isArray(data)) value = data.flatMap(item => item.document?.units || []).map(unit => [unit.text?.startsWith(unit.title) ? null : unit.title, unit.text].filter(Boolean).join('\n')).join('\n\n');
+                else value = Array.isArray(data.pages) ? data.pages.map(page => page.text || (page.text_items || page.textItems || []).map(item => item?.text || '').join('\n')).join('\n\n') : [data.text, data.content, data.body].find(item => typeof item === 'string') || '';
             } else {
                 const source = value.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/);
                 if (source) { value = value.slice(source[0].length); showOriginal(source[1]); }

@@ -82,8 +82,8 @@ _downloaded_cache: dict[str, bytes] = {}
 def liteparse_dependencies(tmp_path_factory):
     # The executable hook's shebang installs every declared dependency before
     # Python can check LITEPARSE_ENABLED. Provision through that same config
-    # before measuring hook behavior: killing a first-time Office installation
-    # at a capture test's 30-second deadline leaves APT holding its system lock.
+    # before measuring hook behavior; first-time package provisioning is not
+    # part of a document extraction's timeout budget.
     # Enumerating the declarations also keeps setup complete when tools are added.
     previous_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
     os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir or str(
@@ -417,10 +417,11 @@ def test_config_disabled_skips():
         assert result_json["output_str"] == "LITEPARSE_ENABLED=False", result_json
 
 
-def test_extract_office_documents_with_declared_converter(tmp_path):
-    # CSV/TSV also go through LibreOffice upstream; without a declared
-    # converter these succeed only on developer machines with Office installed.
-    office = install_required_binary_from_config(PLUGIN_DIR, "soffice")
+def test_extract_office_documents_without_pdf_conversion(tmp_path):
+    # Native text does not need an Office renderer, even for CSV/TSV.
+    declarations = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert "soffice" not in json.dumps(declarations["required_binaries"])
+    office = install_required_binary_from_config(PLUGIN_DIR, "sharepoint2text")
     assert office and office.abspath
     sources = {
         "table.csv": b'Name,Count\n"Copper, metal",42\nQuartz,17\n',
@@ -437,7 +438,7 @@ def test_extract_office_documents_with_declared_converter(tmp_path):
         extra_env={
             "LITEPARSE_OCR_ENABLED": "false",
             "LITEPARSE_FORMATS": '["text","json"]',
-            "PATH": f"{Path(office.abspath).parent}{os.pathsep}{os.environ['PATH']}",
+            "LITEPARSE_OFFICE_BINARY": str(office.abspath),
         },
         install_tesseract=False,
     )
@@ -451,14 +452,131 @@ def test_extract_office_documents_with_declared_converter(tmp_path):
     }
     for name, words in expected.items():
         text = (tmp_path / "liteparse" / f"{name}.txt").read_text()
-        pages = json.loads((tmp_path / "liteparse" / f"{name}.json").read_text())[
-            "pages"
-        ]
-        structured = "\n".join(page["text"] for page in pages)
+        envelopes = json.loads((tmp_path / "liteparse" / f"{name}.json").read_text())
+        assert envelopes[0]["schema"] == "sharepoint2text.extraction"
+        structured = "\n".join(
+            unit["text"] for unit in envelopes[0]["document"]["units"]
+        )
         for word in words:
             assert word in text
             assert word in structured
         assert (documents / name).read_bytes() == sources[name]
+
+
+@pytest.mark.parametrize(
+    ("resource", "words", "kind"),
+    [
+        (
+            "legacy_ms/word_structure.doc",
+            ("A title", "Sub-Section 1.1.1", "The text of chapter 2"),
+            "section",
+        ),
+        (
+            "modern_ms/word_structure.docx",
+            ("blabla", "This is chapter 1", "This is chapter 3"),
+            "section",
+        ),
+        ("legacy_ms/mwe.xls", ("colA", "colB", "1", "2"), "sheet"),
+        ("modern_ms/mwe.xlsx", ("ColA", "ColB", "1", "2"), "sheet"),
+        ("legacy_ms/slide_with_notes.ppt", ("Headline", "With reader notes"), "slide"),
+        ("modern_ms/slide_titles.pptx", ("Title Slide 1", "Title Slide 2"), "slide"),
+        (
+            "open_office/sample_document.odt",
+            ("Hello World", "Header 1", "Cell A"),
+            "section",
+        ),
+        (
+            "open_office/sample_presentation.odp",
+            ("Hello World Presentation", "Content Slide", "Thank You"),
+            "slide",
+        ),
+        (
+            "open_office/sample_spreadsheet.ods",
+            ("Sales Data", "Widget A", "7800"),
+            "sheet",
+        ),
+    ],
+)
+def test_native_office_formats_preserve_text_and_structure(
+    tmp_path,
+    resource,
+    words,
+    kind,
+):
+    # Real author-created documents from the extractor's Apache-2.0 fixtures,
+    # pinned to one revision so acceptance does not track a moving branch.
+    url = (
+        "https://raw.githubusercontent.com/Horsmann/sharepoint-to-text/"
+        "6f2e77ca4b5fcf4e42550b9d1bb3cd51a4078dec/sharepoint2text/tests/resources/"
+        + resource
+    )
+    source = tmp_path / "responses" / Path(resource).name
+    source.parent.mkdir()
+    original = _download(url)
+    source.write_bytes(original)
+    result = _run_hook(
+        tmp_path,
+        TEST_URL,
+        extra_env={
+            "LITEPARSE_OCR_ENABLED": "false",
+            "LITEPARSE_FORMATS": '["text","json"]',
+        },
+        install_tesseract=False,
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded", (record, result.stderr)
+    text = (tmp_path / "liteparse" / f"{source.name}.txt").read_text()
+    data = json.loads((tmp_path / "liteparse" / f"{source.name}.json").read_text())
+    assert len(data) == 1 and data[0]["schema"] == "sharepoint2text.extraction"
+    units = data[0]["document"]["units"]
+    assert any(unit["kind"] == kind for unit in units)
+    assert "pages" not in data[0], (
+        "Native Office units must not impersonate rendered PDF pages"
+    )
+    structured = json.dumps(units, ensure_ascii=False)
+    for word in words:
+        assert word in text
+        assert word in structured
+    if source.suffix in {".xls", ".xlsx", ".ods"}:
+        assert any(unit["tables"] for unit in units)
+    if source.name == "slide_with_notes.ppt":
+        assert any(
+            "example text in the notes section" in annotation["text"]
+            for unit in units
+            for annotation in unit["annotations"]
+        )
+    assert source.read_bytes() == original
+
+
+def test_corrupt_office_file_fails_without_losing_other_text(tmp_path):
+    url = (
+        "https://raw.githubusercontent.com/Horsmann/sharepoint-to-text/"
+        "6f2e77ca4b5fcf4e42550b9d1bb3cd51a4078dec/sharepoint2text/tests/resources/"
+        "modern_ms/word_structure.docx"
+    )
+    sources = tmp_path / "responses"
+    sources.mkdir()
+    corrupt = _download(url)[:150]
+    (sources / "truncated.docx").write_bytes(corrupt)
+    (sources / "retained.csv").write_text("Material,Count\nQuartz,17\n")
+    result = _run_hook(
+        tmp_path,
+        TEST_URL,
+        extra_env={
+            "LITEPARSE_OCR_ENABLED": "false",
+            "LITEPARSE_FORMATS": '["text","json"]',
+        },
+        install_tesseract=False,
+    )
+    assert result.returncode == 1, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", record
+    assert "1 sources retained" in record["output_str"]
+    assert "Quartz" in (tmp_path / "liteparse/retained.csv.txt").read_text()
+    assert not (tmp_path / "liteparse/truncated.docx.txt").exists()
+    assert not (tmp_path / "liteparse/truncated.docx.json").exists()
+    assert (sources / "truncated.docx").read_bytes() == corrupt
 
 
 def test_noresults_without_sources():

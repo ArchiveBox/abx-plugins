@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "LiteParse",
-  "description": "Extract text and metadata from PDFs, Office documents, and images using LiteParse (by LlamaIndex). Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.",
+  "description": "Extract text and metadata from PDFs and images using LiteParse, and native Office/CSV/RTF text using sharepoint-to-text. Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.",
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
@@ -77,23 +77,15 @@
       }
     },
     {
-      "name": "soffice",
-      "binproviders": "env,apt,brew",
-      "min_version": null,
+      "name": "{LITEPARSE_OFFICE_BINARY}",
+      "binproviders": "env,uv",
+      "min_version": "2.0.1",
+      "max_version": "2.0.1",
       "overrides": {
-        "apt": {
+        "uv": {
           "install_args": [
-            "libreoffice-writer",
-            "libreoffice-calc",
-            "libreoffice-impress"
+            "sharepoint-to-text==2.0.1"
           ]
-        },
-        "brew": {
-          "install_args": [
-            "--cask",
-            "libreoffice"
-          ],
-          "postinstall_scripts": true
         }
       }
     }
@@ -147,7 +139,7 @@
       "default": [
         "text"
       ],
-      "description": "Output formats to produce, one file per source. `text` writes `<input>.txt` (lit's plain layout-preserving text \u2014 what search backends index). `json` is also supported and writes `<input>.json` with lit v2's structured per-page output (text, bounding boxes, font metadata, OCR confidence); not indexed by search backends. Any subset of [text, json] is valid."
+      "description": "Output formats to produce, one file per source. `text` writes `<input>.txt` for search indexing. `json` writes structured output: LiteParse pages/bounding boxes for PDFs/images, or native sharepoint-to-text document units/tables/annotations for Office/CSV/RTF. Any subset of [text, json] is valid."
     },
     "LITEPARSE_OCR_ENABLED": {
       "type": "boolean",
@@ -239,6 +231,11 @@
         "LITEPARSE_EXTRA_ARGS"
       ],
       "description": "Extra arguments to append to LiteParse command"
+    },
+    "LITEPARSE_OFFICE_BINARY": {
+      "type": "string",
+      "default": "sharepoint2text",
+      "description": "Native Office, CSV/TSV and RTF text extractor. Does not render documents or require LibreOffice; runs within the same per-source timeout as LiteParse."
     }
   },
   "category": "text",

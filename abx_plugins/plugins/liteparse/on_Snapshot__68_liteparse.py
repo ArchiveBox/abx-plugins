@@ -3,8 +3,8 @@
 # requires-python = ">=3.12"
 # ///
 """
-Extract text from PDFs, Office documents, and images using LiteParse
-(the ``lit`` CLI by LlamaIndex, v2+).
+Extract text from PDFs/images using LiteParse (``lit`` v2+) and native
+Office/CSV/RTF text using ``sharepoint2text`` without rendering temporary PDFs.
 
 Scans the snapshot directory for downloaded documents produced by other plugins
 (``responses``, ``staticfile``, ``wget``, ``papersdl``, ``googledocs``,
@@ -71,8 +71,8 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
-# File types LiteParse v2 can parse. Kept as a single canonical set so source
-# discovery, plugin docs, and tests stay in sync.
+# Supported source families. Office formats use native text extraction instead
+# of LiteParse's LibreOffice-to-PDF conversion; PDFs/images still use LiteParse.
 PDF_EXTENSIONS = {".pdf"}
 OFFICE_EXTENSIONS = {
     ".doc",
@@ -543,6 +543,7 @@ def _process_batch(
     scratch_dir: Path,
     imagemagick_binary: str,
     djxl_binary: str,
+    office_binary: str,
     hook_deadline: float,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
     """Run ``lit batch-parse`` once for an isolated source.
@@ -557,6 +558,52 @@ def _process_batch(
     deadline = min(hook_deadline, time.monotonic() + timeout)
     if time.monotonic() >= deadline:
         return [], ["Hook deadline reached before parsing queued document"]
+    if batch and all(src.suffix.lower() in OFFICE_EXTENSIONS for _, src, _ in batch):
+        # Office files already contain text. Rendering them to PDF first pulled
+        # in an entire office suite even for CSVs. Keep the native CLI's text
+        # and structured units (not invented PDF pages) under the same deadline.
+        # ZIP-embedded images remain independent sources in the existing OCR
+        # pipeline; do not inflate these JSON outputs with base64 image blobs.
+        for idx, src, _digest in batch:
+            extracted: dict[str, str] = {}
+            for fmt in formats:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    errors.append(
+                        f"{src.name}: Office parser reached document deadline",
+                    )
+                    break
+                try:
+                    parsed = subprocess.run(
+                        [
+                            office_binary,
+                            "--file",
+                            str(src),
+                            "--no-images",
+                            "--extract-annotations",
+                            *(["--json"] if fmt == "json" else []),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                        timeout=remaining,
+                    )
+                    if parsed.stderr.strip():
+                        print(parsed.stderr, file=sys.stderr, end="")
+                    if parsed.returncode:
+                        errors.append(
+                            f"{src.name}: {fmt} Office parser exited with code {parsed.returncode}",
+                        )
+                    else:
+                        if fmt == "json":
+                            json.loads(parsed.stdout)
+                        extracted[fmt] = parsed.stdout
+                except (subprocess.TimeoutExpired, ValueError) as exc:
+                    errors.append(f"{src.name}: {fmt} Office parser failed: {exc}")
+            results.append(
+                (idx, src, extracted.get("text", ""), extracted.get("json", "")),
+            )
+        return results, errors
     # Disposable parser output and OCR rasterization belong on local runtime
     # storage, not the snapshot's potentially remote archive filesystem.
     # Each batch has its own TMPDIR because lit uses fixed page_<n>_ocr names.
@@ -905,6 +952,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
                 scratch_dir,
                 str(config.LITEPARSE_IMAGEMAGICK_BINARY),
                 str(config.LITEPARSE_DJXL_BINARY),
+                str(config.LITEPARSE_OFFICE_BINARY),
                 hook_deadline,
             ): batch
             for batch in batches

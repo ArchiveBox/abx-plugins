@@ -107,13 +107,15 @@ bounded to 16 MiB of cleaned input per source and 64 MiB per snapshot. Sonic
 snapshot metadata also has a 16 MiB cleaned-input bound before JSON decoding.
 Search limits never modify the saved capture files.
 
-LiteParse declares LibreOffice alongside its parser because upstream converts
-Office documents and spreadsheets, including CSV/TSV, to PDF before extracting
-text and structured pages. The apt dependency includes Writer, Calc, and Impress
-for the advertised document families; macOS uses the LibreOffice cask with its
-required installation actions enabled (`--skip-post-install` is formula-only). Keeping
-this in `required_binaries` makes clean installs behave like developer machines
-without adding a second document parser or changing archived source bytes.
+LiteParse uses `sharepoint-to-text` for native Office, OpenDocument, CSV/TSV,
+and RTF text extraction. Rendering those documents to temporary PDFs required
+an entire office suite, even for plain CSV data. The small native extractor runs
+under the existing per-document deadline and preserves real document units,
+tables, and annotations in JSON; it does not fabricate PDF page geometry.
+PDF/image parsing and ZIP-embedded image OCR continue through LiteParse.
+Original files are unchanged. Legacy binary Office images are not rendered or
+OCRed through this text-only path; modern ZIP-contained images retain the
+existing independent OCR path.
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
