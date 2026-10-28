@@ -1,0 +1,21 @@
+abx_plugins/plugins/calendar/on_Snapshot__53_calendar.js
+  s_10bc94d001be49::t_4cb8229fface5e 53-56,64,68-72,115-119,121,153,191-193
+abx_plugins/plugins/calendar/tests/test_calendar.py
+  s_10bc94d001be49::t_443b0315af10de 269-278,313,318-322,367-375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4911ec419bdc83c3d3e02cf3cc460ee74a6571be",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
