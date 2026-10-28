@@ -157,6 +157,51 @@ def test_extracts_with_mercury_parser(httpserver, tmp_path):
         assert not (snap_dir / "mercury/images").is_symlink()
 
 
+def test_mercury_strips_large_inline_image_from_saved_singlefile(tmp_path):
+    """Parse large saved pages without passing their base64 images into Mercury."""
+    binary_path = require_mercury_binary()
+    test_url = "https://example.com/large-inline-article"
+    snap_dir = tmp_path
+    source_dir = snap_dir / "singlefile"
+    source_dir.mkdir()
+    payload = "A" * (1024 * 1024 + 128)
+    source_html = (
+        "<!doctype html><html><head><title>Large Inline Article</title></head><body><article>"
+        "<h1>Large Inline Article</h1>"
+        "<p>This article keeps its readable words while a large inline image is present.</p>"
+        f'<img alt="large image" src="data:image/png;base64,{payload}">'
+        "<p>This second paragraph completes the article content for the parser.</p>"
+        "</article></body></html>"
+    )
+    source_path = source_dir / "singlefile.html"
+    source_path.write_text(source_html, encoding="utf-8")
+
+    env = os.environ.copy()
+    env["SNAP_DIR"] = str(snap_dir)
+    env["MERCURY_BINARY"] = binary_path
+    result = subprocess.run(
+        [str(MERCURY_HOOK), "--url", test_url],
+        cwd=snap_dir,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+
+    record = parse_jsonl_output(result.stdout)
+    assert result.returncode == 0, result.stderr
+    assert record is not None and record["status"] == "succeeded", result.stderr
+    content = (snap_dir / "mercury" / "content.html").read_text(encoding="utf-8")
+    text = (snap_dir / "mercury" / "content.txt").read_text(encoding="utf-8")
+    assert (
+        "inline-images-stripped-by-archivebox-because-size-limit-exceeded==" in content
+    )
+    assert payload not in content
+    assert "keeps its readable words" in text
+    assert "This second paragraph completes the article content" in text
+    assert source_path.read_text(encoding="utf-8") == source_html
+
+
 def test_extracts_owned_cookie_dilemma_from_captured_rendered_dom(httpserver):
     """Use the owned site's archived DOM instead of re-fetching its raw Markdown."""
     binary_path = require_mercury_binary()

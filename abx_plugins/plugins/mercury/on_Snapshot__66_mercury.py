@@ -30,6 +30,7 @@ from abx_plugins.plugins.base.utils import (
     has_staticfile_output,
     is_non_html_document,
     write_text_atomic,
+    read_article_html,
 )
 
 
@@ -231,10 +232,11 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
         # API path consumes the best already-captured HTML source when present.
         html_source_path = find_article_html_source()
         source = html_source_path if not (mercury_args or mercury_args_extra) else None
+        source_html = read_article_html(html_source_path)[0] if html_source_path else ""
         if source:
             result_html = parse_captured_html(
                 url,
-                Path(source).read_text(encoding="utf-8", errors="replace"),
+                source_html,
                 binary,
                 timeout,
             )
@@ -331,7 +333,7 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
         if html_source_path:
             html_content = preserve_article_image_dimensions(
                 html_content,
-                Path(html_source_path).read_text(encoding="utf-8", errors="replace"),
+                source_html,
                 url,
             )
         write_text_atomic(output_dir / HTML_FILE, html_content)

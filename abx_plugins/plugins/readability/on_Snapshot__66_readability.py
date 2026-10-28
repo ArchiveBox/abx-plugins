@@ -24,7 +24,6 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
 import sys
 import html
 import json
-import mmap
 import os
 import re
 import shutil
@@ -43,6 +42,7 @@ from abx_plugins.plugins.base.utils import (
     write_text_atomic,
     find_article_html_source,
     preserve_article_image_dimensions,
+    read_article_html,
 )
 
 from urllib.parse import unquote, urljoin, urlparse
@@ -177,78 +177,6 @@ article :is(div, section, article, main, figure, p, td, th)[style*="width"] {{ w
 blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
 @media (max-width: 40rem) {{ main {{ padding: 1.5rem 1rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
 </style></head><body><main><article>{content}</article></main></body></html>'''
-
-
-def read_article_html(path: str) -> tuple[str, bool]:
-    # Match readability-extractor's data URL policy before UTF-8 decoding:
-    # one non-BMP character otherwise widens hundreds of MB of inline payload
-    # in Python while Node holds another copy. Keep the original capture intact.
-    # The regex accepts a read-only mapping: scan captured payloads without
-    # allocating a second full-file heap buffer, and unmap before Node starts.
-    # These are completed saved inputs, never writable browser capture streams.
-    with Path(path).open("rb") as source_file:
-        if not os.fstat(source_file.fileno()).st_size:
-            return "", False
-        with mmap.mmap(source_file.fileno(), 0, access=mmap.ACCESS_READ) as source:
-            strip_base64 = len(source) > 14_000_000
-            header = rb"data:[^,\s\"'<>:]*,"
-            base64 = rb"data:[^,\s\"'<>:]*;base64,[A-Za-z0-9+/=\s]+"
-            # Quoted base64 permits wrapping; generic URLs exclude whitespace so a
-            # srcset's other candidates survive. Only bare CSS URLs end at ')'.
-            urls = re.compile(
-                rb'"('
-                + base64
-                + b"|"
-                + header
-                + rb'[^"\s<>]+)"'
-                + rb"|'("
-                + base64
-                + b"|"
-                + header
-                + rb"[^'\s<>]+)'"
-                + rb"|\b(url\(\s*)("
-                + header
-                + rb"[^\s\"'<>)]*)"
-                + rb"|(?<![\w:-])("
-                + header
-                + rb"[^\s\"'<>]+)",
-                re.I,
-            )
-            base64_header = re.compile(rb"data:[^,]*;base64,", re.I)
-            stripped_urls = 0
-
-            def replace(match: re.Match[bytes]) -> bytes:
-                nonlocal stripped_urls
-                group = next(index for index in (1, 2, 4, 5) if match.start(index) >= 0)
-                start, end = match.span(group)
-                # Inspect spans rather than copying an enormous group just to size it.
-                if end - start <= 1024**2 and not (
-                    strip_base64 and base64_header.match(source, start, end)
-                ):
-                    return match.group()
-                stripped_urls += 1
-                quote = b'"' if group == 1 else b"'" if group == 2 else b""
-                prefix = match.group(3) if group == 4 else b""
-                return (
-                    quote
-                    + prefix
-                    + b"data:image/png;base64,inline-images-stripped-by-archivebox-because-size-limit-exceeded=="
-                    + quote
-                )
-
-            cleaned = urls.sub(replace, source)
-            if stripped_urls:
-                print(
-                    f"[!] WARNING: Stripped {stripped_urls} inline data URLs exceeding extraction size limits",
-                    file=sys.stderr,
-                )
-            # Retain read_text's universal-newline behavior for article offset parsing.
-            text = (
-                cleaned.decode("utf-8", errors="replace")
-                .replace("\r\n", "\n")
-                .replace("\r", "\n")
-            )
-            return text, bool(stripped_urls)
 
 
 def primary_article_html(source: str) -> str:
