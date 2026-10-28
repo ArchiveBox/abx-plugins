@@ -38,7 +38,7 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
@@ -194,7 +194,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   };
   page.once("close", onClosed);
   page.browser().once("disconnected", onClosed);
-  const pdfUrls = new Set();
+  // Chrome moves inline PDF viewing into a child target. Its synthetic viewer
+  // navigation has no wire response, even when observed by a different reader.
+  const pdfUrls = sharedPdfUrls || new Set();
   const wireDocuments = new Set();
   const pending = new Set();
   let directory = sharedDirectory;
@@ -331,7 +333,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector });
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -448,8 +450,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       const filename = bodies.get(id);
       bodies.delete(id);
       if (filename instanceof Error) throw filename;
-      // Chrome's synthetic viewer documents have no intercepted wire response.
-      if (!filename) return response.request().isNavigationRequest() && pdfUrls.has(response.url()) ? null : undefined;
+      // A genuine later HTML response at a previously PDF URL still has a
+      // wire request above; preserve its normal renderer body handling.
+      if (!filename) return undefined;
       const body = await fs.promises.readFile(filename);
       await fs.promises.unlink(filename);
       return body;
