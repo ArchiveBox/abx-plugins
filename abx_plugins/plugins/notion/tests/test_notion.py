@@ -247,7 +247,9 @@ const utils = require(process.argv[1]);
 (async () => {
   const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
   try {
-    await page.waitForSelector('.notion-login input[type="email"]', {visible: true});
+    // Login can advance from email entry to a one-time-code field. Keep the
+    // real-page regression anchored on the visible login container itself.
+    await page.waitForSelector('.notion-login', {visible: true});
     if (await page.$('.notion-page-content')) throw new Error('Expected anonymous login wall');
     await page.screenshot({path: process.argv[3]});
   } finally { await browser.disconnect(); }

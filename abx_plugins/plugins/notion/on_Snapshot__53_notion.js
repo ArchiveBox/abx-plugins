@@ -123,7 +123,8 @@ async function main() {
             return "content";
           // Private document URLs can retain their page ID on the login wall.
           // Waiting for page content there spends the entire capture deadline.
-          const login = document.querySelector('.notion-login input[type="email"]');
+          // Email-only matching misses later verification and password steps.
+          const login = document.querySelector(".notion-login");
           return login?.getClientRects().length ? "login" : false;
         },
         // Text-node updates do not trigger Puppeteer's mutation poller, and
