@@ -57,11 +57,23 @@
     const render = (metadata, orderedSources = []) => {
         const seen = new Set();
         const selected = [];
+        // Resource type varies between aliases; propagate by content because
+        // one URL may serve different bytes at different points in the capture.
+        const fontResponseHashes = new Set(
+            [...metadata.values()]
+                .filter(info => String(info.resourceType || '').toLowerCase() === 'font')
+                .map(info => info.responseSha256)
+                .filter(Boolean),
+        );
         const add = (item, info, sourceKey) => {
             // SVG fonts are valid image/svg+xml responses, but render as empty
-            // image boxes. Keep their captured bytes available; omit them only
-            // from this visual preview when CDP identified them as fonts.
-            if (String(info?.resourceType || '').toLowerCase() === 'font') return;
+            // image boxes. A later FontResource entry can classify the same
+            // bytes as an earlier fetch entry with a different capture path.
+            // Keep captured bytes available; omit them only from this preview.
+            if (
+                String(info?.resourceType || '').toLowerCase() === 'font'
+                || fontResponseHashes.has(info?.responseSha256)
+            ) return;
             const hash = info?.responseSha256;
             const url = info?.url || sourceKey || captureKey(item.dataset.name);
             const keys = [hash, url].filter(Boolean);

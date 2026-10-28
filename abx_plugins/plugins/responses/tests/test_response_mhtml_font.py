@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 from email import policy
@@ -477,3 +478,153 @@ const utils = require(process.argv[1]);
                 context.close()
         browser.close()
     assert (mhtml / "snapshot.mhtml").read_bytes() == raw_mhtml
+
+
+def test_responses_card_filters_url_later_classified_as_font(
+    httpserver,
+    ensure_chrome_test_prereqs,
+):
+    """A later FontResource record classifies the earlier captured fetch alias."""
+    card_template = Path(__file__).parent.parent / "templates" / "card.html"
+    source = card_template.read_text(encoding="utf-8")
+    script = source.split("<script>", 1)[1].split("</script>", 1)[0]
+    script = script.replace(
+        "const indexUrl = '{{ responses_index_url|cut:\"?preview=1\"|escapejs }}?raw=1';",
+        f"const indexUrl = {json.dumps(httpserver.url_for('/responses/index.jsonl') + '?raw=1')};",
+    )
+    script = re.sub(
+        r"    const sources = \[.*?\];",
+        "    const sources = [];",
+        script,
+        count=1,
+        flags=re.S,
+    )
+    script = re.sub(
+        r"    const liteparseFiles = \[.*?\];",
+        "    const liteparseFiles = [];",
+        script,
+        count=1,
+        flags=re.S,
+    )
+
+    rows = []
+    candidates = []
+    for index in range(9):
+        body = (
+            f'<svg xmlns="http://www.w3.org/2000/svg"><defs><font id="font-{index}" '
+            'horiz-adv-x="1000"><font-face font-family="Saved" units-per-em="1000"/>'
+            "</font></defs></svg>"
+        ).encode()
+        url = httpserver.url_for(f"/font/{index}.svg")
+        digest = hashlib.sha256(body).hexdigest()
+        encoded_url = f"http_3A_2F_2Ffonts.example_2Ffont-{index}.svg"
+        fetch_id = f"00000000-0000-4000-8000-{index + 1:012x}"
+        font_id = f"10000000-0000-4000-8000-{index + 1:012x}"
+        path = f"all/20261028T094201__GET__{fetch_id}__{encoded_url}"
+        font_path = f"all/20261028T094209__GET__{font_id}__{encoded_url}"
+        for relative, resource_type in ((path, "fetch"), (font_path, "font")):
+            rows.append(
+                {
+                    "path": f"./{relative}",
+                    "url": url,
+                    "urlSha256": hashlib.sha256(url.encode()).hexdigest(),
+                    "responseSha256": digest,
+                    "resourceType": resource_type,
+                    "mimeType": "image/svg+xml",
+                },
+            )
+        httpserver.expect_request(f"/responses/{path}").respond_with_data(
+            body,
+            content_type="image/svg+xml",
+        )
+        candidates.append(
+            f'<img src="{httpserver.url_for(f"/responses/{path}")}" '
+            f'data-name="{path}" data-size="{1000 - index}" loading="lazy">',
+        )
+
+    shared_url_path = "all/20261028T094210__GET__20000000-0000-4000-8000-000000000001__http_3A_2F_2Ffonts.example_2Ffont-0.svg"
+    shared_url_body = b'<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="blue"/></svg>'
+    shared_url = httpserver.url_for("/font/0.svg")
+    rows.append(
+        {
+            "path": f"./{shared_url_path}",
+            "url": shared_url,
+            "urlSha256": hashlib.sha256(shared_url.encode()).hexdigest(),
+            "responseSha256": hashlib.sha256(shared_url_body).hexdigest(),
+            "resourceType": "image",
+            "mimeType": "image/svg+xml",
+        },
+    )
+    httpserver.expect_request(f"/responses/{shared_url_path}").respond_with_data(
+        shared_url_body,
+        content_type="image/svg+xml",
+    )
+    candidates.append(
+        f'<img src="{httpserver.url_for(f"/responses/{shared_url_path}")}" '
+        f'id="shared-url-image" data-name="{shared_url_path}" data-size="5" loading="lazy">',
+    )
+
+    visible_path = "all/visual.svg"
+    visible_body = b'<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="green"/></svg>'
+    visible_url = httpserver.url_for("/visual.svg")
+    rows.append(
+        {
+            "path": f"./{visible_path}",
+            "url": visible_url,
+            "urlSha256": hashlib.sha256(visible_url.encode()).hexdigest(),
+            "responseSha256": hashlib.sha256(visible_body).hexdigest(),
+            "resourceType": "image",
+            "mimeType": "image/svg+xml",
+        },
+    )
+    httpserver.expect_request("/visual.svg").respond_with_data(
+        visible_body,
+        content_type="image/svg+xml",
+    )
+    httpserver.expect_request(f"/responses/{visible_path}").respond_with_data(
+        visible_body,
+        content_type="image/svg+xml",
+    )
+    candidates.append(
+        f'<img src="{httpserver.url_for(f"/responses/{visible_path}")}" '
+        f'id="visual" data-name="{visible_path}" data-size="1" loading="lazy">',
+    )
+
+    httpserver.expect_request("/responses/index.jsonl").respond_with_data(
+        "\n".join(json.dumps(row) for row in rows),
+        content_type="application/x-ndjson",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    page_html = (
+        '<div class="responses-thumbnail">'
+        + "".join(candidates)
+        + '</div><div class="responses-summary"><div>No thumbnails</div></div>'
+        + f"<script>{script}</script>"
+    )
+    httpserver.expect_request("/card.html").respond_with_data(
+        page_html,
+        content_type="text/html",
+    )
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=ensure_chrome_test_prereqs)
+        page = browser.new_page()
+        page.goto(httpserver.url_for("/card.html"))
+        expect(page.locator(".responses-thumbnail img")).to_have_count(2)
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.responses-thumbnail img')].every(img => img.complete && img.naturalWidth > 0)",
+        )
+        assert [
+            page.locator(".responses-thumbnail img")
+            .nth(index)
+            .evaluate("img => img.naturalWidth")
+            for index in range(2)
+        ] == [8, 8]
+        selected_names = {
+            page.locator(".responses-thumbnail img")
+            .nth(index)
+            .get_attribute("data-name")
+            for index in range(2)
+        }
+        assert selected_names == {shared_url_path, visible_path}
+        browser.close()
