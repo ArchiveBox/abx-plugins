@@ -7,7 +7,11 @@ const output=new URL(document.body.dataset.output,document.baseURI);output.searc
 const show=(heading,badges=[],detail='')=>{title.textContent=String(heading||'Opendataloader');meta.replaceChildren(...badges.filter(value=>value!==undefined&&value!==null&&value!=='').map(value=>{const badge=document.createElement('span');badge.className='badge';badge.textContent=String(value);return badge}));excerpt.textContent=String(detail||'')};
 const jsonl=text=>text.split(/\r?\n/).flatMap(line=>{try{const value=JSON.parse(line);return value&&typeof value==='object'?[value]:[]}catch{return []}});
 const words=text=>{const clean=String(text||'').trim();return clean?clean.split(/\s+/).length:0};
-try{const response=await fetch(output);if(!response.ok)throw new Error(`HTTP ${response.status}`);const text=await response.text();let clean=text;try{const data=JSON.parse(text);clean=Array.isArray(data.files)?data.files.map(file=>file.source_file||file.source_path||'Document').join(' · '):data.text||data.content||data.body||text}catch{}show(clean.slice(0,100)||'Extracted document',[`${words(clean)} words`],clean);}
+try{const response=await fetch(output);if(!response.ok)throw new Error(`HTTP ${response.status}`);const text=await response.text();let clean=text;try{const data=JSON.parse(text);clean=Array.isArray(data.files)?data.files.map(file=>file.source_file||file.source_path||'Document').join(' · '):data.text||data.content||data.body||text}catch{}
+// The extractor prefixes document provenance for saved evidence; match the full
+// reader so the card starts with document text instead of an internal filename.
+clean=clean.replace(/^<!--\s*source:\s*.*?-->\s*/i,'').trim();
+show(clean.slice(0,100)||'Extracted document',[`${words(clean)} words`],clean);}
 catch(error){title.textContent='Opendataloader preview unavailable';title.classList.add('error');excerpt.textContent=error.message}
 })();
 </script></body></html>
