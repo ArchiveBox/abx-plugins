@@ -1,0 +1,22 @@
+abx_plugins/plugins/notion/tests/test_notion.py
+  s_10bc94d001be49::t_dc109cb08e17ba 250-252
+abx_plugins/plugins/notion/on_Snapshot__53_notion.js
+  s_10bc94d001be49::t_9186301983836e 126
+  s_10bc94d001be49::t_e2c0dc9a319c4f 127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4839e31e7a05dbea6e6bfa02902269531393062f",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
