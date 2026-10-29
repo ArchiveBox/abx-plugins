@@ -6,9 +6,11 @@ link extraction and categorization.
 """
 
 import json
+import lzma
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,65 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 # Get the path to the parse_dom_outlinks hook
 PLUGIN_DIR = get_plugin_dir(__file__)
 OUTLINKS_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_parse_dom_outlinks.*")
+
+
+def test_expanded_dashboard_preserves_crawlable_links(tmp_path, httpserver):
+    # This reduced real-page fixture has 492k DOM elements. The old full-DOM
+    # style scan timed out after 30s; anchor extraction finishes without needing
+    # the layout of unrelated table cells. Keep the ordinary protocol deadline.
+    fixture = Path(__file__).parent / "fixtures" / "expanded-dashboard.html.xz"
+    httpserver.expect_request("/table").respond_with_data(
+        lzma.decompress(fixture.read_bytes()),
+        content_type="text/html",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data("", status=404)
+    url = httpserver.url_for("/table")
+    with chrome_session(tmp_path, test_url=url, timeout=30) as (_, _, chrome, env):
+        start = time.monotonic()
+        result = subprocess.run(
+            [str(OUTLINKS_HOOK), f"--url={url}", "--depth=2"],
+            cwd=chrome,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        print(f"Expanded-dashboard outlinks hook: {time.monotonic() - start:.3f}s")
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in (Path(env["SNAP_DIR"]) / "parse_dom_outlinks" / "urls.jsonl")
+            .read_text()
+            .splitlines()
+        ]
+        assert records == [
+            {
+                "type": "Snapshot",
+                "url": href,
+                "plugin": "parse_dom_outlinks",
+                "depth": 3,
+            }
+            for href in (
+                "https://lungfish-science.github.io/wastewater-dashboard/wastewater-variant-explorer.html",
+                "https://lungfish-science.github.io/wastewater-dashboard/acknowledgements.html",
+                url + "#",
+                "https://github.com/Lungfish-science/wastewater-dashboard/issues",
+                "https://github.com/Lungfish-science/wastewater-dashboard/discussions",
+                "https://github.com/Lungfish-science/wastewater-dashboard",
+                url + "#scatter-plot-visualization",
+                url + "#variant-data-browser",
+                url + "#project-metadata-browser",
+                "https://www.ncbi.nlm.nih.gov/sra",
+                "https://www.ncbi.nlm.nih.gov/nuccore/1798174254",
+                "https://cov-spectrum.org/explore/World/AllSamples/Past6M/variants?nextcladePangoLineage=JN.1*&",
+                "https://www.ncbi.nlm.nih.gov/",
+                "https://lungfish-science.github.io/data/found_meta.tsv.gz",
+                "https://github.com/Lungfish-science/wastewater-dashboard/blob/main/LICENSE",
+            )
+        ]
+        result_record = json.loads(result.stdout.strip().splitlines()[-1])
+        assert result_record["status"] == "succeeded"
+        assert result_record["output_str"] == "15 URLs parsed"
 
 
 class TestParseDomOutlinksPlugin:

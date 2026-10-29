@@ -2,18 +2,9 @@
 // /// script
 // ///
 /**
- * Extract and categorize outgoing links from a page's DOM.
+ * Extract crawlable anchor links from the rendered page.
  * Runs before final-file PDF consumers flush background hooks and close the
  * snapshot tab; link extraction still needs the live rendered DOM.
- *
- * Categorizes links by type:
- * - hrefs: All <a> links
- * - images: <img src>
- * - css_stylesheets: <link rel=stylesheet>
- * - css_images: CSS background-image: url()
- * - js_scripts: <script src>
- * - iframes: <iframe src>
- * - links: <link> tags with rel/href
  *
  * Usage: on_Snapshot__64_parse_dom_outlinks.js --url=<url>
  * Output: Writes parse_dom_outlinks/urls.jsonl
@@ -74,94 +65,25 @@ async function extractOutlinks(url, depth, timeoutMs) {
     const page = connection.page;
     console.log("parsing 1 files for urls...");
 
-    // Extract outlinks by category
-    const outlinksData = await page.evaluate(() => {
-      const LINK_REGEX = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
-
-      const filterDataUrls = (urls) =>
-        urls.filter((url) => url && !url.startsWith("data:"));
-      const filterW3Urls = (urls) =>
-        urls.filter((url) => url && !url.startsWith("http://www.w3.org/"));
-      const resolveAttr = (elem, attr) => {
-        const raw = elem.getAttribute(attr) || "";
-        if (!raw) return "";
+    // This hook emits only anchor links in urls.jsonl. Serializing the whole
+    // DOM and reading every element's computed style collected unused asset
+    // categories, allocating large strings and style objects on expanded pages.
+    // Query just the anchors while preserving resolution, order and deduplication.
+    const hrefs = await page.evaluate(() => {
+      const urls = new Set();
+      for (const elem of document.querySelectorAll("a[href]")) {
+        const raw = elem.getAttribute("href") || "";
+        if (!raw) continue;
         try {
-          return new URL(raw, window.location.href).href;
-        } catch (e) {}
-        return raw;
-      };
-
-      // Get raw links from HTML
-      const html = document.documentElement.outerHTML;
-      const raw = Array.from(html.matchAll(LINK_REGEX)).map((m) => m[0]);
-
-      // Get all <a href> links
-      const hrefs = Array.from(document.querySelectorAll("a[href]"))
-        .map((elem) => resolveAttr(elem, "href"))
-        .filter((url) => url);
-
-      // Get all <link> tags (not just stylesheets)
-      const linksMap = {};
-      document.querySelectorAll("link[href]").forEach((elem) => {
-        const rel = elem.rel || "";
-        const href = resolveAttr(elem, "href");
-        if (href && rel !== "stylesheet") {
-          linksMap[href] = { rel, href };
+          urls.add(new URL(raw, window.location.href).href);
+        } catch {
+          urls.add(raw);
         }
-      });
-      const links = Object.values(linksMap);
-
-      // Get iframes
-      const iframes = Array.from(document.querySelectorAll("iframe[src]"))
-        .map((elem) => resolveAttr(elem, "src"))
-        .filter((url) => url);
-
-      // Get images
-      const images = Array.from(document.querySelectorAll("img[src]"))
-        .map((elem) => resolveAttr(elem, "src"))
-        .filter((url) => url && !url.startsWith("data:"));
-
-      // Get CSS background images
-      const css_images = Array.from(document.querySelectorAll("*"))
-        .map((elem) => {
-          const bgImg = window
-            .getComputedStyle(elem)
-            .getPropertyValue("background-image");
-          const match = /url\(\s*?['"]?\s*?(\S+?)\s*?["']?\s*?\)/i.exec(bgImg);
-          if (!match) return null;
-          try {
-            return new URL(match[1], window.location.href).href;
-          } catch (e) {}
-          return match[1];
-        })
-        .filter((url) => url);
-
-      // Get stylesheets
-      const css_stylesheets = Array.from(
-        document.querySelectorAll("link[rel=stylesheet]")
-      )
-        .map((elem) => resolveAttr(elem, "href"))
-        .filter((url) => url);
-
-      // Get JS scripts
-      const js_scripts = Array.from(document.querySelectorAll("script[src]"))
-        .map((elem) => resolveAttr(elem, "src"))
-        .filter((url) => url);
-
-      return {
-        url: window.location.href,
-        raw: [...new Set(filterDataUrls(filterW3Urls(raw)))],
-        hrefs: [...new Set(filterDataUrls(hrefs))],
-        links,
-        iframes: [...new Set(iframes)],
-        images: [...new Set(filterDataUrls(images))],
-        css_images: [...new Set(filterDataUrls(css_images))],
-        css_stylesheets: [...new Set(filterDataUrls(css_stylesheets))],
-        js_scripts: [...new Set(filterDataUrls(js_scripts))],
-      };
+      }
+      return [...urls];
     });
     const urlsPath = path.join(OUTPUT_DIR, URLS_FILE);
-    const crawlableUrls = outlinksData.hrefs.filter((href) => {
+    const crawlableUrls = hrefs.filter((href) => {
       // Only include http/https URLs, exclude static assets
       if (!href.startsWith("http://") && !href.startsWith("https://"))
         return false;
@@ -194,7 +116,6 @@ async function extractOutlinks(url, depth, timeoutMs) {
         success: true,
         status: "noresults",
         output: NORESULTS_OUTPUT,
-        outlinksData,
         crawlableCount: 0,
       };
     }
@@ -216,7 +137,6 @@ async function extractOutlinks(url, depth, timeoutMs) {
       success: true,
       status: "succeeded",
       output: `${crawlableUrls.length} URLs parsed`,
-      outlinksData,
       crawlableCount: crawlableUrls.length,
     };
   } catch (e) {
