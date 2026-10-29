@@ -1,0 +1,26 @@
+abx_plugins/plugins/wetransfer/tests/test_wetransfer.py
+  s_10bc94d001be49::t_38c87fdefe09fb 45-46,58-84
+  s_10bc94d001be49::t_e2de5d74b73488 49,98,140
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_10bc94d001be49::t_06933e21456087 5719-5724
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_10bc94d001be49::t_06933e21456087 5210-5212,5237-5253
+tests/test_archivewebpage_concurrent_collections.py
+  s_10bc94d001be49::t_14ec4fa17f169a 1407-1411,1422-1424,1461-1464,1479-1481,1483-1484,1506-1508
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64b81f373b7894c0ad9197a2b854b359122d1043",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
