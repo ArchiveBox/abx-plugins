@@ -84,6 +84,7 @@ async function getExactChromeTab(extension, page) {
         const tabs = (await chrome.tabs.query({})).filter(
           (candidate) => candidate.url === expectedUrl
         );
+        const failures = [];
         const matches = (
           await Promise.all(
             tabs.map(async (candidate) => {
@@ -97,6 +98,11 @@ async function getExactChromeTab(extension, page) {
                 });
                 return results[0]?.result === true ? candidate : null;
               } catch (error) {
+                // A live tab can reject extension injection (for example on a
+                // browser-protected page). Keep that cause if no probe matches;
+                // otherwise it misleadingly looks like the capture tab vanished.
+                // Another same-URL tab failing must not discard a valid match.
+                failures.push(`tab ${candidate.id}: ${error.message || error}`);
                 return null;
               }
             })
@@ -104,7 +110,8 @@ async function getExactChromeTab(extension, page) {
         ).filter(Boolean);
         if (matches.length !== 1) {
           throw new Error(
-            `expected one Chrome tab for target ${expectedTargetId}, found ${matches.length}`
+            `expected one Chrome tab for target ${expectedTargetId}, found ${matches.length}` +
+            (failures.length ? `; scripting failed: ${failures.join("; ")}` : "")
           );
         }
         return matches[0];

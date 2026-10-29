@@ -667,5 +667,43 @@ def test_singlefile_disabled_skips(tmp_path, singlefile_install_state):
     assert not (tmpdir / "singlefile" / "singlefile.html").exists()
 
 
+def test_singlefile_reports_browser_injection_rejection(
+    tmp_path,
+    singlefile_install_state,
+):
+    """A real browser restriction must not be disguised as a missing target.
+
+    Chrome forbids extension scripts on its store even though CDP can still see
+    the page. Exercise that native boundary, without mocking a detached tab or
+    replacing the extension's scripting API.
+    """
+    url = "https://chromewebstore.google.com/"
+    extensions_dir = singlefile_install_state["extensions_dir"]
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=30,
+        env_overrides={
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
+        },
+    ) as (_, _, chrome_dir, env):
+        output = chrome_dir.parent / "singlefile"
+        output.mkdir()
+        result = subprocess.run(
+            [str(SNAPSHOT_HOOK), f"--url={url}"],
+            cwd=output,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "failed", result.stdout
+        assert "The extensions gallery cannot be scripted" in result.stderr
+        assert not (output / "singlefile.html").exists()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
