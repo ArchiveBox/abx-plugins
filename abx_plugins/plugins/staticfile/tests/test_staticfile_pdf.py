@@ -281,6 +281,10 @@ const fs = require('fs');
       const viewer = await page.waitForFrame(frame => frame.url().startsWith('chrome-extension://'), {timeout: 10000});
       await viewer.waitForSelector('pdf-viewer', {timeout: 10000});
       await page.waitForFrame(frame => frame.parentFrame() === viewer, {timeout: 10000});
+      // A target/custom element can exist before the native PDF has rendered.
+      // Teardown is tested against a live PDF, not its unfinished initialization.
+      const renderedPage = await viewer.waitForSelector('::-p-aria(Page number)', {timeout: 10000});
+      if (await renderedPage.evaluate(input => input.value) !== '1') throw Error('PDF viewer did not render its first page');
       console.error(`PDF iteration ${iteration}: viewer ready`);
       page.off('requestfinished', listener);
       await queue;
