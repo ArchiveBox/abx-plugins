@@ -223,7 +223,22 @@ function observePublishedFile(filePath, timeoutMs) {
         const watcher = fs.promises.watch(directory, {
           signal: abortController.signal,
         });
-        for await (const _event of watcher) {
+        // Arm the lazy iterator before stat so a rename between stat and the
+        // first notification cannot disappear. Closing aborts this pending read.
+        const firstEvent = watcher.next();
+        firstEvent.catch(() => {});
+        // A GUID is learned from Chrome's completed event, which can arrive
+        // after the rename. Observe already-published files as well as changes.
+        try {
+          const stat = await fs.promises.stat(filePath);
+          if (stat.size > 0) {
+            finish(resolve, stat);
+            return;
+          }
+        } catch (error) {
+          if (error?.code !== "ENOENT") throw error;
+        }
+        for (let event = await firstEvent; !event.done; event = await watcher.next()) {
           try {
             // fs.watch filenames are optional. Every notification is only a
             // prompt to check the one exact path owned by this download.

@@ -41,11 +41,8 @@ ensureNodeModuleResolution(module);
 const {
   connectToPage,
   captureOriginalResponseBodies,
-  acquireSessionLock,
-  getBrowserConnection,
   resolvePuppeteerModule,
   resolveChromeLaunchOptions,
-  sendBrowserCommand,
 } = require("../chrome/chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
@@ -398,8 +395,8 @@ async function setupStaticFileListener() {
   const pageSession = await page.target().createCDPSession();
   const frameTree = await pageSession.send("Page.getFrameTree");
   const mainFrameId = frameTree.frameTree.frame.id;
-  await pageSession.detach();
-  const browserConnection = getBrowserConnection(browser);
+  // Read-only Page events leave the persistent browser download policy intact.
+  await pageSession.send("Page.enable");
   let downloadGuid = null;
   let downloadFilename = null;
   let downloadTerminal = null;
@@ -419,20 +416,8 @@ async function setupStaticFileListener() {
       resolveDownload(downloadTerminal);
     }
   };
-  browserConnection.on("Browser.downloadWillBegin", onDownloadWillBegin);
-  browserConnection.on("Browser.downloadProgress", onDownloadProgress);
-  const releaseDownloadLock = await acquireSessionLock(
-    path.join(downloadDir, ".download.lock"), timeout
-  );
-  try {
-    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-      behavior: "allow",
-      downloadPath: downloadDir,
-      eventsEnabled: true,
-    });
-  } finally {
-    releaseDownloadLock();
-  }
+  pageSession.on("Page.downloadWillBegin", onDownloadWillBegin);
+  pageSession.on("Page.downloadProgress", onDownloadProgress);
 
   async function waitForDownloadUntil(deadline) {
     if (downloadTerminal) return downloadTerminal;
@@ -456,10 +441,10 @@ async function setupStaticFileListener() {
 
   async function saveBrowserDownload(download, deadline) {
     const { event, filename } = download;
-    if (event.state !== "completed" || !event.filePath) {
-      throw new Error(`Browser download ${event.state} or missing file path`);
+    if (event.state !== "completed") {
+      throw new Error(`Browser download ${event.state}`);
     }
-    const sourcePath = path.resolve(event.filePath);
+    const sourcePath = path.resolve(downloadDir, event.guid);
     const relativeSource = path.relative(downloadDir, sourcePath);
     if (relativeSource.startsWith("..") || path.isAbsolute(relativeSource)) {
       throw new Error("Browser download escaped shared directory");
@@ -503,8 +488,8 @@ async function setupStaticFileListener() {
 
   const finish = () => {
     clearTimeout(failTimer);
-    browserConnection.off("Browser.downloadWillBegin", onDownloadWillBegin);
-    browserConnection.off("Browser.downloadProgress", onDownloadProgress);
+    pageSession.off("Page.downloadWillBegin", onDownloadWillBegin);
+    pageSession.off("Page.downloadProgress", onDownloadProgress);
     resolveMainResponse(buildArchiveResult());
   };
 

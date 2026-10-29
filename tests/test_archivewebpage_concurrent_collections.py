@@ -3,6 +3,7 @@ import gzip
 import re
 import shutil
 import signal
+import time
 import subprocess
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -203,6 +204,12 @@ const watchDir = process.argv[2];
     throw new Error(`observer returned wrong WACZ size: ${stat.size}`);
   }
 
+  // The browser completion event can arrive after publication. Observing a
+  // file that already exists must not require another unrelated directory event.
+  const alreadyPublished = awpInternal.observePublishedFile(expectedPath, 5000);
+  const existingStat = await alreadyPublished.promise;
+  if (existingStat.size !== stat.size) throw new Error("Published file size changed");
+
   const failed = awpInternal.observePublishedFile(
     path.join(watchDir, "missing-directory", "never.wacz"),
     5000
@@ -260,7 +267,10 @@ def archivewebpage_crawl(
             **getattr(request, "param", {}),
         },
     )
-    for plugin_name in ("archivewebpage", "ublock"):
+    plugins = ["archivewebpage", "ublock"]
+    if env.get("SINGLEFILE_ENABLED") == "true":
+        plugins.append("singlefile")
+    for plugin_name in plugins:
         plugin_dir = CHROME_UTILS.parent.parent / plugin_name
         installed = install_required_binary_from_config(
             plugin_dir,
@@ -1181,6 +1191,134 @@ const path = require("node:path");
         )
         output = run[0] / "archivewebpage" / "archivewebpage.wacz"
         assert output.stat().st_size > 0
+
+
+@pytest.mark.parametrize(
+    "archivewebpage_crawl",
+    [{"SINGLEFILE_ENABLED": "true"}],
+    indirect=True,
+)
+def test_wacz_export_does_not_wait_for_another_singlefile_capture(
+    archivewebpage_crawl,
+    tmp_path,
+    httpserver,
+):
+    """A real pending SingleFile must not serialize another tab's WACZ export.
+
+    WHY: Cabbage's two independent captures shared a browser download-policy
+    lock. One timed-out SingleFile held the other snapshot's export for 87 seconds.
+    Use SingleFile's own processing delay to keep genuine capture work active,
+    then require the other real extension to publish before that work finishes.
+    Both artifacts must retain their own page content, not merely exit cleanly.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    for name in ("singlefile", "wacz"):
+        httpserver.expect_request(f"/{name}").respond_with_data(
+            f"<!doctype html><title>{name}</title><h1>Exact {name} capture</h1>",
+            content_type="text/html",
+        )
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    runs = [
+        _start_snapshot_recording(
+            tmp_path,
+            env,
+            tab_processes,
+            snapshot_id=f"parallel-{name}",
+            url=httpserver.url_for(f"/{name}"),
+        )
+        for name in ("singlefile", "wacz")
+    ]
+    snapshot, singlefile_env = runs[0]
+    script = r"""
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page, extensions} = await utils.connectToPage({
+    chromeSessionDir: process.argv[2], requireTargetId: true,
+    waitForNavigationComplete: true,
+  });
+  const helper = await browser.newPage();
+  try {
+    const extension = utils.findExtensionMetadataByName(extensions, 'singlefile');
+    await helper.goto(`chrome-extension://${extension.id}/src/ui/pages/offscreen-document.html`);
+    const tabId = await helper.evaluate(async url =>
+      (await chrome.tabs.query({})).find(tab => tab.url === url).id, await page.url());
+    await helper.evaluate(async tabId => {
+      const [result] = await chrome.scripting.executeScript({target: {tabId},
+        func: () => chrome.runtime.sendMessage({method: 'bootstrap.init'})});
+      await chrome.runtime.sendMessage({method: 'config.updateProfile',
+        profileName: result.result.options.profileName,
+        profile: {delayBeforeProcessing: 30}});
+    }, tabId);
+  } finally { await helper.close(); await browser.disconnect(); }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+    configured = subprocess.run(
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(snapshot / "chrome")],
+        env=singlefile_env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert configured.returncode == 0, configured.stderr
+    output = snapshot / "singlefile"
+    output.mkdir()
+    log = tmp_path / "singlefile.stderr.log"
+    hook_path = CHROME_UTILS.parent.parent / "singlefile/on_Snapshot__50_singlefile.py"
+    with (
+        log.open("w") as stderr,
+        subprocess.Popen(
+            [str(hook_path), f"--url={httpserver.url_for('/singlefile')}"],
+            cwd=output,
+            env=singlefile_env,
+            stdout=subprocess.PIPE,
+            stderr=stderr,
+            text=True,
+        ) as hook,
+    ):
+        try:
+            deadline = time.monotonic() + 15
+            while (
+                "phase=capture started" not in log.read_text() and hook.poll() is None
+            ):
+                assert time.monotonic() < deadline, log.read_text()
+                time.sleep(0.05)
+            assert "phase=capture started" in log.read_text(), log.read_text()
+            stopped = _run_stop_hook(
+                runs[1][0],
+                runs[1][1],
+                httpserver.url_for("/wacz"),
+            )
+            exported_while_singlefile_running = hook.poll() is None
+            (tmp_path / "wacz.stderr.log").write_text(stopped.stderr)
+            stdout, _ = hook.communicate(timeout=60)
+        finally:
+            if hook.poll() is None:
+                hook.terminate()
+                hook.wait(timeout=10)
+    assert stopped.returncode == 0, (stopped.stdout, stopped.stderr)
+    assert hook.returncode == 0, (stdout, log.read_text())
+    singlefile_result = parse_jsonl_output(stdout)
+    wacz_result = parse_jsonl_output(stopped.stdout)
+    assert (
+        singlefile_result is not None and singlefile_result["status"] == "succeeded"
+    ), stdout
+    assert wacz_result is not None and wacz_result["status"] == "succeeded", (
+        stopped.stdout
+    )
+    assert "Exact singlefile capture" in (output / "singlefile.html").read_text()
+    with zipfile.ZipFile(runs[1][0] / "archivewebpage/archivewebpage.wacz") as archive:
+        assert archive.testzip() is None
+        warcs = [name for name in archive.namelist() if name.endswith(".warc.gz")]
+        assert warcs
+        assert any(
+            b"Exact wacz capture" in gzip.decompress(archive.read(name))
+            for name in warcs
+        )
+    assert exported_while_singlefile_running, (
+        "Independent WACZ export waited for SingleFile to finish",
+        stopped.stderr,
+        log.read_text(),
+    )
 
 
 @pytest.mark.parametrize("publication_fails", [False, True])

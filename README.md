@@ -184,6 +184,7 @@ Lifecycle:
 - Extension setup hooks can publish `CRAWL_DIR/chrome/extensions/<name>.extension.json` with `name`, matching installed `version`, and a prepared `unpacked_path`. Chrome uses that copy only when the installed extension is selected and enabled; setup must leave the shared package cache unchanged.
 - Plugins whose snapshot hook owns the extension lifecycle may set `x-chrome-extension-load: on-demand` in `config.json`. Chrome keeps the installed extension available and enables CDP extension loading, but the hook loads and unloads it around each capture.
 - `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
+- Chrome owns the shared download directory for its lifetime and uses unique download GUIDs. Snapshot hooks observe their own downloads without changing that shared policy; a slow export must not block another snapshot. SingleFile separately serializes its temporary extension-profile changes.
 - Papers download starts after DOM capture and overlaps article parsing.
 - Offline article parsers run after live browser hooks and cleanup so parsing saved HTML does not keep a large renderer resident alongside another DOM.
 - PDF parsers settle background downloads before scanning saved documents, just like hashes settle producers before building the final manifest. Live DOM outlink extraction runs before that cleanup.

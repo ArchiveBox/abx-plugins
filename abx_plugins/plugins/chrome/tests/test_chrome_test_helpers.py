@@ -258,11 +258,11 @@ def test_find_chromium_uses_abxpkg_resolved_browser(real_chromium_binary: Path):
 
 
 @pytest.mark.parametrize("download_behavior", ["allow", "deny"])
-def test_set_browser_download_behavior_downloads_file_with_live_page(
+def test_native_browser_download_policy_downloads_file_with_live_page(
     ensure_chrome_test_prereqs,
     download_behavior,
 ):
-    """setBrowserDownloadBehavior() should drive a real download on a live browser page."""
+    """Native CDP policy must complete allowed downloads and reject denied ones."""
     with (
         tempfile.TemporaryDirectory() as tmpdir,
         chrome_session(
@@ -363,148 +363,8 @@ const expectedPath = path.join(downloadDir, filename);
             assert not Path(payload["expectedPath"]).exists()
 
 
-def test_set_browser_download_behavior_configures_once_for_live_pages(
-    ensure_chrome_test_prereqs,
-):
-    """One browser-owned download dir must serve concurrent live pages."""
-    with (
-        tempfile.TemporaryDirectory() as tmpdir,
-        chrome_session(
-            Path(tmpdir),
-            crawl_id="test-download-pages",
-            snapshot_id="snap-download-pages",
-            test_url=TEST_URL,
-            navigate=True,
-            timeout=45,
-        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env),
-    ):
-        download_dir = snapshot_chrome_dir.parent / "downloads"
-        download_dir.mkdir(parents=True, exist_ok=True)
-        script = """
-const fs = require('fs');
-const path = require('path');
-const chromeUtils = require(process.argv[1]);
-const chromeSessionDir = process.argv[2];
-const downloadDir = process.argv[3];
-
-async function triggerDownload(page, filename, content) {
-  await page.bringToFront();
-  await page.evaluate((name, body) => {
-    const blob = new Blob([body], { type: 'text/plain' });
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  }, filename, content);
-}
-
-function waitForDownloads(expectedContents) {
-  return new Promise((resolve, reject) => {
-    const remaining = new Map(Object.entries(expectedContents));
-    const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
-      if (!changedName) return;
-      const filename = changedName.toString();
-      const expectedContent = remaining.get(filename);
-      if (expectedContent === undefined) return;
-      const filePath = path.join(downloadDir, filename);
-      let actualContent;
-      try {
-        actualContent = fs.readFileSync(filePath, 'utf8');
-      } catch (error) {
-        return;
-      }
-      if (actualContent !== expectedContent) return;
-      remaining.delete(filename);
-      if (remaining.size === 0) {
-        clearTimeout(timeout);
-        watcher.close();
-        resolve();
-      }
-    });
-    const timeout = setTimeout(() => {
-      watcher.close();
-      reject(new Error(`Timed out waiting for completed downloads: ${[...remaining.keys()]}`));
-    }, 15000);
-  });
-}
-
-(async () => {
-  const { browser, page: pageOne } = await chromeUtils.connectToPage({
-    chromeSessionDir,
-    timeoutMs: 30000,
-  });
-  const pageTwo = await browser.newPage();
-  try {
-    await pageTwo.goto('data:text/html,<html><body>two</body></html>');
-    await chromeUtils.setBrowserDownloadBehavior({
-      browser,
-      downloadPath: downloadDir,
-    });
-
-    const downloadsCompleted = waitForDownloads({
-      'one.txt': 'page-one-ok',
-      'two.txt': 'page-two-ok',
-    });
-    await Promise.all([
-      triggerDownload(pageOne, 'one.txt', 'page-one-ok'),
-      triggerDownload(pageTwo, 'two.txt', 'page-two-ok'),
-    ]);
-    await downloadsCompleted;
-
-    const onePath = path.join(downloadDir, 'one.txt');
-    const twoPath = path.join(downloadDir, 'two.txt');
-
-    process.stdout.write(JSON.stringify({
-      onePath,
-      twoPath,
-      oneContent: fs.readFileSync(onePath, 'utf8'),
-      twoContent: fs.readFileSync(twoPath, 'utf8'),
-    }));
-  } finally {
-    await browser.disconnect();
-  }
-})().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
-});
-"""
-        result = subprocess.run(
-            [
-                "node",
-                "-e",
-                script,
-                str(CHROME_UTILS),
-                str(snapshot_chrome_dir),
-                str(download_dir),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=env,
-            check=False,
-        )
-
-        assert result.returncode == 0, result.stderr
-        payload = json.loads(result.stdout)
-        assert payload["oneContent"] == "page-one-ok"
-        assert payload["twoContent"] == "page-two-ok"
-        assert Path(payload["onePath"]).exists()
-        assert Path(payload["twoPath"]).exists()
-
-
-def test_only_download_consumers_enable_browser_download_events():
-    """Only download consumers configure browser-wide download behavior.
-
-    WACZ exports and attachments match their download GUID; SingleFile matches
-    its tab/blob/content and keeps collision-safe names in the configured folder.
-    Staticfile also matches the snapshot frame before accepting that GUID. The
-    live download tests cover isolation; this inventory catches other plugins
-    introducing browser-wide download configuration accidentally.
-    """
+def test_only_chrome_owner_configures_browser_downloads():
+    """Finite hook connections must not reset another capture's download policy."""
     plugins_dir = CHROME_UTILS.parent.parent
     callers = [
         script.relative_to(plugins_dir)
@@ -512,75 +372,7 @@ def test_only_download_consumers_enable_browser_download_events():
         if script != CHROME_UTILS
         and '"Browser.setDownloadBehavior"' in script.read_text()
     ]
-
-    assert sorted(callers) == [
-        Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js"),
-        Path("singlefile/singlefile_extension_save.js"),
-        Path("staticfile/on_Snapshot__26_staticfile.daemon.bg.js"),
-    ]
-
-
-def test_set_browser_download_behavior_requires_download_path_with_live_page(
-    ensure_chrome_test_prereqs,
-):
-    """Download setup failures must hard-fail for snapshot-level download extractors."""
-    with (
-        tempfile.TemporaryDirectory() as tmpdir,
-        chrome_session(
-            Path(tmpdir),
-            crawl_id="test-download-config-missing",
-            snapshot_id="snap-download-config-missing",
-            test_url=TEST_URL,
-            navigate=True,
-            timeout=45,
-        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env),
-    ):
-        script = """
-const chromeUtils = require(process.argv[1]);
-const chromeSessionDir = process.argv[2];
-
-(async () => {
-  const { browser, page } = await chromeUtils.connectToPage({
-    chromeSessionDir,
-    timeoutMs: 30000,
-  });
-  try {
-    await chromeUtils.setBrowserDownloadBehavior({ page });
-    process.stdout.write(JSON.stringify({ ok: true }));
-  } catch (error) {
-    process.stdout.write(JSON.stringify({
-      ok: false,
-      error: error.message,
-      pageUrl: page.url(),
-    }));
-  } finally {
-    await browser.disconnect();
-  }
-})().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
-});
-"""
-        result = subprocess.run(
-            [
-                env["NODE_BINARY"],
-                "-e",
-                script,
-                str(CHROME_UTILS),
-                str(snapshot_chrome_dir),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=env,
-            check=False,
-        )
-
-        assert result.returncode == 0, result.stderr
-        payload = json.loads(result.stdout)
-        assert payload["ok"] is False
-        assert payload["error"] == "setBrowserDownloadBehavior requires downloadPath"
-        assert payload["pageUrl"].startswith(TEST_URL)
+    assert callers == []
 
 
 def test_get_plugin_dir():
@@ -810,6 +602,89 @@ print(json.dumps({'resolved': resolved, 'exported': os.environ['CHROME_BINARY']}
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["exported"] == payload["resolved"]
     assert Path(payload["resolved"]).samefile(real_chromium_binary)
+
+
+def test_download_policy_survives_observer_disconnect(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+):
+    """Finite Page observers cannot reset the crawl owner's GUID download policy."""
+    with chrome_session(
+        tmp_path / "session",
+        test_url="https://example.com",
+        navigate=False,
+    ) as (_, _, chrome_dir, env):
+        download_dir = (
+            Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
+        )
+        script = r"""
+const fs=require('fs'),path=require('path');
+const u=require(process.argv[1]);
+const {observePublishedFile}=require(process.argv[2]);
+(async()=>{
+ const clients=[],pages=[],observers=[];
+ const directory=process.argv[4];
+ try {
+  for(let i=0;i<2;i++){
+   const {browser}=await u.connectToPage({chromeSessionDir:process.argv[3]});clients.push(browser);
+   const page=await browser.newPage();pages.push(page);
+   const session=await page.createCDPSession();
+   let begin;
+   const started=new Promise(resolve=>{begin=resolve;});
+   session.on('Page.downloadWillBegin',begin);
+   await session.send('Page.enable');
+   const completed=u.waitForBrowserDownload(session,'same-name.txt',10000,undefined,'Page');
+   completed.catch(()=>{});
+   observers.push({started,completed});
+  }
+  await Promise.all(pages.map((page,i)=>page.evaluate(i=>{
+   const bytes=new Uint8Array(8*1024*1024);bytes.fill(65+i);
+   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes]));a.download='same-name.txt';document.body.append(a);a.click();
+  },i)));
+  const started=await Promise.all(observers.map(observer=>observer.started));
+  await clients[1].disconnect();
+  await observers[0].completed;
+  for(let i=0;i<2;i++){
+   const filename=path.join(directory,started[i].guid);
+   const publication=observePublishedFile(filename,10000);
+   try {await publication.promise;} finally {publication.close();}
+   if(!fs.readFileSync(filename).equals(Buffer.alloc(8*1024*1024,65+i)))throw new Error('Concurrent download bytes changed');
+  }
+  await clients[0].disconnect();
+  const {browser}=await u.connectToPage({chromeSessionDir:process.argv[3]});clients.push(browser);
+  const page=await browser.newPage();pages.push(page);
+  const session=await page.createCDPSession();await session.send('Page.enable');
+  const completed=u.waitForBrowserDownload(session,'after.txt',10000,undefined,'Page');
+  await page.evaluate(()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['after disconnect']));a.download='after.txt';document.body.append(a);a.click();});
+  const final=await completed;
+  const filename=path.join(directory,final.guid);
+  const publication=observePublishedFile(filename,10000);
+  try {await publication.promise;} finally {publication.close();}
+  if(fs.readFileSync(filename,'utf8')!=='after disconnect')throw new Error('Persistent policy lost');
+  console.log(JSON.stringify({distinct:started[0].guid!==started[1].guid,retained:true}));
+ } finally {
+  for(const page of pages)await page.close().catch(()=>{});
+  for(const browser of clients)await browser.disconnect();
+ }
+})().catch(e=>{console.error(e.stack);process.exitCode=1;});
+"""
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(CHROME_UTILS.parent.parent / "archivewebpage/awp_internal.js"),
+                str(chrome_dir),
+                str(download_dir),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=40,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {"distinct": True, "retained": True}
 
 
 if __name__ == "__main__":

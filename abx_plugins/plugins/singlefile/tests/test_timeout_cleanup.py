@@ -77,7 +77,7 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             timeout=30,
         )
         assert busy.returncode == 0, busy.stderr
-        lock = Path(busy.stdout.strip()) / ".download.lock"
+        lock = Path(busy.stdout.strip()) / ".singlefile.lock"
         with (
             (tmp_path / "hook.stderr.log").open("w") as stderr_log,
             subprocess.Popen(
@@ -91,7 +91,7 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             ) as hook,
         ):
             deadline = time.monotonic() + 8
-            acquired = "[singlefile] phase=download-lock elapsed_ms="
+            acquired = "[singlefile] phase=singlefile-lock elapsed_ms="
             # Exclusive creation makes the lock visible before its PID JSON is
             # written. The helper publishes this phase only after acquisition
             # finishes, so suspend it after that boundary, not file existence.

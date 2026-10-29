@@ -306,10 +306,14 @@ const chrome = require(process.argv[1]);
 (async () => {
   const {browser} = await chrome.connectToPage({chromeSessionDir: process.argv[2], timeoutMs: 30000});
   const page = await browser.newPage();
-  const output = path.join(chrome.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR, process.argv[4]);
+  const session = await page.createCDPSession();
+  await session.send('Page.enable');
+  const completed = chrome.waitForBrowserDownload(session, process.argv[4], 10000, undefined, 'Page');
   try { await page.goto(process.argv[3], {timeout: 15000}); } catch (error) {
     if (!error.message.includes('ERR_ABORTED')) throw error;
   }
+  const download = await completed;
+  const output = path.join(chrome.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR, download.guid);
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline && (!fs.existsSync(output) || fs.statSync(output).size === 0)) {
     await new Promise(resolve => setTimeout(resolve, 50));

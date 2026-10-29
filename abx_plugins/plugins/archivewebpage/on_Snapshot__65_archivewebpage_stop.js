@@ -191,12 +191,9 @@ async function downloadExactWacz(
   )}/dl?format=wacz&pages=all&filename=${encodeURIComponent(
     requestedFilename.replace(/\.wacz$/i, "")
   )}`;
-  const downloadedPath = path.join(downloadDir, requestedFilename);
-  const browser = helperPage.browser();
-  const browserConnection = chromeUtils.getBrowserConnection(browser);
+  let downloadedPath;
   let publishedFile = null;
   let downloadSession = null;
-  let releaseDownloadLock;
   const abortDownload = new AbortController();
   const exportStartedAt = Date.now();
   const reportExport = (step) => console.error(
@@ -204,37 +201,29 @@ async function downloadExactWacz(
   );
 
   try {
-    reportExport("download-lock-wait");
-    releaseDownloadLock = await chromeUtils.acquireSessionLock(
-      path.join(downloadDir, ".download.lock"),
-      timeoutMs
-    );
-    reportExport("download-lock-acquired");
-    await chromeUtils.sendBrowserCommand(
-      browser,
-      "Browser.setDownloadBehavior",
-      {
-        behavior: "allow",
-        downloadPath: downloadDir,
-        eventsEnabled: true,
-      }
-    );
     // The extension helper already owns a live popup port. Navigate it to
     // the attachment response: Chrome downloads the WACZ without replacing
     // the popup document. A new about:blank tab can inherit another active
     // AWP recorder and reload underneath this export.
     downloadSession = await helperPage.target().createCDPSession();
-    publishedFile = observePublishedFile(downloadedPath, timeoutMs);
-    const downloadCompleted = chromeUtils.waitForBrowserDownload(
-      browserConnection,
-      requestedFilename,
-      timeoutMs,
-      abortDownload.signal
-    );
-    const completed = Promise.all([
-      downloadCompleted.then(() => reportExport("browser-completed")),
-      publishedFile.promise.then(() => reportExport("file-published")),
-    ]);
+    // Page events observe this target without taking ownership of browser-wide
+    // download policy. Disconnecting a Browser.setDownloadBehavior client can
+    // reset another capture's routing in our pinned Chrome.
+    await downloadSession.send("Page.enable");
+    const downloadRemaining = timeoutMs - (Date.now() - exportStartedAt);
+    if (downloadRemaining <= 0) throw new Error("WACZ export download deadline exceeded");
+    const completed = chromeUtils.waitForBrowserDownload(
+      downloadSession, requestedFilename, downloadRemaining,
+      abortDownload.signal, "Page"
+    ).then(async (event) => {
+      reportExport("browser-completed");
+      downloadedPath = path.join(downloadDir, event.guid);
+      const remaining = timeoutMs - (Date.now() - exportStartedAt);
+      if (remaining <= 0) throw new Error("WACZ export publication deadline exceeded");
+      publishedFile = observePublishedFile(downloadedPath, remaining);
+      await publishedFile.promise;
+      reportExport("file-published");
+    });
     // A navigation failure must cancel these observers without leaving an
     // unhandled rejection or a timer keeping the hook alive until timeout.
     completed.catch(() => {});
@@ -247,7 +236,7 @@ async function downloadExactWacz(
       throw new Error(`WACZ export navigation failed: ${navigation.errorText}`);
     }
     // Chrome's CDP contract explicitly does not guarantee that the final path
-    // exists when Browser.downloadProgress reports "completed". Require both
+    // exists when downloadProgress reports "completed". Require both
     // browser completion and the exact filesystem publication event before we
     // take ownership of the WACZ.
     await completed;
@@ -260,7 +249,6 @@ async function downloadExactWacz(
     return size;
   } finally {
     abortDownload.abort();
-    releaseDownloadLock?.();
     publishedFile?.close();
     await downloadSession?.detach().catch(() => {});
   }
