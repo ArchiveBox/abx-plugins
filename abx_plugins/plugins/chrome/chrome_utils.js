@@ -38,7 +38,7 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null, cachedBodies: sharedCachedBodies = null } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
@@ -92,7 +92,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   });
   const bodies = new Map();
   const streams = new Map();
-  const fontBodies = new Map();
+  // Blink can reuse a resource in another frame after discarding its CDP body.
+  // All readers for this page share exact response identities and local files;
+  // a URL alone cannot distinguish authenticated or Vary-selected responses.
+  const cachedBodies = sharedCachedBodies || new Map();
   const readCachedServiceWorkerBody = async (stream) => {
     if (!stream.fromServiceWorker || stream.method !== "GET" || !stream.frameId ||
         !stream.cacheStorageCacheName ||
@@ -132,7 +135,6 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     stream.frameId = event.frameId || stream.frameId;
     stream.cacheStorageCacheName = event.response.cacheStorageCacheName;
     stream.serviceWorkerResponseSource = event.response.serviceWorkerResponseSource;
-    if (stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
     // CDP omits transport-added Accept-Encoding, including on the original
@@ -148,21 +150,21 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     const { responseTime, connectionId, timing, fromServiceWorker } = event.response;
     const transportIdentity = !fromServiceWorker &&
       [responseTime, connectionId, timing?.requestTime].every((value) => Number.isFinite(value) && value > 0)
-      ? JSON.stringify(["font-response", stream.url, stream.method, event.response.status,
+      ? JSON.stringify(["response", stream.url, stream.method, event.response.status,
         responseHeaders, responseTime, connectionId, timing]) : null;
-    if (!stream.cached && transportIdentity) fontBodies.set(transportIdentity, stream);
+    if (!stream.cached && transportIdentity) cachedBodies.set(transportIdentity, stream);
     if (!observableVary) {
-      const previous = stream.cached && transportIdentity && fontBodies.get(transportIdentity);
+      const previous = stream.cached && transportIdentity && cachedBodies.get(transportIdentity);
       const previousHeaders = previous && new Map(headerIdentity(previous.requestHeaders));
       if (previous && vary.every((name) => !requestHeaders.has(name) || requestHeaders.get(name) === previousHeaders.get(name))) {
-        stream.previousFont = previous;
+        stream.previousResponse = previous;
       }
       return;
     }
     const identity = JSON.stringify([stream.url, stream.method, event.response.status,
       vary.map((name) => [name, requestHeaders.get(name)]), responseHeaders]);
-    if (stream.cached) stream.previousFont = fontBodies.get(identity);
-    if (!stream.previousFont) fontBodies.set(identity, stream);
+    if (stream.cached) stream.previousResponse = cachedBodies.get(identity);
+    if (!stream.previousResponse) cachedBodies.set(identity, stream);
   });
   // Spool raw chunks to local scratch instead of retaining concurrent bodies
   // or decoding them according to potentially incorrect server MIME headers.
@@ -236,14 +238,14 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       stream.saved = Promise.all([stream.ready, stream.done]).then(async () => {
         if (stream.error) throw stream.error;
         if (fs.statSync(filename).size === stream.receivedBytes) return;
-        // Chrome drops raw bytes for fonts reused from its memory cache. Reuse
-        // only this listener's identical earlier response, never refetch it.
-        if (stream.previousFont) {
-          await stream.previousFont.saved;
-          if (fs.statSync(stream.previousFont.filename).size !== stream.receivedBytes) {
-            throw new Error("Cached font byte count differs from its captured response");
+        // Chrome drops raw bytes for resources reused from its memory cache. Reuse
+        // only this page's identical earlier response, never refetch it.
+        if (stream.previousResponse) {
+          await stream.previousResponse.saved;
+          if (fs.statSync(stream.previousResponse.filename).size !== stream.receivedBytes) {
+            throw new Error("Cached response byte count differs from its captured response");
           }
-          stream.filename = stream.previousFont.filename;
+          stream.filename = stream.previousResponse.filename;
           return;
         }
         // Network.getResponseBody can re-encode CacheStorage text responses.
@@ -333,7 +335,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls });
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls, cachedBodies });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -441,7 +443,8 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         streams.delete(id);
         if (stream.error) throw stream.error;
         const body = await fs.promises.readFile(stream.filename);
-        if (stream.resourceType !== "Font") await fs.promises.unlink(stream.filename);
+        // Another frame may reuse these bytes after this response is saved.
+        // Keep disk-backed bodies until the owning page collector closes.
         return body;
       }
       if (bodies.get(id) instanceof Error) throw bodies.get(id);

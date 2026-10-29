@@ -425,6 +425,22 @@ function emitResult(
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, finishing response capture...`);
+  if (page && !page.isClosed() && browser?.connected) {
+    try {
+      // The capture control connection can finish before this recorder sees
+      // its final network events. A same-session round trip drains them first.
+      await page.evaluate(() => undefined);
+    } catch (error) {
+      const targetClosed = page.isClosed() || !browser?.connected ||
+        error.name === "TargetCloseError";
+      if (!targetClosed) {
+        const message = `Response event flush failed: ${error.name}: ${error.message}`;
+        console.error(`ERROR: ${message}`);
+        captureFailureCount += 1;
+        firstCaptureError ||= message;
+      }
+    }
+  }
   if (page && responseListener) {
     page.off("requestfinished", responseListener);
   }
