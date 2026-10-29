@@ -197,7 +197,20 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                 "origin",
                 url,
             ]
-            fetch_cmd = [binary, "-C", repo_dir, "fetch", "--depth=1", "origin"]
+            # Fetch the remote's HEAD explicitly: with only the wildcard remote
+            # refspec, FETCH_HEAD starts with the alphabetically first branch,
+            # so reset can silently archive the wrong working tree. Retain the
+            # other shallow branch tips too; selecting HEAD must not drop them.
+            fetch_cmd = [
+                binary,
+                "-C",
+                repo_dir,
+                "fetch",
+                "--depth=1",
+                "origin",
+                "HEAD",
+                "+refs/heads/*:refs/remotes/origin/*",
+            ]
             reset_cmd = [binary, "-C", repo_dir, "reset", "--hard", "FETCH_HEAD"]
             submodule_cmd = [
                 binary,

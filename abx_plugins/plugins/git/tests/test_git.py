@@ -19,6 +19,11 @@ from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
     parse_jsonl_output,
 )
+from abx_plugins.plugins.git.tests.test_git_timeout import (
+    stop_owned_process,
+    unused_port,
+    wait_for_listener,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _GIT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_git.*"), None)
@@ -182,6 +187,120 @@ def test_real_git_repo():
         )
 
         print(f"Successfully cloned repository in {elapsed_time:.2f}s")
+
+
+def test_git_checks_out_remote_default_branch_and_retains_other_branches(tmp_path):
+    """FETCH_HEAD's first branch need not be the remote's default branch."""
+    source = tmp_path / "source.git"
+    source.mkdir()
+    git = install_required_binary_from_config(PLUGIN_DIR, "git")
+    assert git.loaded_abspath
+    binary = str(git.loaded_abspath)
+
+    def run(*args):
+        return subprocess.run(
+            [binary, "-C", str(source), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+
+    run("init", "--initial-branch=main")
+    (source / "branch.txt").write_text("default branch content\n")
+    run("add", "branch.txt")
+    run(
+        "-c",
+        "user.name=ArchiveBox Test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "Default branch",
+    )
+    default_commit = run("rev-parse", "HEAD")
+    run("checkout", "-b", "aaa-other")
+    (source / "branch.txt").write_text("other branch content\n")
+    run("add", "branch.txt")
+    run(
+        "-c",
+        "user.name=ArchiveBox Test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "Other branch",
+    )
+    other_commit = run("rev-parse", "HEAD")
+    run("checkout", "main")
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    port = unused_port()
+    daemon_log = tmp_path / "git-daemon.log"
+    with daemon_log.open("wb") as log:
+        daemon = subprocess.Popen(
+            [
+                binary,
+                "daemon",
+                "--export-all",
+                "--listen=127.0.0.1",
+                f"--port={port}",
+                f"--base-path={tmp_path}",
+                str(tmp_path),
+            ],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    try:
+        wait_for_listener(port, daemon, daemon_log)
+        # Also reuse the output after the remote changes its default branch.
+        # A cached local HEAD must not decide the next capture's working tree.
+        for branch, expected_head, contents in (
+            ("main", default_commit, "default branch content\n"),
+            ("aaa-other", other_commit, "other branch content\n"),
+        ):
+            run("checkout", branch)
+            result = subprocess.run(
+                [str(GIT_HOOK), "--url", "https://archivebox.io/tests/source.git"],
+                cwd=snapshot,
+                env={
+                    **os.environ,
+                    "SNAP_DIR": str(snapshot),
+                    "GIT_BINARY": binary,
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": f"url.git://127.0.0.1:{port}/.insteadOf",
+                    "GIT_CONFIG_VALUE_0": "https://archivebox.io/tests/",
+                },
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+            record = parse_jsonl_output(result.stdout)
+            assert record is not None, result.stdout
+            assert record["status"] == "succeeded", result.stdout + result.stderr
+            output = snapshot / "git"
+            assert (output / "branch.txt").read_text() == contents
+            for ref, expected in (
+                ("HEAD", expected_head),
+                ("refs/remotes/origin/main", default_commit),
+                ("refs/remotes/origin/aaa-other", other_commit),
+            ):
+                actual = subprocess.run(
+                    [binary, "-C", str(output), "rev-parse", ref],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=10,
+                )
+                assert actual.stdout.strip() == expected
+    finally:
+        stop_owned_process(daemon)
 
 
 if __name__ == "__main__":
