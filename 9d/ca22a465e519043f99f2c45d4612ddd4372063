@@ -1,0 +1,39 @@
+README.md
+  s_10bc94d001be49::t_bca64d6c1ae261 187
+abx_plugins/plugins/archivewebpage/awp_internal.js
+  s_10bc94d001be49::t_eeead98bb5cbf0 226-241
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_10bc94d001be49::t_867fffa312da7a 194,209-226,239
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_10bc94d001be49::t_3b06bbff637766 3400,3403,3408-3409,3436-3437,3517-3546,3551-3572,3616-3622,3625-3626,5294,5305-5313,5719-5720
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_10bc94d001be49::t_e88340a5384fb2 261,265,366-367,375,607-689
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_10bc94d001be49::t_3538f033165354 160,166-168,170-172,174,184,355,361
+abx_plugins/plugins/singlefile/tests/test_timeout_cleanup.py
+  s_10bc94d001be49::t_c8365099816e6d 80,94
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  s_10bc94d001be49::t_99d2e51e0d245c 398-399,419-420,444-445,447,491-492
+abx_plugins/plugins/staticfile/tests/test_staticfile.py
+  s_10bc94d001be49::t_807d275e23e3f9 309-311,315-316
+tests/test_archivewebpage_concurrent_collections.py
+  s_10bc94d001be49::t_46f2dcb7bf5b5a 6,207-212,270-273,1196-1323
+tests/test_browser_downloads.py
+  s_10bc94d001be49::t_c7ceed57cd8c72 8,54-57,65,70,75,77,81,83,89,92-93,173-308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9dca22a465e519043f99f2c45d4612ddd4372063",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
