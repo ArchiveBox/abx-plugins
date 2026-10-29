@@ -22,12 +22,25 @@ def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
     ensure_chrome_test_prereqs,
 ):
     env = get_test_env()
+    shared_lib_dir = Path(env["ABXPKG_LIB_DIR"])
+    # A provider-specific browser cache still publishes its executable shim
+    # under the shared library root. Isolate that root too, or deleting this
+    # test's cache leaves subsequent browser tests with a dangling executable.
+    isolated_lib = tempfile.TemporaryDirectory(
+        prefix="bootstrap-timeout-lib-",
+        dir=shared_lib_dir.parent,
+    )
+    request.addfinalizer(isolated_lib.cleanup)
+    env["ABXPKG_LIB_DIR"] = isolated_lib.name
     puppeteer_root = tempfile.TemporaryDirectory(
         prefix="bootstrap-timeout-test-",
-        dir=env["ABXPKG_LIB_DIR"],
+        dir=isolated_lib.name,
     )
     request.addfinalizer(puppeteer_root.cleanup)
     shared_browser = Path(ensure_chrome_test_prereqs).resolve(strict=True)
+    shared_shim = shared_lib_dir / "env" / "bin" / "chromium"
+    assert shared_shim.resolve(strict=True) == shared_browser
+    assert shared_shim.is_file() and shared_shim.stat().st_mode & 0o111
     shared_stat = shared_browser.stat()
     shared_version = subprocess.run(
         [str(shared_browser), "--version"],
@@ -57,6 +70,8 @@ def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
     assert installed_path.is_relative_to(Path(puppeteer_root.name).resolve())
     assert installed_path != shared_browser
     assert installed_path.exists()
+    assert shared_shim.resolve(strict=True) == shared_browser
+    assert shared_shim.is_file() and shared_shim.stat().st_mode & 0o111
     # Exercise the provider's uninstall path; leave its CLI and system
     # prerequisites ready for the timed real reinstall below.
     browser.uninstall(binproviders=["puppeteer"])
@@ -157,3 +172,16 @@ def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
             except (psutil.NoSuchProcess, psutil.ZombieProcess):
                 pass
         psutil.wait_procs(installers, timeout=5)
+    assert shared_shim.resolve(strict=True) == shared_browser
+    assert shared_shim.is_file() and shared_shim.stat().st_mode & 0o111
+    assert (
+        shared_browser.stat().st_dev,
+        shared_browser.stat().st_ino,
+        shared_browser.stat().st_size,
+        shared_browser.stat().st_mtime_ns,
+    ) == (
+        shared_stat.st_dev,
+        shared_stat.st_ino,
+        shared_stat.st_size,
+        shared_stat.st_mtime_ns,
+    )
