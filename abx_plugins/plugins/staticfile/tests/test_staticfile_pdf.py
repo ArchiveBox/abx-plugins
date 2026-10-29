@@ -253,9 +253,12 @@ const fs = require('fs');
     if (!expected.subarray(0, 5).equals(Buffer.from('%PDF-'))) throw Error('Invalid source PDF');
     // A bounded sequence exercises the real child-attachment race; every
     // capture must preserve its PDF and close, with no retry after a failure.
+    // Retain the last native phase if the subprocess deadline interrupts it.
     for (let iteration = 0; iteration < 10; iteration++) {
+      console.error(`PDF iteration ${iteration}: opening`);
       const page = await browser.newPage();
       const capture = await chrome.captureOriginalResponseBodies(page, {resourceTypes: []});
+      console.error(`PDF iteration ${iteration}: collector ready`);
       let queue = Promise.resolve();
       let capturedPdf = false;
       const errors = [];
@@ -274,9 +277,11 @@ const fs = require('fs');
       };
       page.on('requestfinished', listener);
       await page.goto(process.argv[3] + '/document.pdf', {waitUntil: 'load', timeout: 20000});
+      console.error(`PDF iteration ${iteration}: navigated`);
       const viewer = await page.waitForFrame(frame => frame.url().startsWith('chrome-extension://'), {timeout: 10000});
       await viewer.waitForSelector('pdf-viewer', {timeout: 10000});
       await page.waitForFrame(frame => frame.parentFrame() === viewer, {timeout: 10000});
+      console.error(`PDF iteration ${iteration}: viewer ready`);
       page.off('requestfinished', listener);
       await queue;
       // Closing the tab first hides orphaned collector sessions by destroying
@@ -285,7 +290,9 @@ const fs = require('fs');
       // session is still alive. Closing capture must tolerate that lifecycle
       // transition without confusing it with a lost response body.
       const navigation = process.argv[6] === 'true' ? page.goto('about:blank') : null;
+      console.error(`PDF iteration ${iteration}: closing collector`);
       await capture.close();
+      console.error(`PDF iteration ${iteration}: collector closed`);
       if (navigation) await navigation;
       if (!capturedPdf) throw Error('Original PDF was not captured');
       if (errors.length) throw errors[0];
@@ -298,6 +305,7 @@ const fs = require('fs');
         await page.screenshot({path: process.argv[5]});
       }
       await page.close();
+      console.error(`PDF iteration ${iteration}: finished`);
     }
     console.log(JSON.stringify({completed: 10}));
   } finally { await browser.disconnect(); }
