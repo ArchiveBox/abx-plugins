@@ -266,6 +266,8 @@ async function main() {
 
 main().catch((e) => {
   console.error(`ERROR: ${e.message}`);
+  // Frame evaluation errors otherwise lose the originating page/helper location.
+  if (e.stack) console.error(e.stack);
   emitArchiveResultRecord("failed", e.message || "unknown error");
   flushCoverageAndExit(1);
 });

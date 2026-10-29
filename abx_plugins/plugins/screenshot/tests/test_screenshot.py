@@ -190,6 +190,9 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 assert result_json is not None
                 assert result_json["status"] == "failed"
                 assert result_json["output_str"] == "No target_id.txt found"
+                assert "Error: No target_id.txt found\n" in result.stderr
+                assert "    at connectToPage (" in result.stderr
+                assert "    at async takeScreenshot (" in result.stderr
 
         except RuntimeError:
             raise
