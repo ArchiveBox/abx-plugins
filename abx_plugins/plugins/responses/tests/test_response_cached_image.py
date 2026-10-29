@@ -125,12 +125,23 @@ const {browser, page} = await (async () => {
   return utils.connectToPage({chromeSessionDir: process.argv[2]});
 })();
 try {
+  // A generic Puppeteer timeout does not identify whether frame attachment or
+  // image completion stalled. Keep the real phase/URLs in failed CI output;
+  // this must not turn a missing frame into a retry or a weaker body assertion.
+  console.error('cached-image: attached frames', JSON.stringify(page.frames().map(frame => frame.url())));
   const first = await page.waitForFrame(frame => frame.url().endsWith('#first'), {timeout: 15000});
+  console.error('cached-image: first frame');
   const second = await page.waitForFrame(frame => frame.url().includes('#second-'), {timeout: 15000});
+  console.error('cached-image: second frame');
   await first.waitForFunction(() => document.documentElement.dataset.imageReady === 'true', {timeout: 15000});
+  console.error('cached-image: first image');
   await page.evaluate(() => document.querySelector('#second').contentWindow.postMessage('load-image', '*'));
   await second.waitForFunction(() => document.documentElement.dataset.imageReady === 'true', {timeout: 15000});
+  console.error('cached-image: second image');
   console.log(JSON.stringify({firstFrame: true, secondFrame: true}));
+} catch (error) {
+  console.error('cached-image: frames at failure', JSON.stringify(page.frames().map(frame => frame.url())));
+  throw error;
 } finally { browser.disconnect(); }
 })().catch(error => { console.error(error); process.exit(1); });
 """
