@@ -1404,7 +1404,11 @@ const awp = require(process.argv[2]);
 
 
 @pytest.mark.parametrize("failure", ["held-lock", "publication"])
-def test_export_failure_releases_download_lock(archivewebpage_crawl, tmp_path, failure):
+def test_export_failure_releases_stop_export_lock(
+    archivewebpage_crawl,
+    tmp_path,
+    failure,
+):
     """A real lock timeout or filesystem publication error must allow the next export."""
     env, _chrome_dir, tabs = archivewebpage_crawl
     url = "https://archivebox.io/tests/"
@@ -1415,9 +1419,9 @@ def test_export_failure_releases_download_lock(archivewebpage_crawl, tmp_path, f
         snapshot_id="recover-export",
         url=url,
     )
-    downloads = Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
-    downloads.mkdir(parents=True, exist_ok=True)
-    lock = downloads / ".download.lock"
+    # AWP still serializes stop/export against its own extension worker. The
+    # removed browser-wide download lock must not be a prerequisite for export.
+    lock = Path(env["CRAWL_DIR"]) / "archivewebpage/.stop_export.lock"
     output = snapshot_dir / "archivewebpage/archivewebpage.wacz"
     if failure == "held-lock":
         owner = subprocess.Popen(
@@ -1454,8 +1458,10 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
             )
             assert failed.returncode != 0, failed.stdout
             assert "Timeout acquiring lock" in failed.stderr, failed.stderr
-            assert "export_step=download-lock-wait" in failed.stderr
-            assert "export_step=download-lock-acquired" not in failed.stderr
+            assert "phase=lock started" in failed.stderr
+            assert "phase=lock elapsed_ms=" not in failed.stderr
+            assert "export_step=" not in failed.stderr
+            assert not output.exists()
             assert lock.exists(), "Waiter removed the other process's lock"
         finally:
             _, stderr = owner.communicate("release", timeout=5)
@@ -1470,9 +1476,12 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
         assert "export_step=move-completed" not in failed.stderr
         assert output.is_dir()
         output.rmdir()
+    failed_result = parse_jsonl_output(failed.stdout)
+    assert failed_result is not None, failed.stdout
+    assert failed_result["status"] == "failed", failed_result
     assert not lock.exists()
-    # The stop hook already stopped its recording before attempting export.
-    # Verify a later recording can use the same shared download directory.
+    # Lock contention failed before stopping; publication failed after stopping.
+    # Neither failure may strand the AWP gate or prevent a later valid export.
     snapshot_dir, env = _start_snapshot_recording(
         tmp_path / "export-recovery",
         env,
@@ -1487,8 +1496,6 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
         re.findall(r"export_step=([a-z-]+) elapsed_ms=(\d+)", recovered.stderr),
     )
     assert set(steps) == {
-        "download-lock-wait",
-        "download-lock-acquired",
         "navigation-started",
         "navigation-returned",
         "browser-completed",
@@ -1496,11 +1503,9 @@ acquireSessionLock(process.argv[2], 1000).then(release => {
         "move-started",
         "move-completed",
     }, recovered.stderr
-    assert (
-        int(steps["download-lock-wait"])
-        <= int(steps["download-lock-acquired"])
-        <= int(steps["navigation-started"])
-    )
+    assert "phase=lock started" in recovered.stderr
+    assert "phase=lock elapsed_ms=" in recovered.stderr
+    assert int(steps["navigation-returned"]) >= int(steps["navigation-started"])
     assert int(steps["move-started"]) >= max(
         int(steps[name])
         for name in ("navigation-returned", "browser-completed", "file-published")

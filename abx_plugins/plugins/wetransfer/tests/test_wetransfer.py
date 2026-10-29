@@ -42,8 +42,11 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
             # Establish consent through the real provider flow, including any
             # optional dialog. The next export must reuse that accepted session.
             with sync_playwright() as playwright:
+                # Do not let this short-lived observer apply CDP defaults over
+                # the persistent Chrome download owner when it disconnects.
                 browser = playwright.chromium.connect_over_cdp(
                     (chrome / "cdp_url.txt").read_text().strip(),
+                    no_defaults=True,
                 )
                 page = next(
                     page
@@ -52,7 +55,33 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                 )
                 terms = page.get_by_role("button", name="I agree", exact=True)
                 preview = page.get_by_role("button", name="Close preview", exact=True)
-                terms.or_(preview).wait_for(state="visible")
+                try:
+                    terms.or_(preview).wait_for(state="visible")
+                except Exception:
+                    try:
+                        state = page.evaluate(
+                            """() => ({
+                              origin: location.origin,
+                              title: document.title.slice(0, 200),
+                              text: (document.body?.innerText || '').slice(0, 1200),
+                              buttons: [...document.querySelectorAll('button')]
+                                .filter(button => button.offsetWidth || button.offsetHeight)
+                                .map(button => (button.innerText || button.getAttribute('aria-label') || '').trim().slice(0, 100))
+                                .filter(Boolean).slice(0, 20)
+                            })""",
+                        )
+                        print("WeTransfer consent wait page state:", json.dumps(state))
+                        page.screenshot(
+                            path=tmp_path / "exported-frame-wetransfer-failure.jpg",
+                            type="jpeg",
+                            timeout=3000,
+                        )
+                    except Exception as diagnostic_error:
+                        print(
+                            "Could not collect WeTransfer consent diagnostics:",
+                            type(diagnostic_error).__name__,
+                        )
+                    raise
                 # The short link can open a preview that downloads without
                 # consent. Close it to exercise the genuine terms gate.
                 if preview.is_visible():
@@ -66,6 +95,7 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
             with sync_playwright() as playwright:
                 browser = playwright.chromium.connect_over_cdp(
                     (chrome / "cdp_url.txt").read_text().strip(),
+                    no_defaults=True,
                 )
                 assert any(
                     cookie.get("name") == "wt_tandc" and cookie.get("value")
@@ -107,6 +137,7 @@ def assert_media_kit_export(tmp_path, chrome, env):
         assert set(archive.namelist()) == set(HEADSHOTS)
         browser = playwright.chromium.connect_over_cdp(
             (chrome / "cdp_url.txt").read_text().strip(),
+            no_defaults=True,
         )
         page = browser.contexts[0].pages[0]
         for filename, expected_size in HEADSHOTS.items():

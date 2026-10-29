@@ -5207,6 +5207,9 @@ const utils = require(process.argv[1]);
       fs.writeFileSync(authFile, JSON.stringify({SOURCE: 'archivebox-browser-extension', cookies}));
       const session = await utils.ensureChromeSession({outputDir: process.argv[5], cookiesFile: authFile, CHROME_USER_DATA_DIR: userDataDir});
       assert.equal(session.reusedExisting, true);
+      // Cookie reconciliation borrows the launch daemon's browser; it must not
+      // acquire another persistent connection or take over download policy.
+      assert.equal(session.stopPersonaHydration, null);
     };
     await sync([cookie('first.example', 'session', 'old'), cookie('removed.example', 'session', 'remove'), cookie('first.example', 'cross-site', 'allowed', 'no_restriction'), cookie('first.example', 'strict', 'strict', 'strict'), {...cookie('first.example', 'unspecified', 'default', 'unspecified'), expirationDate: null}]);
     let imported = await browser.cookies();
@@ -5231,6 +5234,23 @@ const utils = require(process.argv[1]);
     cookies = await browser.cookies();
     assert.equal(cookies.some(c => c.domain === 'first.example'), false);
     assert.equal(cookies.find(c => c.domain === 'other.example').value, 'keep');
+    const page = await browser.newPage();
+    try {
+      const downloads = await utils.captureBrowserDownloads({
+        browser, page,
+        downloadPath: utils.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR,
+        timeoutMs: 10000,
+        trigger: () => page.evaluate(() => {
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(new Blob(['download after cookie sync']));
+          link.download = 'after-sync.txt';
+          document.body.append(link);
+          link.click();
+        }),
+      });
+      assert.equal(downloads.length, 1);
+      assert.equal(fs.readFileSync(downloads[0].filePath, 'utf8'), 'download after cookie sync');
+    } finally { await page.close(); }
   } finally { browser.disconnect(); }
 })().catch(error => { console.error(error); process.exit(1); });
 """

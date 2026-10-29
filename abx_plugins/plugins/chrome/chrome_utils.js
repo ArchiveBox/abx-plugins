@@ -5716,8 +5716,12 @@ async function ensureChromeSession(options = {}) {
     });
   }
 
-  const personaHydration = personaConfig || downloadsDir
-    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig || {}, { importStorage: !importState.imported, outputDir, downloadsDir })
+  // Launch daemons supply personaConfig and own this persistent connection.
+  // Cookie-only callers borrow an existing session: attaching another owner
+  // leaks a connection and its later disconnect resets the daemon's download
+  // policy. A derived downloadsDir alone must not transfer lifecycle ownership.
+  const personaHydration = personaConfig
+    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir, downloadsDir })
     : null;
   importState.save();
   // Snapshot hooks inherit browser.json; navigation re-applies this identity.
