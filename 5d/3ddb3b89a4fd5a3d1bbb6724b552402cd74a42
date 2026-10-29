@@ -1,0 +1,22 @@
+abx_plugins/plugins/chrome/tests/test_chrome_bootstrap_timeout.py
+  s_10bc94d001be49::t_e46793da521bb1 26-28
+  s_10bc94d001be49::t_8cd45e9cd05765 25,31,41
+  s_10bc94d001be49::t_28f66c792e6824 29-30,32-34,37
+  s_10bc94d001be49::t_550d671568c9ab 42-43,73-74,175-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d3ddb3b89a4fd5a3d1bbb6724b552402cd74a42",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
