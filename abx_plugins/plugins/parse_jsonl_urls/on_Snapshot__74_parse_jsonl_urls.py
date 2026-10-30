@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # ///
 """
-Parse JSONL bookmark files and extract URLs.
+Parse JSON/JSONL bookmark files and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
 It reads captured staticfile text, imported .txt files, or an HTTP URL.
@@ -16,6 +16,7 @@ Expected JSONL format (one object per line):
     {"href": "https://other.com", "description": "Other Site"}
 
 Supports various field names for URL, title, timestamp, and tags.
+Also accepts a JSON object or array of bookmark objects, including pretty-printed JSON.
 """
 
 import sys
@@ -153,16 +154,30 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     return "noresults", NORESULTS_OUTPUT
 
 
+def iter_json_records(content: str):
+    """Accept a JSON document or one bookmark object per JSONL line."""
+    try:
+        document = json.loads(content)
+    except json.JSONDecodeError:
+        for line in content.split("\n"):
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
+    else:
+        yield from document if isinstance(document, list) else [document]
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
-@click.option("--url", required=True, help="JSONL file URL to parse")
+@click.option("--url", required=True, help="JSON or JSONL file URL to parse")
 @click.option("--depth", type=int, default=0, help="Current depth level")
 def main(
     url: str,
     depth: int = 0,
 ):
-    """Parse JSONL bookmark file and extract URLs."""
+    """Parse JSON/JSONL bookmarks and extract explicit URL fields."""
     print("parsing 1 files for urls...")
     try:
         content = read_snapshot_source_text(
@@ -186,31 +201,22 @@ def main(
     urls_found = []
     all_tags = set()
 
-    for line in content.split("\n"):
-        line = line.strip()
-        if not line:
+    for link in iter_json_records(content):
+        if not isinstance(link, dict):
             continue
+        entry = json_object_to_entry(link)
+        if entry:
+            # Add crawl tracking metadata
+            entry["depth"] = depth + 1
 
-        try:
-            link = json.loads(line)
-            if not isinstance(link, dict):
-                continue
-            entry = json_object_to_entry(link)
-            if entry:
-                # Add crawl tracking metadata
-                entry["depth"] = depth + 1
+            # Collect tags
+            if entry.get("tags"):
+                for tag in entry["tags"].split(","):
+                    tag = tag.strip()
+                    if tag:
+                        all_tags.add(tag)
 
-                # Collect tags
-                if entry.get("tags"):
-                    for tag in entry["tags"].split(","):
-                        tag = tag.strip()
-                        if tag:
-                            all_tags.add(tag)
-
-                urls_found.append(entry)
-        except json.JSONDecodeError:
-            # Skip malformed lines
-            continue
+            urls_found.append(entry)
 
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):

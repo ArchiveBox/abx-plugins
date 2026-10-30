@@ -15,6 +15,35 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_jsonl_urls.*"), None)
 class TestParseJsonlUrls:
     """Test the parse_jsonl_urls extractor CLI."""
 
+    @pytest.mark.parametrize("as_array", [False, True])
+    def test_json_document_preserves_explicit_url_boundary(self, tmp_path, as_array):
+        record = {
+            "url": "https://archive.today/2026.09.18-104122/https://example.com/story?url=https://other.example/",
+            "title": "Imported article",
+            "bookmarked_at": "2020-01-02T12:34:56+00:00",
+            "tags": ["reader", "saved"],
+        }
+        input_file = tmp_path / "bookmarks.json"
+        input_file.write_text(json.dumps([record] if as_array else record, indent=2))
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", input_file.as_uri()],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        emitted = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        records = [record for record in emitted if record.get("type") == "Snapshot"]
+        assert len(records) == 1, result.stdout
+        assert records[0]["url"] == record["url"]
+        assert records[0]["title"] == record["title"]
+        assert records[0]["bookmarked_at"] == record["bookmarked_at"]
+        assert records[0]["tags"] == "reader,saved"
+
     def test_extracts_urls_from_jsonl(self, tmp_path):
         """Test extracting URLs from JSONL bookmark file."""
         input_file = tmp_path / "bookmarks.jsonl"
