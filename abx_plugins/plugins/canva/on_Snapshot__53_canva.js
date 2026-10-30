@@ -317,6 +317,11 @@ async function main() {
         click("button", "Open in Editor", frame),
       ]);
     }
+    // Download mounts a provisional form before its export settings are ready.
+    // Its submit button is aria-disabled during that work; interacting with the
+    // enabled format control then can lose the menu when the form is replaced.
+    // Resolve the format control only from a ready form, using the same deadline.
+    const fileTypeSelector = 'form:has(button[type="submit"]:not(:disabled):not([aria-disabled="true"])) [role="combobox"]';
     // Compact layouts label the publish menu differently and also expose a
     // separate Share control that only changes collaboration permissions.
     await click(
@@ -326,7 +331,7 @@ async function main() {
       '[role="menuitem"]:not([aria-label="Share"])',
     );
     await click("button", "Download");
-    await click("combobox", "File type");
+    await click("combobox", "File type", page, fileTypeSelector);
     console.error("Waiting for Canva export options");
     await page
       .waitForSelector('[role="option"]', {
@@ -358,7 +363,7 @@ async function main() {
           '[role="menuitem"]:not([aria-label="Share"])',
         );
         await click("button", "Download");
-        await click("combobox", "File type");
+        await click("combobox", "File type", page, fileTypeSelector);
       }
       await click("option", formats[index]);
       downloads.push(

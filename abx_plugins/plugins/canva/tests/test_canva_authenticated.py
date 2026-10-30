@@ -50,6 +50,8 @@ process.on('SIGTERM', () => { if (browser) browser.disconnect(); process.exit(0)
       const state = () => {
         const control = document.querySelector('[role="combobox"][aria-label="File type"]');
         return {control: describe(control), expanded: control?.getAttribute('aria-expanded'),
+          submit: [...document.querySelectorAll('form button[type="submit"]')].map(el => ({disabled: el.disabled,
+            ariaDisabled: el.getAttribute('aria-disabled'), text: el.innerText})),
           selectedFormat: control?.innerText.slice(0, 100),
           options: document.querySelectorAll('[role="option"]').length};
       };
@@ -136,6 +138,30 @@ def test_authenticated_template_copy(tmp_path, ensure_chrome_test_prereqs, resol
     ) as (_, _, chrome, env):
         result = run_observed_hook(tmp_path, chrome, env)
         assert result.returncode == 0, result.stderr
+        # A visible format selector can belong to the provisional download form.
+        # Verify both real selections wait for export readiness, without replaying
+        # clicks, in addition to checking the complete downloaded files below.
+        observations = [
+            json.loads(line)
+            for line in (chrome / "canva-observer.stderr.log").read_text().splitlines()
+            if line.startswith("{")
+        ]
+        format_clicks = [
+            row
+            for row in observations
+            if row.get("type") == "click"
+            and (row.get("inputControl") or {}).get("label") == "File type"
+        ]
+        assert len(format_clicks) == 2, format_clicks
+        assert all(
+            row["trusted"]
+            and row["submit"]
+            and all(
+                not button["disabled"] and button["ariaDisabled"] != "true"
+                for button in row["submit"]
+            )
+            for row in format_clicks
+        ), format_clicks
         record = parse_jsonl_output(result.stdout)
         assert record is not None, result.stdout
         assert record["status"] == "succeeded", result.stdout
