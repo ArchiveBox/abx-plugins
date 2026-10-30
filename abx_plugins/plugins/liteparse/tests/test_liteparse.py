@@ -740,10 +740,65 @@ def test_multiple_batches_preserve_source_mapping(tmp_path):
         assert (sources / name).read_bytes() == content
 
 
-def test_document_discovery_reads_siblings_not_parser_output(tmp_path):
+@pytest.mark.parametrize("with_document", [False, True])
+@pytest.mark.parametrize("extension", ["png", "pdf", "zip"])
+def test_document_discovery_uses_saved_response_type(
+    tmp_path,
+    with_document,
+    extension,
+):
+    """URL aliases must not turn saved HTML into an image or PDF input."""
+    responses = tmp_path / "responses"
+    saved = responses / "all" / "response.html"
+    saved.parent.mkdir(parents=True)
+    html = (
+        PLUGINS_ROOT / "singlefile/tests/fixtures/archivebox-test-page.html"
+    ).read_bytes()
+    saved.write_bytes(html)
+    aliases = responses / "by-url"
+    aliases.mkdir()
+    (aliases / f"document.{extension}").symlink_to(saved)
+    if with_document:
+        (responses / "document.pdf").write_bytes(_download_pdf(PDF_URL_A))
+
+    result = _run_hook(tmp_path, TEST_URL)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Cannot inspect embedded images" not in result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == (
+        "succeeded" if with_document else "noresults"
+    ), record
+    outputs = list((tmp_path / "liteparse").glob("*.txt"))
+    assert len(outputs) == int(with_document), outputs
+    if with_document:
+        assert "Dummy PDF file" in outputs[0].read_text()
+    assert saved.read_bytes() == html
+    assert all(path.is_symlink() for path in aliases.iterdir())
+
+
+def test_invalid_image_content_still_fails(tmp_path):
+    # A producer declaring an image with invalid bytes is different from an
+    # alias pointing to a known HTML response. Preserve the real parser error.
+    source = tmp_path / "responses" / "invalid.png"
+    source.parent.mkdir()
+    html = (
+        PLUGINS_ROOT / "singlefile/tests/fixtures/archivebox-test-page.html"
+    ).read_bytes()
+    source.write_bytes(html)
+    result = _run_hook(tmp_path, TEST_URL)
+    assert result.returncode != 0, result.stdout + result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed", record
+    assert "image" in result.stderr.lower() and "error" in result.stderr.lower()
+    assert not list((tmp_path / "liteparse").glob("*.txt"))
+    assert source.read_bytes() == html
+
+
+@pytest.mark.parametrize("target_suffix", [".pdf", ""])
+def test_document_discovery_reads_siblings_not_parser_output(tmp_path, target_suffix):
     source = tmp_path / "01_responses" / "all" / "document.pdf"
     source.parent.mkdir(parents=True)
-    saved = tmp_path / "git/document.pdf"
+    saved = tmp_path / "git" / f"document{target_suffix}"
     saved.parent.mkdir()
     saved.write_bytes(_download_pdf(PDF_URL_A))
     source.symlink_to(saved)

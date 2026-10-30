@@ -288,6 +288,19 @@ def find_document_sources(
                     ):
                         continue
                     source_stat = resolved.stat()
+                    # Response URL aliases retain the requested suffix even
+                    # when the server returned a different type (e.g. an HTML
+                    # error page for an image URL). The saved target's suffix
+                    # describes that response: do not turn unsupported content
+                    # back into an OCR/document input through its URL alias.
+                    # Extensionless targets still use the alias's type hint.
+                    target_suffix = resolved.suffix.lower()
+                    if (
+                        target_suffix
+                        and target_suffix not in SUPPORTED_EXTENSIONS
+                        and target_suffix not in archive_extensions
+                    ):
+                        continue
                 if suffix in SUPPORTED_EXTENSIONS:
                     consider(match, source_stat, resolved)
                 # Office/HTML exports may contain images even when the
