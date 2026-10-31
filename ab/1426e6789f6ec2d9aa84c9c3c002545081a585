@@ -1,0 +1,23 @@
+README.md
+  s_10bc94d001be49::t_d052be4bb2267d 55-64
+abx_plugins/plugins/git/on_Snapshot__34_git.finite.bg.py
+  s_10bc94d001be49::t_f8f643e527806d 27-32,114-120,131,181-192,194-297,299-332,337
+abx_plugins/plugins/git/tests/test_git_timeout.py
+  s_10bc94d001be49::t_cfbe4e72bf4b59 13,69-70,116,128,150-157,161-164,169-205,228-235,237-239,343-580
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab1426e6789f6ec2d9aa84c9c3c002545081a585",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
