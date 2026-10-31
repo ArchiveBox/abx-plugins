@@ -1,0 +1,20 @@
+tests/test_browser_downloads.py
+  s_10bc94d001be49::t_6834a2864e2209 200-204,236,238-245,251,262-271,328
+  s_10bc94d001be49::t_6c5f22f107b2be 329-331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "62c8685ca5c1c55bfa8e42b3f59ab19ddb0282ae",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
