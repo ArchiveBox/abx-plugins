@@ -1,0 +1,23 @@
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_10bc94d001be49::t_e4924e5a4b244a 244-248,250,252
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_10bc94d001be49::t_36791b01c6f566 53-57
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_10bc94d001be49::t_3e47cc3742eb0c 52-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a6ca2d1ee784916ee6f1641acb1e53f3abab3146",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "unknown"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
