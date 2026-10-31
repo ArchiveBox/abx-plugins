@@ -759,6 +759,8 @@ const extensionJson = process.argv[3];
     await chromeUtils.sendBrowserCommand(browser, 'Extensions.uninstall', {
       id: extensions[0].id,
     });
+    const missingTargets = [];
+    browser.on('targetcreated', target => missingTargets.push(target));
     const missingStarted = Date.now();
     let missingError = '';
     try {
@@ -770,7 +772,8 @@ const extensionJson = process.argv[3];
     }
     const missingElapsed = Date.now() - missingStarted;
     require('assert')(missingElapsed < 1000, `Unavailable extension waited ${missingElapsed}ms: ${missingError}`);
-    require('assert')(missingError.includes('ERR_BLOCKED_BY_CLIENT'), missingError);
+    require('assert').strictEqual(missingError, `Extension ${extensions[0].id} is not installed`);
+    require('assert').strictEqual(missingTargets.length, 0, 'Missing extension created a helper target');
     process.stdout.write(JSON.stringify({
       cdpUrl: result.cdpUrl,
       extension: extensions[0],
@@ -781,7 +784,14 @@ const extensionJson = process.argv[3];
       wakePageStillOpen,
     }));
   } finally {
-    await browser.close().catch(() => {});
+    // This test owns the launched process. Browser.close() only acknowledges
+    // shutdown; profile writers can still be alive when TemporaryDirectory is
+    // removed, masking the actual assertion with a directory-not-empty error.
+    try {
+      require('assert')(await chromeUtils.killChrome(result.pid, outputDir), 'Chrome process tree did not exit');
+    } finally {
+      await browser.disconnect();
+    }
   }
 })().catch((error) => {
   console.error(error && (error.stack || error.message || String(error)));

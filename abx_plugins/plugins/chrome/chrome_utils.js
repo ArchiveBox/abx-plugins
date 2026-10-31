@@ -2077,6 +2077,13 @@ async function openExtensionPage(browser, url, timeoutMs = 10000) {
   // destroys in-flight extension calls and can pollute the recorded archive.
   const deadline = Date.now() + timeoutMs;
   const remaining = () => Math.max(1, deadline - Date.now());
+  // Direct target creation does not report navigation failures like goto().
+  // Query Chrome's live inventory so an uninstalled extension fails immediately
+  // instead of creating an error page and spending the entire readiness budget.
+  const extensionId = getExtensionIdFromUrl(url);
+  if (!(await browser.extensions()).has(extensionId)) {
+    throw new Error(`Extension ${extensionId} is not installed`);
+  }
   const { targetId } = await sendBrowserCommand(browser, "Target.createTarget", {
     url, background: true,
   });
