@@ -282,7 +282,14 @@ def test_cached_image_body_identity_across_oopif_sessions(
             recorder.terminate()
             stdout, stderr = recorder.communicate(timeout=30)
             observer.terminate()
-            observer.communicate(timeout=15)
+            observer_stdout, observer_stderr = observer.communicate(timeout=15)
+            # Frame readiness can fail before the body assertions below run.
+            # Keep the actual recorder diagnostics in CI's existing hook-log
+            # artifacts instead of losing them behind the earlier assertion.
+            (tmp_path / "responses.stdout.log").write_text(stdout)
+            (tmp_path / "responses.stderr.log").write_text(stderr)
+            (tmp_path / "image-observer.stdout.log").write_text(observer_stdout)
+            (tmp_path / "image-observer.stderr.log").write_text(observer_stderr)
 
         rows = [json.loads(line) for line in trace.read_text().splitlines()]
         image_key = hashlib.sha256(image_url.encode()).hexdigest()
