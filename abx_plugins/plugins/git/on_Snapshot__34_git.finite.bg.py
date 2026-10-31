@@ -108,6 +108,11 @@ def normalize_git_url(url: str) -> str | None:
 def run_git(cmd: list[str | Path], timeout: int, *, capture: bool = False):
     """Let Git release its own locks before killing its owned process group."""
     deadline = time.monotonic() + timeout
+    # Every caller uses git -C <repo> <verb>. Log only that verb, never remote
+    # arguments that may contain credentials. Separate fetch/ref publication
+    # from checkout/submodules: a timeout does not necessarily mean slow network.
+    operation = f"git {cmd[3]}"
+    print(f"[*] {operation} started", file=sys.stderr, flush=True)
     proc = subprocess.Popen(
         cmd,
         start_new_session=True,
@@ -143,6 +148,12 @@ def run_git(cmd: list[str | Path], timeout: int, *, capture: bool = False):
             signal_group(signal.SIGKILL)
         if proc.stdout is not None:
             proc.stdout.close()
+        elapsed = time.monotonic() - (deadline - timeout)
+        print(
+            f"[*] {operation} ended after {elapsed:.3f}s",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -156,6 +167,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     repo_dir = OUTPUT_DIR
     git_dir = repo_dir / ".git"
     exclude_file = git_dir / "info" / "exclude"
+    error_prefix = "git clone failed"
 
     try:
         if not git_dir.is_dir():
@@ -245,7 +257,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, "git init failed"
 
     except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout} seconds"
+        return False, None, f"{error_prefix}: Timed out after {timeout} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
 

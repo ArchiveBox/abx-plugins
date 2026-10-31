@@ -165,7 +165,7 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
         assert hook.returncode == 1, stderr
         record = parse_jsonl_output(stdout)
         assert record and record["status"] == "failed"
-        assert "Timed out after 10 seconds" in record["output_str"]
+        assert record["output_str"] == "git reset failed: Timed out after 10 seconds"
         assert not stopped.is_running()
         assert not lock.exists(), "Our timeout left Git's index lock behind"
         # A subsequent ordinary capture must work without deleting any lock.
@@ -279,7 +279,7 @@ def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
         assert hook.returncode == 1, stderr
         record = parse_jsonl_output(stdout)
         assert record and record["status"] == "failed"
-        assert "Timed out after 10 seconds" in record["output_str"]
+        assert record["output_str"] == "git fetch failed: Timed out after 10 seconds"
         assert all(
             not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
             for child in children
