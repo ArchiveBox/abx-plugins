@@ -50,7 +50,11 @@ def save_singlefile_with_extension(
     url: str,
     timeout: int,
 ) -> tuple[bool, str | None, str]:
-    output_path = OUTPUT_DIR / OUTPUT_FILE
+    # We already own OUTPUT_DIR as cwd. Keep publication relative to that inode:
+    # absolute paths revalidate expired rclone ancestors (potentially listing
+    # thousands of sibling snapshots) before even returning cross-device EXDEV.
+    # The helper inherits this cwd; validation and atomic replacement must too.
+    output_path = Path(OUTPUT_FILE)
     temp_output_path = temp_path_for(output_path)
     # The runner may kill this wrapper before its own helper deadline expires.
     # Forward phases immediately, retaining only a bounded tail for the result.

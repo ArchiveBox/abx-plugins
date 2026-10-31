@@ -241,10 +241,15 @@ async function downloadExactWacz(
     // take ownership of the WACZ.
     await completed;
     reportExport("move-started");
+    // cwd already pins this hook's output directory. Absolute publication/stat
+    // walks expired rclone ancestors and can list thousands of sibling snapshots
+    // before rename even returns EXDEV. Keep both move and validation relative;
+    // Chrome's download directory and our external output-path contract stay absolute.
+    const localDestPath = path.relative(process.cwd(), path.resolve(destPath));
     if (path.resolve(downloadedPath) !== path.resolve(destPath)) {
-      await moveAcrossMounts(downloadedPath, destPath);
+      await moveAcrossMounts(downloadedPath, localDestPath);
     }
-    const size = (await fs.promises.stat(destPath)).size;
+    const size = (await fs.promises.stat(localDestPath)).size;
     reportExport("move-completed");
     return size;
   } finally {

@@ -49,6 +49,9 @@ function getSinglefileDownloadWaitTimeoutMs(
 }
 
 async function moveAcrossMounts(src, dest, startedAt) {
+  // The hook already holds its output directory as cwd. Avoid walking expired
+  // remote ancestors again before rename's EXDEV and the subsequent copy.
+  dest = path.relative(process.cwd(), path.resolve(dest));
   console.error(`[singlefile] phase=file-rename started elapsed_ms=${Date.now() - startedAt}`);
   try {
     await fs.promises.rename(src, dest);
