@@ -197,6 +197,11 @@ def test_provider_download_from_cross_origin_child_frame(
             content_type="text/html",
         )
         httpserver.expect_request("/child").respond_with_data(
+            "<script>window.downloadInput = [];"
+            "for (const type of ['pointerdown', 'pointerup', 'click']) "
+            "document.addEventListener(type, event => {"
+            "if (event.isTrusted && event.target.tagName === 'A') "
+            "window.downloadInput.push(type);}, true);</script>"
             '<a href="/download">Export child document</a>',
             content_type="text/html",
         )
@@ -228,14 +233,22 @@ def test_provider_download_from_cross_origin_child_frame(
         const page = exportPage || ownerPage;
         const lateFrame = process.argv[5] === 'true';
         async function findChild() {
+          const deadline = Date.now() + 10000;
           const child = await page.waitForFrame(frame => frame.url() === process.argv[4], {timeout: 10000});
-          const {targetInfos} = await utils.sendBrowserCommand(browser, 'Target.getTargets');
-          if (!targetInfos.some(target => target.type === 'iframe' && target.url === process.argv[4])) {
+          // Frame navigation precedes both usable child UI and the browser's
+          // separate target inventory update. Check the ready child's own CDP
+          // session, not an immediate global snapshot or another same-URL frame.
+          const remaining = deadline - Date.now();
+          if (remaining <= 0) throw new Error('Child frame readiness deadline exceeded');
+          await child.waitForSelector('a', {visible: true, timeout: remaining});
+          const {targetInfo} = await child.client.send('Target.getTargetInfo');
+          if (targetInfo.type !== 'iframe' || targetInfo.url !== process.argv[4]) {
             throw new Error('Test did not create an out-of-process iframe');
           }
           return child;
         }
         const existingChild = lateFrame ? null : await findChild();
+        const downloadDeadline = Date.now() + 10000;
         const files = await utils.captureBrowserDownloads({browser, page,
           downloadPath: utils.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR, timeoutMs: 10000,
           trigger: async () => {
@@ -245,11 +258,17 @@ def test_provider_download_from_cross_origin_child_frame(
             }, process.argv[4]);
             console.error('child-created');
             const child = existingChild || await findChild();
-            // URL commitment precedes the child document's visible controls.
-            // Exercise the link only once its real UI is ready for input.
-            await child.waitForSelector('a', {visible: true, timeout: 10000});
             console.error('child-target-ready');
-            await child.click('a');
+            // A visible child DOM can precede compositor/input routing: a raw
+            // click pressed the parent iframe and released the child anchor.
+            // Use native locator readiness before the one trusted interaction.
+            const remaining = downloadDeadline - Date.now();
+            if (remaining <= 0) throw new Error('Child download deadline exceeded');
+            await child.locator('a').setTimeout(remaining).click();
+            const input = await child.evaluate(() => window.downloadInput);
+            if (JSON.stringify(input) !== JSON.stringify(['pointerdown', 'pointerup', 'click'])) {
+              throw new Error('Expected one trusted child click: ' + JSON.stringify(input));
+            }
             console.error('child-click-completed');
           },
         });
@@ -306,3 +325,7 @@ def test_provider_download_from_cross_origin_child_frame(
             assert files[0]["filename"] == "child.txt"
             assert files[0]["bytes"] == len(payload)
             assert Path(files[0]["path"]).read_bytes() == payload
+        assert (
+            sum(request.path == "/download" for request, _response in httpserver.log)
+            == 1
+        )
