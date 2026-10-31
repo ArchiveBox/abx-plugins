@@ -429,7 +429,9 @@ async function handleShutdown(signal) {
     try {
       // The capture control connection can finish before this recorder sees
       // its final network events. A same-session round trip drains them first.
-      await page.evaluate(() => undefined);
+      // Use the page's CDP session without requiring a JavaScript realm that
+      // navigation can destroy while this recorder is shutting down.
+      await page.metrics();
     } catch (error) {
       const targetClosed = page.isClosed() || !browser?.connected ||
         error.name === "TargetCloseError";
