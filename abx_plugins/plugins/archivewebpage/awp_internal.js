@@ -97,30 +97,8 @@ async function openAwpHelperTab(
   { requirePopupPort = true } = {}
 ) {
   const helperUrl = `chrome-extension://${extensionId}/popup.html`;
-  const result = await chromeUtils.sendBrowserCommand(
-    browser,
-    "Target.createTarget",
-    { url: helperUrl, background: true }
-  );
-  const targetId = result.targetId;
-  console.error("[archivewebpage] helper phase=target created");
-  if (!targetId) {
-    throw new Error("Target.createTarget did not return a targetId");
-  }
-  const matchesTarget = (target) =>
-    chromeUtils.getTargetIdFromTarget(target) === targetId &&
-    target.type() === "page";
-  const target =
-    browser.targets().find(matchesTarget) ||
-    (await browser.waitForTarget(matchesTarget, {
-      timeout: Math.max(250, timeoutMs),
-    }));
-  console.error("[archivewebpage] helper phase=target discovered");
-  const page = await target.page();
+  const page = await chromeUtils.openExtensionPage(browser, helperUrl, timeoutMs);
   console.error("[archivewebpage] helper phase=page attached");
-  if (!page) {
-    throw new Error(`Helper target ${targetId} is not a page`);
-  }
   const diagnosticTimer = setTimeout(() => {
     page.evaluate(() => ({
       url: location.href,
@@ -151,6 +129,10 @@ async function openAwpHelperTab(
       helperUrl,
       requirePopupPort
     );
+  } catch (error) {
+    // A caller cannot close a helper that failed before it was returned.
+    await page.close({ runBeforeUnload: false }).catch(() => {});
+    throw error;
   } finally {
     clearTimeout(diagnosticTimer);
   }

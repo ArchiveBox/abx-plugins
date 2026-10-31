@@ -166,7 +166,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   console.error(
     `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
-  const helperPage = await page.browser().newPage();
+  let helperPage;
   let releaseSinglefileLock;
   let downloadedPath;
   let originalProfileOptions;
@@ -183,8 +183,10 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     );
     console.error(`[singlefile] phase=singlefile-lock elapsed_ms=${Date.now() - lockStartedAt}`);
     console.error(`[singlefile] phase=helper-navigation started elapsed_ms=${Date.now() - saveStartedAt}`);
-    await helperPage.goto(
-      `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
+    helperPage = await chromeUtils.openExtensionPage(
+      page.browser(),
+      `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`,
+      Math.max(1, deadline - Date.now())
     );
     // A snapshot is replayed at other viewport sizes. SingleFile's default
     // optimizations discard currently hidden images and alternate media rules.
@@ -363,7 +365,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       console.error(`SingleFile profile restoration failed: ${error.stack || error.message}`);
     } finally {
       releaseSinglefileLock?.();
-      await helperPage.close({ runBeforeUnload: false }).catch(() => {});
+      await helperPage?.close({ runBeforeUnload: false }).catch(() => {});
     }
   }
   // The exact GUID download is complete and exclusively ours. Restore browser

@@ -1198,6 +1198,86 @@ const path = require("node:path");
     [{"SINGLEFILE_ENABLED": "true"}],
     indirect=True,
 )
+def test_singlefile_helper_never_opens_a_blank_recording_tab(
+    archivewebpage_crawl,
+    tmp_path,
+    httpserver,
+):
+    """Helper creation must not offer AWP a new tab to auto-record/reload."""
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    httpserver.expect_request("/helper-owner").respond_with_data(
+        "<!doctype html><h1>Exact helper owner content</h1>",
+        content_type="text/html",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    url = httpserver.url_for("/helper-owner")
+    snapshot, hook_env = _start_snapshot_recording(
+        tmp_path,
+        env,
+        tab_processes,
+        snapshot_id="helper-owner",
+        url=url,
+    )
+    output = snapshot / "singlefile"
+    output.mkdir()
+    script = r"""
+const {spawn} = require('child_process');
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    const client = await browser.target().createCDPSession();
+    const created = [];
+    client.on('Target.targetCreated', ({targetInfo}) => {
+      if (targetInfo.type === 'page') created.push(targetInfo.url);
+    });
+    await client.send('Target.setDiscoverTargets', {discover: true});
+    created.length = 0; // Existing capture tabs are not helper creations.
+    const child = spawn(process.argv[3], [`--url=${process.argv[5]}`], {cwd: process.argv[4]});
+    let stdout = '', stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    const code = await new Promise((resolve, reject) => {
+      child.on('error', reject); child.on('close', resolve);
+    });
+    await client.send('Target.getTargets'); // Drain observed creation events.
+    console.log(JSON.stringify({code, stdout, stderr, created}));
+  } finally { browser.disconnect(); }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+    observed = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(snapshot / "chrome"),
+            str(
+                CHROME_UTILS.parent.parent / "singlefile/on_Snapshot__50_singlefile.py",
+            ),
+            str(output),
+            url,
+        ],
+        env=hook_env,
+        capture_output=True,
+        text=True,
+        timeout=70,
+    )
+    assert observed.returncode == 0, observed.stderr
+    result = json.loads(observed.stdout)
+    assert result["code"] == 0, result
+    assert "Exact helper owner content" in (output / "singlefile.html").read_text()
+    assert result["created"], result
+    assert all(url.startswith("chrome-extension://") for url in result["created"]), (
+        result
+    )
+
+
+@pytest.mark.parametrize(
+    "archivewebpage_crawl",
+    [{"SINGLEFILE_ENABLED": "true"}],
+    indirect=True,
+)
 def test_wacz_export_does_not_wait_for_another_singlefile_capture(
     archivewebpage_crawl,
     tmp_path,
@@ -1236,10 +1316,10 @@ const utils = require(process.argv[1]);
     chromeSessionDir: process.argv[2], requireTargetId: true,
     waitForNavigationComplete: true,
   });
-  const helper = await browser.newPage();
+  const extension = utils.findExtensionMetadataByName(extensions, 'singlefile');
+  const helper = await utils.openExtensionPage(browser,
+    `chrome-extension://${extension.id}/src/ui/pages/offscreen-document.html`);
   try {
-    const extension = utils.findExtensionMetadataByName(extensions, 'singlefile');
-    await helper.goto(`chrome-extension://${extension.id}/src/ui/pages/offscreen-document.html`);
     const tabId = await helper.evaluate(async url =>
       (await chrome.tabs.query({})).find(tab => tab.url === url).id, await page.url());
     await helper.evaluate(async tabId => {
