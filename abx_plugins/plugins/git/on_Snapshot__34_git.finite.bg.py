@@ -24,6 +24,12 @@ if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("git clone started", flush=True)
 
 import os
+import fnmatch
+import fcntl
+import hashlib
+import re
+import shutil
+import tempfile
 import subprocess
 import time
 from pathlib import Path
@@ -105,7 +111,13 @@ def normalize_git_url(url: str) -> str | None:
     return urlunsplit((parsed.scheme, parsed.netloc, f"/{owner}/{repo}", "", ""))
 
 
-def run_git(cmd: list[str | Path], timeout: int, *, capture: bool = False):
+def run_git(
+    cmd: list[str | Path],
+    timeout: int,
+    *,
+    capture: bool = False,
+    lock_fd: int | None = None,
+):
     """Let Git release its own locks before killing its owned process group."""
     deadline = time.monotonic() + timeout
     # Every caller uses git -C <repo> <verb>. Log only that verb, never remote
@@ -116,6 +128,7 @@ def run_git(cmd: list[str | Path], timeout: int, *, capture: bool = False):
     proc = subprocess.Popen(
         cmd,
         start_new_session=True,
+        pass_fds=(lock_fd,) if lock_fd is not None else (),
         stdout=subprocess.PIPE if capture else None,
         stderr=subprocess.STDOUT if capture else None,
         text=True,
@@ -164,102 +177,164 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     config = load_config()
     timeout = config.GIT_TIMEOUT
-    repo_dir = OUTPUT_DIR
-    git_dir = repo_dir / ".git"
-    exclude_file = git_dir / "info" / "exclude"
     error_prefix = "git clone failed"
-
+    # A snapshot restart is a fresh capture. SIGKILL cannot release Git's ref
+    # locks, and reusing that repository can poison every later attempt. Acquire
+    # independently; leave previous complete or partial output intact on failure.
+    runtime_tmp = (
+        Path(config.TMP_DIR).expanduser()
+        if config.TMP_DIR
+        else Path(tempfile.gettempdir())
+    )
+    scratch = (
+        runtime_tmp / PLUGIN_DIR / hashlib.sha256(str(SNAP_DIR).encode()).hexdigest()
+    )
+    repo_dir = scratch / "repo"
     try:
-        if not git_dir.is_dir():
-            init_cmd = [binary, "-C", repo_dir, "init"]
-            add_remote_cmd = [binary, "-C", repo_dir, "remote", "add", "origin", url]
-            for cmd, error_prefix in (
-                (init_cmd, "git init failed"),
-                (add_remote_cmd, "git remote add failed"),
-            ):
-                result = run_git(cmd, timeout)
-                if result.returncode != 0:
-                    return False, None, f"{error_prefix} (exit={result.returncode})"
+        # Do not follow a replaced namespace into another snapshot's scratch.
+        if scratch.parent.is_symlink() or scratch.is_symlink() or repo_dir.is_symlink():
+            raise ValueError("Git scratch directories must not be symlinks")
+        scratch.mkdir(mode=0o700, parents=True, exist_ok=True)
+        owner_fd = os.open(
+            scratch / "owner.lock",
+            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+            0o600,
+        )
+        with os.fdopen(owner_fd, "a") as owner:
+            # The local OS lease survives in Git children if this hook is killed.
+            # Never clear another live attempt; after all owners exit, startup
+            # discards only this snapshot's scratch instead of accumulating GBs.
+            fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try:
+                if repo_dir.exists():
+                    shutil.rmtree(repo_dir)
+                repo_dir.mkdir()
+                git_dir = repo_dir / ".git"
+                init_cmd = [binary, "-C", repo_dir, "init"]
+                add_remote_cmd = [
+                    binary,
+                    "-C",
+                    repo_dir,
+                    "remote",
+                    "add",
+                    "origin",
+                    url,
+                ]
+                for cmd, error_prefix in (
+                    (init_cmd, "git init failed"),
+                    (add_remote_cmd, "git remote add failed"),
+                ):
+                    result = run_git(cmd, timeout, lock_fd=owner.fileno())
+                    if result.returncode != 0:
+                        return False, None, f"{error_prefix} (exit={result.returncode})"
 
-            exclude_file.parent.mkdir(parents=True, exist_ok=True)
-            existing_excludes = (
-                exclude_file.read_text() if exclude_file.exists() else ""
-            )
-            extra_excludes = [
-                f"{PLUGIN_DIR}.jsonl",
-                f"{Path(__file__).name}.sh",
-                f"{Path(__file__).stem}.stdout.log",
-                f"{Path(__file__).stem}.stderr.log",
-                f"{Path(__file__).stem}.pid",
-                f"{Path(__file__).stem}.stdout.*.log",
-                f"{Path(__file__).stem}.stderr.*.log",
-            ]
-            with exclude_file.open("a") as fh:
-                for pattern in extra_excludes:
-                    if pattern not in existing_excludes:
-                        fh.write(f"{pattern}\n")
+                # These are the existing legacy Git sidecars. Current per-process
+                # artifacts use the UUID naming contract also recognized by hashes.
+                extra_excludes = [
+                    f"{PLUGIN_DIR}.jsonl",
+                    f"{Path(__file__).name}.sh",
+                    f"{Path(__file__).stem}.stdout.log",
+                    f"{Path(__file__).stem}.stderr.log",
+                    f"{Path(__file__).stem}.pid",
+                    f"{Path(__file__).stem}.stdout.*.log",
+                    f"{Path(__file__).stem}.stderr.*.log",
+                    "on_*__*.*.sh",
+                    "on_*__*.*.pid",
+                    "on_*__*.*.stdout.log*",
+                    "on_*__*.*.stderr.log*",
+                ]
+                (git_dir / "info/exclude").write_text("\n".join(extra_excludes) + "\n")
+                # Fetch HEAD explicitly while retaining every other shallow branch
+                # tip: the first wildcard FETCH_HEAD entry is not necessarily HEAD.
+                fetch_cmd = [
+                    binary,
+                    "-C",
+                    repo_dir,
+                    "fetch",
+                    "--depth=1",
+                    "origin",
+                    "HEAD",
+                    "+refs/heads/*:refs/remotes/origin/*",
+                ]
+                reset_cmd = [binary, "-C", repo_dir, "reset", "--hard", "FETCH_HEAD"]
+                submodule_cmd = [
+                    binary,
+                    "-C",
+                    repo_dir,
+                    "submodule",
+                    "update",
+                    "--init",
+                    "--recursive",
+                    "--depth=1",
+                ]
+                for cmd, error_prefix in (
+                    (fetch_cmd, "git fetch failed"),
+                    (reset_cmd, "git reset failed"),
+                    (submodule_cmd, "git submodule update failed"),
+                ):
+                    result = run_git(cmd, timeout, capture=True, lock_fd=owner.fileno())
+                    if result.returncode != 0:
+                        output = result.stdout or ""
+                        if (
+                            error_prefix == "git fetch failed"
+                            and "not found" in output.lower()
+                        ):
+                            return True, "No git repository found", ""
+                        return (
+                            False,
+                            None,
+                            f"{error_prefix} (exit={result.returncode}): {output.strip()}",
+                        )
 
-        if git_dir.is_dir():
-            set_remote_cmd = [
-                binary,
-                "-C",
-                repo_dir,
-                "remote",
-                "set-url",
-                "origin",
-                url,
-            ]
-            # Fetch the remote's HEAD explicitly: with only the wildcard remote
-            # refspec, FETCH_HEAD starts with the alphabetically first branch,
-            # so reset can silently archive the wrong working tree. Retain the
-            # other shallow branch tips too; selecting HEAD must not drop them.
-            fetch_cmd = [
-                binary,
-                "-C",
-                repo_dir,
-                "fetch",
-                "--depth=1",
-                "origin",
-                "HEAD",
-                "+refs/heads/*:refs/remotes/origin/*",
-            ]
-            reset_cmd = [binary, "-C", repo_dir, "reset", "--hard", "FETCH_HEAD"]
-            submodule_cmd = [
-                binary,
-                "-C",
-                repo_dir,
-                "submodule",
-                "update",
-                "--init",
-                "--recursive",
-                "--depth=1",
-            ]
-            for cmd, error_prefix in (
-                (set_remote_cmd, "git remote set-url failed"),
-                (fetch_cmd, "git fetch failed"),
-                (reset_cmd, "git reset failed"),
-                (submodule_cmd, "git submodule update failed"),
-            ):
-                result = run_git(cmd, timeout, capture=True)
-                if result.returncode != 0:
-                    output = result.stdout or ""
-                    if (
-                        error_prefix == "git fetch failed"
-                        and "not found" in output.lower()
-                    ):
-                        return True, "No git repository found", ""
-                    return (
-                        False,
-                        None,
-                        f"{error_prefix} (exit={result.returncode}): {output.strip()}",
+                def is_sidecar(name: str) -> bool:
+                    return bool(
+                        re.fullmatch(
+                            r"on_[A-Za-z]+__.+\.[0-9a-f]{32}\.(?:sh|pid|stdout\.log|stderr\.log)(?:\.\d+)?",
+                            name,
+                        ),
+                    ) or any(
+                        fnmatch.fnmatchcase(name, pattern)
+                        for pattern in extra_excludes[:7]
                     )
-            return True, str(repo_dir), ""
-        return False, None, "git init failed"
+
+                # The output directory also holds runner logs. Keep their inodes,
+                # but replace repository contents (including deleted upstream files)
+                # only after all acquisition/checkouts succeeded. Relative paths use
+                # the held cwd instead of repeatedly resolving remote mount ancestors.
+                error_prefix = "git publication failed"
+                publication_started = time.monotonic()
+                print("[*] git publication started", file=sys.stderr, flush=True)
+                try:
+                    for entry in repo_dir.iterdir():
+                        if is_sidecar(entry.name):
+                            raise ValueError(
+                                f"Repository path collides with hook metadata: {entry.name}",
+                            )
+                    for entry in Path(".").iterdir():
+                        if is_sidecar(entry.name):
+                            continue
+                        if entry.is_dir() and not entry.is_symlink():
+                            shutil.rmtree(entry)
+                        else:
+                            entry.unlink()
+                    shutil.copytree(repo_dir, ".", dirs_exist_ok=True, symlinks=True)
+                finally:
+                    elapsed = time.monotonic() - publication_started
+                    print(
+                        f"[*] git publication ended after {elapsed:.3f}s",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                return True, str(OUTPUT_DIR), ""
+
+            finally:
+                if repo_dir.exists():
+                    shutil.rmtree(repo_dir)
 
     except subprocess.TimeoutExpired:
         return False, None, f"{error_prefix}: Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f"{type(e).__name__}: {e}"
+        return False, None, f"{error_prefix}: {type(e).__name__}: {e}"
 
 
 @click.command(

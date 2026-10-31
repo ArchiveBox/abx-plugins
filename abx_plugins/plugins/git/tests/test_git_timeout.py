@@ -10,6 +10,7 @@ import urllib.request
 from pathlib import Path
 
 import psutil
+import pytest
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 
@@ -65,7 +66,8 @@ def stop_owned_process(process):
         process.wait(timeout=5)
 
 
-def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
+@pytest.mark.parametrize("interruption", ["timeout", "kill"])
+def test_timed_out_checkout_releases_its_own_index_lock(tmp_path, interruption):
     child_repo = tmp_path / "child.git"
     init_repo(child_repo)
     (child_repo / "nested.txt").write_text("Actual nested submodule data\n")
@@ -111,6 +113,7 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
             start_new_session=True,
         )
     hook = None
+    stopped = None
     try:
         wait_for_listener(port, daemon, daemon_log)
         snap = tmp_path / "snapshot"
@@ -122,6 +125,7 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
             "SNAP_DIR": str(snap),
             "CRAWL_DIR": str(snap),
             "GIT_TIMEOUT": "10",
+            "TMP_DIR": str(tmp_path / "runtime"),
             "GIT_TERMINAL_PROMPT": "0",
             "GIT_CONFIG_COUNT": "1",
             "GIT_CONFIG_KEY_0": f"url.git://127.0.0.1:{port}/.insteadOf",
@@ -143,31 +147,62 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
         stopped = None
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline and hook.poll() is None:
-            if lock.exists():
-                for child in owner.children(recursive=True):
-                    try:
-                        args = child.cmdline()
-                        if "reset" in args and "--hard" in args:
+            for child in owner.children(recursive=True):
+                try:
+                    args = child.cmdline()
+                    if "reset" in args and "--hard" in args:
+                        # Acquisition is isolated from prior output. Observe the
+                        # actual reset's repository, not a guessed scratch path.
+                        lock = Path(args[args.index("-C") + 1]) / ".git/index.lock"
+                        if lock.exists():
                             child.send_signal(signal.SIGSTOP)
                             stopped = child
                             break
-                    except psutil.NoSuchProcess:
-                        pass
-                if stopped is not None:
-                    break
+                except psutil.NoSuchProcess:
+                    pass
+            if stopped is not None:
+                break
             time.sleep(0.001)
         assert stopped is not None, (
             "Did not observe the actual reset holding index.lock"
         )
-        interrupted_at = time.monotonic()
-        stdout, stderr = hook.communicate(timeout=12)
-        assert time.monotonic() - interrupted_at < 11
-        assert hook.returncode == 1, stderr
-        record = parse_jsonl_output(stdout)
-        assert record and record["status"] == "failed"
-        assert record["output_str"] == "git reset failed: Timed out after 10 seconds"
-        assert not stopped.is_running()
-        assert not lock.exists(), "Our timeout left Git's index lock behind"
+        if interruption == "kill":
+            # SIGKILL bypasses Python's finally. The actual Git reset still owns
+            # its inherited lease, so another hook must not delete its scratch.
+            hook.kill()
+            hook.communicate(timeout=5)
+            assert hook.returncode == -signal.SIGKILL
+            assert lock.is_file()
+            inode = lock.stat().st_ino
+            competing = subprocess.run(
+                command,
+                cwd=snap,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert competing.returncode == 1
+            failure = parse_jsonl_output(competing.stdout)
+            assert failure and failure["status"] == "failed"
+            assert "BlockingIOError" in failure["output_str"]
+            assert lock.stat().st_ino == inode
+            assert stopped.is_running()
+            stopped.kill()
+            stopped.wait(timeout=5)
+            assert lock.exists(), "Abrupt termination must leave real stale scratch"
+        else:
+            interrupted_at = time.monotonic()
+            stdout, stderr = hook.communicate(timeout=12)
+            assert time.monotonic() - interrupted_at < 11
+            assert hook.returncode == 1, stderr
+            record = parse_jsonl_output(stdout)
+            assert record and record["status"] == "failed"
+            assert (
+                record["output_str"] == "git reset failed: Timed out after 10 seconds"
+            )
+            assert not stopped.is_running()
+            assert not lock.exists(), "Our timeout left Git's index lock behind"
         # A subsequent ordinary capture must work without deleting any lock.
         result = subprocess.run(
             command,
@@ -190,7 +225,18 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path):
             child_repo / "nested.txt"
         ).read_bytes()
         assert not lock.exists()
+        run_git(checkout, "fsck", "--full")
+        run_git(checkout / "nested", "fsck", "--full")
+        assert (
+            run_git(checkout, "show", "HEAD:39/3999.txt")
+            == (source / "39/3999.txt").read_text().strip()
+        )
+        submodules = run_git(checkout, "submodule", "status", "--recursive")
+        assert nested_commit in submodules and "nested" in submodules
     finally:
+        if stopped is not None and stopped.is_running():
+            stopped.kill()
+            stopped.wait(timeout=5)
         if hook is not None:
             stop_owned_process(hook)
         stop_owned_process(daemon)
@@ -294,3 +340,241 @@ def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
                 except psutil.NoSuchProcess:
                     pass
         stop_owned_process(server)
+
+
+def test_restart_replaces_git_transaction_state_after_abrupt_owner_death(tmp_path):
+    """A new capture must not inherit an interrupted Git ref transaction."""
+    source = tmp_path / "source.git"
+    init_repo(source)
+    run_git(source, "checkout", "-b", "main")
+    (source / "body.txt").write_bytes(b"Original repository content\n")
+    (source / "body-link.txt").symlink_to("body.txt")
+    (source / "obsolete.txt").write_bytes(b"Removed by the next revision\n")
+    run_git(source, "add", ".")
+    run_git(source, "-c", "commit.gpgsign=false", "commit", "-m", "Original")
+    original = run_git(source, "rev-parse", "HEAD")
+    branch = "topic/nested-branch"
+    run_git(source, "branch", branch)
+    port = unused_port()
+    daemon_log = tmp_path / "git-daemon.log"
+    with daemon_log.open("wb") as log:
+        daemon = subprocess.Popen(
+            [
+                "git",
+                "daemon",
+                "--export-all",
+                "--reuseaddr",
+                "--listen=127.0.0.1",
+                f"--port={port}",
+                f"--base-path={tmp_path}",
+                str(tmp_path),
+            ],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    transaction = None
+    try:
+        wait_for_listener(port, daemon, daemon_log)
+        snap = tmp_path / "snapshot"
+        snap.mkdir()
+        env = {
+            **os.environ,
+            "SNAP_DIR": str(snap),
+            "CRAWL_DIR": str(snap),
+            "GIT_TIMEOUT": "10",
+            "TMP_DIR": str(tmp_path / "runtime"),
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": f"url.git://127.0.0.1:{port}/.insteadOf",
+            "GIT_CONFIG_VALUE_0": "https://archivebox.io/tests/",
+        }
+        command = [str(HOOK), "--url", "https://archivebox.io/tests/source.git"]
+        first = subprocess.run(
+            command,
+            cwd=snap,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert first.returncode == 0, first.stdout + first.stderr
+        first_record = parse_jsonl_output(first.stdout)
+        assert first_record and first_record["status"] == "succeeded"
+        output = snap / "git"
+        lock = output / ".git/refs/remotes/origin" / f"{branch}.lock"
+        # Native Git owns and creates this lock. SIGKILL represents abrupt loss;
+        # unlike the cooperative hook timeout, it cannot run Git's lock cleanup.
+        transaction = subprocess.Popen(
+            ["git", "-C", str(output), "update-ref", "--stdin"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert transaction.stdin is not None and transaction.stdout is not None
+        transaction.stdin.write(
+            f"start\nupdate refs/remotes/origin/{branch} {original} {original}\nprepare\n",
+        )
+        transaction.stdin.flush()
+        assert transaction.stdout.readline().strip() == "start: ok"
+        assert transaction.stdout.readline().strip() == "prepare: ok"
+        assert lock.is_file()
+        transaction.kill()
+        transaction.wait(timeout=5)
+        assert transaction.returncode == -signal.SIGKILL
+        assert lock.is_file()
+
+        # A failed fresh acquisition must leave even interrupted prior output
+        # byte-identical; it must not delete locks or reconfigure the old repo.
+        prior = {
+            path.relative_to(output): path.read_bytes()
+            for path in output.rglob("*")
+            if path.is_file()
+        }
+        with socket.socket() as refused:
+            refused.bind(("127.0.0.1", 0))
+            failure = subprocess.run(
+                [
+                    str(HOOK),
+                    "--url",
+                    f"http://127.0.0.1:{refused.getsockname()[1]}/source.git",
+                ],
+                cwd=snap,
+                env={**env, "NO_PROXY": "127.0.0.1"},
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        assert failure.returncode == 1
+        failed_record = parse_jsonl_output(failure.stdout)
+        assert failed_record and failed_record["status"] == "failed"
+        assert "git fetch failed" in failed_record["output_str"]
+        assert {
+            path.relative_to(output): path.read_bytes()
+            for path in output.rglob("*")
+            if path.is_file()
+        } == prior
+
+        # An unchanged remote can mask a leftover lock. Advance the real ref so
+        # the next fetch has to publish it, and remove a formerly tracked file.
+        run_git(source, "checkout", branch)
+        (source / "body.txt").write_bytes(b"New default branch content\n")
+        (source / "obsolete.txt").unlink()
+        run_git(source, "add", "-A")
+        run_git(source, "-c", "commit.gpgsign=false", "commit", "-m", "Advance")
+        expected = run_git(source, "rev-parse", "HEAD")
+        live_log = output / f"{HOOK.name}.{'a' * 32}.stdout.log"
+        with live_log.open("w+") as log:
+            inode = live_log.stat().st_ino
+            result = subprocess.run(
+                command,
+                cwd=snap,
+                env=env,
+                stdout=log,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=30,
+            )
+            log.flush()
+            assert live_log.stat().st_ino == inode
+            log.seek(0)
+            stdout = log.read()
+        assert result.returncode == 0, stdout + result.stderr
+        record = parse_jsonl_output(stdout)
+        assert record and record["status"] == "succeeded"
+        run_git(output, "fsck", "--full")
+        assert run_git(output, "show", "HEAD:body.txt") == "New default branch content"
+        assert run_git(output, "rev-parse", "HEAD") == expected
+        assert run_git(output, "rev-parse", f"refs/remotes/origin/{branch}") == expected
+        assert run_git(output, "rev-parse", "refs/remotes/origin/main") == original
+        assert (output / "body.txt").read_bytes() == (source / "body.txt").read_bytes()
+        assert not (output / "obsolete.txt").exists()
+        assert (output / "body-link.txt").is_symlink()
+        assert os.readlink(output / "body-link.txt") == "body.txt"
+        assert (output / "body-link.txt").read_bytes() == (
+            source / "body.txt"
+        ).read_bytes()
+        assert not lock.exists()
+        published = {
+            path.relative_to(output): path.read_bytes()
+            for path in output.rglob("*")
+            if path.is_file()
+        }
+        (source / "git.jsonl").write_bytes(
+            b"Repository file colliding with hook bookkeeping\n",
+        )
+        run_git(source, "add", "git.jsonl")
+        run_git(
+            source,
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "Metadata collision",
+        )
+        failed_publish = subprocess.run(
+            command,
+            cwd=snap,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert failed_publish.returncode == 1
+        failure = parse_jsonl_output(failed_publish.stdout)
+        assert failure and failure["status"] == "failed"
+        assert "git publication failed" in failure["output_str"]
+        assert (
+            "Repository path collides with hook metadata: git.jsonl"
+            in failure["output_str"]
+        )
+        assert {
+            path.relative_to(output): path.read_bytes()
+            for path in output.rglob("*")
+            if path.is_file()
+        } == published
+        assert "git publication ended after" in failed_publish.stderr
+    finally:
+        if transaction is not None and transaction.poll() is None:
+            transaction.kill()
+            transaction.wait(timeout=5)
+        stop_owned_process(daemon)
+
+
+@pytest.mark.parametrize("linked_component", ["snapshot", "repo"])
+def test_git_scratch_never_follows_a_replaced_directory(tmp_path, linked_component):
+    import hashlib
+
+    snap = tmp_path / "snapshot"
+    snap.mkdir()
+    runtime = tmp_path / "runtime"
+    scratch = runtime / "git" / hashlib.sha256(str(snap.resolve()).encode()).hexdigest()
+    outside = tmp_path / "unrelated"
+    outside.mkdir()
+    sentinel = outside / "preserved.txt"
+    sentinel.write_bytes(b"Not this capture's scratch\n")
+    link = scratch if linked_component == "snapshot" else scratch / "repo"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(outside, target_is_directory=True)
+    with socket.socket() as refused:
+        refused.bind(("127.0.0.1", 0))
+        result = subprocess.run(
+            [
+                str(HOOK),
+                "--url",
+                f"http://127.0.0.1:{refused.getsockname()[1]}/source.git",
+            ],
+            cwd=snap,
+            env={**os.environ, "SNAP_DIR": str(snap), "TMP_DIR": str(runtime)},
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    assert result.returncode == 1, result.stdout + result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "failed"
+    assert "Git scratch directories must not be symlinks" in record["output_str"]
+    assert link.is_symlink()
+    assert list(outside.iterdir()) == [sentinel]
+    assert sentinel.read_bytes() == b"Not this capture's scratch\n"

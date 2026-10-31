@@ -52,6 +52,16 @@ Hooks run with:
 - **Crawl hook output** = `CRAWL_DIR/<plugin>/...`
 - **Other plugin outputs** can be read via `../<other-plugin>/...` from your own output dir
 
+Git captures acquire a fresh shallow repository, all branch tips, and recursive
+submodules in `TMP_DIR/git/<hash of SNAP_DIR>/repo` before replacing the saved
+checkout. A failed acquisition preserves previous output. A local OS lock is
+inherited by Git processes so an interrupted hook cannot leave a live child whose
+scratch is deleted by another attempt. The next attempt discards only its own
+abandoned scratch; it does not repair saved Git locks or resume a transaction.
+This temporarily needs space for one additional repository/checkout. Publication
+preserves runner sidecars, removes obsolete repository files, and reports copy
+failures as failures. The saved layout remains `git/`.
+
 ### Gallery screenshots
 
 Plugins need no screenshot registration. ArchiveBox captures the selectable outputs
