@@ -378,11 +378,14 @@ def test_restart_replaces_git_transaction_state_after_abrupt_owner_death(tmp_pat
         wait_for_listener(port, daemon, daemon_log)
         snap = tmp_path / "snapshot"
         snap.mkdir()
+        empty_template = tmp_path / "empty-template"
+        empty_template.mkdir()
         env = {
             **os.environ,
             "SNAP_DIR": str(snap),
             "CRAWL_DIR": str(snap),
             "GIT_TIMEOUT": "10",
+            "GIT_TEMPLATE_DIR": str(empty_template),
             "TMP_DIR": str(tmp_path / "runtime"),
             "GIT_TERMINAL_PROMPT": "0",
             "GIT_CONFIG_COUNT": "1",

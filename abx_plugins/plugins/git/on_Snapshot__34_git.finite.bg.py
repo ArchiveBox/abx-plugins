@@ -230,7 +230,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
 
                 # These are the existing legacy Git sidecars. Current per-process
                 # artifacts use the UUID naming contract also recognized by hashes.
-                extra_excludes = [
+                legacy_excludes = [
                     f"{PLUGIN_DIR}.jsonl",
                     f"{Path(__file__).name}.sh",
                     f"{Path(__file__).stem}.stdout.log",
@@ -238,12 +238,16 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                     f"{Path(__file__).stem}.pid",
                     f"{Path(__file__).stem}.stdout.*.log",
                     f"{Path(__file__).stem}.stderr.*.log",
+                ]
+                extra_excludes = legacy_excludes + [
                     "on_*__*.*.sh",
                     "on_*__*.*.pid",
                     "on_*__*.*.stdout.log*",
                     "on_*__*.*.stderr.log*",
                 ]
-                (git_dir / "info/exclude").write_text("\n".join(extra_excludes) + "\n")
+                exclude_file = git_dir / "info/exclude"
+                exclude_file.parent.mkdir(parents=True, exist_ok=True)
+                exclude_file.write_text("\n".join(extra_excludes) + "\n")
                 # Fetch HEAD explicitly while retaining every other shallow branch
                 # tip: the first wildcard FETCH_HEAD entry is not necessarily HEAD.
                 fetch_cmd = [
@@ -294,7 +298,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                         ),
                     ) or any(
                         fnmatch.fnmatchcase(name, pattern)
-                        for pattern in extra_excludes[:7]
+                        for pattern in legacy_excludes
                     )
 
                 # The output directory also holds runner logs. Keep their inodes,
