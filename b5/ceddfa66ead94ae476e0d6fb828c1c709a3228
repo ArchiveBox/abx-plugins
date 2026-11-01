@@ -1,0 +1,23 @@
+abx_plugins/plugins/sslcerts/tests/test_sslcerts.py
+  s_10bc94d001be49::t_b67f57e2bfdf3e 115,127,129-136,213-214
+  s_10bc94d001be49::t_ae6aa0c81fb23d 11,99,102-106,109,137,155-158,212
+  s_10bc94d001be49::t_a0242fab2932bc 60-61,140-145
+  s_10bc94d001be49::t_66d412dad92e92 125,177-186
+  s_10bc94d001be49::t_00211c1f49229e 110-114,138-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b5ceddfa66ead94ae476e0d6fb828c1c709a3228",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
