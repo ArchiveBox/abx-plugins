@@ -8,6 +8,7 @@ certificate information extraction.
 import json
 import hashlib
 import shutil
+import signal
 import socket
 import sys
 import ssl
@@ -56,7 +57,8 @@ class TestSSLWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_chain_timeout_preserves_browser_certificate(self):
+    @pytest.mark.parametrize("idle_tls", [False, True])
+    def test_chain_timeout_preserves_browser_certificate(self, idle_tls):
         """A stalled native TLS peer must not crash an already-ready collector."""
         cert = self.temp_dir / "cert.pem"
         key = self.temp_dir / "key.pem"
@@ -94,13 +96,23 @@ class TestSSLWithChrome:
                     sys.executable,
                     "-c",
                     """
-import http.server, ssl, sys
+import http.server, os, signal, ssl, sys
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
+    def do_GET(self):
+        super().do_GET()
+        self.wfile.flush()
+        print('HTTPS response sent; suspending origin', flush=True)
+        os.kill(os.getpid(), signal.SIGSTOP)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(sys.argv[2], sys.argv[3])
-server = http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
-server.socket = context.wrap_socket(server.socket, server_side=True)
+server = http.server.ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+# The worker's first read performs TLS negotiation; a raw TCP preconnection
+# must not block the listening thread before it dispatches other connections.
+server.socket = context.wrap_socket(
+    server.socket, server_side=True, do_handshake_on_connect=False,
+)
+print('HTTPS server ready', flush=True)
 server.serve_forever()
 """,
                     str(port),
@@ -110,8 +122,27 @@ server.serve_forever()
                 cwd=self.temp_dir,
                 stdout=log,
                 stderr=log,
+                text=True,
             )
+            idle = None
             try:
+                wait_for_file(
+                    self.temp_dir / "https.log",
+                    process=server,
+                    ready=lambda p: "HTTPS server ready" in p.read_text(),
+                )
+                client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                client_context.check_hostname = False
+                client_context.verify_mode = ssl.CERT_NONE
+                # A browser may preconnect without sending an HTTP request.
+                # Keep a real idle TCP/TLS connection open so server concurrency
+                # is exercised instead of depending on Chrome's connection order.
+                idle = socket.create_connection(("127.0.0.1", port), timeout=5)
+                if idle_tls:
+                    idle = client_context.wrap_socket(
+                        idle,
+                        server_hostname="localhost",
+                    )
                 with chrome_session(
                     self.temp_dir,
                     crawl_id="tls-timeout",
@@ -121,9 +152,10 @@ server.serve_forever()
                     timeout=30,
                     env_overrides={"CHROME_CHECK_SSL_VALIDITY": "false"},
                 ) as (_, _, chrome_dir, env):
-                    # The native single-threaded HTTPS server remains occupied
-                    # by Chrome's HTTP/1.1 keepalive connection. The independent
-                    # chain handshake must time out without losing Chrome's cert.
+                    # Serve Chrome's real static response before suspending the
+                    # origin process. Its independent chain handshake must stall
+                    # without making the initial browser navigation race an idle
+                    # preconnection for the only HTTP server thread.
                     ssl_dir = chrome_dir.parent / "sslcerts"
                     output = ssl_dir / "sslcerts.jsonl"
                     listener = start_process_and_wait_for_file(
@@ -142,6 +174,16 @@ server.serve_forever()
                             timeout=120,
                         )
                         assert navigation.returncode == 0, navigation.stderr
+                        assert (
+                            json.loads(
+                                (chrome_dir / "navigation.json").read_text(),
+                            )["status"]
+                            == 200
+                        )
+                        assert (
+                            "HTTPS response sent; suspending origin"
+                            in (self.temp_dir / "https.log").read_text()
+                        )
                         wait_for_file(
                             output,
                             process=listener,
@@ -167,6 +209,9 @@ server.serve_forever()
                     ]
                     assert len(results) == 1 and results[0]["status"] == "succeeded"
             finally:
+                server.send_signal(signal.SIGCONT)
+                if idle is not None:
+                    idle.close()
                 server.kill()
                 server.wait(timeout=5)
 
