@@ -133,7 +133,9 @@ jobs:
       - name: Run documentation code blocks
         env:
           CHROME_HEADLESS: "false"
+          PYTEST_DEBUG_TEMPROOT: ${{ runner.temp }}/docs-pytest
         run: |
+          mkdir -p "$PYTEST_DEBUG_TEMPROOT"
           mapfile -t plugin_readmes < <(uv run --no-cache --no-project python - <<'PY'
           from pathlib import Path
 
@@ -145,11 +147,22 @@ jobs:
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
 
+      - name: Save failed browser control diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docs-browser-control-logs
+          # Nested pytest output omits this observer log. Allow only reviewed
+          # control diagnostics, never persona files or raw network logs.
+          path: ${{ runner.temp }}/docs-pytest/**/snap/test-snapshot/chrome/canva-observer.stderr.log
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Remove authentication and browser profiles
         if: always()
         run: |
           rm -f "$RUNNER_TEMP"/docs-auth.*
-          rm -rf "$RUNNER_TEMP/docs-personas" "$RUNNER_TEMP/docs-abx-lib"
+          rm -rf "$RUNNER_TEMP/docs-personas" "$RUNNER_TEMP/docs-abx-lib" "$RUNNER_TEMP/docs-pytest"
 
   complete:
     name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
