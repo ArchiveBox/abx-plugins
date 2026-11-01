@@ -165,8 +165,8 @@ def test_chrome_config_pins_puppeteer_dependencies() -> None:
         "puppeteer@25.16.0",
         # Persona IndexedDB hydration loads these browser scripts from this
         # same managed module root; their exact versions are part of the contract.
-        "dexie@4.4.6",
-        "dexie-export-import@4.4.1",
+        "dexie@4.4.7",
+        "dexie-export-import@4.4.2",
     ]
 
 

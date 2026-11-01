@@ -10,14 +10,14 @@
     {
       "name": "{YTDLP_BINARY}",
       "binproviders": "env,uv,apt,brew",
-      "min_version": "2026.10.21",
-      "max_version": "2026.10.21",
+      "min_version": "2026.10.26",
+      "max_version": "2026.10.26",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "yt-dlp[default]==2026.10.21",
-            "--exclude-newer-package=yt-dlp=2026-10-23T00:00:00Z"
+            "yt-dlp[default]==2026.10.26",
+            "--exclude-newer-package=yt-dlp=2026-11-01T00:00:00Z"
           ],
           "min_release_age": 0
         }

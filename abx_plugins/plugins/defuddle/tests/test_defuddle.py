@@ -71,9 +71,9 @@ def test_crawl_hook_emits_defuddle_binary_request_record():
     binary = get_hydrated_required_binary(PLUGIN_DIR, "defuddle")
     assert binary.get("binproviders") == "env,pnpm"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
-        "defuddle@0.19.5",
+        "defuddle@0.19.6",
     ]
-    assert binary.get("overrides", {}).get("pnpm", {}).get("version") == "0.19.5"
+    assert binary.get("overrides", {}).get("pnpm", {}).get("version") == "0.19.6"
 
 
 def test_verify_deps_with_abxpkg():
@@ -223,7 +223,7 @@ def test_saved_article_resolves_links_against_original_url(tmp_path: Path, base_
 @pytest.mark.parametrize(
     ("args", "extra", "expected"),
     [
-        (["--version"], [], "0.19.5"),
+        (["--version"], [], "0.19.6"),
         ([], ["--property", "title"], "Example Domain"),
     ],
 )

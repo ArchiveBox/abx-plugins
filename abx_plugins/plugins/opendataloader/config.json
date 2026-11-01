@@ -11,14 +11,14 @@
     {
       "name": "{OPENDATALOADER_BINARY}",
       "binproviders": "env,uv",
-      "min_version": "2.5.15",
-      "max_version": "2.5.15",
+      "min_version": "2.5.17",
+      "max_version": "2.5.17",
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
           "install_args": [
-            "opendataloader-pdf==2.5.15",
-            "--exclude-newer-package=opendataloader-pdf=2026-10-23T00:00:00Z"
+            "opendataloader-pdf==2.5.17",
+            "--exclude-newer-package=opendataloader-pdf=2026-11-01T00:00:00Z"
           ],
           "min_release_age": 0
         }
