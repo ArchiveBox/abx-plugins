@@ -1,0 +1,21 @@
+abx_plugins/plugins/archivewebpage/on_CrawlSetup__80_archivewebpage_prepare.py
+  s_10bc94d001be49::t_eefdac9cca1ffa 117-132,167
+tests/test_archivewebpage_concurrent_collections.py
+  s_10bc94d001be49::t_393bbe1f2c024f 980-1092
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e659f3c6c2b3343c6986c40f4a671d7b4d542f82",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
