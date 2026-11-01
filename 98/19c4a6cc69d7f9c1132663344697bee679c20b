@@ -1,0 +1,35 @@
+abx_plugins/plugins/chrome/config.json
+  s_5a0b42c99ee395::t_ef3533da73c220 51-52,63-64,70
+abx_plugins/plugins/defuddle/config.json
+  s_5a0b42c99ee395::t_995d151ae308b0 15,20,22,25
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_5a0b42c99ee395::t_d104139985b826 74,76,226
+abx_plugins/plugins/gallerydl/config.json
+  s_5a0b42c99ee395::t_fdab2f954379f7 13,18,23
+abx_plugins/plugins/notion/tests/test_notion.py
+  s_5a0b42c99ee395::t_d1970916218936 128
+abx_plugins/plugins/opendataloader/config.json
+  s_5a0b42c99ee395::t_2397e0305f8c81 14-15,20-21
+abx_plugins/plugins/ytdlp/config.json
+  s_5a0b42c99ee395::t_2155dd516873db 13-14,19-20
+tests/test_chrome_abxbus_dependency.py
+  s_5a0b42c99ee395::t_a195b5f488458d 168-169
+tests/test_chrome_stable_browser.py
+  s_5a0b42c99ee395::t_a3475601d30786 29,63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9819c4a6cc69d7f9c1132663344697bee679c20b",
+  "prompts": {},
+  "sessions": {
+    "s_5a0b42c99ee395": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a195db-e957-78b2-9287-ef2f19712978",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
