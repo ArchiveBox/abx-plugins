@@ -1323,9 +1323,8 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
     sources = tmp_path / "responses"
     sources.mkdir()
     pdf = _download_pdf(PDF_URL_A)
-    (sources / "large.pdf").write_bytes(
-        _download_pdf("https://arxiv.org/pdf/1212.5225"),
-    )
+    large_pdf = _download_pdf("https://arxiv.org/pdf/1212.5225")
+    (sources / "large.pdf").write_bytes(large_pdf)
     for index in range(16):
         # Valid trailing PDF comments make each real input distinct for dedup.
         (sources / f"document-{index:03}.pdf").write_bytes(
@@ -1367,8 +1366,8 @@ def test_parser_timeout_preserves_completed_files(tmp_path, configured_tmp):
                             if "batch-parse" in args:
                                 batch_input = Path(args[args.index("batch-parse") + 1])
                                 if batch_input.is_dir() and any(
-                                    link.resolve() == (sources / "large.pdf").resolve()
-                                    for link in batch_input.iterdir()
+                                    path.read_bytes() == large_pdf
+                                    for path in batch_input.iterdir()
                                 ):
                                     parser = child
                                     batch_scratch = batch_input.parent
@@ -1503,19 +1502,25 @@ def test_requested_formats_parse_each_document_once(tmp_path, formats, ocr_enabl
 
     # Python's audit event observes real child commands without replacing them.
     script = """
-import json, runpy, sys
+import hashlib, json, runpy, sys
 from pathlib import Path
 commands = []
+inputs = []
+publications = []
 def audit(event, args):
     if event == 'subprocess.Popen' and 'batch-parse' in args[1]:
         commands.append(args[1])
+        batch = Path(args[1][args[1].index('batch-parse') + 1])
+        inputs.extend({'symlink': p.is_symlink(), 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()} for p in batch.iterdir())
+    if event == 'os.rename' and str(args[1]).endswith(('.txt', '.json')):
+        publications.append(str(args[1]))
 sys.addaudithook(audit)
 hook, report = sys.argv[1:]
 sys.argv = [hook, '--url', 'https://example.com/documents']
 try:
     runpy.run_path(hook, run_name='__main__')
 finally:
-    Path(report).write_text(json.dumps(commands))
+    Path(report).write_text(json.dumps({'commands': commands, 'inputs': inputs, 'publications': publications}))
 """
     report = tmp_path / "commands.json"
     result = subprocess.run(
@@ -1546,7 +1551,21 @@ finally:
             if fmt == "text":
                 expected = f"<!-- source: {name} -->\n".encode() + expected
             assert actual == expected, (name, fmt)
-    commands = json.loads(report.read_text())
+    import hashlib
+
+    observed = json.loads(report.read_text())
+    commands = observed["commands"]
+    # Native parsers must read original bytes from disposable local inputs,
+    # not follow an absolute archive symlink and relist expired remote ancestors.
+    assert all(not item["symlink"] for item in observed["inputs"]), observed
+    assert sorted(item["sha256"] for item in observed["inputs"]) == sorted(
+        hashlib.sha256(content).hexdigest() for content in expected_sources.values()
+    )
+    assert observed["publications"]
+    assert all(not Path(path).is_absolute() for path in observed["publications"])
+    assert all(
+        (source_dir / name).read_bytes() == content for name, content in sources.items()
+    )
     assert len(commands) == len(expected_sources), commands
     assert {path.suffix for path in (tmp_path / "liteparse").iterdir()} == {
         ".txt" if fmt == "text" else ".json" for fmt in formats
