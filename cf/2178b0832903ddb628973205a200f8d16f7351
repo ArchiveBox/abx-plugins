@@ -1,0 +1,21 @@
+abx_plugins/plugins/sslcerts/on_Snapshot__23_sslcerts.daemon.bg.js
+  s_10bc94d001be49::t_bb58490f69d1ba 149-152
+abx_plugins/plugins/sslcerts/tests/test_sslcerts.py
+  s_10bc94d001be49::t_9f5e4237bfa278 12,59-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cf2178b0832903ddb628973205a200f8d16f7351",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
