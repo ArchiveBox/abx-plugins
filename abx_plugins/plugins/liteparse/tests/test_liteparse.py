@@ -1194,6 +1194,106 @@ def test_warns_but_succeeds_when_ocr_misconfigured_with_native_text_available():
         assert "consectetuer adipiscing elit" in text_content, text_content[:500]
 
 
+@pytest.mark.parametrize("formats", [["text"], ["text", "json"], ["json"]])
+def test_blank_image_has_no_indexable_text(tmp_path, formats):
+    source_dir = tmp_path / "responses"
+    source_dir.mkdir()
+    original = _make_png(400, 400)
+    source = source_dir / "blank.png"
+    source.write_bytes(original)
+    result = _run_hook(
+        tmp_path,
+        TEST_URL,
+        {"LITEPARSE_FORMATS": json.dumps(formats)},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == (
+        "succeeded" if "json" in formats else "noresults"
+    ), result.stdout
+    assert not list((tmp_path / "liteparse").glob("*.txt"))
+    if "json" in formats:
+        data = json.loads((tmp_path / "liteparse" / "blank.png.json").read_text())
+        assert len(data["pages"]) == 1
+        assert data["pages"][0]["text"].strip() == ""
+    else:
+        assert not list((tmp_path / "liteparse").iterdir())
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("formats", [["text"], ["text", "json"]])
+@pytest.mark.parametrize(
+    "page_texts",
+    [("", ""), ("--- Page 1 ---",), ("Real document text", "")],
+)
+def test_empty_pdf_pages_preserve_literal_markers(tmp_path, formats, page_texts):
+    # A complete native PDF (including xref) lets PDFium distinguish document
+    # text resembling a CLI header from headers added by the text serializer.
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    pages = []
+    for text in page_texts:
+        page_id = len(objects) + 1
+        pages.append(page_id)
+        stream = f"BT /F1 12 Tf 50 100 Td ({text}) Tj ET".encode()
+        objects.extend(
+            [
+                f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 3 0 R >> >> /Contents {page_id + 1} 0 R >>".encode(),
+                f"<< /Length {len(stream)} >>\nstream\n".encode()
+                + stream
+                + b"\nendstream",
+            ],
+        )
+    objects[1] = (
+        f"<< /Type /Pages /Count {len(pages)} /Kids [{' '.join(f'{n} 0 R' for n in pages)}] >>".encode()
+    )
+    original = b"%PDF-1.4\n"
+    offsets = [0]
+    for number, obj in enumerate(objects, 1):
+        offsets.append(len(original))
+        original += f"{number} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref = len(original)
+    original += f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode()
+    original += b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets[1:])
+    original += f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    source_dir = tmp_path / "responses"
+    source_dir.mkdir()
+    source = source_dir / "document.pdf"
+    source.write_bytes(original)
+    result = _run_hook(
+        tmp_path,
+        TEST_URL,
+        {
+            "LITEPARSE_FORMATS": json.dumps(formats),
+            "LITEPARSE_OCR_ENABLED": "False",
+        },
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    record = parse_jsonl_output(result.stdout)
+    meaningful = any(page_texts)
+    assert record and record["status"] == (
+        "succeeded" if meaningful or "json" in formats else "noresults"
+    )
+    output = tmp_path / "liteparse" / "document.pdf.txt"
+    if meaningful:
+        text = output.read_text()
+        assert all(content in text for content in page_texts)
+        assert all(
+            f"--- Page {number} ---" in text for number in range(1, len(page_texts) + 1)
+        )
+        if page_texts == ("--- Page 1 ---",):
+            assert text.count("--- Page 1 ---") == 2
+    else:
+        assert not output.exists()
+    if "json" in formats:
+        data = json.loads((tmp_path / "liteparse" / "document.pdf.json").read_text())
+        assert [page["text"].strip() for page in data["pages"]] == list(page_texts)
+    assert source.read_bytes() == original
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
@@ -1547,6 +1647,10 @@ finally:
             expected = (
                 tmp_path / f"expected-{fmt}" / f"{Path(name).stem}.{extension}"
             ).read_bytes()
+            if name == "blank.png" and fmt == "text":
+                assert expected == b"\n--- Page 1 ---\n"
+                assert not (tmp_path / "liteparse" / f"{name}.{extension}").exists()
+                continue
             actual = (tmp_path / "liteparse" / f"{name}.{extension}").read_bytes()
             if fmt == "text":
                 expected = f"<!-- source: {name} -->\n".encode() + expected

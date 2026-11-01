@@ -791,6 +791,15 @@ def _process_batch(
                     )
                 except (ValueError, KeyError, TypeError) as exc:
                     errors.append(f"{src.name}: Invalid LiteParse JSON: {exc}")
+            # cli-text.ts emits a header even for a page with no extracted text.
+            # Match only its complete empty-page serialization, not arbitrary
+            # page-marker lines inside real text. Keep nonempty native bytes and
+            # explicitly requested JSON metadata unchanged.
+            if re.fullmatch(
+                r"\n--- Page [0-9]+ ---\n(?:\n\n\n--- Page [0-9]+ ---\n)*",
+                text,
+            ):
+                text = ""
             results.append((idx, src, text, json_text))
 
     return results, errors
