@@ -88,9 +88,10 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
         TEST_ICON_BYTES,
         content_type="image/png",
     )
-    httpserver.expect_request(re.compile(r"^/missing-save/")).respond_with_data(
-        "Not found",
-        status=404,
+    replay_path = "/web/20200101000000/https://archivebox.io/tests/"
+    httpserver.expect_request("/save/https://archivebox.io/tests/").respond_with_data(
+        "Saved",
+        headers={"Content-Location": replay_path},
     )
     hooks: tuple[tuple[str, str, dict[str, str], str], ...] = (
         ("favicon", httpserver.url_for("/icon-page"), {}, "succeeded"),
@@ -98,10 +99,10 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
             "archivedotorg",
             "https://archivebox.io/tests/",
             {
-                "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/missing-save/"),
+                "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
                 "ARCHIVEDOTORG_ENABLED": "true",
             },
-            "noresults",
+            "succeeded",
         ),
     )
     for plugin, target, extra, status in hooks:
@@ -120,13 +121,14 @@ def test_shared_config_reuses_actual_browser_user_agent(tmp_path, httpserver):
         record = parse_jsonl_output(result.stdout)
         assert record and record["status"] == status, result.stdout
         if plugin == "archivedotorg":
-            assert record["output_str"] == "Archive.org returned HTTP 404"
-            assert "HTTP 404" in result.stderr
+            assert record["output_str"] == "archivedotorg/archive.org.txt"
         requests = [request for request, _response in httpserver.log[before:]]
         assert requests
         assert all(request.headers["User-Agent"] == expected for request in requests)
     assert (chrome.parent / "favicon/favicon.ico").read_bytes() == TEST_ICON_BYTES
-    assert not (chrome.parent / "archivedotorg/archive.org.txt").exists()
+    assert (
+        chrome.parent / "archivedotorg/archive.org.txt"
+    ).read_text() == httpserver.url_for(replay_path)
 
 
 def assert_loaders(env, cwd, expected):

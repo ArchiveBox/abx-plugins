@@ -10,10 +10,12 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 
@@ -84,11 +86,11 @@ def test_connection_failure_preserves_previous_archive(tmp_path):
     output.parent.mkdir()
     previous = "https://web.archive.org/web/20200101000000/https://example.com/"
     output.write_text(previous)
-    # A real refused proxy connection: bind the port without listening, so no
-    # other process can acquire it and no request reaches the public service.
-    with socket.socket() as unavailable_proxy:
-        unavailable_proxy.bind(("127.0.0.1", 0))
-        proxy = f"http://127.0.0.1:{unavailable_proxy.getsockname()[1]}"
+    # Reserve a real local port without listening: the connection is refused
+    # without any request or DNS lookup reaching the public service.
+    with socket.socket() as unavailable_server:
+        unavailable_server.bind(("127.0.0.1", 0))
+        endpoint = f"http://127.0.0.1:{unavailable_server.getsockname()[1]}/save/"
         result = subprocess.run(
             [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
             cwd=tmp_path,
@@ -97,10 +99,9 @@ def test_connection_failure_preserves_previous_archive(tmp_path):
             env={
                 **os.environ,
                 "SNAP_DIR": str(tmp_path),
-                "https_proxy": proxy,
-                "HTTPS_PROXY": proxy,
-                "no_proxy": "",
-                "NO_PROXY": "",
+                "ARCHIVEDOTORG_SAVE_URL": endpoint,
+                "no_proxy": "*",
+                "NO_PROXY": "*",
                 "ARCHIVEDOTORG_ENABLED": "True",
             },
             timeout=30,
@@ -174,7 +175,10 @@ def test_non_ascii_url_is_submitted_as_encoded_uri(
     ("status", "body", "reason"),
     [
         (403, "Forbidden", "Archive.org returned HTTP 403"),
+        (404, "Not found", "Archive.org returned HTTP 404"),
         (429, "Too many requests", "Archive.org returned HTTP 429"),
+        (500, "Internal error", "Archive.org returned HTTP 500"),
+        (502, "Bad gateway", "Archive.org returned HTTP 502"),
         (503, "Unavailable", "Archive.org returned HTTP 503"),
         (
             200,
@@ -184,17 +188,20 @@ def test_non_ascii_url_is_submitted_as_encoded_uri(
         (200, "No capture", "Archive.org returned no archive URL"),
     ],
 )
-def test_remote_rejection_preserves_previous_archive_as_noresults(
+@pytest.mark.parametrize("previous_output", [False, True])
+def test_remote_rejection_fails_and_preserves_previous_archive(
     tmp_path,
     httpserver,
     status,
     body,
     reason,
+    previous_output,
 ):
     output = tmp_path / "archivedotorg" / "archive.org.txt"
     output.parent.mkdir()
     previous = "https://web.archive.org/web/20200101000000/https://example.com/"
-    output.write_text(previous)
+    if previous_output:
+        output.write_text(previous)
     httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
         body,
         status=status,
@@ -214,14 +221,17 @@ def test_remote_rejection_preserves_previous_archive_as_noresults(
         },
         timeout=30,
     )
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 1, result.stderr
     assert parse_jsonl_output(result.stdout) == {
         "type": "ArchiveResult",
-        "status": "noresults",
+        "status": "failed",
         "output_str": reason,
     }
-    assert f"WARNING: {reason}" in result.stderr
-    assert output.read_text() == previous
+    assert f"ERROR: {reason}" in result.stderr
+    if previous_output:
+        assert output.read_text() == previous
+    else:
+        assert not output.exists()
     assert len(httpserver.log) == 1
 
 
@@ -279,54 +289,235 @@ def test_hook_script_exists():
     assert ARCHIVEDOTORG_HOOK.exists()
 
 
-@pytest.mark.parametrize("request_timeout", [10, 45])
-def test_live_submission_classifies_service_response(request_timeout):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+@pytest.mark.parametrize(
+    "proof",
+    ["relative", "absolute", "redirect", "replay-modifier"],
+)
+def test_confirmed_replay_is_saved(tmp_path, httpserver, proof):
+    modifier = "id_" if proof == "replay-modifier" else ""
+    replay_path = f"/web/20261012000000{modifier}/{TEST_URL}"
+    archive_url = httpserver.url_for(replay_path)
+    if proof == "redirect":
+        httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
+            "",
+            status=302,
+            headers={"Location": replay_path},
+        )
+        httpserver.expect_request(replay_path).respond_with_data("Archived page")
+    else:
+        location = archive_url if proof == "absolute" else replay_path
+        httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
+            "",
+            headers={"Content-Location": location},
+        )
+    result = subprocess.run(
+        [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "ARCHIVEDOTORG_ENABLED": "True",
+            "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+            "NO_PROXY": "*",
+            "no_proxy": "*",
+        },
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "succeeded",
+        "output_str": "archivedotorg/archive.org.txt",
+    }
+    assert (tmp_path / "archivedotorg/archive.org.txt").read_text() == archive_url
+    assert len(httpserver.log) == (2 if proof == "redirect" else 1)
 
-        env = os.environ.copy()
-        env["SNAP_DIR"] = str(tmpdir)
-        # Keep the hook's own network timeout below subprocess timeout so failures
-        # return cleanly as exit=1 instead of being killed by pytest.
-        env["ARCHIVEDOTORG_TIMEOUT"] = str(request_timeout)
 
+def test_confirmed_replay_does_not_wait_for_unneeded_body(tmp_path, httpserver):
+    release = Event()
+    archive_path = f"/web/20261012000000/{TEST_URL}"
+
+    def slow_body():
+        yield b"x"
+        release.wait(5)
+        yield b"Unused response body"
+
+    httpserver.expect_request(re.compile(r"^/save/")).respond_with_handler(
+        lambda request: Response(
+            slow_body(),
+            headers={"Content-Location": archive_path},
+        ),
+    )
+    output = tmp_path / "archivedotorg/archive.org.txt"
+    output.parent.mkdir()
+    output.write_text("Previously confirmed archive")
+    started = time.monotonic()
+    try:
         result = subprocess.run(
-            [
-                str(ARCHIVEDOTORG_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
+            [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
+            cwd=tmp_path,
             capture_output=True,
             text=True,
-            env=env,
-            timeout=90,
+            env={
+                **os.environ,
+                "SNAP_DIR": str(tmp_path),
+                "ARCHIVEDOTORG_ENABLED": "True",
+                "ARCHIVEDOTORG_TIMEOUT": "3",
+                "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+                "NO_PROXY": "*",
+                "no_proxy": "*",
+            },
+            timeout=5,
         )
+        elapsed = time.monotonic() - started
+    finally:
+        release.set()
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "succeeded",
+        "output_str": "archivedotorg/archive.org.txt",
+    }
+    assert elapsed < 2, elapsed
+    assert output.read_text() == httpserver.url_for(archive_path)
 
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json, "Should have ArchiveResult JSONL output"
-        output_path = tmpdir / "archivedotorg" / "archive.org.txt"
-        if "WARNING: Archive.org returned HTTP 429" in result.stderr:
-            # A service rate limit has no capture, and must never create a
-            # successful retry-link artifact.
-            assert result.returncode == 0, result.stdout + result.stderr
-            assert result_json == {
-                "type": "ArchiveResult",
-                "status": "noresults",
-                "output_str": "Archive.org returned HTTP 429",
-            }, result_json
-            assert not output_path.exists()
-            return
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert result_json == {
-            "type": "ArchiveResult",
-            "status": "succeeded",
-            "output_str": "archivedotorg/archive.org.txt",
-        }, result_json
-        output_path = tmpdir / "archivedotorg" / "archive.org.txt"
-        assert output_path.is_file(), f"Archive.org output missing: {output_path}"
-        archived_url = output_path.read_text(encoding="utf-8").strip()
-        assert archived_url.startswith("https://web.archive.org/web/"), archived_url
+
+@pytest.mark.parametrize(
+    "proof",
+    [
+        "empty-replay",
+        "wildcard",
+        "foreign-host",
+        "foreign-scheme",
+        "foreign-port",
+        "save-url",
+    ],
+)
+def test_unconfirmed_locations_fail_without_overwriting(tmp_path, httpserver, proof):
+    locations = {
+        "empty-replay": "/web/",
+        "wildcard": f"/web/*/{TEST_URL}",
+        "foreign-host": httpserver.url_for(f"/web/20261012000000/{TEST_URL}").replace(
+            httpserver.host,
+            "archive.invalid",
+            1,
+        ),
+        "foreign-scheme": httpserver.url_for(f"/web/20261012000000/{TEST_URL}").replace(
+            "http:",
+            "https:",
+            1,
+        ),
+        "foreign-port": httpserver.url_for(f"/web/20261012000000/{TEST_URL}").replace(
+            f":{httpserver.port}/",
+            f":{httpserver.port - 1}/",
+            1,
+        ),
+        "save-url": f"/save/{TEST_URL}",
+    }
+    output = tmp_path / "archivedotorg/archive.org.txt"
+    output.parent.mkdir()
+    output.write_text("Previously confirmed archive")
+    httpserver.expect_request(re.compile(r"^/save/")).respond_with_data(
+        "",
+        headers={"Content-Location": locations[proof]},
+    )
+    result = subprocess.run(
+        [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "ARCHIVEDOTORG_ENABLED": "True",
+            "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+            "NO_PROXY": "*",
+            "no_proxy": "*",
+        },
+        timeout=10,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "failed",
+        "output_str": "Archive.org returned no archive URL",
+    }
+    assert output.read_text() == "Previously confirmed archive"
+    assert len(httpserver.log) == 1
+
+
+@pytest.mark.parametrize("mode", ["silent", "trickle", "error-trickle", "redirects"])
+def test_total_submission_deadline_preserves_previous_output(
+    tmp_path,
+    httpserver,
+    mode,
+):
+    release = Event()
+
+    def trickle():
+        while not release.wait(0.1):
+            yield b"x"
+
+    def respond(request):
+        if mode == "silent":
+            release.wait(5)
+            return Response("No archive URL")
+        if mode == "redirects":
+            time.sleep(0.4)
+            step = (
+                int(request.path.rsplit("/", 1)[-1])
+                if request.path.startswith("/redirect/")
+                else 0
+            )
+            if step < 5:
+                return Response(
+                    "",
+                    status=302,
+                    headers={"Location": f"/redirect/{step + 1}"},
+                )
+            return Response(
+                "",
+                headers={"Content-Location": f"/web/20261012000000/{TEST_URL}"},
+            )
+        return Response(trickle(), status=503 if mode == "error-trickle" else 200)
+
+    httpserver.expect_request(re.compile(r"^/(save|redirect)/")).respond_with_handler(
+        respond,
+    )
+    output = tmp_path / "archivedotorg/archive.org.txt"
+    output.parent.mkdir()
+    output.write_text("Previously confirmed archive")
+    started = time.monotonic()
+    try:
+        result = subprocess.run(
+            [str(ARCHIVEDOTORG_HOOK), "--url", TEST_URL],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "SNAP_DIR": str(tmp_path),
+                "ARCHIVEDOTORG_ENABLED": "True",
+                "ARCHIVEDOTORG_TIMEOUT": "1",
+                "ARCHIVEDOTORG_SAVE_URL": httpserver.url_for("/save/"),
+                "NO_PROXY": "*",
+                "no_proxy": "*",
+            },
+            timeout=5,
+        )
+        elapsed = time.monotonic() - started
+    finally:
+        release.set()
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "failed",
+        "output_str": "Request timed out after 1 seconds",
+    }
+    assert 0.8 < elapsed < 3, elapsed
+    assert output.read_text() == "Previously confirmed archive"
 
 
 def test_config_save_archivedotorg_false_skips():

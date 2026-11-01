@@ -31,6 +31,7 @@ if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
     print("archive.org submission started", flush=True)
 
 import os
+import re
 from http.client import RemoteDisconnected
 from ipaddress import ip_address
 from pathlib import Path
@@ -43,6 +44,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     iri_to_uri,
     load_config,
+    write_text_atomic,
 )
 
 import rich_click as click
@@ -98,6 +100,8 @@ def log_http_error(error: HTTPError) -> None:
             f"[archivedotorg] Error response body (first 2048 bytes): {body!r}",
             file=sys.stderr,
         )
+    except TimeoutError:
+        raise
     except OSError as exc:
         print(
             f"[archivedotorg] Error response body unavailable: {type(exc).__name__}",
@@ -126,46 +130,76 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
     log(f"GET {submit_url}")
 
+    def deadline_expired(_signum, _frame):
+        raise TimeoutError(f"Submission exceeded {timeout} seconds")
+
+    # Socket timeouts reset on each read/redirect. This standalone POSIX hook
+    # needs one deadline even when a server keeps trickling bytes indefinitely.
+    previous_alarm_handler = signal.signal(signal.SIGALRM, deadline_expired)
+    signal.setitimer(signal.ITIMER_REAL, timeout)
     try:
         print("submitting to archive.org...", file=sys.stderr)
         req = build_request(submit_url, headers={"User-Agent": user_agent})
-        response = urlopen(req, timeout=timeout)
-        final_url = response.url
-        status = response.status
-        headers = response.headers
-        body = response.read().decode("utf-8", errors="replace")
-        log(f"HTTP {status} final_url={final_url}")
+        try:
+            with urlopen(req, timeout=timeout) as response:
+                final_url = response.url
+                log(f"HTTP {response.status} final_url={final_url}")
+                content_location = response.headers.get("Content-Location", "")
+                if content_location:
+                    log(f"Content-Location: {content_location}")
+                if original := response.headers.get("X-Archive-Orig-Url"):
+                    log(f"X-Archive-Orig-Url: {original}")
 
-        # Check for successful archive
-        content_location = (
-            headers["Content-Location"] if "Content-Location" in headers else ""
-        )
-        x_archive_orig_url = (
-            headers["X-Archive-Orig-Url"] if "X-Archive-Orig-Url" in headers else ""
-        )
-        if content_location:
-            log(f"Content-Location: {content_location}")
-        if x_archive_orig_url:
-            log(f"X-Archive-Orig-Url: {x_archive_orig_url}")
-
-        # A save-request URL is not proof that a capture exists. Only replace
-        # a previous result once Wayback returns an actual replay location.
-        archive_url = (
-            urljoin(save_endpoint, content_location) if content_location else final_url
-        )
-        archived = urlparse(archive_url)
-        save_host = urlparse(save_endpoint).hostname
-        if archived.hostname == save_host and archived.path.startswith("/web/"):
-            Path(OUTPUT_FILE).write_text(archive_url, encoding="utf-8")
+                # A save-request or wildcard search URL is not capture proof.
+                # Accept only timestamped replay locations on the configured origin.
+                archive_url = (
+                    urljoin(save_endpoint, content_location)
+                    if content_location
+                    else final_url
+                )
+                archived = urlparse(archive_url)
+                save = urlparse(save_endpoint)
+                archived_origin = (
+                    archived.scheme,
+                    archived.hostname,
+                    archived.port or (443 if archived.scheme == "https" else 80),
+                )
+                save_origin = (
+                    save.scheme,
+                    save.hostname,
+                    save.port or (443 if save.scheme == "https" else 80),
+                )
+                confirmed = (
+                    archived_origin == save_origin
+                    and not archived.username
+                    and not archived.password
+                    and re.match(
+                        r"^/web/[0-9]{14}(?:[a-z]+_)?/https?://[^/]+",
+                        archived.path,
+                    )
+                )
+                # Replay proof is already in the headers/final URL. Read only
+                # the bounded diagnostic body when there is no confirmed output.
+                body = (
+                    ""
+                    if confirmed
+                    else response.read(2048).decode("utf-8", errors="replace")
+                )
+        except HTTPError as error:
+            with error:
+                log_http_error(error)
+            return False, None, f"Archive.org returned HTTP {error.code}"
+        # The network exchange is complete. Do not interrupt publication after
+        # its atomic rename and misreport a confirmed new output as a timeout.
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        if confirmed:
+            write_text_atomic(Path(OUTPUT_FILE), archive_url)
             log(f"Saved archive URL -> {archive_url}")
             return True, OUTPUT_FILE, ""
         if "RobotAccessControlException" in body:
-            return True, None, "Archive.org blocked submission by robots.txt"
-        return True, None, "Archive.org returned no archive URL"
+            return False, None, "Archive.org blocked submission by robots.txt"
+        return False, None, "Archive.org returned no archive URL"
 
-    except HTTPError as e:
-        log_http_error(e)
-        return True, None, f"Archive.org returned HTTP {e.code}"
     except TimeoutError:
         return False, None, f"Request timed out after {timeout} seconds"
     except RemoteDisconnected as e:
@@ -174,6 +208,9 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         return False, None, f"URLError: {e.reason}"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_alarm_handler)
 
 
 @click.command(
@@ -203,12 +240,10 @@ def main(url: str):
         # Run extraction
         success, output, error = submit_to_archivedotorg(url)
 
-        if success:
-            if not output:
-                print(f"WARNING: {error}", file=sys.stderr)
+        if success and output:
             emit_archive_result_record(
-                "succeeded" if output else "noresults",
-                f"{PLUGIN_DIR}/{OUTPUT_FILE}" if output else error,
+                "succeeded",
+                f"{PLUGIN_DIR}/{OUTPUT_FILE}",
             )
             sys.exit(0)
         else:

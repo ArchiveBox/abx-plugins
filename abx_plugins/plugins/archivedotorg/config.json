@@ -23,15 +23,15 @@
     "ARCHIVEDOTORG_TIMEOUT": {
       "type": "integer",
       "default": 60,
-      "minimum": 10,
+      "minimum": 1,
       "x-fallback": "TIMEOUT",
-      "description": "Timeout for archive.org submission in seconds"
+      "description": "Total deadline for archive.org submission, redirects, and response reads in seconds"
     },
     "ARCHIVEDOTORG_SAVE_URL": {
       "type": "string",
       "default": "https://web.archive.org/save/",
       "format": "uri",
-      "description": "Wayback Machine Save Page Now endpoint; the snapshot URL is appended to it. Replay links are only accepted from this endpoint's host."
+      "description": "Wayback Machine Save Page Now endpoint; the snapshot URL is appended to it. Only timestamped replay links from this endpoint's origin are accepted."
     }
   },
   "category": "main",

@@ -4,12 +4,15 @@ import fcntl
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from pytest_httpserver import HTTPServer
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.testing import (
     assert_isolated_snapshot_env,
@@ -347,9 +350,25 @@ def real_competing_html_snapshot(
     return run
 
 
+@pytest.fixture(scope="session")
+def archivedotorg_server():
+    with HTTPServer(host="127.0.0.1") as server:
+        server.expect_request(re.compile(r"^/save/https?://")).respond_with_handler(
+            lambda request: Response(
+                "Local CI capture confirmed",
+                headers={
+                    "Content-Location": "/web/20200101000000/"
+                    + request.environ["RAW_URI"][len("/save/") :],
+                },
+            ),
+        )
+        yield server
+
+
 @pytest.fixture(autouse=True)
 def isolated_test_env(
     tmp_path_factory: pytest.TempPathFactory,
+    archivedotorg_server,
 ) -> Iterator[dict[str, Path]]:
     """Apply and restore per-test environment overrides."""
     # Keep runtime HOME/cache state outside any test-owned snapshot tmp_path so
@@ -387,6 +406,7 @@ def isolated_test_env(
         "UV_CACHE_DIR": str(resolved_uv_cache),
         "ABXPKG_LIB_DIR": str(resolved_lib),
         "PERSONAS_DIR": str(resolved_personas),
+        "ARCHIVEDOTORG_SAVE_URL": archivedotorg_server.url_for("/save/"),
     }
     original = {key: os.environ.get(key) for key in overrides}
     os.environ.update(overrides)
