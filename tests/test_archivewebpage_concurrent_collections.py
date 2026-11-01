@@ -977,6 +977,119 @@ const awpInternal = require(process.argv[2]);
     assert len({status["collId"] for status in statuses.values()}) == 1
 
 
+def test_start_recording_subscribes_if_recorder_appeared_after_start_updates(
+    archivewebpage_crawl,
+    httpserver,
+    tmp_path,
+):
+    """A genuine intervening recorder must not strand an earlier popup port."""
+    body = b"<!doctype html><h1>Keep the intervening recorder's exact response</h1>"
+    httpserver.expect_request("/").respond_with_data(body, content_type="text/html")
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    url = httpserver.url_for("/")
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    chrome_dir = tmp_path / "new-target/chrome"
+    chrome_dir.mkdir(parents=True)
+    tab_env = env | {"SNAP_DIR": str(chrome_dir.parent)}
+    tab_processes.append(
+        launch_snapshot_tab(
+            snapshot_chrome_dir=chrome_dir,
+            tab_env=tab_env,
+            test_url=url,
+            snapshot_id="new-target",
+            crawl_id="test-archivewebpage-lifecycle",
+        ),
+    )
+    script = r"""
+const utils = require(process.argv[1]);
+const awp = require(process.argv[2]);
+const fs = require('fs');
+(async () => {
+  const {browser, page} = await utils.connectToPage({chromeSessionDir: process.argv[3]});
+  let helper;
+  try {
+    await page.goto(process.argv[4]);
+    const {id} = awp.resolveAwpExtension(process.argv[3]);
+    const tabId = await awp.getChromeTabIdForPage(browser, page, id, 10000);
+    helper = await awp.openAwpHelperTab(browser, id, 10000);
+    const statuses = await helper.evaluate(async ({tabId}) => {
+      const earlier = chrome.runtime.connect({name: 'popup-port'});
+      const intervening = chrome.runtime.connect({name: 'popup-port'});
+      const before = [];
+      let phase = 'subscribe';
+      earlier.onMessage.addListener(message => {
+        if (message.type === 'status') before.push(message);
+      });
+      const exchange = (port, request, type, recording = null, minUrls = 0) => new Promise((resolve, reject) => {
+        const listener = message => {
+          if (message.type !== type) return;
+          if (recording !== null && message.recording !== recording && !message.failureMsg) return;
+          if (message.recording && message.numUrls < minUrls) return;
+          clearTimeout(timer); port.onMessage.removeListener(listener); resolve(message);
+        };
+        const timer = setTimeout(() => {
+          port.onMessage.removeListener(listener);
+          reject(new Error(`No ${type} reply to ${request.type} (${phase})`));
+        }, 2500);
+        port.onMessage.addListener(listener); port.postMessage(request);
+      });
+      try {
+        const initial = await exchange(earlier, {type: 'startUpdates', tabId}, 'collections');
+        const collId = initial.collections[0].id;
+        await exchange(intervening, {type: 'startUpdates', tabId}, 'collections');
+        if (before.length) throw new Error('The test target already had a recorder');
+        phase = 'intervening recorder';
+        const other = await exchange(intervening, {type: 'startRecording', collId}, 'status', true, 1);
+        if (!other.recording) throw new Error(`The intervening recorder did not start: ${other.failureMsg}`);
+        // Both commands are real extension requests. The earlier subscription
+        // predates the recorder, just as a tab can acquire an inherited recorder
+        // while its snapshot hook is creating its fresh collection.
+        phase = 'earlier requester';
+        const own = await exchange(earlier, {type: 'startRecording', collId}, 'status', true);
+        phase = 'earlier requester stop';
+        const stopped = await exchange(earlier, {type: 'stopRecording'}, 'status', false);
+        return {other, own, stopped};
+      } finally { earlier.disconnect(); intervening.disconnect(); }
+    }, {tabId});
+    const bytes = await helper.evaluate(async collId => {
+      const response = await fetch(`/w/api/c/${encodeURIComponent(collId)}/dl?format=wacz&pages=all&filename=preserved`);
+      if (!response.ok) throw new Error(`Export failed: ${response.status}`);
+      return Array.from(new Uint8Array(await response.arrayBuffer()));
+    }, statuses.own.collId);
+    fs.writeFileSync(process.argv[5], Buffer.from(bytes));
+    console.log(JSON.stringify(statuses));
+  } finally {
+    await helper?.close(); await browser.disconnect();
+  }
+})().catch(error => { console.error(error.stack); process.exitCode = 1; });
+"""
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(AWP_INTERNAL),
+            str(chrome_dir),
+            url,
+            str(tmp_path / "preserved.wacz"),
+        ],
+        env=tab_env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    statuses = json.loads(result.stdout)
+    assert statuses["other"]["recording"] is True
+    assert statuses["other"]["numUrls"] >= 1
+    assert statuses["own"]["recording"] is True
+    assert statuses["stopped"]["recording"] is False
+    assert len({status["collId"] for status in statuses.values()}) == 1
+    with zipfile.ZipFile(tmp_path / "preserved.wacz") as wacz:
+        assert body in gzip.decompress(wacz.read("archive/data.warc.gz"))
+
+
 @pytest.fixture
 def awp_extension_events(archivewebpage_crawl, tmp_path):
     """Observe actual extension failures during the concurrent startup regression."""

@@ -114,6 +114,22 @@ for before, after in redirect_patches:
 # closing either helper can strand the other handshake. Subscribe every live
 # popup independently; moving or disconnecting a popup removes only that port.
 popup_patches = (
+    # startUpdates can precede recorder creation. Another popup or an inherited
+    # tab recorder can appear before startRecording, whose existing-recorder
+    # branch otherwise ignores the requesting port and never acknowledges it.
+    # Subscribe at the actual start operation and report the existing state;
+    # callers can then stop/reassign an inherited collection without losing it.
+    (
+        "let t=null;const{waitForTabUpdate:r}=i;",
+        """if (i.port) {
+            const recorder = self.recorders[e];
+            recorder.popupPorts ??= new Set(recorder.port ? [recorder.port] : []);
+            recorder.popupPorts.add(i.port);
+            recorder.port = i.port;
+            if (recorder.running) recorder.doUpdateStatus();
+        }
+        let t=null;const{waitForTabUpdate:r}=i;""",
+    ),
     (
         'case"startUpdates":i=r.tabId,self.recorders[i]&&(self.recorders[i].port=e,self.recorders[i].doUpdateStatus()),e.postMessage(yield og(pg));break;',
         """case"startUpdates": {
@@ -148,7 +164,7 @@ for before, after in popup_patches:
         )
     script = script.replace(before, after)
 destination = (
-    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers6"
+    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers7"
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not destination.exists():
