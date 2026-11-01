@@ -146,7 +146,10 @@ async function fetchCertificateChain(originUrl, timeoutMs) {
 
     const cleanup = () => {
       socket.removeAllListeners("secureConnect");
-      socket.removeAllListeners("error");
+      // Keep the error listener until the socket closes: destroy(error) emits
+      // asynchronously, and a peer can reset after secureConnect/socket.end().
+      // Removing it here crashes the entire collector, losing Chrome's valid
+      // metadata instead of recording a chainError or keeping the saved chain.
       socket.removeAllListeners("timeout");
     };
 

@@ -9,6 +9,7 @@ import json
 import hashlib
 import shutil
 import socket
+import sys
 import ssl
 import subprocess
 import tempfile
@@ -54,6 +55,120 @@ class TestSSLWithChrome:
     def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_chain_timeout_preserves_browser_certificate(self):
+        """A stalled native TLS peer must not crash an already-ready collector."""
+        cert = self.temp_dir / "cert.pem"
+        key = self.temp_dir / "key.pem"
+        subprocess.run(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-nodes",
+                "-keyout",
+                str(key),
+                "-out",
+                str(cert),
+                "-days",
+                "1",
+                "-subj",
+                "/CN=localhost",
+            ],
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        test_url = f"https://127.0.0.1:{port}/"
+        (self.temp_dir / "index.html").write_text(
+            "<h1>Real HTTPS certificate fixture</h1>",
+        )
+        with (self.temp_dir / "https.log").open("w") as log:
+            server = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    """
+import http.server, ssl, sys
+class Handler(http.server.SimpleHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(sys.argv[2], sys.argv[3])
+server = http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+server.socket = context.wrap_socket(server.socket, server_side=True)
+server.serve_forever()
+""",
+                    str(port),
+                    str(cert),
+                    str(key),
+                ],
+                cwd=self.temp_dir,
+                stdout=log,
+                stderr=log,
+            )
+            try:
+                with chrome_session(
+                    self.temp_dir,
+                    crawl_id="tls-timeout",
+                    snapshot_id="tls-timeout",
+                    test_url=test_url,
+                    navigate=False,
+                    timeout=30,
+                    env_overrides={"CHROME_CHECK_SSL_VALIDITY": "false"},
+                ) as (_, _, chrome_dir, env):
+                    # The native single-threaded HTTPS server remains occupied
+                    # by Chrome's HTTP/1.1 keepalive connection. The independent
+                    # chain handshake must time out without losing Chrome's cert.
+                    ssl_dir = chrome_dir.parent / "sslcerts"
+                    output = ssl_dir / "sslcerts.jsonl"
+                    listener = start_process_and_wait_for_file(
+                        [str(SSLCERTS_HOOK), f"--url={test_url}"],
+                        output,
+                        cwd=chrome_dir.parent,
+                        env={**env, "SSLCERTS_TIMEOUT": "2"},
+                    )
+                    try:
+                        navigation = subprocess.run(
+                            [str(CHROME_NAVIGATE_HOOK), f"--url={test_url}"],
+                            cwd=chrome_dir,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            timeout=120,
+                        )
+                        assert navigation.returncode == 0, navigation.stderr
+                        wait_for_file(
+                            output,
+                            process=listener,
+                            ready=lambda p: p.exists() and p.stat().st_size > 0,
+                        )
+                        record = json.loads(output.read_text())
+                        assert record["protocol"] in {"TLS 1.2", "TLS 1.3"}
+                        assert record["subjectName"] == "localhost"
+                        assert (
+                            "Timed out fetching certificate chain"
+                            in record["chainError"]
+                        )
+                        assert listener.poll() is None
+                    finally:
+                        listener.terminate()
+                        stdout, stderr = listener.communicate(timeout=30)
+                    assert listener.returncode == 0, stderr
+                    assert "Unhandled 'error' event" not in stderr
+                    results = [
+                        json.loads(line)
+                        for line in stdout.splitlines()
+                        if line.startswith("{")
+                    ]
+                    assert len(results) == 1 and results[0]["status"] == "succeeded"
+            finally:
+                server.kill()
+                server.wait(timeout=5)
 
     def test_failed_https_navigation_does_not_report_certificate_success(self):
         """A real failed Chrome navigation cannot produce a successful SSL result."""
