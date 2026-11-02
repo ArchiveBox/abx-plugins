@@ -227,7 +227,15 @@ def test_cached_image_body_identity_across_oopif_sessions(
         test_url=page_url,
         navigate=False,
         timeout=30,
-        env_overrides={"CHROME_ARGS_EXTRA": chrome_options},
+        env_overrides={
+            "CHROME_ARGS_EXTRA": chrome_options,
+            # Several CDP connections can pause the same child target. A frame
+            # timeout alone cannot identify the owner or its unanswered command,
+            # and disconnecting at cleanup destroys that evidence. Preserve
+            # protocol traffic in the existing hook logs for this isolated,
+            # credential-free fixture; Puppeteer 25 uses NODE_DEBUG, not DEBUG.
+            "NODE_DEBUG": "puppeteer:protocol*",
+        },
     ) as (_, _, chrome, env):
         output = chrome.parent / "responses"
         output.mkdir()
