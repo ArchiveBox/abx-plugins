@@ -13,6 +13,7 @@ Tests verify:
 
 import os
 import re
+import socket
 import subprocess
 import tempfile
 import time
@@ -196,8 +197,8 @@ def test_dead_hackernews_story_error_is_not_noresults(tmp_path):
     assert "validation error for Thread" in record["output_str"], record
 
 
-def test_config_timeout():
-    """Test that FORUMDL_TIMEOUT config is respected."""
+def test_config_timeout(local_http_base_url):
+    """A non-forum response completes within the configured deadline."""
 
     binary_path = require_forumdl_binary()
 
@@ -213,7 +214,7 @@ def test_config_timeout():
             [
                 str(FORUMDL_HOOK),
                 "--url",
-                TEST_URL,
+                local_http_base_url,
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -235,6 +236,48 @@ def test_config_timeout():
             "status": "noresults",
             "output_str": "No forum found",
         }, result_json
+
+
+def test_config_timeout_ends_unresponsive_connection(tmp_path):
+    """The hook deadline ends a real downloader waiting on a TCP peer."""
+    binary_path = require_forumdl_binary()
+    # A listening socket completes TCP connection establishment, but without
+    # an accepting reader it cannot answer HTTP. This exercises actual blocked
+    # network I/O without depending on an external website's availability.
+    # Give forum-dl a longer socket deadline so only FORUMDL_TIMEOUT can end it.
+    # Live forum download/content acceptance remains in test_real_forum_url.
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        started = time.monotonic()
+        result = subprocess.run(
+            [str(FORUMDL_HOOK), f"--url=http://127.0.0.1:{listener.getsockname()[1]}/"],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "FORUMDL_BINARY": binary_path,
+                "FORUMDL_TIMEOUT": "10",
+                "FORUMDL_ARGS": '["--timeout=60", "--retries=0"]',
+                "SNAP_DIR": str(tmp_path),
+            },
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        elapsed = time.monotonic() - started
+        listener.settimeout(1)
+        with listener.accept()[0] as peer:
+            peer.settimeout(1)
+            assert peer.recv(4096).startswith(b"GET /"), (
+                "Downloader never requested HTTP"
+            )
+    assert result.returncode != 0, (result.stdout, result.stderr)
+    assert 10 <= elapsed < 20, elapsed
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "failed",
+        "output_str": "Timed out after 10 seconds",
+    }, (result.stdout, result.stderr)
 
 
 def test_real_forum_url():
