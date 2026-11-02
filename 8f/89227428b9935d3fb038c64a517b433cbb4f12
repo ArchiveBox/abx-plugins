@@ -1,0 +1,19 @@
+abx_plugins/plugins/forumdl/tests/test_forumdl.py
+  s_10bc94d001be49::t_a00ac79c534d20 16,200-201,217,241-282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8f89227428b9935d3fb038c64a517b433cbb4f12",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
