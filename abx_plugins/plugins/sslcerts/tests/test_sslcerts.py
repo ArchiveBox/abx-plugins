@@ -96,6 +96,11 @@ class TestSSLWithChrome:
                     sys.executable,
                     "-c",
                     """
+import faulthandler
+# Preserve the blocked startup stack before the existing readiness deadline
+# kills this process; redirected stderr otherwise disappears with the fixture.
+faulthandler.dump_traceback_later(15)
+print('HTTPS startup: importing server modules', flush=True)
 import http.server, os, signal, ssl, sys
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -104,14 +109,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.flush()
         print('HTTPS response sent; suspending origin', flush=True)
         os.kill(os.getpid(), signal.SIGSTOP)
+print('HTTPS startup: loading certificate', flush=True)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(sys.argv[2], sys.argv[3])
+print('HTTPS startup: binding server', flush=True)
 server = http.server.ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
 # The worker's first read performs TLS negotiation; a raw TCP preconnection
 # must not block the listening thread before it dispatches other connections.
+print('HTTPS startup: wrapping listener', flush=True)
 server.socket = context.wrap_socket(
     server.socket, server_side=True, do_handshake_on_connect=False,
 )
+faulthandler.cancel_dump_traceback_later()
 print('HTTPS server ready', flush=True)
 server.serve_forever()
 """,
@@ -126,11 +135,16 @@ server.serve_forever()
             )
             idle = None
             try:
-                wait_for_file(
-                    self.temp_dir / "https.log",
-                    process=server,
-                    ready=lambda p: "HTTPS server ready" in p.read_text(),
-                )
+                try:
+                    wait_for_file(
+                        self.temp_dir / "https.log",
+                        process=server,
+                        ready=lambda p: "HTTPS server ready" in p.read_text(),
+                    )
+                except AssertionError as error:
+                    raise AssertionError(
+                        (self.temp_dir / "https.log").read_text(),
+                    ) from error
                 client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 client_context.check_hostname = False
                 client_context.verify_mode = ssl.CERT_NONE
