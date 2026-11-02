@@ -272,6 +272,9 @@ async function startTargetMonitor() {
   for (const frame of monitorPage.frames()) observeFrame(frame);
   monitorPage.once("error", async (error) => {
     if (shuttingDown || targetId !== expectedTargetId) return;
+    // Startup readiness is not final success. Preserve target loss in the exit
+    // status so the runner reconciles that record and retains failure stderr.
+    finalStatus = "failed";
     const crashedPage = monitorPage;
     console.error(`[*] Snapshot target ${expectedTargetId} crashed: ${error.message}`);
     try {
@@ -293,6 +296,7 @@ async function startTargetMonitor() {
     if (targetId !== expectedTargetId) {
       return;
     }
+    finalStatus = "failed";
     console.error("tab closed unexpectedly!");
     console.error(
       `[*] Snapshot target ${expectedTargetId} closed unexpectedly, clearing snapshot page markers`

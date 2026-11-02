@@ -4326,6 +4326,109 @@ const utils = require(process.argv[1]);
         assert "No target_id.txt" in record["output_str"]
 
 
+@pytest.mark.parametrize("ending", ["crash", "closed", "cleanup"])
+def test_snapshot_target_loss_preserves_failed_daemon_exit(tmp_path, ending):
+    """Early readiness must not turn a subsequently lost target into success."""
+    with chrome_session(
+        tmp_path / "crawl-session",
+        test_url="https://example.com/",
+        navigate=False,
+    ) as (
+        _,
+        chrome_pid,
+        other_dir,
+        env,
+    ):
+        other_target = (other_dir / "target_id.txt").read_text().strip()
+        chrome_dir = tmp_path / "owned/chrome"
+        chrome_dir.mkdir(parents=True)
+        tab_env = env | {"SNAP_DIR": str(chrome_dir.parent)}
+        daemon = launch_snapshot_tab(
+            snapshot_chrome_dir=chrome_dir,
+            tab_env=tab_env,
+            test_url="https://example.com/",
+            snapshot_id="owned-target",
+            crawl_id="test-crawl",
+        )
+        try:
+            stdout_path = chrome_dir / "chrome_tab.stdout.log"
+            deadline = time.monotonic() + 5
+            records = []
+            while time.monotonic() < deadline:
+                records = parse_jsonl_records(stdout_path.read_text())
+                if records:
+                    break
+                time.sleep(0.05)
+            assert len(records) == 1 and records[0]["status"] == "succeeded"
+            initial_stdout = stdout_path.read_bytes()
+            if ending != "cleanup":
+                script = r"""
+const fs = require('fs');
+const path = require('path');
+const assert = require('node:assert/strict');
+const utils = require(process.argv[1]);
+(async () => {
+  const dir = process.argv[2];
+  const {browser, page, targetId} = await utils.connectToPage({chromeSessionDir: dir});
+  try {
+    if (process.argv[3] === 'crash') {
+      const crashed = new Promise(resolve => page.once('error', resolve));
+      const session = await page.createCDPSession();
+      session.send('Page.crash').catch(() => {});
+      assert.match((await crashed).message, /crash/i);
+    } else {
+      await utils.sendBrowserCommand(browser, 'Target.closeTarget', {targetId});
+    }
+    const deadline = Date.now() + 5000;
+    while (fs.existsSync(path.join(dir, 'target_id.txt')) && Date.now() < deadline)
+      await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(fs.existsSync(path.join(dir, 'target_id.txt')), false);
+  } finally { await browser.disconnect(); }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+                result = subprocess.run(
+                    [
+                        env["NODE_BINARY"],
+                        "-e",
+                        script,
+                        str(CHROME_UTILS),
+                        str(chrome_dir),
+                        ending,
+                    ],
+                    env=tab_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+                assert result.returncode == 0, result.stderr
+            daemon.send_signal(signal.SIGTERM)
+            daemon.communicate(timeout=10)
+            stderr = (chrome_dir / "chrome_tab.stderr.log").read_text()
+            if ending == "crash":
+                assert "crashed" in stderr
+            elif ending == "closed":
+                assert "closed unexpectedly" in stderr
+            else:
+                assert "crashed" not in stderr and "closed unexpectedly" not in stderr
+            assert daemon.returncode == (0 if ending == "cleanup" else 1), stderr
+            assert stdout_path.read_bytes() == initial_stdout, (
+                "readiness protocol changed"
+            )
+            assert not (chrome_dir / "target_id.txt").exists()
+            assert not (chrome_dir / "url.txt").exists()
+            assert is_pid_alive(chrome_pid)
+            cdp_url = (other_dir / "cdp_url.txt").read_text().strip()
+            assert other_target in {
+                target["id"] for target in fetch_devtools_targets(cdp_url)
+            }
+        finally:
+            if daemon.poll() is None:
+                daemon.send_signal(signal.SIGTERM)
+                daemon.wait(timeout=10)
+            for attr in ("_stdout_handle", "_stderr_handle"):
+                getattr(daemon, attr).close()
+
+
 def test_target_crash_mid_navigation_recovers_with_fresh_tab(
     chrome_test_urls,
     httpserver,
