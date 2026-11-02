@@ -191,13 +191,23 @@ def test_provider_download_from_cross_origin_child_frame(
     with HTTPServer(host="127.0.0.1", threaded=True) as httpserver:
         parent_url = httpserver.url_for("/").replace("localhost", "127.0.0.1")
         child_url = httpserver.url_for("/child").replace("127.0.0.1", "localhost")
+        # Input ACKs do not prove delivery to an out-of-process frame. Preserve
+        # the actual receiving document/target when the single click fails;
+        # DOM visibility alone cannot diagnose compositor routing failures.
+        input_observer = (
+            "<script>window.frameInput = [];"
+            "for (const type of ['pointerdown', 'pointerup', 'click']) "
+            "document.addEventListener(type, event => {"
+            "if (event.isTrusted) window.frameInput.push({type, target: event.target.tagName});}, true);</script>"
+        )
         httpserver.expect_request("/").respond_with_data(
             "<!doctype html><title>Export</title>"
+            + input_observer
             + ("" if late_frame else f'<iframe src="{child_url}"></iframe>'),
             content_type="text/html",
         )
         httpserver.expect_request("/child").respond_with_data(
-            "<script>window.downloadInput = [];"
+            input_observer + "<script>window.downloadInput = [];"
             "for (const type of ['pointerdown', 'pointerup', 'click']) "
             "document.addEventListener(type, event => {"
             "if (event.isTrusted && event.target.tagName === 'A') "
@@ -261,13 +271,20 @@ def test_provider_download_from_cross_origin_child_frame(
             console.error('child-target-ready');
             // A visible child DOM can precede compositor/input routing: a raw
             // click pressed the parent iframe and released the child anchor.
-            // Use native locator readiness before the one trusted interaction.
+            // The locator waits for element geometry, but a CDP input ACK does
+            // not prove child delivery; independently assert the actual events.
             const remaining = downloadDeadline - Date.now();
             if (remaining <= 0) throw new Error('Child download deadline exceeded');
             await child.locator('a').setTimeout(remaining).click();
             const input = await child.evaluate(() => window.downloadInput);
             if (JSON.stringify(input) !== JSON.stringify(['pointerdown', 'pointerup', 'click'])) {
-              throw new Error('Expected one trusted child click: ' + JSON.stringify(input));
+              const parentInput = await page.evaluate(() => window.frameInput);
+              const childState = await child.evaluate(() => ({
+                input: window.downloadInput, events: window.frameInput,
+                readyState: document.readyState, visibility: document.visibilityState,
+                focused: document.hasFocus(), hovered: document.querySelector('a').matches(':hover'),
+              }));
+              throw new Error('Expected one trusted child click: ' + JSON.stringify({input, parentInput, childState}));
             }
             console.error('child-click-completed');
           },
