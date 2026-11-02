@@ -101,7 +101,13 @@ import faulthandler
 # kills this process; redirected stderr otherwise disappears with the fixture.
 faulthandler.dump_traceback_later(15)
 print('HTTPS startup: importing server modules', flush=True)
-import http.server, os, signal, ssl, sys
+import http.server, os, signal, socketserver, ssl, sys
+class LoopbackHTTPServer(http.server.ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer resolves server_name through reverse DNS, which can block
+        # before readiness. This static loopback server needs only its address.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
     def do_GET(self):
@@ -113,7 +119,15 @@ print('HTTPS startup: loading certificate', flush=True)
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(sys.argv[2], sys.argv[3])
 print('HTTPS startup: binding server', flush=True)
-server = http.server.ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+# Observe real resolver calls without replacing the network implementation.
+# A numeric loopback fixture must not depend on the runner's DNS service.
+resolutions = []
+def audit(event, args):
+    if event in {'socket.gethostbyaddr', 'socket.getaddrinfo', 'socket.gethostbyname'}:
+        resolutions.append(event)
+sys.addaudithook(audit)
+server = LoopbackHTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+assert not resolutions, f'Loopback bind must not resolve hostnames: {resolutions}'
 # The worker's first read performs TLS negotiation; a raw TCP preconnection
 # must not block the listening thread before it dispatches other connections.
 print('HTTPS startup: wrapping listener', flush=True)
