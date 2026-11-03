@@ -2491,9 +2491,15 @@ async function loadUnpackedExtensionsIntoBrowser(
       runtimeExtensionsDir,
       crypto.createHash("sha256").update(sourcePath).digest("hex")
     );
+    const profileDir = resolveChromeLaunchOptions().CHROME_USER_DATA_DIR;
+    const identity = extension.webstore_id
+      ? `webstore:${extension.webstore_id}`
+      : extension.name ? `name:${extension.name}` : `path:${sourcePath}`;
+    const identityHash = crypto.createHash("sha256").update(identity).digest("hex");
+    const keyFile = path.join(profileDir, "archivebox-extension-keys", `${identityHash}.pub`);
     const extensionLockKey = crypto
       .createHash("sha256")
-      .update(runtimePath)
+      .update(keyFile)
       .digest("hex");
     const extensionLoadLock = path.join(
       lockRoot,
@@ -2502,8 +2508,8 @@ async function loadUnpackedExtensionsIntoBrowser(
     );
     let releaseExtensionLoadLock = null;
     try {
-      // This lock coordinates callers loading into the SAME browser. It cannot
-      // protect against Chromium's background writes; private copies do that.
+      // Coordinate the profile's stable identity as well as same-browser loads.
+      // Chromium's independent background writes still need private copies.
       releaseExtensionLoadLock = await acquireSessionLock(
         extensionLoadLock,
         timeout
@@ -2524,9 +2530,26 @@ async function loadUnpackedExtensionsIntoBrowser(
             mode: fs.constants.COPYFILE_FICLONE,
             filter: (source) => source !== path.join(sourcePath, "_metadata"),
           });
-          // A read-only package cache must still produce a writable install.
-          // Writable subdirectories also let shutdown remove the private tree.
+          // A read-only cache must still produce a writable private install.
           await fs.promises.chmod(stagingPath, 0o700);
+          const manifestPath = path.join(stagingPath, "manifest.json");
+          const manifest = JSON.parse(await fs.promises.readFile(manifestPath, "utf8"));
+          if (!Object.hasOwn(manifest, "key")) {
+            // Private install paths change on every launch. Without a stable key,
+            // Chrome creates a new storage origin and strands the old IndexedDB.
+            // Keep only the public identity in the profile, outside disposable
+            // browser copies, so restarts and profile clones retain their state.
+            if (!fs.existsSync(keyFile)) {
+              await fs.promises.mkdir(path.dirname(keyFile), { recursive: true });
+              const { publicKey } = crypto.generateKeyPairSync("ed25519");
+              writeFileAtomic(keyFile, publicKey.export({ type: "spki", format: "der" }).toString("base64"));
+            }
+            manifest.key = fs.readFileSync(keyFile, "utf8").trim();
+            // Corrupt identity must fail, never silently generate a new origin.
+            crypto.createPublicKey({ key: Buffer.from(manifest.key, "base64"), type: "spki", format: "der" });
+            writeFileAtomic(manifestPath, JSON.stringify(manifest));
+          }
+          // Writable subdirectories also let shutdown remove the private tree.
           for (const entry of await fs.promises.readdir(stagingPath, {
             recursive: true,
             withFileTypes: true,
@@ -2555,8 +2578,8 @@ async function loadUnpackedExtensionsIntoBrowser(
           `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
         );
       }
-      // Unkeyed extensions derive their ID from the unpacked path. Consumers
-      // must use Chrome's runtime ID, never the shared cache's old path-based ID.
+      // Consumers use Chrome's ID from the preserved/generated manifest key,
+      // never the package cache's historical path-derived ID.
       extension.id = id;
       const manifest = loadExtensionManifest(extension.unpacked_path);
       extension.manifest_version = manifest?.manifest_version || null;

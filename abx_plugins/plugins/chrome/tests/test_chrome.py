@@ -683,6 +683,129 @@ const puppeteer = resolvePuppeteer();
     return json.loads(result.stdout)
 
 
+@pytest.mark.parametrize("plugin_name", ["ublock", "archivewebpage", "claudechrome"])
+def test_extension_identity_and_indexeddb_survive_browser_restart(
+    tmp_path,
+    plugin_name,
+):
+    env = _isolated_test_env(tmp_path)
+    loaded = install_required_binary_from_config(
+        CHROME_UTILS.parent.parent / plugin_name,
+        plugin_name,
+        env=env,
+    )
+    assert loaded.loaded_abspath is not None
+    cached = json.loads(
+        (
+            Path(get_extensions_dir(env=env)) / f"{plugin_name}.extension.json"
+        ).read_text(),
+    )
+    source_manifest = Path(cached["unpacked_path"]) / "manifest.json"
+    before = source_manifest.read_bytes()
+    assert bool(json.loads(before).get("key")) == (plugin_name == "claudechrome")
+    script = r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const utils = require(process.argv[1]);
+const extension = JSON.parse(process.argv[2]);
+const root = process.argv[3];
+const runs = [];
+(async () => {
+  for (let index = 0; index < 3; index++) {
+    if (index === 2) {
+      const clonedPersonas = path.join(root, 'cloned-personas');
+      await fs.promises.cp(process.env.PERSONAS_DIR, clonedPersonas, {recursive: true});
+      process.env.PERSONAS_DIR = clonedPersonas;
+    }
+    const outputDir = path.join(root, `browser-${index}`);
+    const launch = await utils.launchChromium({binary: process.env.CHROME_BINARY, outputDir, enableExtensionDebugging: true});
+    assert(launch.success, launch.error);
+    const browser = await utils.connectToBrowserEndpoint(utils.resolvePuppeteerModule(), launch.cdpUrl, {defaultViewport: null});
+    try {
+      const loaded = [{...extension}];
+      await utils.loadUnpackedExtensionsIntoBrowser(browser, loaded, 30000);
+      const current = loaded[0];
+      const manifest = utils.loadExtensionManifest(current.unpacked_path);
+      runs.push({id: current.id, path: current.unpacked_path, endpoint: launch.cdpUrl});
+      if (index) {
+        assert.notEqual(runs[0].endpoint, launch.cdpUrl);
+        assert.notEqual(runs[0].path, current.unpacked_path);
+        assert.equal(current.id, runs[0].id, 'Restart changed the installed extension storage origin');
+      }
+      const original = JSON.parse(fs.readFileSync(path.join(extension.unpacked_path, 'manifest.json')));
+      if (original.key) {
+        assert.equal(fs.readFileSync(path.join(current.unpacked_path, 'manifest.json'), 'utf8'), fs.readFileSync(path.join(extension.unpacked_path, 'manifest.json'), 'utf8'));
+      } else {
+        const {key, ...rest} = manifest;
+        assert.deepEqual(rest, original);
+        assert.equal(require('node:crypto').createPublicKey({key: Buffer.from(key, 'base64'), type: 'spki', format: 'der'}).asymmetricKeyType, 'ed25519');
+      }
+      const workerUrl = `chrome-extension://${current.id}/${manifest.background.service_worker.replace(/^\/+/, '')}`;
+      const target = await utils.waitForExtensionTargetHandle(browser, current.id, 10000, workerUrl,
+        manifest.action?.default_popup ? {wakePath: `/${manifest.action.default_popup}`} : {});
+      const worker = await target.worker();
+      assert(worker, 'Real extension service worker unavailable');
+      const value = await worker.evaluate(async (write) => {
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('archivebox-identity-regression', 1);
+          request.onupgradeneeded = () => request.result.createObjectStore('saved');
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        try {
+          if (write) await new Promise((resolve, reject) => {
+            const transaction = db.transaction('saved', 'readwrite');
+            transaction.objectStore('saved').put(new Uint8Array([0, 17, 128, 255]), 'bytes');
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+          });
+          return await new Promise((resolve, reject) => {
+            const request = db.transaction('saved').objectStore('saved').get('bytes');
+            request.onsuccess = () => resolve(Array.from(request.result || []));
+            request.onerror = () => reject(request.error);
+          });
+        } finally { db.close(); }
+      }, index === 0);
+      assert.deepEqual(value, [0, 17, 128, 255]);
+    } finally {
+      try { assert(await utils.closeBrowserInChromeSession({outputDir, cdpUrl: launch.cdpUrl, pid: launch.pid, processIsLocal: true})); }
+      finally { await browser.disconnect(); }
+    }
+  }
+  console.log(JSON.stringify(runs));
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+    source_dir = source_manifest.parent
+    source_digest = _hash_extension_tree(source_dir)
+    source_modes = {
+        p: p.stat().st_mode & 0o777 for p in [source_dir, *source_dir.rglob("*")]
+    }
+    try:
+        for p in source_modes:
+            p.chmod(0o555 if p.is_dir() else 0o444)
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                json.dumps(cached),
+                str(tmp_path),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    finally:
+        for p, mode in source_modes.items():
+            p.chmod(mode)
+    assert result.returncode == 0, result.stderr
+    assert source_manifest.read_bytes() == before
+    assert _hash_extension_tree(source_dir) == source_digest
+
+
 def test_load_cached_extension_publishes_runtime_id_without_stale_target_state():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -2013,9 +2136,15 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                 cached_path = Path(cached_ext["unpacked_path"])
                 assert runtime_path != cached_path
                 assert runtime_path.is_relative_to(Path(session.env["PERSONAS_DIR"]))
-                assert (runtime_path / "manifest.json").read_bytes() == (
-                    cached_path / "manifest.json"
-                ).read_bytes()
+                source_manifest = json.loads(
+                    (cached_path / "manifest.json").read_text(),
+                )
+                runtime_manifest = json.loads(
+                    (runtime_path / "manifest.json").read_text(),
+                )
+                if "key" not in source_manifest:
+                    assert runtime_manifest.pop("key")
+                assert runtime_manifest == source_manifest
                 assert not (runtime_path / "manifest.json").samefile(
                     cached_path / "manifest.json",
                 )
