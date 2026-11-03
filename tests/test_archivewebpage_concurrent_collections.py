@@ -2552,13 +2552,23 @@ def test_background_stop_keeps_its_collection_while_another_tab_starts(
 
 @pytest.mark.parametrize(
     "archivewebpage_crawl",
-    [{"BROWSER_LANGUAGE": "fr-FR", "BROWSER_TIMEZONE": "Europe/Paris"}],
+    [
+        {
+            "BROWSER_LANGUAGE": "fr-FR",
+            "BROWSER_TIMEZONE": "Europe/Paris",
+            # CI observed ERR_ABORTED after recorder readiness, while repeated real
+            # local runs passed. Retain command/event ordering for this localhost-only
+            # case so an abort can be traced without ignoring it or retrying navigation.
+            "NODE_DEBUG": "puppeteer:protocol*",
+        },
+    ],
     indirect=True,
 )
 def test_concurrent_starts_attach_helpers_while_other_tabs_record(
     archivewebpage_crawl,
     chrome_test_url,
     tmp_path,
+    awp_extension_events,
 ):
     """Concurrent AWP starts must survive persona locale/timezone hydration.
 
