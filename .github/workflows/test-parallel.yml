@@ -515,9 +515,12 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: hook-logs-${{ strategy.job-index }}
+          # npm bootstrap can stall before any hook starts. Retain the native
+          # log so later ENOTEMPTY errors do not hide the initiating failure.
           path: |
             ${{ runner.temp }}/pytest/**/*.log
             ${{ runner.temp }}/pytest/**/webrecorder-replay-captured.png
+            ${{ runner.temp }}/runtime-abx-lib/cache/npm/_logs/*.log
           if-no-files-found: ignore
           retention-days: 14
 
