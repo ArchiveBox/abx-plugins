@@ -149,7 +149,15 @@ def test_timed_out_checkout_releases_its_own_index_lock(tmp_path, interruption):
         while time.monotonic() < deadline and hook.poll() is None:
             for child in owner.children(recursive=True):
                 try:
-                    args = child.cmdline()
+                    try:
+                        args = child.cmdline()
+                    except psutil.AccessDenied:
+                        # macOS can return KERN_PROCARGS2/EINVAL while a child
+                        # starts/exits, even for our own UID. An unreadable
+                        # candidate is not proof that the target was observed:
+                        # the assertion below still requires the real reset
+                        # holding index.lock before testing interruption.
+                        continue
                     if "reset" in args and "--hard" in args:
                         # Acquisition is isolated from prior output. Observe the
                         # actual reset's repository, not a guessed scratch path.
@@ -308,7 +316,14 @@ def test_timeout_hard_kill_fallback_reaps_real_git_http_helper(tmp_path):
             children = owner.children(recursive=True)
             for child in children:
                 try:
-                    if "remote-http" in " ".join(child.cmdline()):
+                    try:
+                        args = child.cmdline()
+                    except psutil.AccessDenied:
+                        # As above, macOS argv visibility races child startup
+                        # and exit. Still require an identified HTTP helper;
+                        # never count an unreadable process as the target.
+                        continue
+                    if "remote-http" in " ".join(args):
                         http_helper = child
                         break
                 except psutil.NoSuchProcess:
