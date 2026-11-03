@@ -1,0 +1,21 @@
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  s_10bc94d001be49::t_fd6283157192b2 156,228-230,236-240
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_10bc94d001be49::t_7df66edf1a16ab 1060-1146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d0f70f1f6ee865e5416294607ecac649f014c4f",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
