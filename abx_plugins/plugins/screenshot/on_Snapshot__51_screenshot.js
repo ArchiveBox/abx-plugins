@@ -153,6 +153,7 @@ async function takeScreenshot(url) {
   const captureStartedAt = Date.now();
 
   let captureSession;
+  let captureError;
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
     const viewport = getScreenshotViewport();
@@ -224,11 +225,19 @@ async function takeScreenshot(url) {
     );
 
     return OUTPUT_FILE;
+  } catch (error) {
+    captureError = error;
+    throw error;
   } finally {
     // Disconnect from browser (don't close it - we're connected to a shared session)
     // The chrome_launch hook manages the browser lifecycle
     try {
       if (captureSession) await captureSession.detach();
+    } catch (error) {
+      // Target loss can also detach this session. Preserve the capture failure,
+      // but still fail a successful capture when restoring its state fails.
+      if (!captureError) throw error;
+      console.error(`Screenshot cleanup failed: ${error.stack || error.message}`);
     } finally {
       await browser.disconnect();
     }

@@ -1057,6 +1057,93 @@ def test_no_target_id_fails(chrome_test_url):
         assert "target_id.txt" in result.stderr.lower()
 
 
+def test_target_loss_preserves_capture_error(tmp_path, screenshot_httpserver):
+    """A real target loss during image readiness must not become a detach error."""
+    server = screenshot_httpserver
+    release = threading.Event()
+
+    def pending_image(_request):
+        release.wait(timeout=30)
+        return Response(b"", content_type="image/png")
+
+    server.expect_request("/image.png").respond_with_handler(pending_image)
+    server.expect_request("/").respond_with_data(
+        '<img src="/image.png" width="100" height="100">',
+        content_type="text/html",
+    )
+    try:
+        with chrome_session(tmp_path, test_url=server.url_for("/"), timeout=30) as (
+            _,
+            chrome_pid,
+            chrome_dir,
+            env,
+        ):
+            script = r"""
+const assert = require('node:assert/strict');
+const {spawn} = require('node:child_process');
+const utils = require(process.argv[1]);
+(async () => {
+  const {browser, page, targetId} = await utils.connectToPage({chromeSessionDir: process.argv[2]});
+  const other = await browser.newPage();
+  let hook;
+  try {
+    hook = spawn(process.argv[3], ['--url=' + process.argv[4]], {
+      cwd: process.argv[5], env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '', stderr = '';
+    hook.stdout.on('data', data => { stdout += data; });
+    const finished = new Promise((resolve, reject) => {
+      hook.once('error', reject);
+      hook.once('close', code => resolve(code));
+    });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Hook never reached pending image readiness: ' + stderr)), 10000);
+      hook.stderr.on('data', data => {
+        stderr += data;
+        if (stderr.includes('"incompleteImages":1')) { clearTimeout(timer); resolve(); }
+      });
+    });
+    await utils.sendBrowserCommand(browser, 'Target.closeTarget', {targetId});
+    const code = await finished;
+    assert.equal(await other.evaluate(() => 6 * 7), 42, 'unrelated renderer remains responsive');
+    assert.equal(browser.connected, true, 'shared browser remains connected');
+    console.log(JSON.stringify({code, stdout, stderr}));
+  } finally {
+    if (hook && hook.exitCode === null) hook.kill('SIGTERM');
+    await other.close();
+    await browser.disconnect();
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+            result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    script,
+                    str(CHROME_PLUGIN_DIR / "chrome_utils.js"),
+                    str(chrome_dir),
+                    str(SCREENSHOT_HOOK),
+                    server.url_for("/"),
+                    str(chrome_dir.parent),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            assert result.returncode == 0, result.stderr
+            outcome = json.loads(result.stdout)
+            assert outcome["code"] == 1, outcome
+            record = parse_jsonl_output(outcome["stdout"])
+            assert record and record["status"] == "failed", outcome
+            assert "Session already detached" not in record["output_str"], outcome
+            assert "Waiting failed" in record["output_str"], outcome
+            assert psutil.Process(chrome_pid).is_running()
+            assert not (chrome_dir.parent / "screenshot/screenshot.png").exists()
+    finally:
+        release.set()
+
+
 def test_exited_chrome_endpoint_fails(chrome_test_url):
     """Test the real failure when Chrome exits before screenshot extraction."""
     with tempfile.TemporaryDirectory() as tmpdir:
