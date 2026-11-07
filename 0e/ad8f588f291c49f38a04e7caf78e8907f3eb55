@@ -1,0 +1,14 @@
+tests/test_browser_downloads.py
+  h_923c208e183a7b 211-214,276-279,282-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ead8f588f291c49f38a04e7caf78e8907f3eb55",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
