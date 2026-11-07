@@ -64,7 +64,7 @@ async function runStartHandshake(
   url,
   options
 ) {
-  const { autorun, collectionTitle, timeoutMs } = options;
+  const { autorun, archiveCookies, collectionTitle, timeoutMs } = options;
   console.error("[archivewebpage] start phase=opening popup");
   const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
   try {
@@ -79,7 +79,7 @@ async function runStartHandshake(
     );
     console.error("[archivewebpage] start phase=popup-port handshake");
     const result = await helperPage.evaluate(
-      async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
+      async ({ tabId, url, autorun, archiveCookies, collectionTitle, timeoutMs }) => {
         let handshakeStage = "connect";
         const handshakeStarted = Date.now();
         const receivedMessages = [];
@@ -159,6 +159,7 @@ async function runStartHandshake(
                 collId,
                 url,
                 autorun: !!autorun,
+                archiveCookies,
               });
               return await waitFor(
                 (message) =>
@@ -245,7 +246,7 @@ async function runStartHandshake(
           "AWP popup-port handshake"
         );
       },
-      { tabId: targetTabId, url, autorun, collectionTitle, timeoutMs }
+      { tabId: targetTabId, url, autorun, archiveCookies, collectionTitle, timeoutMs }
     );
     return { ...result, targetTabId };
   } finally {
@@ -335,6 +336,7 @@ async function main() {
       url,
       {
         autorun: getEnvBool("ARCHIVEWEBPAGE_AUTORUN_BEHAVIORS", false),
+        archiveCookies: !getEnvBool("ARCHIVEWEBPAGE_STRIP_COOKIES", true),
         collectionTitle: `${getEnv(
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"

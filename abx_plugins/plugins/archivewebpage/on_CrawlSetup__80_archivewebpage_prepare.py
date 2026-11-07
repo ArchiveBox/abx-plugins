@@ -163,8 +163,47 @@ for before, after in popup_patches:
             "ArchiveWeb.page popup-port patch does not match pinned release",
         )
     script = script.replace(before, after)
+# Native cookie stripping deletes from a Headers view, but serializes the
+# original dictionary. Correct that dictionary too. Only archive records change:
+# the browser still sends authentication cookies to the original site.
+# Pass the native policy per recorder, never through shared extension storage.
+# Its asynchronous init must not overwrite a snapshot's explicit policy; child
+# recorders inherit the opener policy, and unconfigured recorders default safe.
+cookie_patches = (
+    (
+        'n.headers.delete("cookie")',
+        '(n.headers.delete("cookie"),Object.keys(n.headersDict).forEach(k=>{'
+        'if(k.toLowerCase()==="cookie")delete n.headersDict[k]}))',
+    ),
+    (
+        "gg(i,{collId:t,port:e,autorun:n},r.url)",
+        "gg(i,{collId:t,port:e,autorun:n,archiveCookies:r.archiveCookies},r.url)",
+    ),
+    (
+        'this.archiveCookies="1"===(yield Ft("archiveCookies"))',
+        'this.archiveCookies=(yield Ft("archiveCookies"),this.abxArchiveCookies??!1)',
+    ),
+    (
+        "let t=null;const{waitForTabUpdate:r}=i;",
+        "self.recorders[e].abxArchiveCookies=i.archiveCookies??"
+        "self.recorders[e].abxArchiveCookies??!1;"
+        "self.recorders[e].archiveCookies=self.recorders[e].abxArchiveCookies;"
+        "let t=null;const{waitForTabUpdate:r}=i;",
+    ),
+    (
+        "gg(t.id,{waitForTabUpdate:n,collId:s,openUrl:i,autorun:ug})",
+        "gg(t.id,{waitForTabUpdate:n,collId:s,openUrl:i,autorun:ug,"
+        "archiveCookies:self.recorders[t.openerTabId]?.abxArchiveCookies??!1})",
+    ),
+)
+for before, after in cookie_patches:
+    if script.count(before) != 1:
+        raise RuntimeError(
+            "ArchiveWeb.page cookie-policy patch does not match pinned release",
+        )
+    script = script.replace(before, after)
 destination = (
-    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers7"
+    Path(config.PERSONAS_DIR) / ".archivewebpage" / f"{version}-service-workers8"
 )
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not destination.exists():

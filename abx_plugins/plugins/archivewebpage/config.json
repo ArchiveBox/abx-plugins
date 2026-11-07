@@ -65,6 +65,11 @@
       "type": "string",
       "default": "abx-dl",
       "description": "Collection title to use when AWP has no default collection yet"
+    },
+    "ARCHIVEWEBPAGE_STRIP_COOKIES": {
+      "type": "boolean",
+      "default": true,
+      "description": "Strip request Cookie headers and suppress x-wabac-preset-cookie in saved WACZ records using the native recorder cookie policy. Does not change live authentication or browser cookies. Not a general secret sanitizer: Set-Cookie, Authorization, URLs, bodies and storage are not stripped."
     }
   },
   "category": "main",
