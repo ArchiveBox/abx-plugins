@@ -279,7 +279,14 @@ def test_screenshot_accepts_completed_no_content_frame(
         content_type="text/html",
     )
     httpserver.expect_request("/empty").respond_with_data("", status=status)
-    with chrome_session(tmp_path, test_url=httpserver.url_for("/"), timeout=30) as (
+    with chrome_session(
+        tmp_path,
+        test_url=httpserver.url_for("/"),
+        timeout=30,
+        # Retain native startup errors if fixture cancellation beats Chrome's
+        # debug-port deadline. Only this fresh, public local test persona opts in.
+        env_overrides={"CHROME_LOG_SUBPROCESS_OUTPUT": "true"},
+    ) as (
         _,
         _,
         chrome,
