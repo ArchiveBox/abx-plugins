@@ -6,6 +6,12 @@ No Apple Account setup, browser navigation, extra tabs, or new dependency is req
 
 Verified with [Tammy's Poem FINAL.pdf](https://www.icloud.com/iclouddrive/09bul5IE1NC7UNrQMRSWznvnw#Tammy's_Poem_FINAL), publicly linked by the [author's fundraiser updates](https://givealittle.co.nz/cause/help-brave-tammy-in-her-battle-with-mecfs/updates). The iCloud sign-in shell does not prevent resolving this public original. Expired shares produce an explicit failed result; restricted shares and folders needing an Apple Account are not silently classified as unrelated URLs. Folder downloads and signed-in private Drive captures are unverified.
 
+Both legacy `https://www.icloud.com/iclouddrive/<share>` links and current
+`https://drive.icloud.com/shared/<share>` links are supported, including Apple's
+redirect from the legacy URL to the standalone Drive app. The hook waits for
+that app's resolved share/error view or its handoff back to the legacy public
+share page before starting the metadata request, within the existing deadline.
+
 The hook attaches before checking original/current URL applicability or waiting
 for navigation. Ordinary Drive/login homepages return `noresults`; explicit
 CloudKit `requireAppleLogin` prerequisites return `skipped`. Identifiable share

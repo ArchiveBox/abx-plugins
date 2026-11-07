@@ -5,14 +5,25 @@ import json
 import os
 import subprocess
 from pathlib import Path
+
+import pytest
+
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
 URL = "https://www.icloud.com/iclouddrive/09bul5IE1NC7UNrQMRSWznvnw#Tammy's_Poem_FINAL"
+DRIVE_URL = (
+    "https://drive.icloud.com/shared/09bul5IE1NC7UNrQMRSWznvnw#Tammy's_Poem_FINAL"
+)
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_iclouddrive.js"
 
 
-def test_public_pdf(tmp_path, ensure_chrome_test_prereqs):
+@pytest.mark.parametrize(
+    "url",
+    [URL, DRIVE_URL],
+    ids=["legacy-redirect", "drive-share"],
+)
+def test_public_pdf(tmp_path, ensure_chrome_test_prereqs, url):
     assert HOOK.is_file(), "iCloud Drive hook is missing"
     extra_args = os.environ.get("CHROME_ARGS_EXTRA", "").strip()
     extra_args = (
@@ -22,9 +33,10 @@ def test_public_pdf(tmp_path, ensure_chrome_test_prereqs):
     )
     with chrome_session(
         tmp_path,
-        test_url=URL,
+        test_url=url,
         timeout=60,
         env_overrides={
+            "AUTH_STORAGE_FILE": "",
             "CHROME_ARGS_EXTRA": json.dumps(
                 extra_args
                 + [
@@ -35,7 +47,7 @@ def test_public_pdf(tmp_path, ensure_chrome_test_prereqs):
         },
     ) as (_, _, chrome, env):
         result = subprocess.run(
-            [str(HOOK), f"--url={URL}"],
+            [str(HOOK), f"--url={url}"],
             cwd=chrome.parent,
             env=env,
             capture_output=True,
@@ -61,8 +73,11 @@ def test_public_pdf(tmp_path, ensure_chrome_test_prereqs):
         )
 
 
-def test_provider_homepage_has_no_document(tmp_path, ensure_chrome_test_prereqs):
-    url = "https://www.icloud.com/iclouddrive/"
+@pytest.mark.parametrize(
+    "url",
+    ["https://www.icloud.com/iclouddrive/", "https://drive.icloud.com/"],
+)
+def test_provider_homepage_has_no_document(tmp_path, ensure_chrome_test_prereqs, url):
     with chrome_session(
         tmp_path,
         test_url=url,
@@ -80,4 +95,28 @@ def test_provider_homepage_has_no_document(tmp_path, ensure_chrome_test_prereqs)
         assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
         assert record and record["status"] == "noresults", result.stdout
+        assert not (chrome.parent / "iclouddrive").exists()
+
+
+def test_expired_drive_share_fails(tmp_path, ensure_chrome_test_prereqs):
+    # The former research-workbook fixture is a real expired public share.
+    url = "https://drive.icloud.com/shared/0f6fDVQ1pwdx3yckeXzrbAqkq"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        timeout=60,
+        env_overrides={"AUTH_STORAGE_FILE": "", "CHROME_HEADLESS": "true"},
+    ) as (_, _, chrome, env):
+        result = subprocess.run(
+            [str(HOOK), f"--url={url}"],
+            cwd=chrome.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=150,
+        )
+        assert result.returncode == 1, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "failed", result.stdout
+        assert "iCloud share unavailable: NOT_FOUND" in record["output_str"]
         assert not (chrome.parent / "iclouddrive").exists()

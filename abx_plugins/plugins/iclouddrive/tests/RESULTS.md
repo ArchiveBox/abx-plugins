@@ -1,5 +1,33 @@
 # Live iCloud Drive evidence
 
+## 2026-11-07: standalone Drive share URLs
+
+[CI job 128448575615](https://github.com/ArchiveBox/abx-plugins/actions/runs/42387707280/job/128448575615)
+failed because Apple redirected the legacy fixture to
+`https://drive.icloud.com/shared/09bul5IE1NC7UNrQMRSWznvnw` with HTTP 302.
+The retained Chrome network log in artifact `hook-logs-57` records that redirect;
+the hook recognized only `www.icloud.com/iclouddrive/<share>`.
+
+The unchanged live test reproduced locally: **1 failed, 1 passed**. Added direct
+Drive URL and Drive homepage cases, then verified **2 failed, 2 passed** before
+updating exact hostname/path recognition. A subsequent run exposed Apple's
+client-side handoff back to `www.icloud.com/iclouddrive/<share>?redirect=false&sa=true`
+while the hook's metadata fetch was running, destroying its execution context.
+The hook now waits for the standalone app's resolved share/error view or that
+native handoff before resolving once, within the existing deadline.
+
+Final live coverage: **19 passed in 53.60 seconds**, covering both public URL
+forms, both homepages and all 15 existing iCloud unrelated-page/navigation
+regressions. A separate new expired-Drive-share case **passed in 5.24 seconds**,
+requiring explicit CloudKit `NOT_FOUND` rather than a timeout or `noresults`.
+Both public URL forms downloaded the original 41723-byte PDF with the unchanged
+filename, PDF signature, EOF, manifest size and SHA256 assertions below. Both
+homepages returned `noresults` without creating download output. Configured
+scoped pre-commit checks, including full Ty/Pyright, passed. No authentication,
+retries, timeout changes, or relaxed assertions were used.
+
+## 2026-10-07: original implementation
+
 2026-10-07: missing-hook test failed first, then the same real Chrome lifecycle and executable hook test passed: **1 passed in 8.87s**. No mocks, synthetic fixtures, internal helper calls, or skipped tests.
 
 Source: `https://www.icloud.com/iclouddrive/09bul5IE1NC7UNrQMRSWznvnw#Tammy's_Poem_FINAL`.

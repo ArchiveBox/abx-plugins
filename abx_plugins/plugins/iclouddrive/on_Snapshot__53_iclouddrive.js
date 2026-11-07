@@ -35,14 +35,19 @@ async function main() {
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
   const chromeSessionDir = path.join(snapshotDir, "chrome");
-  const candidate = (value) =>
-    value.protocol === "https:" &&
-    value.hostname === "www.icloud.com" &&
-    /^\/iclouddrive\/[A-Za-z0-9_-]+\/?$/.test(value.pathname);
+  const shareId = (value) => {
+    if (value.protocol !== "https:") return null;
+    if (value.hostname === "www.icloud.com")
+      return value.pathname.match(/^\/iclouddrive\/([A-Za-z0-9_-]+)\/?$/)?.[1];
+    // Apple redirects legacy public links to the standalone Drive app.
+    if (value.hostname === "drive.icloud.com")
+      return value.pathname.match(/^\/shared\/([A-Za-z0-9_-]+)\/?$/)?.[1];
+    return null;
+  };
   const navigatedUrls = readNavigatedUrls(chromeSessionDir);
   if (
     navigatedUrls &&
-    ![url, ...navigatedUrls].some((value) => candidate(new URL(value)))
+    ![url, ...navigatedUrls].some((value) => shareId(new URL(value)))
   ) {
     console.error("Not an iCloud Drive public share");
     return emitArchiveResultRecord(
@@ -56,7 +61,7 @@ async function main() {
   });
   let temporary;
   try {
-    if (!candidate(new URL(url)) && !candidate(new URL(page.url()))) {
+    if (!shareId(new URL(url)) && !shareId(new URL(page.url()))) {
       console.error("Not an iCloud Drive public share");
       return emitArchiveResultRecord(
         "noresults",
@@ -64,15 +69,22 @@ async function main() {
       );
     }
     await waitForNavigationComplete(chromeSessionDir, remaining());
-    const current = new URL(page.url());
-    const share = current.pathname.match(
-      /^\/iclouddrive\/([A-Za-z0-9_-]+)\/?$/,
-    )?.[1];
-    if (
-      current.protocol !== "https:" ||
-      current.hostname !== "www.icloud.com" ||
-      !share
-    ) {
+    if (new URL(page.url()).hostname === "drive.icloud.com") {
+      // The standalone app resolves the share after DOMContentLoaded and may
+      // hand legacy public files back to www.icloud.com. Starting a fetch
+      // before that decision loses its execution context during the handoff.
+      const ready = await page.waitForFunction(
+        () =>
+          location.hostname !== "drive.icloud.com" ||
+          document.querySelector(
+            ".app-body, .invalid_share, .restricted_unauth_share, .request_access, .join_share",
+          ),
+        { timeout: remaining() },
+      );
+      await ready.dispose();
+    }
+    const share = shareId(new URL(page.url()));
+    if (!share) {
       console.error("Not an iCloud Drive public share");
       return emitArchiveResultRecord(
         "noresults",
