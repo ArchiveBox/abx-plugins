@@ -1,0 +1,20 @@
+abx_plugins/plugins/iclouddrive/README.md
+  h_923c208e183a7b 9-14
+abx_plugins/plugins/iclouddrive/on_Snapshot__53_iclouddrive.js
+  h_923c208e183a7b 38-46,50,64,72-87
+abx_plugins/plugins/iclouddrive/tests/RESULTS.md
+  h_923c208e183a7b 3-30
+abx_plugins/plugins/iclouddrive/tests/test_iclouddrive.py
+  h_923c208e183a7b 8-10,15-17,21-26,36,39,50,76-80,99-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca0d261b1489b55ce6e2007438ebfad1bcb5a6eb",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
