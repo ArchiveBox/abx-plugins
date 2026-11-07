@@ -1,0 +1,40 @@
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  h_923c208e183a7b 16,60,126,128-137,152
+abx_plugins/plugins/tlsnotary/tests/test_mux_overlay.py
+  h_923c208e183a7b 1-136
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/Dockerfile
+  h_923c208e183a7b 1-18
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/LICENSE-APACHE-2.0.txt
+  h_923c208e183a7b 1-202
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/LICENSE-MIT.txt
+  h_923c208e183a7b 1-18
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/README.md
+  h_923c208e183a7b 1-96
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/manifest.json
+  h_923c208e183a7b 1-30
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/mux-close-drain.patch
+  h_923c208e183a7b 1-28
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/probe/Cargo.lock
+  h_923c208e183a7b 1-600
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/probe/Cargo.toml
+  h_923c208e183a7b 1-9
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/probe/src/main.rs
+  h_923c208e183a7b 1-42
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/probe/verify.sh
+  h_923c208e183a7b 1-11
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/regenerate.py
+  h_923c208e183a7b 1-140
+abx_plugins/plugins/tlsnotary/vendor/mux_overlay.py
+  h_923c208e183a7b 1-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a48a07447d6feaf5d78de3f4024364e66f14f6ee",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
