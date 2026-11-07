@@ -1,0 +1,22 @@
+README.md
+  h_923c208e183a7b 33
+abx_plugins/plugins/archivewebpage/config.json
+  h_923c208e183a7b 68-72
+abx_plugins/plugins/archivewebpage/on_CrawlSetup__80_archivewebpage_prepare.py
+  h_923c208e183a7b 166-204,206
+abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js
+  h_923c208e183a7b 67,82,162,249,339
+tests/test_archivewebpage_cookie_policy.py
+  h_923c208e183a7b 1-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f8b5d729078aa27662c04ce8cebd7d6eb16c11a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
