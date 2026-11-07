@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import json
+import re
 import subprocess
 import zipfile
 from pathlib import Path
@@ -53,40 +54,7 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                     for page in browser.contexts[0].pages
                     if "wetransfer.com/" in page.url
                 )
-                terms = page.get_by_role("button", name="I agree", exact=True)
-                preview = page.get_by_role("button", name="Close preview", exact=True)
-                try:
-                    terms.or_(preview).wait_for(state="visible")
-                except Exception:
-                    try:
-                        state = page.evaluate(
-                            """() => ({
-                              origin: location.origin,
-                              title: document.title.slice(0, 200),
-                              text: (document.body?.innerText || '').slice(0, 1200),
-                              buttons: [...document.querySelectorAll('button')]
-                                .filter(button => button.offsetWidth || button.offsetHeight)
-                                .map(button => (button.innerText || button.getAttribute('aria-label') || '').trim().slice(0, 100))
-                                .filter(Boolean).slice(0, 20)
-                            })""",
-                        )
-                        print("WeTransfer consent wait page state:", json.dumps(state))
-                        page.screenshot(
-                            path=tmp_path / "exported-frame-wetransfer-failure.jpg",
-                            type="jpeg",
-                            timeout=3000,
-                        )
-                    except Exception as diagnostic_error:
-                        print(
-                            "Could not collect WeTransfer consent diagnostics:",
-                            type(diagnostic_error).__name__,
-                        )
-                    raise
-                # The short link can open a preview that downloads without
-                # consent. Close it to exercise the genuine terms gate.
-                if preview.is_visible():
-                    preview.click()
-                terms.wait_for(state="visible")
+                prepare_media_kit_download_view(page, tmp_path)
                 assert not any(
                     cookie.get("name") == "wt_tandc"
                     for cookie in browser.contexts[0].cookies()
@@ -101,10 +69,62 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                     cookie.get("name") == "wt_tandc" and cookie.get("value")
                     for cookie in browser.contexts[0].cookies()
                 ), "The first export must establish genuine transfer consent"
+                # Reload through the provider to exercise the already-ready
+                # download view as well as its first-visit terms/preview views.
+                page = next(
+                    page
+                    for page in browser.contexts[0].pages
+                    if "wetransfer.com/" in page.url
+                )
+                page.reload(wait_until="domcontentloaded")
+                page.get_by_role(
+                    "button",
+                    name=re.compile(r"^Download(?: all)?$"),
+                ).wait_for(state="visible")
+                prepare_media_kit_download_view(page, tmp_path)
             # Preserve the first validated export without letting its bytes mask
             # a missing download during the accepted-session export.
             (chrome.parent / "wetransfer").rename(tmp_path / "first-export")
         assert_media_kit_export(tmp_path, chrome, env)
+
+
+def prepare_media_kit_download_view(page, tmp_path):
+    terms = page.get_by_role("button", name="I agree", exact=True)
+    preview = page.get_by_role("button", name="Close preview", exact=True)
+    download = page.get_by_role("button", name=re.compile(r"^Download(?: all)?$"))
+    try:
+        terms.or_(preview).or_(download).first.wait_for(state="visible")
+    except Exception:
+        try:
+            state = page.evaluate(
+                """() => ({
+                  origin: location.origin,
+                  title: document.title.slice(0, 200),
+                  text: (document.body?.innerText || '').slice(0, 1200),
+                  buttons: [...document.querySelectorAll('button')]
+                    .filter(button => button.offsetWidth || button.offsetHeight)
+                    .map(button => (button.innerText || button.getAttribute('aria-label') || '').trim().slice(0, 100))
+                    .filter(Boolean).slice(0, 20)
+                })""",
+            )
+            print("WeTransfer consent wait page state:", json.dumps(state))
+            page.screenshot(
+                path=tmp_path / "exported-frame-wetransfer-failure.jpg",
+                type="jpeg",
+                timeout=3000,
+            )
+        except Exception as diagnostic_error:
+            print(
+                "Could not collect WeTransfer consent diagnostics:",
+                type(diagnostic_error).__name__,
+            )
+        raise
+    # The short link can open a preview that downloads without consent. Close
+    # it to expose the transfer view. That view can already be download-ready;
+    # an absent terms gate must not prevent the hook from exporting it.
+    if preview.is_visible():
+        preview.click()
+    terms.or_(download).first.wait_for(state="visible")
 
 
 def assert_media_kit_export(tmp_path, chrome, env):
