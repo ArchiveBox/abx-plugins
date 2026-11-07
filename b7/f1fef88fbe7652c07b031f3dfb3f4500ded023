@@ -1,0 +1,14 @@
+abx_plugins/plugins/wetransfer/tests/test_wetransfer.py
+  h_923c208e183a7b 7,57,72-84,91-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7f1fef88fbe7652c07b031f3dfb3f4500ded023",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
