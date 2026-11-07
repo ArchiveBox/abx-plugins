@@ -1,0 +1,14 @@
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  h_923c208e183a7b 282-289
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a34cbbb33b0d95af070e6da4faf376b60ef968c6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
