@@ -13,6 +13,7 @@ import os
 import shutil
 from pathlib import Path
 from abx_plugins.plugins.base.utils import load_config
+from abx_plugins.plugins.tlsnotary.vendor.mux_overlay import apply_mux_overlay
 
 config = load_config()
 if config.TLSNOTARY_ENABLED:
@@ -56,7 +57,7 @@ if config.TLSNOTARY_ENABLED:
     source = Path(metadata["unpacked_path"])
     if json.loads((source / "manifest.json").read_text())["version"] != "0.1.0.1501":
         raise RuntimeError("TLSNotary export patch requires release 0.1.0.1501")
-    destination = Path(config.PERSONAS_DIR) / ".tlsnotary" / "0.1.0.1501-export2"
+    destination = Path(config.PERSONAS_DIR) / ".tlsnotary" / "0.1.0.1501-export2-mux1"
     destination.parent.mkdir(parents=True, exist_ok=True)
     with (destination.parent / "prepare.lock").open("a+b") as lock:
         if os.name == "nt":
@@ -122,10 +123,18 @@ if config.TLSNOTARY_ENABLED:
             background.write_text(
                 background_script.replace(managed_position, "width:t,height:s}"),
             )
+            mux_files = apply_mux_overlay(staging)
             if destination.exists():
-                if (destination / "offscreen.bundle.js").read_text() != script or (
-                    destination / "background.bundle.js"
-                ).read_bytes() != background.read_bytes():
+                if any(
+                    not (destination / name).is_file()
+                    or (destination / name).read_bytes()
+                    != (staging / name).read_bytes()
+                    for name in (
+                        "offscreen.bundle.js",
+                        "background.bundle.js",
+                        *mux_files,
+                    )
+                ):
                     raise RuntimeError(
                         "Prepared extension differs from the pinned version; use a fresh persona cache",
                     )
@@ -140,6 +149,7 @@ if config.TLSNOTARY_ENABLED:
                 "unpacked_path": str(destination.resolve()),
                 "version": "0.1.0.1501",
                 "export_patch": 2,
+                "mux_patch": 1,
                 "bundle_sha256": hashlib.sha256(script.encode()).hexdigest(),
             },
         ),

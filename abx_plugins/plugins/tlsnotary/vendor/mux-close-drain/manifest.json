@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "upstream_release": "0.1.0.1501",
+  "upstream_zip_sha256": "1c312ad4305653b8d9351cf3eac46de4222a43be513260bf53053cfa1de45155",
+  "upstream_fix": "https://github.com/tlsnotary/tlsn-utils/commit/67aab0bced6950530f960d89d866405e4557bd02",
+  "source_patch_sha256": "5128e2c747bd4656526bed16aae71cbdf1f95f545d0111439b2e643ba8c11bde",
+  "patch_sha256": "f4ddf0f424259411363e79f3be1e277a1c7b4a4e8284f204fd56345ef028d879",
+  "files": {
+    "tlsn_wasm_bg.wasm": {
+      "original_sha256": "bb3c73628f088867a1f99291275b56a379ce44fd239efca9445fb5908a97e318",
+      "output_sha256": "43ef006e7a8ffacd7bee59629d13e45202be73605a95e53eb95ea3a6ea8cee21",
+      "output_size": 12642488
+    },
+    "c215ca8b495a7eadf02b.wasm": {
+      "original_sha256": "bb3c73628f088867a1f99291275b56a379ce44fd239efca9445fb5908a97e318",
+      "output_sha256": "43ef006e7a8ffacd7bee59629d13e45202be73605a95e53eb95ea3a6ea8cee21",
+      "output_size": 12642488
+    },
+    "71.bundle.js": {
+      "original_sha256": "561bdb72d00e6aed5fe6b420f5edf843c2a492cde5a8f7baa32df0fa5abd2997",
+      "output_sha256": "561bdb72d00e6aed5fe6b420f5edf843c2a492cde5a8f7baa32df0fa5abd2997",
+      "output_size": 24218
+    },
+    "tlsn_wasm.js": {
+      "original_sha256": "523711ce5c7f1d5206bc05250153e74f3063ed7e420d0a0953ca24b4ea39dc4f",
+      "output_sha256": "523711ce5c7f1d5206bc05250153e74f3063ed7e420d0a0953ca24b4ea39dc4f",
+      "output_size": 24609
+    }
+  }
+}

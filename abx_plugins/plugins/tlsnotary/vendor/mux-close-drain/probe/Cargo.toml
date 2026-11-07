@@ -1,0 +1,9 @@
+[package]
+name = "tlsnotary-mux-close-probe"
+version = "0.0.0"
+edition = "2024"
+[dependencies]
+futures = "0.3"
+tokio = {version = "1", features = ["macros", "rt-multi-thread", "net", "time"]}
+tokio-util = {version = "0.7", features = ["compat"]}
+tlsn-mux = {path = "/home/runner/work/tlsn/tlsn/vendor/tlsn-utils/mux/mux"}

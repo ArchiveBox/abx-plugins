@@ -1,0 +1,28 @@
+--- a/mux/mux/src/connection/active.rs
++++ b/mux/mux/src/connection/active.rs
+@@ -254,7 +254,11 @@
+     }
+ 
+     /// Gracefully close the connection to the remote.
+-    pub(super) fn close(self) -> Closing<T> {
++    pub(super) fn close(mut self) -> Closing<T> {
++        // Keep accepted final frames queued by Handle before the next driver poll.
++        while let Ok(receiver) = self.new_receiver_rx.try_recv() {
++            self.stream_receivers.push(receiver);
++        }
+         let wait_for_reply = self.config.close_sync;
+         let pending_frames = self
+             .pending_read_frame
+@@ -272,7 +276,11 @@
+     }
+ 
+     /// Close the connection without waiting for a reply.
+-    pub(super) fn close_no_wait(self) -> Closing<T> {
++    pub(super) fn close_no_wait(mut self) -> Closing<T> {
++        // Keep accepted final frames queued by Handle before the next driver poll.
++        while let Ok(receiver) = self.new_receiver_rx.try_recv() {
++            self.stream_receivers.push(receiver);
++        }
+         let pending_frames = self
+             .pending_read_frame
+             .into_iter()
