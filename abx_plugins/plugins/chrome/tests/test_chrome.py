@@ -16,6 +16,7 @@ before snapshot tabs are created.
 """
 
 import json
+import re
 import hashlib
 import os
 import signal
@@ -4490,6 +4491,7 @@ def test_snapshot_target_loss_preserves_failed_daemon_exit(tmp_path, ending):
                 time.sleep(0.05)
             assert len(records) == 1 and records[0]["status"] == "succeeded"
             initial_stdout = stdout_path.read_bytes()
+            result = None
             if ending != "cleanup":
                 script = r"""
 const fs = require('fs');
@@ -4501,10 +4503,26 @@ const utils = require(process.argv[1]);
   const {browser, page, targetId} = await utils.connectToPage({chromeSessionDir: dir});
   try {
     if (process.argv[3] === 'crash') {
+      // A separate context guarantees the unrelated crash has its own renderer.
+      // Its event must not appear in the owned snapshot daemon's diagnostics.
+      const context = await browser.createBrowserContext();
+      const unrelated = await context.newPage();
+      const unrelatedCrashed = new Promise(resolve => unrelated.once('error', resolve));
+      const unrelatedSession = await unrelated.createCDPSession();
+      unrelatedSession.send('Page.crash').catch(() => {});
+      assert.match((await unrelatedCrashed).message, /crash/i);
+      await context.close();
+      assert.equal(page.isClosed(), false);
+      const nativeCrash = new Promise(resolve => {
+        utils.getBrowserConnection(browser).on('Target.targetCrashed', event => {
+          if (event.targetId === targetId) resolve({status: event.status, errorCode: event.errorCode});
+        });
+      });
       const crashed = new Promise(resolve => page.once('error', resolve));
       const session = await page.createCDPSession();
       session.send('Page.crash').catch(() => {});
       assert.match((await crashed).message, /crash/i);
+      console.log(JSON.stringify(await nativeCrash));
     } else {
       await utils.sendBrowserCommand(browser, 'Target.closeTarget', {targetId});
     }
@@ -4533,11 +4551,32 @@ const utils = require(process.argv[1]);
             daemon.send_signal(signal.SIGTERM)
             daemon.communicate(timeout=10)
             stderr = (chrome_dir / "chrome_tab.stderr.log").read_text()
+            crash_diagnostics = [
+                line
+                for line in stderr.splitlines()
+                if line.startswith("[chrome] target_crash ")
+            ]
             if ending == "crash":
                 assert "crashed" in stderr
-            elif ending == "closed":
-                assert "closed unexpectedly" in stderr
+                assert len(crash_diagnostics) == 1, stderr
+                assert re.fullmatch(
+                    r"\[chrome\] target_crash status=[a-z_-]+ error_code=-?\d+",
+                    crash_diagnostics[0],
+                )
+                assert "http" not in crash_diagnostics[0]
+                assert result is not None
+                native = json.loads(result.stdout)
+                assert native["status"] == "crashed"
+                assert isinstance(native["errorCode"], int)
+                assert (
+                    crash_diagnostics[0]
+                    == f"[chrome] target_crash status=crashed error_code={native['errorCode']}"
+                )
             else:
+                assert not crash_diagnostics, stderr
+            if ending == "closed":
+                assert "closed unexpectedly" in stderr
+            elif ending == "cleanup":
                 assert "crashed" not in stderr and "closed unexpectedly" not in stderr
             assert daemon.returncode == (0 if ending == "cleanup" else 1), stderr
             assert stdout_path.read_bytes() == initial_stdout, (

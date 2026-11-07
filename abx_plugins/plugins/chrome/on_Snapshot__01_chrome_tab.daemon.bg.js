@@ -47,6 +47,7 @@ const {
   resolvePuppeteerModule,
   readBrowserMetadata,
   sweepExportPages,
+  getBrowserConnection,
 } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
@@ -74,6 +75,7 @@ let keepAliveTimer = null;
 let currentCdpUrl = null;
 let monitorBrowser = null;
 let monitorPage = null;
+let monitorCrashListener = null;
 let shuttingDown = false;
 let cleanupPromise = null;
 let exportSweepPromise = null;
@@ -211,6 +213,12 @@ async function stopTargetMonitor() {
     monitorPage = null;
   }
   if (monitorBrowser) {
+    if (monitorCrashListener) {
+      try {
+        getBrowserConnection(monitorBrowser).off("Target.targetCrashed", monitorCrashListener);
+      } catch (error) {}
+      monitorCrashListener = null;
+    }
     try {
       await monitorBrowser.disconnect();
     } catch (error) {}
@@ -234,6 +242,17 @@ async function startTargetMonitor() {
   });
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
+  // Puppeteer's browser connection already discovers targets. Observe Chrome's
+  // native termination classification without enabling raw subprocess logging,
+  // changing target lifecycle, or exposing target IDs, URLs, or arguments.
+  monitorCrashListener = (event) => {
+    if (shuttingDown || targetId !== expectedTargetId || event.targetId !== expectedTargetId) return;
+    if (!Number.isSafeInteger(event.errorCode)) return;
+    const status = ["normal", "abnormal", "killed", "crashed", "oom", "launch-failed", "integrity-failure", "still-running"].includes(event.status)
+      ? event.status : "unknown";
+    console.error(`[chrome] target_crash status=${status} error_code=${event.errorCode}`);
+  };
+  getBrowserConnection(monitorBrowser).on("Target.targetCrashed", monitorCrashListener);
   // Observe before navigation starts. A completed iframe navigation can retain
   // about:blank (204/205, canceled navigation); its URL alone is not readiness.
   // Keep this separate from the main-document navigation marker, which the
