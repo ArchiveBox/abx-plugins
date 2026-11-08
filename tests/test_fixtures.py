@@ -285,6 +285,9 @@ def real_competing_html_snapshot(
     singlefile_install_state,
 ):
     """Produce real SingleFile and DOM outputs from distinct local pages."""
+    from abx_plugins.plugins.singlefile.tests.test_singlefile import (
+        prepare_singlefile_before_launch,
+    )
     from abx_plugins.plugins.base.testing import get_hook_script, parse_jsonl_output
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
@@ -310,6 +313,7 @@ def real_competing_html_snapshot(
         install_state = singlefile_install_state
         with chrome_session(
             tmpdir=singlefile_root,
+            prelaunch_setup=prepare_singlefile_before_launch,
             crawl_id=f"singlefile-{snapshot_id}",
             snapshot_id=snapshot_id,
             test_url=singlefile_url,

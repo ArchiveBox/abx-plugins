@@ -64,6 +64,18 @@ async function moveAcrossMounts(src, dest, startedAt) {
   }
 }
 
+// Temporary upstream allocation fixes; remove with the preparation hook once
+// an upstream fixed release passes the full-fidelity gallery regression.
+function validatePreparedSinglefile(extension) {
+  if (extension?.version !== "1.36.0") {
+    throw new Error("SingleFile capture requires reviewed extension version 1.36.0");
+  }
+  const bundle = path.join(extension.unpacked_path, "lib/single-file.js");
+  if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "67909f49dfc92efe8f9427f5ec90afc53238d64d4b685c4e51479b14a5ebd339") {
+    throw new Error("SingleFile selected bundle SHA256 mismatch; CrawlSetup preparation must succeed before capture");
+  }
+}
+
 async function getExactChromeTab(extension, page) {
   const targetId = chromeUtils.getTargetIdFromPage(page);
   if (!targetId) {
@@ -415,6 +427,7 @@ async function main() {
       throw new Error("SingleFile extension metadata is missing from browser.json");
     }
     const extension = { ...sessionEntry };
+    validatePreparedSinglefile(extension);
     const manifest =
       chromeUtils.loadExtensionManifest(extension.unpacked_path) || {};
     const preferredTargetUrl = sessionEntry.target_url ||
@@ -455,6 +468,7 @@ if (require.main === module) main();
 
 module.exports = {
   EXTENSION,
+  validatePreparedSinglefile,
   getSinglefileDownloadWaitTimeoutMs,
   saveSinglefileWithExtension,
 };

@@ -137,7 +137,8 @@ rules = { unresolved-import = "ignore" }
 [tool.codespell]
 # OT is oblivious transfer in the vendored TLSNotary cryptographic code.
 ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo,ot,cros"
-skip = "*.json"
+# Preserve exact upstream identifiers in the corresponding-source patch.
+skip = "*.json,abx_plugins/plugins/singlefile/patches/font-serialization.patch"
 
 [tool.ty.src]
 exclude = ["abx_plugins/plugins/papersdl/papers-dl-patches/**"]

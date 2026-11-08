@@ -1843,12 +1843,13 @@ def chrome_session(
     timeout: int = 15,
     env_overrides: dict[str, str] | None = None,
     crawl_setup: Callable[[dict[str, str], Path], None] | None = None,
+    prelaunch_setup: Callable[[dict[str, str], Path], None] | None = None,
 ):
     """Context manager for the full crawl -> snapshot -> optional navigate flow.
 
     It models the real plugin lifecycle in miniature:
     1. provision crawl/snapshot dirs and runtime env
-    2. launch the crawl-level shared browser
+    2. optionally prepare resources before launching the shared browser
     3. wait for crawl readiness markers (including ``chrome.pid`` / ``cdp_url``)
     4. optionally run crawl-setup work against the ready browser
     5. create a snapshot tab with its own session markers
@@ -1948,6 +1949,9 @@ def chrome_session(
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
+
+        if prelaunch_setup is not None:
+            prelaunch_setup(env, chrome_dir)
 
         chrome_launch_process, _cdp_url = launch_chromium_session(
             env=env,

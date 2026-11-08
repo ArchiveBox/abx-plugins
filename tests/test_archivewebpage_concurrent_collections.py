@@ -292,6 +292,12 @@ def archivewebpage_crawl(
         "ArchiveWeb.page crawl preparation failed:\n"
         f"stdout={prepare.stdout}\nstderr={prepare.stderr}"
     )
+    if env.get("SINGLEFILE_ENABLED") == "true":
+        from abx_plugins.plugins.singlefile.tests.test_singlefile import (
+            prepare_singlefile_before_launch,
+        )
+
+        prepare_singlefile_before_launch(env, crawl_chrome_dir)
     launch_process, _cdp_url = launch_chromium_session(
         env,
         crawl_chrome_dir,

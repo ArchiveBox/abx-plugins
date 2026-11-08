@@ -689,3 +689,36 @@ const {observePublishedFile}=require(process.argv[2]);
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_chrome_session_prelaunch_and_postlaunch_order(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    httpserver,
+):
+    observed = []
+    httpserver.expect_request("/").respond_with_data(
+        "<title>Preparation order</title>",
+        content_type="text/html",
+    )
+
+    def before(env, chrome_dir):
+        assert env["CHROME_HEADLESS"] == "true"
+        assert Path(env["CRAWL_DIR"]) == chrome_dir.parent
+        assert not (chrome_dir / "chrome.pid").exists()
+        observed.append("before")
+
+    def after(env, chrome_dir):
+        assert (chrome_dir / "chrome.pid").is_file()
+        assert (chrome_dir / "browser.json").is_file()
+        assert observed == ["before"]
+        observed.append("after")
+
+    with chrome_session(
+        tmp_path,
+        test_url=httpserver.url_for("/"),
+        env_overrides={"PLUGINS": "chrome"},
+        prelaunch_setup=before,
+        crawl_setup=after,
+    ):
+        assert observed == ["before", "after"]
