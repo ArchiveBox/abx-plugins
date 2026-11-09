@@ -10,6 +10,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 from abx_plugins.plugins.singlefile.tests.test_singlefile import (
     CHROME_UTILS,
     SNAPSHOT_HOOK,
+    prepare_singlefile_before_launch,
 )
 
 
@@ -53,6 +54,7 @@ def test_singlefile_preserves_responsive_images(
     state = singlefile_install_state
     with chrome_session(
         tmp_path,
+        prelaunch_setup=prepare_singlefile_before_launch,
         test_url=url,
         navigate=True,
         timeout=30,

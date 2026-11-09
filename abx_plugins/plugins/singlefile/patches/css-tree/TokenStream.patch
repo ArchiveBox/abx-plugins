@@ -1,0 +1,216 @@
+--- a/lib/tokenizer/TokenStream.js
++++ b/lib/tokenizer/TokenStream.js
+@@ -1,4 +1,3 @@
+-import { adoptBuffer } from './adopt-buffer.js';
+ import { cmpStr } from './utils.js';
+ import tokenNames from './names.js';
+ import {
+@@ -15,8 +14,17 @@
+     RightCurlyBracket
+ } from './types.js';
+ 
+-const OFFSET_MASK = 0x00FFFFFF;
+-const TYPE_SHIFT = 24;
++// Keep all 32 offset bits without bitwise operators truncating the token word.
++// A token type and Uint32 offset fit exactly within a Float64's 53 integer bits.
++const TYPE_FACTOR = 0x100000000;
++
++function unpackTokenType(value) {
++    return Math.floor((value || 0) / TYPE_FACTOR);
++}
++
++function unpackTokenOffset(value) {
++    return (value || 0) % TYPE_FACTOR;
++}
+ const BLOCK_OPEN_TOKEN = 1;
+ const BLOCK_CLOSE_TOKEN = 2;
+ const balancePair = new Uint8Array(32); // 32b of memory ought to be enough for anyone (any number of tokens)
+@@ -53,8 +61,9 @@
+         source = String(source || '');
+ 
+         const sourceLength = source.length;
+-        const offsetAndType = adoptBuffer(this.offsetAndType, source.length + 1); // +1 because of eof-token
+-        const balance = adoptBuffer(this.balance, source.length + 1);
++        const maxCapacity = sourceLength + 1; // include the EOF sentinel
++        let offsetAndType = this.offsetAndType || new Float64Array(Math.min(16384, maxCapacity));
++        let balance = this.balance || new Uint32Array(Math.min(16384, maxCapacity));
+         let tokenCount = 0;
+         let firstCharOffset = -1;
+         let balanceCloseType = 0;
+@@ -63,13 +72,25 @@
+         // capture buffers
+         this.offsetAndType = null;
+         this.balance = null;
+-        balance.fill(0);
++        // Every used balance entry is assigned below before it is read.
++        // Do not allocate or clear one entry per source character: a large
++        // embedded URL may occupy hundreds of megabytes but only one token.
+ 
+         tokenize(source, (type, start, end) => {
+             const index = tokenCount++;
+ 
++            if (tokenCount >= offsetAndType.length) {
++                const capacity = Math.min(maxCapacity, offsetAndType.length * 2);
++                const nextOffsetAndType = new Float64Array(capacity);
++                const nextBalance = new Uint32Array(capacity);
++                nextOffsetAndType.set(offsetAndType);
++                nextBalance.set(balance);
++                offsetAndType = nextOffsetAndType;
++                balance = nextBalance;
++            }
++
+             // type & offset
+-            offsetAndType[index] = (type << TYPE_SHIFT) | end;
++            offsetAndType[index] = type * TYPE_FACTOR + end;
+ 
+             if (firstCharOffset === -1) {
+                 firstCharOffset = start;
+@@ -86,7 +107,11 @@
+ 
+                 // pop state
+                 balanceStart = prevBalanceStart;
+-                balanceCloseType = balancePair[offsetAndType[prevBalanceStart] >> TYPE_SHIFT];
++                // The root sentinel is not a token. A reused buffer can contain
++                // stale data there, so never read a token type from that slot.
++                balanceCloseType = prevBalanceStart === sourceLength
++                    ? 0
++                    : balancePair[unpackTokenType(offsetAndType[prevBalanceStart])];
+             } else if (this.isBlockOpenerTokenType(type)) { // check for FunctionToken, <(-token>, <[-token> and <{-token>
+                 // push state
+                 balanceStart = index;
+@@ -95,7 +120,7 @@
+         });
+ 
+         // finalize buffers
+-        offsetAndType[tokenCount] = (EOF << TYPE_SHIFT) | sourceLength; // <EOF-token>
++        offsetAndType[tokenCount] = EOF * TYPE_FACTOR + sourceLength; // <EOF-token>
+         balance[tokenCount] = tokenCount; // prevents false positive balance match with any token
+ 
+         // reverse references from balance start to end
+@@ -138,14 +163,14 @@
+         offset += this.tokenIndex;
+ 
+         if (offset < this.tokenCount) {
+-            return this.offsetAndType[offset] >> TYPE_SHIFT;
++            return unpackTokenType(this.offsetAndType[offset]);
+         }
+ 
+         return EOF;
+     }
+     lookupTypeNonSC(idx) {
+         for (let offset = this.tokenIndex; offset < this.tokenCount; offset++) {
+-            const tokenType = this.offsetAndType[offset] >> TYPE_SHIFT;
++            const tokenType = unpackTokenType(this.offsetAndType[offset]);
+ 
+             if (tokenType !== WhiteSpace && tokenType !== Comment) {
+                 if (idx-- === 0) {
+@@ -160,14 +185,14 @@
+         offset += this.tokenIndex;
+ 
+         if (offset < this.tokenCount) {
+-            return this.offsetAndType[offset - 1] & OFFSET_MASK;
++            return unpackTokenOffset(this.offsetAndType[offset - 1]);
+         }
+ 
+         return this.source.length;
+     }
+     lookupOffsetNonSC(idx) {
+         for (let offset = this.tokenIndex; offset < this.tokenCount; offset++) {
+-            const tokenType = this.offsetAndType[offset] >> TYPE_SHIFT;
++            const tokenType = unpackTokenType(this.offsetAndType[offset]);
+ 
+             if (tokenType !== WhiteSpace && tokenType !== Comment) {
+                 if (idx-- === 0) {
+@@ -184,8 +209,8 @@
+         if (offset < this.tokenCount) {
+             return cmpStr(
+                 this.source,
+-                this.offsetAndType[offset - 1] & OFFSET_MASK,
+-                this.offsetAndType[offset] & OFFSET_MASK,
++                unpackTokenOffset(this.offsetAndType[offset - 1]),
++                unpackTokenOffset(this.offsetAndType[offset]),
+                 referenceStr
+             );
+         }
+@@ -199,8 +224,8 @@
+ 
+         if (tokenIndex > 0) {
+             return tokenIndex < this.tokenCount
+-                ? this.offsetAndType[tokenIndex - 1] & OFFSET_MASK
+-                : this.offsetAndType[this.tokenCount] & OFFSET_MASK;
++                ? unpackTokenOffset(this.offsetAndType[tokenIndex - 1])
++                : unpackTokenOffset(this.offsetAndType[this.tokenCount]);
+         }
+ 
+         return this.firstCharOffset;
+@@ -210,14 +235,14 @@
+             return this.tokenEnd;
+         }
+ 
+-        return this.offsetAndType[boundIndex(tokenIndex, 0, this.tokenCount)] & OFFSET_MASK;
++        return unpackTokenOffset(this.offsetAndType[boundIndex(tokenIndex, 0, this.tokenCount)]);
+     }
+     getTokenType(tokenIndex) {
+         if (tokenIndex === this.tokenIndex) {
+             return this.tokenType;
+         }
+ 
+-        return this.offsetAndType[boundIndex(tokenIndex, 0, this.tokenCount)] >> TYPE_SHIFT;
++        return unpackTokenType(this.offsetAndType[boundIndex(tokenIndex, 0, this.tokenCount)]);
+     }
+     substrToCursor(start) {
+         return this.source.substring(start, this.tokenStart);
+@@ -271,10 +296,10 @@
+ 
+         if (next < this.tokenCount) {
+             this.tokenIndex = next;
+-            this.tokenStart = this.offsetAndType[next - 1] & OFFSET_MASK;
++            this.tokenStart = unpackTokenOffset(this.offsetAndType[next - 1]);
+             next = this.offsetAndType[next];
+-            this.tokenType = next >> TYPE_SHIFT;
+-            this.tokenEnd = next & OFFSET_MASK;
++            this.tokenType = unpackTokenType(next);
++            this.tokenEnd = unpackTokenOffset(next);
+         } else {
+             this.tokenIndex = this.tokenCount;
+             this.next();
+@@ -287,8 +312,8 @@
+             this.tokenIndex = next;
+             this.tokenStart = this.tokenEnd;
+             next = this.offsetAndType[next];
+-            this.tokenType = next >> TYPE_SHIFT;
+-            this.tokenEnd = next & OFFSET_MASK;
++            this.tokenType = unpackTokenType(next);
++            this.tokenEnd = unpackTokenOffset(next);
+         } else {
+             this.eof = true;
+             this.tokenIndex = this.tokenCount;
+@@ -315,7 +340,7 @@
+                 break loop;
+             }
+ 
+-            offset = cursor > 0 ? this.offsetAndType[cursor - 1] & OFFSET_MASK : this.firstCharOffset;
++            offset = cursor > 0 ? unpackTokenOffset(this.offsetAndType[cursor - 1]) : this.firstCharOffset;
+ 
+             // check stop condition
+             switch (stopConsume(this.source.charCodeAt(offset))) {
+@@ -328,7 +353,7 @@
+ 
+                 default:
+                     // fast forward to the end of balanced block for an open block tokens
+-                    if (this.isBlockOpenerTokenType(this.offsetAndType[cursor] >> TYPE_SHIFT)) {
++                    if (this.isBlockOpenerTokenType(unpackTokenType(this.offsetAndType[cursor]))) {
+                         cursor = balanceEnd;
+                     }
+             }
+@@ -341,8 +366,8 @@
+         for (let i = 0, offset = this.firstCharOffset; i < this.tokenCount; i++) {
+             const start = offset;
+             const item = this.offsetAndType[i];
+-            const end = item & OFFSET_MASK;
+-            const type = item >> TYPE_SHIFT;
++            const end = unpackTokenOffset(item);
++            const type = unpackTokenType(item);
+ 
+             offset = end;
+ 

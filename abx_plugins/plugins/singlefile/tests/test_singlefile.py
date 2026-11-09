@@ -11,6 +11,7 @@ Tests verify:
 """
 
 import base64
+import hashlib
 import json
 import subprocess
 import threading
@@ -69,6 +70,18 @@ def test_url(request):
         finally:
             server.shutdown()
             thread.join()
+
+
+def prepare_singlefile_before_launch(env, chrome_dir):
+    result = subprocess.run(
+        [str(PLUGIN_DIR / "on_CrawlSetup__80_singlefile_prepare.py")],
+        cwd=chrome_dir.parent,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_snapshot_hook_exists():
@@ -147,6 +160,7 @@ def test_singlefile_cli_archives_loaded_page(
     install_state = singlefile_install_state
     with chrome_session(
         tmpdir=tmpdir,
+        prelaunch_setup=prepare_singlefile_before_launch,
         crawl_id="singlefile-cli-crawl",
         snapshot_id="singlefile-cli-snap",
         test_url=test_url,
@@ -281,8 +295,8 @@ def test_singlefile_chrome_preserves_large_css_urls(
 ):
     state = singlefile_install_state
     # SingleFile 1.32.0 incorporates our css-tree URL allocation fix upstream.
-    # Exercise the installed extension, not a second locally patched bundle:
-    # all embedded resources must survive the real browser capture byte-for-byte.
+    # Exercise the real prepared extension, with reviewed upstream allocation
+    # fixes, while preserving the provider cache and every embedded resource.
     crawl_id = "singlefile-large-css-browser-crawl"
     image_fixture = (
         PLUGIN_DIR.parent / "importers_browser" / "setup" / "extension-setup.png"
@@ -295,6 +309,7 @@ def test_singlefile_chrome_preserves_large_css_urls(
     url = httpserver.url_for("/")
     with chrome_session(
         tmp_path,
+        prelaunch_setup=prepare_singlefile_before_launch,
         crawl_id=crawl_id,
         snapshot_id="singlefile-large-css-snapshot",
         test_url=url,
@@ -312,7 +327,28 @@ def test_singlefile_chrome_preserves_large_css_urls(
         actual_source = Path(
             extension.get("source_unpacked_path", extension["unpacked_path"]),
         )
-        assert actual_source.resolve() == state["unpacked_path"].resolve(), extension
+        prepared_metadata = json.loads(
+            (
+                Path(chrome_env["CRAWL_DIR"])
+                / "chrome/extensions/singlefile.extension.json"
+            ).read_text(),
+        )
+        assert (
+            actual_source.resolve()
+            == Path(prepared_metadata["unpacked_path"]).resolve()
+        ), extension
+        assert (
+            hashlib.sha256(
+                (actual_source / "lib/single-file.js").read_bytes(),
+            ).hexdigest()
+            == "8678e171fea7873381320b91c5cb019a93dc726926d2144f38932f73aab46521"
+        )
+        assert (
+            hashlib.sha256(
+                (state["unpacked_path"] / "lib/single-file.js").read_bytes(),
+            ).hexdigest()
+            == "386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2"
+        )
         output_dir = chrome_dir.parent / "singlefile"
         output_dir.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
@@ -343,6 +379,7 @@ def test_singlefile_with_chrome_session(tmp_path, singlefile_install_state):
 
     with chrome_session(
         tmpdir=tmpdir,
+        prelaunch_setup=prepare_singlefile_before_launch,
         crawl_id="singlefile-test-crawl",
         snapshot_id="singlefile-test-snap",
         test_url=TEST_URL,
@@ -405,6 +442,7 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
     )
     with chrome_session(
         tmpdir=tmpdir,
+        prelaunch_setup=prepare_singlefile_before_launch,
         crawl_id="singlefile-ext-crawl",
         snapshot_id="singlefile-ext-snap",
         test_url=TEST_URL,
@@ -465,6 +503,7 @@ def test_singlefile_extension_loader_resolves_current_background_target(
 
     with chrome_session(
         tmpdir=tmpdir,
+        prelaunch_setup=prepare_singlefile_before_launch,
         crawl_id="singlefile-offscreen-crawl",
         snapshot_id="singlefile-offscreen-snap",
         test_url=TEST_URL,
@@ -681,6 +720,7 @@ def test_singlefile_reports_browser_injection_rejection(
     extensions_dir = singlefile_install_state["extensions_dir"]
     with chrome_session(
         tmp_path,
+        prelaunch_setup=prepare_singlefile_before_launch,
         test_url=url,
         timeout=30,
         env_overrides={

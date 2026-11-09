@@ -15,6 +15,7 @@ from abx_plugins.plugins.singlefile.tests.test_singlefile import (
     CHROME_UTILS,
     SINGLEFILE_HELPER,
     SNAPSHOT_HOOK,
+    prepare_singlefile_before_launch,
 )
 
 
@@ -35,6 +36,7 @@ def test_singlefile_outer_timeout_keeps_browser_diagnostics(
     state = singlefile_install_state
     with chrome_session(
         tmp_path,
+        prelaunch_setup=prepare_singlefile_before_launch,
         test_url=url,
         navigate=True,
         timeout=30,
@@ -201,6 +203,7 @@ def _check_singlefile_timeout_cleanup(
     state = singlefile_install_state
     with chrome_session(
         tmp_path,
+        prelaunch_setup=prepare_singlefile_before_launch,
         test_url=url,
         navigate=True,
         timeout=30,
