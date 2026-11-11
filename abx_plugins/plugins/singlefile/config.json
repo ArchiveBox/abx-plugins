@@ -11,7 +11,7 @@
     {
       "name": "singlefile",
       "binproviders": "env,chromewebstore",
-      "min_version": "1.32.0",
+      "min_version": "1.37.0",
       "overrides": {
         "chromewebstore": {
           "install_args": [

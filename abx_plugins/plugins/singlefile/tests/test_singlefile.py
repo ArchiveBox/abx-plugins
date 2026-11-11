@@ -496,7 +496,7 @@ const unpackedPath = process.argv[4];
 const extensionVersion = process.argv[5];
 const preferredTargetUrl = process.argv[6];
 
-const OFFSCREEN_PATH = '/src/ui/pages/offscreen-document.html';
+const HELPER_PATH = '/src/ui/pages/options.html';
 
 function collectTargets(browser, extensionId) {
     return browser.targets()
@@ -519,7 +519,7 @@ function collectTargets(browser, extensionId) {
         async (browser) => {
         const offscreenPage = await browser.newPage();
         await offscreenPage.goto(
-            `chrome-extension://${extensionId}${OFFSCREEN_PATH}`,
+            `chrome-extension://${extensionId}${HELPER_PATH}`,
             { waitUntil: 'load', timeout: 10000 }
         );
 
@@ -616,7 +616,7 @@ function collectTargets(browser, extensionId) {
         ), payload
         assert any(
             target["type"] == "page"
-            and target["url"].endswith("/src/ui/pages/offscreen-document.html")
+            and target["url"].endswith("/src/ui/pages/options.html")
             for target in payload["afterClose"]
         ), payload
         assert any(

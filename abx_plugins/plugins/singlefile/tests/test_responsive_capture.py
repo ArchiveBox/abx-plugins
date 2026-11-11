@@ -75,7 +75,7 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
     const configPage = await browser.newPage();
     let profiles;
     try {{
-      await configPage.goto(`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`);
+      await configPage.goto(`chrome-extension://${{extension.id}}/src/ui/pages/options.html`);
       profiles = await configPage.evaluate(() => chrome.runtime.sendMessage({{method: 'config.getProfiles'}}));
     }} finally {{ await configPage.close(); }}
     if (process.argv[1] === 'prepare') {{

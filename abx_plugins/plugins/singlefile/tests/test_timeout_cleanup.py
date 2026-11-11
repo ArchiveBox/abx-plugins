@@ -54,8 +54,9 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
   }});
   try {{
     const extension = chromeUtils.findExtensionMetadataByName(extensions, 'singlefile');
-    const configPage = await browser.newPage();
-    await configPage.goto(`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`);
+    const configPage = await chromeUtils.openExtensionPage(
+      browser, `chrome-extension://${{extension.id}}/src/ui/pages/options.html`,
+    );
     await configPage.evaluate(async (tabId) => {{
       const [result] = await chrome.scripting.executeScript({{
         target: {{tabId}}, func: () => chrome.runtime.sendMessage({{method:'bootstrap.init'}}),
@@ -220,14 +221,15 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
  const mode=process.argv[1];
  const pausedClock={json.dumps(failure == "paused-clock")};
  if(pausedClock&&mode==='observe'){{
-  for(const observer of (await browser.pages()).filter(candidate=>candidate.url()===`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`)){{
+  for(const observer of (await browser.pages()).filter(candidate=>candidate.url()===`chrome-extension://${{extension.id}}/src/ui/pages/options.html`)){{
    const session=await observer.createCDPSession();
    await session.send('Emulation.setVirtualTimePolicy',{{policy:'advance'}});
    await observer.close();
   }}
  }}
- const helper=await browser.newPage();
- await helper.goto(`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`);
+ const helper=await cu.openExtensionPage(
+  browser, `chrome-extension://${{extension.id}}/src/ui/pages/options.html`,
+ );
  const url=await page.url();
  const info=()=>helper.evaluate(()=>chrome.runtime.sendMessage({{method:'downloads.getInfo'}}));
  if(mode==='configure'||mode==='reset'){{
@@ -237,6 +239,17 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
    await chrome.runtime.sendMessage({{method:'config.updateProfile',profileName:init.result.options.profileName,profile:{{delayBeforeProcessing:delay}}}});
   }},{{url,delay:mode==='configure'?30:0}});
  }}
+ if(mode==='configure'){{
+  // Start the independent capture before the owned seven-second deadline.
+  const deadline=Date.now()+5000;
+  const other=await browser.newPage();await other.goto(url+'?other');
+  await other.bringToFront();
+  await other.triggerExtensionAction((await browser.extensions()).get(extension.id));
+  while(!(await info()).some(task=>task.url===url+'?other')){{
+   if(Date.now()>deadline)throw new Error('SingleFile did not start the other capture');
+   await new Promise(resolve=>setTimeout(resolve,50));
+  }}
+ }}
  if(mode==='other'||mode==='other-paused'){{
   const deadline=Date.now()+5000;
   while(!(await info()).some(task=>task.url===url)){{
@@ -245,23 +258,16 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
   }}
   const owned=(await info()).find(task=>task.url===url);
   if(!Number.isInteger(owned.id)||owned.id<0)throw new Error(`Invalid native task id: ${{owned.id}}`);
-  const other=await browser.newPage();await other.goto(url+'?other');
-  await other.bringToFront();
-  await other.triggerExtensionAction((await browser.extensions()).get(extension.id));
-  while(!(await info()).some(task=>task.url===url+'?other')){{
-   if(Date.now()>deadline)throw new Error('SingleFile did not start the other capture');
-   await new Promise(resolve=>setTimeout(resolve,50));
-  }}
   if(mode==='other-paused'){{
    const observers=(await browser.pages()).filter(candidate=>candidate!==helper && candidate.url()===helper.url());
-   if(observers.length!==1)throw new Error(`Expected one capture observer, got ${{observers.length}}`);
+   if(observers.length!==1)throw new Error(`Expected one capture observer, got ${{observers.length}}: ${{JSON.stringify((await browser.pages()).map(candidate=>candidate.url()))}}`);
    const session=await observers[0].createCDPSession();
    await session.send('Emulation.setVirtualTimePolicy',{{policy:'pause'}});
   }}
  }}
  if(mode==='close-helper'){{
   const observers=(await browser.pages()).filter(candidate=>candidate!==helper && candidate.url()===helper.url());
-  if(observers.length!==1)throw new Error(`Expected one capture observer, got ${{observers.length}}`);
+  if(observers.length!==1)throw new Error(`Expected one capture observer, got ${{observers.length}}: ${{JSON.stringify((await browser.pages()).map(candidate=>candidate.url()))}}`);
   await observers[0].close();
  }}
  if(mode==='cancel-owned'){{
@@ -298,7 +304,8 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             assert result.returncode == 0, result.stdout + result.stderr
             return json.loads(result.stdout)
 
-        assert control("configure") == []
+        initial_tasks = control("configure")
+        assert [task["url"] for task in initial_tasks] == [url + "?other"]
         capture_command = [str(SNAPSHOT_HOOK), f"--url={url}"]
         if failure != "download-deadline":
             # Exercise a real CDP timeout before the extension's own deadline,
