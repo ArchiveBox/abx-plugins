@@ -255,6 +255,7 @@
         "--disable-background-networking",
         "--disable-background-timer-throttling",
         "--disable-backgrounding-occluded-windows",
+        "--disable-frame-rate-limit",
         "--disable-ipc-flooding-protection",
         "--disable-extensions-http-throttling",
         "--disable-back-forward-cache",
