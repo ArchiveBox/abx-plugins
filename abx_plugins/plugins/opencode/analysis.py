@@ -12,7 +12,7 @@ def create_session(config, *, data_dir: Path, title: str):
     settings = runtime._settings(config, data_dir)
     if not config.get("OPENCODE_ENABLED"):
         raise RuntimeError(
-            "Enable the OpenCode agent and configure a provider before requesting AI enrichment."
+            "Enable the OpenCode agent and configure a provider before requesting AI enrichment.",
         )
     ok, error = runtime._ensure_opencode(settings)
     if not ok:
@@ -34,7 +34,7 @@ def create_session(config, *, data_dir: Path, title: str):
         or Path(session.get("directory", "")).resolve() != settings["workdir"].resolve()
     ):
         raise RuntimeError(
-            "OpenCode returned a session outside the requested collection."
+            "OpenCode returned a session outside the requested collection.",
         )
     return session["id"]
 
@@ -79,7 +79,7 @@ def result(config, *, data_dir, session_id):
         unfinished_assistant = True
         if info.get("error"):
             raise RuntimeError(
-                f"OpenCode analysis failed: {info['error'].get('name', 'provider error')}"
+                f"OpenCode analysis failed: {info['error'].get('name', 'provider error')}",
             )
         if info.get("time", {}).get("completed") and info.get("finish") not in {
             "tool-calls",
@@ -94,7 +94,7 @@ def result(config, *, data_dir, session_id):
                 return json.loads(text)
             except (TypeError, ValueError) as error:
                 raise RuntimeError(
-                    "OpenCode returned invalid JSON. Inspect the linked session before retrying."
+                    "OpenCode returned invalid JSON. Inspect the linked session before retrying.",
                 ) from error
     if unfinished_assistant:
         state = requests.get(
@@ -106,6 +106,6 @@ def result(config, *, data_dir, session_id):
         state.raise_for_status()
         if state.json().get(session_id, {}).get("type", "idle") == "idle":
             raise RuntimeError(
-                "OpenCode stopped without a completed summary. Check the linked session and provider credentials or quota before retrying."
+                "OpenCode stopped without a completed summary. Check the linked session and provider credentials or quota before retrying.",
             )
     return None
