@@ -86,6 +86,22 @@ async function main() {
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
+    // Distinguish Apple's export queue from a missing download event. Never
+    // log full request URLs or response bodies: they contain share credentials.
+    page.on("response", async (response) => {
+      const action = new URL(response.url()).pathname.split("/").pop();
+      if (!["export_shared_document", "check_shared_export_status", "download_shared_exported_document"].includes(action)) return;
+      console.error(`iWork export response: ${action} HTTP ${response.status()} (${Date.now() - (deadline - timeoutMs)}ms)`);
+      if (action === "check_shared_export_status") {
+        try {
+          const body = await response.json();
+          if (typeof body.job_status === "string" && /^[A-Z_]+$/.test(body.job_status))
+            console.error("iWork export status:", body.job_status);
+        } catch (error) {
+          console.error("iWork export status unreadable:", error.name);
+        }
+      }
+    });
     await page.goto(sourcePage.url(), {
       waitUntil: "domcontentloaded",
       timeout: remaining(),

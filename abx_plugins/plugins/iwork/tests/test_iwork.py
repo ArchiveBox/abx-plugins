@@ -31,6 +31,7 @@ def test_public_keynote_pdf(tmp_path, ensure_chrome_test_prereqs):
             text=True,
             timeout=150,
         )
+        print(result.stderr)
         assert result.returncode == 0, result.stderr
         assert "iWork export control: pdf" in result.stderr
         assert "iWork PDF export requested" in result.stderr
