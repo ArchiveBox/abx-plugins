@@ -159,3 +159,17 @@ lives under `opencode/screenshots/`, outside captured snapshot payloads.
 Dependency resolution preserves the host's Python environment. Browser clients
 use their own installed interpreters without projecting unrelated downloader
 packages into ArchiveBox CLI subprocesses.
+
+## Saved-page analysis
+
+`analysis.py` exposes collection-scoped session creation, asynchronous submission,
+and result polling for optional hosts. Analysis sessions deny every tool
+permission and accept captured text supplied by the host; they do not browse or
+edit the collection. The host validates the returned JSON before persisting it.
+The module is independent of Django and ArchiveBox.
+
+The pinned OpenCode 1.19.4 server accepts `format: json_schema` but fails to decode
+its own persisted format when reading session messages (HTTP 400,
+`Expected OutputFormatJsonSchema`). Analysis therefore requests strict JSON text
+and rejects invalid output. It does not silently retry with a different model or
+weaken output validation. Provider errors are reported to the host.
