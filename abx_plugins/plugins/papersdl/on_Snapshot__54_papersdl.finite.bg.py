@@ -334,13 +334,8 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
             stderr = combined_output
             stdout = combined_output
 
-            # These are NOT errors - page simply has no downloadable paper
-            stderr_lower = stderr.lower()
-            stdout_lower = stdout.lower()
-            if "not found" in stderr_lower or "not found" in stdout_lower:
-                return True, 0, ""  # Paper not available - success, no output
-            if "no results" in stderr_lower or "no results" in stdout_lower:
-                return True, 0, ""  # No paper found - success, no output
+            # A clean empty search is noresults; text in a failed command must
+            # not hide its exit status (e.g. a DNS host "not found" error).
             if process.returncode == 0:
                 return (
                     True,
@@ -348,13 +343,7 @@ def save_paper(identifier: str, binary: str, timeout: float) -> tuple[bool, int,
                     "",
                 )  # papers-dl exited cleanly, just no paper - success
 
-            # These ARE errors - something went wrong
-            if "404" in stderr or "404" in stdout:
-                return False, 0, "404 Not Found"
-            if "403" in stderr or "403" in stdout:
-                return False, 0, "403 Forbidden"
-
-            return False, 0, f"papers-dl error: {stderr[:200] or stdout[:200]}"
+            return False, 0, f"papers-dl error: {stderr[-300:] or stdout[-300:]}"
 
     except subprocess.TimeoutExpired:
         return False, 0, f"Timed out after {timeout} seconds"

@@ -66,6 +66,10 @@ async def get_urls(session, identifier, headers=None):
                 page.title.get_text(strip=True)[:120] if page.title else "",
             )
         return urls
-    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as error:
-        logger.info("Couldn't discover a publisher PDF: {}", error)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+        if isinstance(error, aiohttp.ClientResponseError) and error.status == 404:
+            return []
+        raise
+    except ValueError as error:
+        logger.info("Couldn't discover a publisher PDF: {}: {}", type(error).__name__, error)
         return []

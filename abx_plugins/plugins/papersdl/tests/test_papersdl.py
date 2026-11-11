@@ -14,6 +14,7 @@ Tests verify:
 import hashlib
 import json
 import os
+import socket
 import subprocess
 import tempfile
 from pathlib import Path
@@ -36,6 +37,46 @@ TEST_URL = "https://archivebox.io/tests/"
 _papersdl_binary_path = None
 _papersdl_install_error = None
 _papersdl_lib_root = None
+
+
+@pytest.mark.parametrize("providers", ["publisher", "publisher,unpaywall"])
+def test_provider_connection_failure_is_not_an_empty_search(tmp_path, providers):
+    # Reserve a real closed TCP endpoint: no fabricated HTTP response or provider.
+    with socket.socket() as unavailable:
+        unavailable.bind(("127.0.0.1", 0))
+        url = f"http://127.0.0.1:{unavailable.getsockname()[1]}/10.21105/joss.01112"
+        result = subprocess.run(
+            [
+                require_papersdl_binary(),
+                "-v",
+                "fetch",
+                url,
+                "--providers",
+                providers,
+                "--output",
+                str(tmp_path),
+            ],
+            env={
+                **os.environ,
+                "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches"),
+                "UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
+            },
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    pdfs = list(tmp_path.glob("*.pdf"))
+    assert "Cannot connect to host 127.0.0.1" in result.stderr
+    if providers == "publisher":
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert "No papers found" not in result.stdout
+        assert not pdfs
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Successfully downloaded paper" in result.stdout
+        assert len(pdfs) == 1
+        assert pdfs[0].read_bytes().startswith(b"%PDF-")
+        assert pdfs[0].stat().st_size > 10000
 
 
 def test_papersdl_does_not_refetch_failed_document(
@@ -754,7 +795,6 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
         text=True,
         timeout=120,
     )
-    assert result.returncode == 0, result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record is not None, result.stdout
     pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
@@ -771,9 +811,21 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
         for line in result.stderr.splitlines()
     )
     biorxiv_rate_limit = provider == "biorxiv" and (
-        f"error: 429, message='Too Many Requests', url='{url}'" in result.stderr
+        f"error: ClientResponseError: 429, message='Too Many Requests', url='{url}'"
+        in result.stderr
     )
-    if record["status"] == "noresults" and (pmc_captcha or biorxiv_rate_limit):
+    if biorxiv_rate_limit:
+        # A refused request is a failed capture, not a completed empty search.
+        assert result.returncode == 1, result.stderr
+        assert record["status"] == "failed", record
+        assert (
+            "No PDF downloaded; 1 provider request(s) failed (ClientResponseError)"
+            in record["output_str"]
+        )
+        assert not pdfs, pdfs
+        return
+    assert result.returncode == 0, result.stderr
+    if record["status"] == "noresults" and pmc_captcha:
         assert record == {
             "type": "ArchiveResult",
             "status": "noresults",

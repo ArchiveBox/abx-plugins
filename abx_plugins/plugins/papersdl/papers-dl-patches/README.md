@@ -18,6 +18,12 @@ PMC, Europe PMC, bioRxiv, and medRxiv. Existing publisher and repository provide
 follow. A successful PDF ends discovery. Responses must pass HTTP status and
 PDF-signature checks.
 
+PMC and publisher discovery preserve network errors instead of converting them
+to empty searches. Discovery/download errors still allow the next selected
+provider to supply a valid PDF. If none succeeds, retained request errors fail
+the CLI and hook; a clean empty search remains `noresults`. The hook respects a
+nonzero CLI exit even when its diagnostics contain words such as "not found".
+
 PAPERSDL_UNPAYWALL_EMAIL defaults to unpaywall-papersdl@archivebox.io. Setting it
 to an empty string disables Unpaywall; UNPAYWALL_EMAIL is an alias. The hook
 passes this value to the CLI as UNPAYWALL_EMAIL. Explicit --providers values in

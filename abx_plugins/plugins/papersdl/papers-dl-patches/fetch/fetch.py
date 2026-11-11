@@ -125,6 +125,7 @@ async def get_urls(session, identifier, providers):
 
 
 async def fetch(session, identifier, providers) -> tuple | None:
+    errors = []
     # catch exceptions so that they don't cancel the task group
     async def get_wrapper(url):
         try:
@@ -163,7 +164,9 @@ async def fetch(session, identifier, providers) -> tuple | None:
                     len(content),
                 )
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error("error: {}", e)
+            logger.error("error: {}: {}", type(e).__name__, e)
+            if not isinstance(e, aiohttp.ClientResponseError) or e.status != 404:
+                errors.append(e)
         return None
 
     selected = (
@@ -175,7 +178,12 @@ async def fetch(session, identifier, providers) -> tuple | None:
     # repository cannot delay a PDF already found by an earlier provider.
     seen = set()
     for provider in selected:
-        urls = await get_urls(session, identifier, provider)
+        try:
+            urls = await get_urls(session, identifier, provider)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+            logger.error("{} discovery failed: {}: {}", provider, type(error).__name__, error)
+            errors.append(error)
+            continue
         urls = list(dict.fromkeys(url for url in urls if url and url not in seen))
         seen.update(urls)
         tasks = [asyncio.create_task(get_wrapper(url)) for url in urls]
@@ -189,6 +197,9 @@ async def fetch(session, identifier, providers) -> tuple | None:
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+    if errors:
+        kinds = ", ".join(dict.fromkeys(type(error).__name__ for error in errors))
+        raise RuntimeError(f"No PDF downloaded; {len(errors)} provider request(s) failed ({kinds})") from errors[0]
     return None
 
 

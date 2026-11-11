@@ -171,13 +171,12 @@ async def get_urls(session, identifier):
                     )
                 )
         return urls
-    except (
-        aiohttp.ClientError,
-        asyncio.TimeoutError,
-        ValueError,
-        ElementTree.ParseError,
-    ) as error:
-        logger.info("Couldn't find a PubMed Central PDF: {}", error)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+        if isinstance(error, aiohttp.ClientResponseError) and error.status == 404:
+            return []
+        raise
+    except (ValueError, ElementTree.ParseError) as error:
+        logger.info("Couldn't find a PubMed Central PDF: {}: {}", type(error).__name__, error)
         return []
 
 
