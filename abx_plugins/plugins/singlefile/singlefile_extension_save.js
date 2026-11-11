@@ -170,6 +170,20 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   let releaseSinglefileLock;
   let downloadedPath;
   let originalProfileOptions;
+  let profileRelease;
+  const releaseProfile = () => {
+    if (!profileRelease) profileRelease = (async () => {
+      if (originalProfileOptions) {
+        await helperPage.evaluate(options => chrome.runtime.sendMessage({
+          method: "config.updateProfile", ...options,
+        }), originalProfileOptions);
+      }
+      releaseSinglefileLock?.();
+      releaseSinglefileLock = null;
+      console.error(`[singlefile] phase=profile-released elapsed_ms=${Date.now() - saveStartedAt}`);
+    })();
+    return profileRelease;
+  };
   let captureStarted = false;
   let captureError = null;
   try {
@@ -216,6 +230,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     console.error(`[singlefile] phase=helper-bindings started elapsed_ms=${Date.now() - saveStartedAt}`);
     const installed = (await page.browser().extensions()).get(extension.id);
     if (!installed) throw new Error("SingleFile is no longer installed in this browser");
+    await helperPage.exposeFunction("archiveboxReleaseProfile", releaseProfile);
     await helperPage.exposeFunction("archiveboxDownloadMatchesContent", async (filename, digest) => {
       const hash = createHash("sha256");
       for await (const chunk of fs.createReadStream(filename)) hash.update(chunk);
@@ -323,7 +338,20 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           };
           chrome.downloads.onChanged.addListener(onChanged);
           chrome.runtime.onMessage.addListener(onMessage);
-          window.archiveboxStartCapture().catch(fail);
+          window.archiveboxStartCapture().then(async () => {
+            // Native saveTabs copies the profile into its task before adding
+            // it to downloads.getInfo. Once registered, this capture no longer
+            // reads shared preferences. Restore them and admit the next tab
+            // while this task renders/downloads using its own options.
+            while (!settled) {
+              const tasks = await chrome.runtime.sendMessage({ method: "downloads.getInfo" });
+              if (tasks.some(task => task.tabId === exactTab.id)) {
+                await window.archiveboxReleaseProfile();
+                return;
+              }
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          }).catch(fail);
         });
       },
       { exactTab: tab, extensionId: extension.id }),
@@ -352,11 +380,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     throw error;
   } finally {
     try {
-      if (originalProfileOptions) {
-        await helperPage.evaluate(options => chrome.runtime.sendMessage({
-          method: "config.updateProfile", ...options,
-        }), originalProfileOptions);
-      }
+      await releaseProfile();
     } catch (error) {
       // Browser interruption can detach the helper during capture and cleanup.
       // Retain the initiating error, but still fail a successful capture if its

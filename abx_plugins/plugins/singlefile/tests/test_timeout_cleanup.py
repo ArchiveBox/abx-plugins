@@ -396,13 +396,14 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
         )
         if failure == "closed-helper":
             # Closing the real observer rejects its pending CDP evaluation. The
-            # subsequent failed profile restore must not replace that exception.
+            # profile is already restored once the native task is registered;
+            # cleanup must preserve the original observer-loss exception.
             error = json.loads(stdout)
             assert error["name"] == "TargetCloseError", error
             assert "Runtime.callFunctionOn" in error["message"], error
             assert "Target closed" in error["message"], error
-            assert "SingleFile profile restoration failed:" in stderr, stderr
-            assert "Attempted to use detached Frame" in stderr, stderr
+            assert "phase=profile-released" in stderr, stderr
+            assert "SingleFile profile restoration failed:" not in stderr, stderr
             # Cancellation cannot execute through the closed observer. Cancel
             # the retained real task explicitly before checking the other tab.
             assert sorted(task["url"] for task in control("observe")) == [
