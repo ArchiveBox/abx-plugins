@@ -32,7 +32,9 @@ const hookConfig = loadConfig();
 const CHROME_DOWNLOADS_DIR =
   chromeUtils.resolveChromeLaunchOptions(hookConfig).CHROME_DOWNLOADS_DIR;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
-const SERVICE_WORKER_WAKE_PATH = "/src/ui/pages/offscreen-document.html";
+// The native offscreen document registers capture processors. Opening it as a
+// tab duplicates those listeners and races the extension's own offscreen worker.
+const SERVICE_WORKER_WAKE_PATH = "/src/ui/pages/options.html";
 
 function getSinglefileDownloadWaitTimeoutMs(
   config = hookConfig,

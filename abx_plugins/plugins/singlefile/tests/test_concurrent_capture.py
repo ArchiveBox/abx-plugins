@@ -85,7 +85,7 @@ const {{spawn}} = require("node:child_process");
   const target = await cu.waitForExtensionTargetHandle(browser,extension.id,5000);
   await cu.loadExtensionFromTarget([extension],target);
   const observer = await browser.newPage();
-  await observer.goto(`chrome-extension://${{extension.id}}/src/ui/pages/offscreen-document.html`);
+  await observer.goto(`chrome-extension://${{extension.id}}/${{extension.manifest.options_ui.page}}`);
   const original = await observer.evaluate(async url => {{
    const tab = (await chrome.tabs.query({{}})).find(tab=>tab.url===url);
    const [init] = await chrome.scripting.executeScript({{target:{{tabId:tab.id}},func:()=>chrome.runtime.sendMessage({{method:'bootstrap.init'}})}});
@@ -97,17 +97,23 @@ const {{spawn}} = require("node:child_process");
    )}};
   }},await page.url());
   let maxTasks = 0;
+  let processingTabs = 0;
   let overlappingProfile = null;
   let finished = false;
   const observations = (async () => {{
    while (!finished) {{
     const state = await observer.evaluate(async url => {{
      const tasks = await chrome.runtime.sendMessage({{method:'downloads.getInfo'}});
+     const processingTabs = await chrome.runtime.getContexts({{
+      contextTypes:['TAB'],
+      documentUrls:[chrome.runtime.getURL('/src/ui/pages/offscreen-document.html')],
+     }});
      const tab = (await chrome.tabs.query({{}})).find(tab=>tab.url===url);
      const [init] = await chrome.scripting.executeScript({{target:{{tabId:tab.id}},func:()=>chrome.runtime.sendMessage({{method:'bootstrap.init'}})}});
-     return {{tasks,options:init.result.options}};
+     return {{tasks,options:init.result.options,processingTabs:processingTabs.length}};
     }},await page.url());
     maxTasks = Math.max(maxTasks,state.tasks.length);
+    processingTabs = Math.max(processingTabs,state.processingTabs);
     if(state.tasks.length===2) overlappingProfile=state.options;
     await new Promise(resolve=>setTimeout(resolve,50));
    }}
@@ -135,6 +141,7 @@ const {{spawn}} = require("node:child_process");
    for(const result of results) assert.equal(result.status,'fulfilled',String(result.reason));
   }} finally {{ finished=true; await observations; }}
   assert.equal(maxTasks,2,'Both real native captures must overlap');
+  assert.equal(processingTabs,0,'Control tabs must not register duplicate native offscreen processors');
   for(const [key,value] of Object.entries(original.profile))
    assert.equal(overlappingProfile[key],value,`Persona preference ${{key}} must already be restored while captures run`);
   for(const name of ['first','second']) {{
