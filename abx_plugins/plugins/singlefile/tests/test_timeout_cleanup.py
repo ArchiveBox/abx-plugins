@@ -244,7 +244,7 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
    await new Promise(resolve=>setTimeout(resolve,50));
   }}
   const owned=(await info()).find(task=>task.url===url);
-  if(owned.id!==0)throw new Error(`Expected first real task id0, got ${{owned.id}}`);
+  if(!Number.isInteger(owned.id)||owned.id<0)throw new Error(`Invalid native task id: ${{owned.id}}`);
   const other=await browser.newPage();await other.goto(url+'?other');
   await other.bringToFront();
   await other.triggerExtensionAction((await browser.extensions()).get(extension.id));
@@ -350,6 +350,13 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
         ) as hook:
             tasks = control("other-paused" if failure == "paused-clock" else "other")
             assert sorted(task["url"] for task in tasks) == [url, url + "?other"]
+            # SingleFile 1.36 starts IDs at zero; 1.37 starts at one. Track
+            # native task identity rather than depending on its counter seed.
+            owned_task, other_task = (
+                next(task for task in tasks if task["url"] == target)
+                for target in (url, url + "?other")
+            )
+            assert owned_task["id"] != other_task["id"]
             try:
                 if failure == "closed-helper":
                     control("close-helper")
@@ -417,6 +424,8 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             assert positions == sorted(positions), stderr
         remaining = control("observe")
         assert [task["url"] for task in remaining] == [url + "?other"], remaining
+        assert remaining[0]["id"] == other_task["id"]
+        assert remaining[0]["tabId"] == other_task["tabId"]
         assert remaining[0]["status"] == "processing"
         assert not (output / "singlefile.html").exists()
         assert control("cleanup") == []
