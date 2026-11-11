@@ -37,7 +37,8 @@
       "title": "Feed articles",
       "auth": "optional",
       "config_fields": [
-        "IMPORTER_RSS_URL"
+        "IMPORTER_RSS_URL",
+        "IMPORTER_RSS_IMPORT_TAGS"
       ],
       "provider": "RSS & Atom"
     }
@@ -50,6 +51,12 @@
       "default": "",
       "x-required": true,
       "description": "The RSS or Atom URL. A selected persona can supply cookies for private feeds."
+    },
+    "IMPORTER_RSS_IMPORT_TAGS": {
+      "type": "boolean",
+      "title": "Import feed categories as tags",
+      "default": false,
+      "description": "Attach each article’s RSS categories or Atom category terms as snapshot tags. Off by default."
     }
   },
   "importers_setup": [

@@ -26,6 +26,18 @@ def main(request):
         url = urljoin(source_url, entry.get("link", ""))
         if not entry.get("link") or urlsplit(url).scheme not in {"http", "https"}:
             continue
+        tags = (
+            list(
+                dict.fromkeys(
+                    unescape(category.get("term", "")).strip()
+                    for category in entry.get("tags", [])
+                    if isinstance(category.get("term"), str)
+                    and category["term"].strip()
+                ),
+            )
+            if request["settings"].get("IMPORTER_RSS_IMPORT_TAGS") is True
+            else []
+        )
         records.append(
             {
                 "id": item_id(entry.get("id") or url),
@@ -35,6 +47,7 @@ def main(request):
                     "feed_title": feed.feed.get("title", ""),
                     "published": entry.get("published", ""),
                     "relationship": "feed entry",
+                    **({"tags": tags} if tags else {}),
                 },
             },
         )
