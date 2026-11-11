@@ -341,13 +341,13 @@ def test_singlefile_chrome_preserves_large_css_urls(
             hashlib.sha256(
                 (actual_source / "lib/single-file.js").read_bytes(),
             ).hexdigest()
-            == "8678e171fea7873381320b91c5cb019a93dc726926d2144f38932f73aab46521"
+            == "a9379319cbcf018ceff47365d36b91f56af0140b607bcc5d7abece8e9db54050"
         )
         assert (
             hashlib.sha256(
                 (state["unpacked_path"] / "lib/single-file.js").read_bytes(),
             ).hexdigest()
-            == "386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2"
+            == "66e04a0203fcaf633d84e7758004df490300fd13c6d074bd2c2b045ffd1371ab"
         )
         output_dir = chrome_dir.parent / "singlefile"
         output_dir.mkdir(parents=True, exist_ok=True)

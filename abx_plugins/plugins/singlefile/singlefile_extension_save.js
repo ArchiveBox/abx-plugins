@@ -64,14 +64,15 @@ async function moveAcrossMounts(src, dest, startedAt) {
   }
 }
 
-// Temporary upstream allocation fixes; remove with the preparation hook once
-// an upstream fixed release passes the full-fidelity gallery regression.
-function validatePreparedSinglefile(extension) {
-  if (extension?.version !== "1.36.0") {
-    throw new Error("SingleFile capture requires reviewed extension version 1.36.0");
+// Keep the large-CSS guard until upstream token storage passes our regressions.
+// Opting out explicitly uses the native extension, including its parser limits.
+function validatePreparedSinglefile(extension, config = hookConfig) {
+  if (config.SINGLEFILE_PATCH_LARGE_CSS === false) return;
+  if (extension?.version !== "1.37.0") {
+    throw new Error("SingleFile capture requires reviewed extension version 1.37.0");
   }
   const bundle = path.join(extension.unpacked_path, "lib/single-file.js");
-  if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "8678e171fea7873381320b91c5cb019a93dc726926d2144f38932f73aab46521") {
+  if (!fs.existsSync(bundle) || createHash("sha256").update(fs.readFileSync(bundle)).digest("hex") !== "a9379319cbcf018ceff47365d36b91f56af0140b607bcc5d7abece8e9db54050") {
     throw new Error("SingleFile selected bundle SHA256 mismatch; CrawlSetup preparation must succeed before capture");
   }
 }

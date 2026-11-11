@@ -11,7 +11,7 @@
     {
       "name": "singlefile",
       "binproviders": "env,chromewebstore",
-      "min_version": "1.36.0",
+      "min_version": "1.37.0",
       "overrides": {
         "chromewebstore": {
           "install_args": [
@@ -41,6 +41,11 @@
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for SingleFile in seconds"
+    },
+    "SINGLEFILE_PATCH_LARGE_CSS": {
+      "type": "boolean",
+      "default": true,
+      "description": "Apply the temporary large-CSS parser fix to reviewed SingleFile 1.37.0. Disable to use the unmodified extension, which can corrupt CSS above 128 MiB."
     }
   },
   "category": "main",

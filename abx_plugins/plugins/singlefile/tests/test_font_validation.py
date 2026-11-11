@@ -37,14 +37,6 @@ def _modules(bundle: Path) -> dict[str, str]:
     assert hashlib.sha256(original.encode()).hexdigest() == constants["ORIGINAL_SHA256"]
     current = original
     stages = ("TIMER", "PRIMARY_CACHE", "PRIORITY")
-    for key, before in constants.items():
-        if key.endswith("BEFORE") and key.removesuffix("_BEFORE") not in (
-            *stages,
-            "PARSER",
-        ):
-            assert current.count(before) == 1, key
-            current = current.replace(before, constants[key[:-6] + "AFTER"])
-    assert hashlib.sha256(current.encode()).hexdigest() == constants["COMMON_SHA256"]
     assert current.count(constants["PARSER_BEFORE"]) == 1
     prepared = current.replace(constants["PARSER_BEFORE"], constants["PARSER_AFTER"])
     assert hashlib.sha256(prepared.encode()).hexdigest() == constants["PATCHED_SHA256"]
@@ -86,11 +78,11 @@ def _modules(bundle: Path) -> dict[str, str]:
         'import RN from "./vendor.mjs";'
         + regexes
         + "export default class Metadata {"
-        + constants["FONT_SOURCES_AFTER"]
+        + extract("getFontsDetails(e,n,t,a,o=new Map){", "createFontsDetailsInfo(){")
         + extract("createFontsDetailsInfo(){", "getFontFacesGlyphRanges(")
-        + constants["AFTER"]
+        + extract("getPropertyValue(e,n){", "}function DN(")
         + "}"
-        + constants["FONT_DETAILS_AFTER"]
+        + extract("function DN(", "function MN(")
         + "export {DN as processFontDetails};"
     )
     modules["metadata"] = notices + metadata

@@ -22,11 +22,12 @@ def _assert_token_stream_regression(bundle: Path, output: Path, env: dict):
     # Verify every non-parser byte, including the full native validator.
     prefix, suffix = original.split(PREPARE.PARSER_BEFORE)
     assert candidate == prefix + PREPARE.PARSER_AFTER + suffix
-    prepared = original
-    for name, before in vars(PREPARE).items():
-        if name.endswith("BEFORE") and isinstance(before, str):
-            assert prepared.count(before) == 1
-            prepared = prepared.replace(before, getattr(PREPARE, name[:-6] + "AFTER"))
+    assert {
+        name
+        for name, value in vars(PREPARE).items()
+        if name.endswith("BEFORE") and isinstance(value, str)
+    } == {"PARSER_BEFORE"}
+    prepared = candidate
     assert hashlib.sha256(prepared.encode()).hexdigest() == PREPARE.PATCHED_SHA256
     native = json.loads(
         (PLUGIN / "tests/fixtures/font_validation_candidates.json").read_text(),

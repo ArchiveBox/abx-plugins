@@ -3,19 +3,13 @@
 # requires-python = ">=3.12"
 # ///
 
-"""Prepare reviewed font allocation and CSS token storage fixes for SingleFile 1.36.0.
+"""Prepare the temporary large-CSS TokenStream fix for SingleFile 1.37.0.
 
-Upstream provenance: single-file-core 79ecf4dce4acab130c0b587d8843f0328eb389f9,
-core/lib/processor-helper-common.js:getPropertyValue. The selected CSS value
-has already been generated to check the legacy \\9 suffix; reuse it rather
-than generating the same embedded font again. Duplicate-font keys use nested
-exact-string Maps instead of concatenating embedded font payloads into keys.
-Repeated source parsing uses per-pass exact-string caches with fresh mutable
-arrays and records for every rule. Font validation, source selection, timers and
-rule-local original-URL fallback remain unchanged. CSS token offsets use exact
-32-bit arithmetic and token-count-sized buffers instead of overflowing 27-bit
-packed offsets and source-character-sized buffers. See patches/README.md for license and source.
-Remove this hook once an upstream release includes and validates this fix.
+WHY: upstream still packs offsets into 27 bits, corrupting CSS above 128 MiB.
+Related upstream issue: https://github.com/eslint/csstree/issues/174
+Font-source caching is upstream in core 1.12.0 and needs no local patch.
+Remove this hook and the capture guard after upstream fixes token storage and
+passes the large-CSS and full-fidelity capture regressions. See patches/README.md.
 """
 
 import errno
@@ -28,25 +22,9 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import load_config, write_text_atomic
 
-VERSION = "1.36.0"
-ORIGINAL_SHA256 = "386dbce9c01ecc2d4edb92fe79ab36c00e10b8794149b81a4e845fb3dcb8aac2"
-COMMON_SHA256 = "f48431ccfc37ed9115ab5b0d98927152f06405127c5ad75a03536ca2fe95a0a2"
-PATCHED_SHA256 = "8678e171fea7873381320b91c5cb019a93dc726926d2144f38932f73aab46521"
-BEFORE = r"getPropertyValue(e,n){let t;if(e.block.children&&(t=e.block.children.filter(e=>{try{return e.property==n&&!RN.generate(e.value).match(/\\9$/)}catch(t){return e.property==n}}).tail),t)try{return RN.generate(t.data.value)}catch(e){}}"
-AFTER = r"getPropertyValue(e,n){let t;if(e.block.children)e.block.children.forEach(e=>{if(e.property==n)try{const n=RN.generate(e.value);n.match(/\\9$/)||(t=n)}catch(e){t=void 0}});return t}"
-
-MAP_BEFORE = 'markRepeatedFontFaceRules(e,n,t){const a=new Map;e.fonts.forEach((o,i)=>{const r=n.get(i);r&&!t.has(r)&&t.set(r,t.size+1);const s=(r?t.get(r):0)+" "+this.getFontKey(i)+" "+this.getPropertyValue(i,"src"),l=a.get(s);l&&e.repeatedFonts.add(l),a.set(s,i)}),e.medias.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.supports.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.layers.forEach(e=>this.markRepeatedFontFaceRules(e,n,t))}'  # codespell:ignore medias
-MAP_AFTER = 'markRepeatedFontFaceRules(e,n,t){const a=new Map;e.fonts.forEach((o,i)=>{const r=n.get(i);r&&!t.has(r)&&t.set(r,t.size+1);const s=(r?t.get(r):0)+" "+this.getFontKey(i);let l=a.get(s);l||(l=new Map,a.set(s,l));const c=String(this.getPropertyValue(i,"src")),d=l.get(c);d&&e.repeatedFonts.add(d),l.set(c,i)}),e.medias.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.supports.forEach(e=>this.markRepeatedFontFaceRules(e,n,t)),e.layers.forEach(e=>this.markRepeatedFontFaceRules(e,n,t))}'  # codespell:ignore medias
-
-
-FONT_SOURCES_BEFORE = 'getFontsDetails(e,n,t,a){let o=0,i=0,r=0;n.forEach(n=>{if("Atrule"==n.type&&"media"==n.name&&n.block&&n.block.children&&n.prelude){const i=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.medias.set("media-"+t+"-"+o+"-"+i,r),o++,this.getFontsDetails(e,n.block.children,t,r)}else if("Atrule"==n.type&&"supports"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.supports.set("supports-"+t+"-"+i+"-"+o,r),i++,this.getFontsDetails(e,n.block.children,t,r)}else if("Atrule"==n.type&&"layer"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),i=this.createFontsDetailsInfo();a.layers.set("layer-"+t+"-"+r+"-"+o,i),r++,this.getFontsDetails(e,n.block.children,t,i)}else if("Atrule"==n.type&&"font-face"==n.name&&n.block&&n.block.children){const e=[];a.fonts.set(n,e);const t=this.getPropertyValue(n,"src");if(t){const n=t.match(cN);n&&n.forEach(n=>{const t=n.match(vN)[1];e.includes(t)&&e.splice(e.indexOf(t),1),e.unshift(t)})}}})}'  # codespell:ignore medias
-FONT_SOURCES_AFTER = 'getFontsDetails(e,n,t,a,abxSourceLists=new Map){let o=0,i=0,r=0;n.forEach(n=>{if("Atrule"==n.type&&"media"==n.name&&n.block&&n.block.children&&n.prelude){const i=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.medias.set("media-"+t+"-"+o+"-"+i,r),o++,this.getFontsDetails(e,n.block.children,t,r,abxSourceLists)}else if("Atrule"==n.type&&"supports"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),r=this.createFontsDetailsInfo();a.supports.set("supports-"+t+"-"+i+"-"+o,r),i++,this.getFontsDetails(e,n.block.children,t,r,abxSourceLists)}else if("Atrule"==n.type&&"layer"==n.name&&n.block&&n.block.children&&n.prelude){const o=RN.generate(n.prelude),i=this.createFontsDetailsInfo();a.layers.set("layer-"+t+"-"+r+"-"+o,i),r++,this.getFontsDetails(e,n.block.children,t,i,abxSourceLists)}else if("Atrule"==n.type&&"font-face"==n.name&&n.block&&n.block.children){const t=this.getPropertyValue(n,"src");let e=abxSourceLists.get(t);if(!e){e=[];if(t){const n=t.match(cN);n&&n.forEach(n=>{const t=n.match(vN)[1];e.includes(t)&&e.splice(e.indexOf(t),1),e.unshift(t)})}abxSourceLists.set(t,e)}a.fonts.set(n,e.slice());}})}'  # codespell:ignore medias
-
-FONT_DETAILS_BEFORE = 'function DN(e,n){e.fonts.forEach((t,a)=>{e.fonts.set(a,t.map(e=>{const t=e.match(bN),a=e.match(yN);let o,i;const r=function(e){const n=(e=e.replace(/url\\(-sf-url-original\\\\\\(\\\\"(.*?)\\\\"\\\\\\)\\\\ /g,"")).match(dN)||e.match(uN)||e.match(mN);return n&&n[1]}(e);if(t&&t[1]){o=t[1].replace(hN,"$1").replace(pN,"$1").toLowerCase();const e=o.match(kN);e&&(o=e[1],i=e[2])}if(a&&a[1]&&(i=a[1].toLowerCase()),!o){const n=e.match(gN);if(n&&n[1])o=n[1];else{const n=e.match(fN);n&&n[1]&&(o=n[1])}}if(!o&&r){const e=r.match(wN);e&&e[1]&&(o=e[1])}if(n){const t=Array.from(n.values()).find(e=>e.name==r);return{src:e.match(vN)[1],fontUrl:r,format:o,tech:i,contentType:t&&t.contentType}}return{src:e.match(vN)[1],fontUrl:r,format:o,tech:i}}))}),n?(e.medias.forEach(e=>DN(e,n)),e.supports.forEach(e=>DN(e,n)),e.layers.forEach(e=>DN(e,n))):(e.medias.forEach(e=>DN(e)),e.supports.forEach(e=>DN(e)),e.layers.forEach(e=>DN(e)))}'  # codespell:ignore medias
-FONT_DETAILS_AFTER = 'function DN(e,n,abxSourceDetails=new Map){const abxRemember=(source,info)=>{abxSourceDetails.set(source,info);return {...info}};e.fonts.forEach((t,a)=>{e.fonts.set(a,t.map(e=>{if(abxSourceDetails.has(e))return {...abxSourceDetails.get(e)};const t=e.match(bN),a=e.match(yN);let o,i;const r=function(e){const n=(e=e.replace(/url\\(-sf-url-original\\\\\\(\\\\"(.*?)\\\\"\\\\\\)\\\\ /g,"")).match(dN)||e.match(uN)||e.match(mN);return n&&n[1]}(e);if(t&&t[1]){o=t[1].replace(hN,"$1").replace(pN,"$1").toLowerCase();const e=o.match(kN);e&&(o=e[1],i=e[2])}if(a&&a[1]&&(i=a[1].toLowerCase()),!o){const n=e.match(gN);if(n&&n[1])o=n[1];else{const n=e.match(fN);n&&n[1]&&(o=n[1])}}if(!o&&r){const e=r.match(wN);e&&e[1]&&(o=e[1])}if(n){const t=Array.from(n.values()).find(e=>e.name==r);return abxRemember(e,{src:e.match(vN)[1],fontUrl:r,format:o,tech:i,contentType:t&&t.contentType})}return abxRemember(e,{src:e.match(vN)[1],fontUrl:r,format:o,tech:i})}))}),n?(e.medias.forEach(e=>DN(e,n,abxSourceDetails)),e.supports.forEach(e=>DN(e,n,abxSourceDetails)),e.layers.forEach(e=>DN(e,n,abxSourceDetails))):(e.medias.forEach(e=>DN(e,undefined,abxSourceDetails)),e.supports.forEach(e=>DN(e,undefined,abxSourceDetails)),e.layers.forEach(e=>DN(e,undefined,abxSourceDetails)))}'  # codespell:ignore medias
-
-FONT_PASS_BEFORE = 'async removeAlternativeFonts(e,n,t,a){const o=this.createFontsDetailsInfo(),i={rules:{processed:0,discarded:0},fonts:{processed:0,discarded:0}},r=new Map;return Jp(n).forEach(({stylesheetInfo:n,index:t})=>{if(n.stylesheet){n.scope&&RN.walk(n.stylesheet,{visit:"Atrule",enter:e=>r.set(e,n.scope)});const a=n.stylesheet.children;if(a)if(i.rules.processed+=a.size,i.rules.discarded+=a.size,n.mediaText&&"all"!=n.mediaText){const i=this.createFontsDetailsInfo();o.medias.set("media-"+t+"-"+n.mediaText,i),this.getFontsDetails(e,a,t,i)}else this.getFontsDetails(e,a,t,o)}}),DN(o,t),this.markRepeatedFontFaceRules(o,r,new Map),await Promise.all([...n].map(async([,e],n)=>{if(e.stylesheet){const r=e.stylesheet.children,s=e.mediaText;r&&(s&&"all"!=s?await this.processFontFaceRules(r,n,o.medias.get("media-"+n+"-"+s),t,a,i):await this.processFontFaceRules(r,n,o,t,a,i),i.rules.discarded-=r.size)}})),i}'  # codespell:ignore medias
-FONT_PASS_AFTER = 'async removeAlternativeFonts(e,n,t,a){const abxSourceLists=new Map,o=this.createFontsDetailsInfo(),i={rules:{processed:0,discarded:0},fonts:{processed:0,discarded:0}},r=new Map;return Jp(n).forEach(({stylesheetInfo:n,index:t})=>{if(n.stylesheet){n.scope&&RN.walk(n.stylesheet,{visit:"Atrule",enter:e=>r.set(e,n.scope)});const a=n.stylesheet.children;if(a)if(i.rules.processed+=a.size,i.rules.discarded+=a.size,n.mediaText&&"all"!=n.mediaText){const i=this.createFontsDetailsInfo();o.medias.set("media-"+t+"-"+n.mediaText,i),this.getFontsDetails(e,a,t,i,abxSourceLists)}else this.getFontsDetails(e,a,t,o,abxSourceLists)}}),DN(o,t),this.markRepeatedFontFaceRules(o,r,new Map),await Promise.all([...n].map(async([,e],n)=>{if(e.stylesheet){const r=e.stylesheet.children,s=e.mediaText;r&&(s&&"all"!=s?await this.processFontFaceRules(r,n,o.medias.get("media-"+n+"-"+s),t,a,i):await this.processFontFaceRules(r,n,o,t,a,i),i.rules.discarded-=r.size)}})),i}'  # codespell:ignore medias
+VERSION = "1.37.0"
+ORIGINAL_SHA256 = "66e04a0203fcaf633d84e7758004df490300fd13c6d074bd2c2b045ffd1371ab"
+PATCHED_SHA256 = "a9379319cbcf018ceff47365d36b91f56af0140b607bcc5d7abece8e9db54050"
 
 
 # Exact TokenStream class from the pinned bundle; readable MIT source and
@@ -59,6 +37,13 @@ def prepare():
     config = load_config()
     if not config.SINGLEFILE_ENABLED:
         return
+    prepared_path = (
+        Path(config.CRAWL_DIR) / "chrome/extensions/singlefile.extension.json"
+    )
+    if not config.SINGLEFILE_PATCH_LARGE_CSS:
+        # A reused crawl must not keep selecting a previously prepared copy.
+        prepared_path.unlink(missing_ok=True)
+        return
     metadata_path = (
         Path(os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"]) / "singlefile.extension.json"
     )
@@ -67,27 +52,12 @@ def prepare():
     manifest = json.loads((source / "manifest.json").read_text())
     if metadata["version"] != VERSION or manifest["version"] != VERSION:
         raise RuntimeError(
-            "SingleFile font serialization preparation requires reviewed release 1.36.0",
+            "SingleFile large-CSS preparation requires reviewed release 1.37.0",
         )
     original = (source / "lib/single-file.js").read_bytes()
     if hashlib.sha256(original).hexdigest() != ORIGINAL_SHA256:
-        raise RuntimeError("SingleFile 1.36.0 source bundle SHA256 mismatch")
+        raise RuntimeError("SingleFile 1.37.0 source bundle SHA256 mismatch")
     script = original.decode()
-    if script.count(BEFORE) != 1:
-        raise RuntimeError("SingleFile font serialization source anchor mismatch")
-    if script.count(MAP_BEFORE) != 1:
-        raise RuntimeError("SingleFile duplicate font-key source anchor mismatch")
-    script = script.replace(BEFORE, AFTER).replace(MAP_BEFORE, MAP_AFTER)
-    for before, after in (
-        (FONT_SOURCES_BEFORE, FONT_SOURCES_AFTER),
-        (FONT_DETAILS_BEFORE, FONT_DETAILS_AFTER),
-        (FONT_PASS_BEFORE, FONT_PASS_AFTER),
-    ):
-        if script.count(before) != 1:
-            raise RuntimeError("SingleFile font-source cache anchor mismatch")
-        script = script.replace(before, after)
-    if hashlib.sha256(script.encode()).hexdigest() != COMMON_SHA256:
-        raise RuntimeError("SingleFile common-helper stage SHA256 mismatch")
     if script.count(PARSER_BEFORE) != 1:
         raise RuntimeError("SingleFile TokenStream source anchor mismatch")
     script = script.replace(PARSER_BEFORE, PARSER_AFTER)
@@ -113,11 +83,8 @@ def prepare():
                     raise
     if (destination / "lib/single-file.js").read_bytes() != patched:
         raise RuntimeError(
-            "Prepared SingleFile differs from reviewed font serialization fix",
+            "Prepared SingleFile differs from reviewed large-CSS fix",
         )
-    prepared_path = (
-        Path(config.CRAWL_DIR) / "chrome/extensions/singlefile.extension.json"
-    )
     prepared_path.parent.mkdir(parents=True, exist_ok=True)
     write_text_atomic(
         prepared_path,
