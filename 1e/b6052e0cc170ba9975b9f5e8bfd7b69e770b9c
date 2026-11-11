@@ -1,0 +1,23 @@
+abx_plugins/plugins/iwork/on_Snapshot__53_iwork.js
+  s_10bc94d001be49::t_0221aefb0e94b0 89-90
+  s_10bc94d001be49::t_4f33dcd1319ae3 91-97,100-104
+  s_10bc94d001be49::t_0fcc550e628348 98-99
+abx_plugins/plugins/iwork/tests/test_iwork.py
+  s_10bc94d001be49::t_23030b7814b4d7 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1eb6052e0cc170ba9975b9f5e8bfd7b69e770b9c",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
