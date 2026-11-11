@@ -39,6 +39,36 @@ _papersdl_install_error = None
 _papersdl_lib_root = None
 
 
+def test_open_paper_download_does_not_probe_mirrors(tmp_path):
+    """An advertised open PDF must finish before unrelated mirror discovery."""
+    result = subprocess.run(
+        [
+            require_papersdl_binary(),
+            "-v",
+            "fetch",
+            "10.21105/joss.01112",
+            "-o",
+            str(tmp_path),
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches"),
+            "UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    pdfs = list(tmp_path.glob("*.pdf"))
+    assert len(pdfs) == 1, result.stdout + result.stderr
+    assert pdfs[0].read_bytes().startswith(b"%PDF-")
+    assert pdfs[0].stat().st_size > 10000
+    assert "Successfully downloaded paper" in result.stdout
+    assert "Sci-Hub" not in result.stderr, result.stderr
+    assert "SciDB" not in result.stderr, result.stderr
+
+
 @pytest.mark.parametrize("providers", ["publisher", "publisher,unpaywall"])
 def test_provider_connection_failure_is_not_an_empty_search(tmp_path, providers):
     # Reserve a real closed TCP endpoint: no fabricated HTTP response or provider.

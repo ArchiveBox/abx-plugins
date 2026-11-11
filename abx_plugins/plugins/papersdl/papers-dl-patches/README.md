@@ -29,6 +29,11 @@ to an empty string disables Unpaywall; UNPAYWALL_EMAIL is an alias. The hook
 passes this value to the CLI as UNPAYWALL_EMAIL. Explicit --providers values in
 PAPERSDL_ARGS_EXTRA still select providers.
 
+Default discovery tries advertised open-access and publisher PDFs before mirror
+discovery. A valid PDF finishes the search immediately, so dead mirror discovery
+cannot consume the capture budget before an available primary download. All
+providers remain available, and explicitly selected provider order is unchanged.
+
 Mirror discovery supports both links and redirects from sci-hub.now.sh. At
 verification time its advertised mirror sci-hub.41610.org did not resolve.
 Europe PMC/medRxiv PDF endpoints may require a browser challenge; metadata

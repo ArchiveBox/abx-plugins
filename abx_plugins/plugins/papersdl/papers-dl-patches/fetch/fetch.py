@@ -29,18 +29,18 @@ from providers import (
 )
 
 all_providers = [
-    "scihub",
     "unpaywall",
+    "publisher",
     "pmc",
     "europepmc",
     "biorxiv",
     "medrxiv",
-    "publisher",
     "zenodo",
     "figshare",
     "ntrs",
     "osti",
     "hal",
+    "scihub",
     "scidb",
     "arxiv",
 ]
