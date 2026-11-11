@@ -65,10 +65,10 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                     (chrome / "cdp_url.txt").read_text().strip(),
                     no_defaults=True,
                 )
-                assert any(
+                accepted = any(
                     cookie.get("name") == "wt_tandc" and cookie.get("value")
                     for cookie in browser.contexts[0].cookies()
-                ), "The first export must establish genuine transfer consent"
+                )
                 # Reload through the provider to exercise the already-ready
                 # download view as well as its first-visit terms/preview views.
                 page = next(
@@ -76,6 +76,42 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                     for page in browser.contexts[0].pages
                     if "wetransfer.com/" in page.url
                 )
+                if not accepted:
+                    # WeTransfer's remote Orion experiment can remove the terms
+                    # gate after first paint without setting wt_tandc. Require
+                    # the provider's persisted decision, not just a missing UI.
+                    # Read only this boolean; do not override the experiment or
+                    # manufacture consent cookies to force a particular branch.
+                    hides_terms = page.evaluate(
+                        """async () => {
+                            const databases = await indexedDB.databases();
+                            if (!databases.some(db => db.name === 'orionV3')) return false;
+                            return await new Promise((resolve, reject) => {
+                                const request = indexedDB.open('orionV3');
+                                request.onerror = () => reject(request.error);
+                                request.onsuccess = () => {
+                                    const db = request.result;
+                                    const transaction = db.transaction('identity', 'readonly');
+                                    const identities = transaction.objectStore('identity').getAll();
+                                    identities.onerror = () => reject(identities.error);
+                                    identities.onsuccess = () => {
+                                        try {
+                                            const values = identities.result.map(row => JSON.parse(row.identity));
+                                            resolve(values.length === 1 &&
+                                                values[0].isDefaultIdentity === false &&
+                                                values[0].settings.should_hide_terms_and_conditions_step === true);
+                                        } catch (error) { reject(error); }
+                                    };
+                                    transaction.oncomplete = () => db.close();
+                                    transaction.onabort = () => { db.close(); reject(transaction.error); };
+                                };
+                            });
+                        }""",
+                    )
+                    assert hides_terms, (
+                        "The first export must establish genuine transfer consent "
+                        "unless WeTransfer explicitly disables its terms gate"
+                    )
                 page.reload(wait_until="domcontentloaded")
                 page.get_by_role(
                     "button",
