@@ -261,7 +261,7 @@ def test_provider_download_from_cross_origin_child_frame(
         const downloadDeadline = Date.now() + 10000;
         const files = await utils.captureBrowserDownloads({browser, page,
           downloadPath: utils.resolveChromeLaunchOptions().CHROME_DOWNLOADS_DIR, timeoutMs: 10000,
-          trigger: async () => {
+          trigger: async ({downloadStarted}) => {
             if (lateFrame) await page.evaluate(url => {
               const iframe = document.createElement('iframe'); iframe.src = url;
               document.body.append(iframe);
@@ -277,9 +277,15 @@ def test_provider_download_from_cross_origin_child_frame(
             const point = await link.clickablePoint();
             const remaining = downloadDeadline - Date.now();
             if (remaining <= 0) throw new Error('Child download deadline exceeded');
-            await page.mainFrame().client.send('Input.synthesizeTapGesture', {
-              x: point.x, y: point.y, gestureSourceType: 'mouse', tapCount: 1,
-            }, {timeout: remaining});
+            // A download can interrupt the gesture's final compositor ACK.
+            // Its start event also proves the click was delivered; still check
+            // the exact trusted input sequence and wait for the completed file.
+            await Promise.race([
+              page.mainFrame().client.send('Input.synthesizeTapGesture', {
+                x: point.x, y: point.y, gestureSourceType: 'mouse', tapCount: 1,
+              }, {timeout: remaining}),
+              downloadStarted,
+            ]);
             await link.dispose();
             const input = await child.evaluate(() => window.downloadInput);
             if (JSON.stringify(input) !== JSON.stringify(['pointerdown', 'pointerup', 'click'])) {
