@@ -208,10 +208,6 @@ def test_provider_download_from_cross_origin_child_frame(
         )
         httpserver.expect_request("/child").respond_with_data(
             input_observer + "<script>window.downloadInput = [];"
-            "window.downloadHovered = false;"
-            "document.addEventListener('pointerover', event => {"
-            "if (event.isTrusted && event.target.tagName === 'A') "
-            "window.downloadHovered = true;}, true);"
             "for (const type of ['pointerdown', 'pointerup', 'click']) "
             "document.addEventListener(type, event => {"
             "if (event.isTrusted && event.target.tagName === 'A') "
@@ -273,23 +269,18 @@ def test_provider_download_from_cross_origin_child_frame(
             console.error('child-created');
             const child = existingChild || await findChild();
             console.error('child-target-ready');
-            // DOM/layout readiness is not OOPIF input-routing readiness.
-            // Puppeteer's click sends move/down/up concurrently, so its input
-            // ACK can acknowledge the parent iframe before the child surface
-            // receives the pointer. Verify a real hover before the one click.
+            // A mouse-move ACK can precede a new OOPIF's compositor surface,
+            // leaving a hover wait stuck without ever delivering a click.
+            // Chrome's native gesture waits for rendering and input processing.
+            // Send one real mouse tap and verify its trusted DOM events below.
+            const link = await child.$('a');
+            const point = await link.clickablePoint();
             const remaining = downloadDeadline - Date.now();
             if (remaining <= 0) throw new Error('Child download deadline exceeded');
-            await child.locator('a').setTimeout(remaining).hover();
-            const hoverRemaining = downloadDeadline - Date.now();
-            if (hoverRemaining <= 0) throw new Error('Child hover deadline exceeded');
-            await child.waitForFunction(
-              () => window.downloadHovered && document.querySelector('a').matches(':hover'),
-              {timeout: hoverRemaining},
-            );
-            // Use the already verified pointer position and await each native
-            // event. Do not retry a click or bypass browser input with JS.
-            await page.mouse.down();
-            await page.mouse.up();
+            await page.mainFrame().client.send('Input.synthesizeTapGesture', {
+              x: point.x, y: point.y, gestureSourceType: 'mouse', tapCount: 1,
+            }, {timeout: remaining});
+            await link.dispose();
             const input = await child.evaluate(() => window.downloadInput);
             if (JSON.stringify(input) !== JSON.stringify(['pointerdown', 'pointerup', 'click'])) {
               const parentInput = await page.evaluate(() => window.frameInput);
