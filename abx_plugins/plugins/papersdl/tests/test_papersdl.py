@@ -71,30 +71,31 @@ def test_open_paper_download_does_not_probe_mirrors(tmp_path):
 
 @pytest.mark.parametrize("providers", ["publisher", "publisher,unpaywall"])
 def test_provider_connection_failure_is_not_an_empty_search(tmp_path, providers):
-    # Reserve a real closed TCP endpoint: no fabricated HTTP response or provider.
+    binary = require_papersdl_binary()
+    # Close before connecting: a bound, non-listening socket can time out on macOS.
     with socket.socket() as unavailable:
         unavailable.bind(("127.0.0.1", 0))
         url = f"http://127.0.0.1:{unavailable.getsockname()[1]}/10.21105/joss.01112"
-        result = subprocess.run(
-            [
-                require_papersdl_binary(),
-                "-v",
-                "fetch",
-                url,
-                "--providers",
-                providers,
-                "--output",
-                str(tmp_path),
-            ],
-            env={
-                **os.environ,
-                "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches"),
-                "UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
-            },
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+    result = subprocess.run(
+        [
+            binary,
+            "-v",
+            "fetch",
+            url,
+            "--providers",
+            providers,
+            "--output",
+            str(tmp_path),
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches"),
+            "UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
+        },
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     pdfs = list(tmp_path.glob("*.pdf"))
     assert "Cannot connect to host 127.0.0.1" in result.stderr
     if providers == "publisher":
