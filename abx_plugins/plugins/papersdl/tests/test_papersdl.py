@@ -701,6 +701,53 @@ def test_download_paper_linked_from_article(tmp_path, saved_html):
     assert record["output_str"] == f"papersdl/{pdfs[0].name}", record
 
 
+def test_versioned_preprint_urls_do_not_require_metadata_discovery():
+    """An explicit preprint version already identifies the download endpoint."""
+    binary = Path(require_papersdl_binary()).resolve()
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-project",
+            "--no-sync",
+            "--python",
+            str(binary.with_name("python")),
+            "python",
+            "-c",
+            """
+import asyncio
+import aiohttp
+from providers.biorxiv import get_urls
+
+async def main():
+    requests = []
+    trace = aiohttp.TraceConfig()
+    async def record_request(session, context, params):
+        requests.append(str(params.url))
+    trace.on_request_start.append(record_request)
+    async with aiohttp.ClientSession(trace_configs=[trace]) as session:
+        for server, identifier in [
+            ('biorxiv', '10.1101/833400v1.full.pdf'),
+            ('biorxiv', '10.1101/833400v1.abstract'),
+            ('medrxiv', '10.1101/2020.02.24.20027201v2'),
+        ]:
+            url = f'https://www.{server}.org/content/{identifier}'
+            urls = await get_urls(session, url, server=server)
+            expected = url.removesuffix('.full.pdf').removesuffix('.abstract') + '.full.pdf'
+            assert not requests, requests
+            assert urls == [expected], urls
+
+asyncio.run(main())
+""",
+        ],
+        env={**os.environ, "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches")},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_arxiv_provider_uses_canonical_pdf_urls():
     """The real provider removes citation labels without losing arXiv versions."""
     binary = Path(require_papersdl_binary()).resolve()

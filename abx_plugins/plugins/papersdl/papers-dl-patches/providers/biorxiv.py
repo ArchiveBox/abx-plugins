@@ -22,6 +22,10 @@ async def get_urls(session, identifier, server="biorxiv"):
         if not match:
             return []
         doi, version = match.groups()
+        if version is not None:
+            # An explicit version already determines the PDF URL. Requiring
+            # metadata here makes an available file depend on a second service.
+            return [f"https://www.{server}.org/content/{doi}v{version}.full.pdf"]
     else:
         dois = parse_ids_from_text(identifier, ["doi"])
         if not dois:
@@ -71,6 +75,9 @@ async def get_urls(session, identifier, server="biorxiv"):
         if not versions:
             return []
         return [f"https://www.{server}.org/content/{doi}v{max(versions)}.full.pdf"]
-    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as error:
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        # The caller preserves request failures across provider fallbacks.
+        raise
+    except ValueError as error:
         logger.info("Couldn't discover a {} PDF: {}", server, error)
         return []
