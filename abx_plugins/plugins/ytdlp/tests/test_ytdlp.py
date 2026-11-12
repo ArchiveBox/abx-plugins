@@ -166,6 +166,55 @@ def test_verify_deps_with_abxpkg(ytdlp_runtime_env):
     } < ytdlp_runtime_env.keys()
 
 
+def test_installed_ytdlp_has_browser_impersonation(tmp_path, media_test_url):
+    from abx_plugins.plugins.base.utils import load_required_binary
+
+    declaration = json.loads((PLUGIN_DIR / "config.json").read_text())[
+        "required_binaries"
+    ][0]
+    # Exercise the declared Python installation, not a host-provided executable.
+    declaration["binproviders"] = "uv"
+    env = {**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
+    binary = load_required_binary(
+        declaration,
+        config={**env, "YTDLP_BINARY": "yt-dlp"},
+        environ=env,
+        install=True,
+    )
+    assert Path(binary.loaded_abspath).resolve().is_relative_to(tmp_path / "lib"), (
+        binary.loaded_abspath
+    )
+    result = subprocess.run(
+        [str(binary.loaded_abspath), "--ignore-config", "--list-impersonate-targets"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Chrome" in result.stdout, result.stdout
+    assert "curl_cffi" in result.stdout, result.stdout
+    assert "unavailable" not in result.stdout, result.stdout
+    output = tmp_path / "impersonated.wav"
+    download = subprocess.run(
+        [
+            str(binary.loaded_abspath),
+            "--ignore-config",
+            "--impersonate",
+            "chrome",
+            "--output",
+            str(output),
+            media_test_url,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert download.returncode == 0, download.stdout + download.stderr
+    assert output.read_bytes() == _build_test_wav_bytes()
+
+
 def test_handles_non_video_url(non_video_test_url, ytdlp_runtime_env):
     """Test that ytdlp extractor handles non-video URLs gracefully via hook."""
     with tempfile.TemporaryDirectory() as tmpdir:
