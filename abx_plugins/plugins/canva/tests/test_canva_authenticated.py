@@ -1,5 +1,5 @@
 # ci-environment: provider-capture
-"""Live acceptance through the author's public use-template flow."""
+"""Live PDF and PPTX exports from the authorized Canva design."""
 
 import hashlib
 import json
@@ -13,7 +13,7 @@ import pytest
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
-URL = "https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview&utm_campaign=designshare&utm_content=DAGudZAYlEE&utm_medium=link&utm_source=publishsharelink"
+URL = "https://www.canva.com/design/DAHa0z1qR7Y/wufF6Eb9UfJTAjLFz7EGRA/edit"
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_canva.js"
 
 
@@ -121,7 +121,7 @@ process.on('SIGTERM', () => { if (browser) browser.disconnect(); process.exit(0)
 
 
 @pytest.mark.parametrize("resolution", ["1440,2000", "800,600"])
-def test_authenticated_template_copy(tmp_path, ensure_chrome_test_prereqs, resolution):
+def test_authenticated_design_exports(tmp_path, ensure_chrome_test_prereqs, resolution):
     auth = os.environ.get("AUTH_STORAGE_FILE")
     assert auth and Path(auth).is_file(), (
         "Set AUTH_STORAGE_FILE to the authorized Canva persona before running this explicit acceptance test"
