@@ -1,0 +1,33 @@
+abx_plugins/plugins/archivewebpage/on_CrawlSetup__80_archivewebpage_prepare.py
+  s_b7c65427f5b095::t_240eeacb15aa9f 1
+abx_plugins/plugins/claudechrome/on_CrawlSetup__80_claudechrome_prepare.py
+  s_b7c65427f5b095::t_8c79507c8b914f 1
+abx_plugins/plugins/istilldontcareaboutcookies/on_CrawlSetup__80_istilldontcareaboutcookies_prepare.py
+  s_b7c65427f5b095::t_a65133189ccdb8 1
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_b7c65427f5b095::t_e62082289eda19 1
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  s_b7c65427f5b095::t_9a161905fd9aa7 1
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__80_twocaptcha_prepare.py
+  s_b7c65427f5b095::t_6de6d8d25afca1 1
+abx_plugins/plugins/ublock/on_CrawlSetup__80_ublock_prepare.py
+  s_b7c65427f5b095::t_3e8e49e2fe2012 1
+tests/test_plugin_executables_have_shebang.py
+  s_b7c65427f5b095::t_c22b595884daed 46-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fc7ddad62da1337e5248c36841f6f69596a44675",
+  "prompts": {},
+  "sessions": {
+    "s_b7c65427f5b095": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d610-0d5c-7080-9af7-715a7b265bf4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
