@@ -1,0 +1,14 @@
+abx_plugins/plugins/iwork/on_Snapshot__53_iwork.js
+  h_923c208e183a7b 203,207-211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1c5a1651de4b88a48abb7d1ef4c02d074db00d45",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
