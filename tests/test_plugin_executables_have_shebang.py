@@ -43,6 +43,11 @@ def test_plugin_entrypoints_are_executable_and_have_shebang() -> None:
         ).splitlines()
         if not first_line or not first_line[0].startswith("#!"):
             failures.append(f"{rel_path}: missing shebang")
+        elif len(first_line[0].encode("utf-8")) > 127:
+            # Linux before 5.1 silently truncates the interpreter arguments at
+            # byte 127. Our 129-byte hooks lost the last two bytes of `python3`,
+            # triggering unrelated package installs instead of running Python.
+            failures.append(f"{rel_path}: shebang exceeds the 127-byte Linux limit")
 
     assert not failures, "Plugin script validation failed:\n" + "\n".join(failures)
 
