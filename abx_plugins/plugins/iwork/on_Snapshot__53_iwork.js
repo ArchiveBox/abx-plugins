@@ -200,11 +200,15 @@ async function main() {
               'ui-alert-actions ui-button[aria-disabled="false"]',
               { visible: true, timeout: remaining() },
             );
-            await join.asLocator().setTimeout(remaining()).click();
+            await join.click();
           } else if (state === "intro") {
             await element.focus();
             await page.keyboard.press("Enter");
-          } else await element.asLocator().setTimeout(remaining()).click();
+          } else {
+            // The control is already hit-tested above. Locator's extra animation
+            // frame checks stall on this background tab before requesting export.
+            await element.click();
+          }
           await handle.dispose();
           if (state === "pdf") {
             console.error(`iWork PDF export requested (${Date.now() - (deadline - timeoutMs)}ms)`);
