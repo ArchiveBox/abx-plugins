@@ -615,7 +615,7 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
     CHROME_IS_LOCAL: CHROME_CDP_URL
       ? false
       : hookConfig.CHROME_IS_LOCAL !== false,
-    cookiesFile: hookConfig.AUTH_STORAGE_FILE || hookConfig.COOKIES_FILE || "",
+    cookiesFile: hookConfig.COOKIES_FILE || "",
     personaConfig: hookConfig,
     timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
   };
@@ -5026,7 +5026,7 @@ function parseCookiesTxt(contents) {
   return { cookies, skipped };
 }
 
-async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
+function readCookiesFromFile(cookiesFile) {
   if (!cookiesFile) return;
 
   if (!fs.existsSync(cookiesFile)) {
@@ -5052,12 +5052,15 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       const reason = contents.trim() ? "invalid JSON" : "file is empty";
       throw new Error(`Invalid JSON cookie export: ${cookiesFile}; ${reason}; expected a JSON object containing a cookies array`);
     }
+    if (!auth || typeof auth !== "object" || Array.isArray(auth)) {
+      throw new Error("Cookie export must be a JSON object");
+    }
   }
   let { cookies, skipped } = auth
-    ? { cookies: auth.cookies, skipped: 0 }
+    ? { cookies: Object.hasOwn(auth, "cookies") ? auth.cookies : [], skipped: 0 }
     : parseCookiesTxt(contents);
   if (!Array.isArray(cookies)) throw new Error("Cookie export must contain a cookies array");
-  const extensionSync = auth?.SOURCE === "archivebox-browser-extension";
+  const extensionSync = auth?.SOURCE === "archivebox-browser-extension" && Object.hasOwn(auth, "cookies");
   if (extensionSync) {
     // WebExtensions cookies use different field names / enum values than CDP.
     cookies = cookies.map(cookie => {
@@ -5086,13 +5089,32 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       return imported;
     });
   }
+  return { cookies, skipped, extensionSync };
+}
+
+async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
+  const files = [...new Set((Array.isArray(cookiesFile) ? cookiesFile : [cookiesFile]).filter(Boolean))];
+  if (!files.length) return;
+  // Parse every artifact before changing the browser. Rich auth.json cookies
+  // come last and replace Netscape duplicates without losing SameSite/expiry.
+  const sources = files.map(readCookiesFromFile).filter(Boolean);
+  const cookieKey = cookie => JSON.stringify([
+    cookie.domain || new URL(cookie.url).hostname,
+    cookie.path || "/",
+    cookie.name,
+    cookie.partitionKey ? [cookie.partitionKey.topLevelSite, cookie.partitionKey.hasCrossSiteAncestor] : null,
+  ]);
+  const cookies = [...new Map(sources.flatMap(source => source.cookies).map(cookie => [cookieKey(cookie), cookie])).values()];
+  const extensionSources = sources.filter(source => source.extensionSync);
+  const extensionSync = extensionSources.length > 0;
+  const skipped = sources.reduce((total, source) => total + source.skipped, 0);
   if (cookies.length === 0 && !extensionSync) {
     console.error("[!] No cookies found to import");
     return;
   }
 
   console.error(
-    `[*] Importing ${cookies.length} cookies from ${cookiesFile}...`
+    `[*] Importing ${cookies.length} cookies from ${files.join(", ")}...`
   );
   if (skipped) {
     console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
@@ -5118,13 +5140,12 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       ? JSON.parse(fs.readFileSync(syncStateFile, "utf8"))
       : [];
     const syncedDomains = extensionSync
-      ? [...new Set(cookies.map(cookie => cookie.domain.replace(/^\./, "")))]
+      ? [...new Set(extensionSources.flatMap(source => source.cookies).map(cookie => cookie.domain.replace(/^\./, "")))]
       : [];
     if (!Array.isArray(previousDomains) || previousDomains.some(domain => typeof domain !== "string")) {
       throw new Error("Invalid extension cookie domain state");
     }
     const managedDomains = new Set([...previousDomains, ...syncedDomains]);
-    const cookieKey = cookie => JSON.stringify([cookie.domain, cookie.path || "/", cookie.name]);
     const incomingKeys = new Set(cookies.map(cookieKey));
     const staleCookies = extensionSync
       ? (await client.send("Network.getAllCookies")).cookies.filter(cookie =>
@@ -5300,10 +5321,10 @@ async function closeBrowserInChromeSession(options = {}) {
   return closed;
 }
 
-function personaImportState(outputDir, cdpUrl, cookiesFile, config) {
+function personaImportState(outputDir, cdpUrl, cookieFiles) {
   const filename = path.join(outputDir, "persona_state.json");
   const hash = crypto.createHash("sha256").update(cdpUrl);
-  for (const file of new Set([cookiesFile, config?.AUTH_STORAGE_FILE].filter(Boolean))) {
+  for (const file of cookieFiles) {
     hash.update(file);
     if (fs.existsSync(file)) hash.update(fs.readFileSync(file));
   }
@@ -5838,10 +5859,11 @@ async function ensureChromeSession(options = {}) {
   // cleanup. Each connectToBrowserEndpoint call costs ~150-200ms (it
   // enumerates all targets), so reusing one browser saves multiple seconds
   // across the full setup path.
-  const importState = personaImportState(outputDir, resolvedCdpUrl, cookiesFile, personaConfig);
+  const cookieFiles = [...new Set([cookiesFile, personaConfig?.AUTH_STORAGE_FILE].filter(Boolean))];
+  const importState = personaImportState(outputDir, resolvedCdpUrl, cookieFiles);
   const needsPostLaunchBrowser =
     downloadsDir ||
-    cookiesFile ||
+    cookieFiles.length > 0 ||
     installedExtensions.length > 0 ||
     launchedNewBrowser;
   if (needsPostLaunchBrowser) {
@@ -5878,8 +5900,8 @@ async function ensureChromeSession(options = {}) {
         if (removed) console.error(`[*] Removed ${removed} uninstalled extension service worker origins`);
       }
 
-      if (cookiesFile && !importState.imported) {
-        await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
+      if (cookieFiles.length > 0 && !importState.imported) {
+        await importCookiesFromFile(browser, cookieFiles, resolvedUserDataDir);
       }
 
       if (launchedNewBrowser) {
