@@ -5,6 +5,7 @@ import re
 from urllib.parse import parse_qs, urlsplit
 
 from asgiref.testing import ApplicationCommunicator
+from lxml.html import fromstring
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 from archivebox.config.common import get_config
@@ -71,7 +72,12 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert b'id="opencode-agent-welcome"' in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
-    assert b'<a href="/admin/agent/" class="navbar-item navbar-ai">' in response.content
+    navigation = fromstring(response.content).get_element_by_id("user-tools")
+    agent_link = navigation.xpath('.//a[@aria-label="Agent"]')
+    assert len(agent_link) == 1
+    assert agent_link[0].get("href") == "/admin/agent/"
+    assert "navbar-ai" in agent_link[0].get("class", "").split()
+    assert "Agent" in agent_link[0].text_content()
     add_page = admin_client.get("/add/", HTTP_HOST=ADMIN_TEST_HOST)
     assert add_page.status_code == 200
     assert '<a href="/admin/agent/">💬 Crawl with AI</a>'.encode() in add_page.content
