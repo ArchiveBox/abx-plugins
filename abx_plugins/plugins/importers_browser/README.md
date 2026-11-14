@@ -1,14 +1,18 @@
 # Browser importers
 
-Browser discovery learned and repaired by OpenCode using Browser Harness and
+Browser discovery learned and repaired by OpenCode using browser-harness and
 Stagehand. There are no maintained social-site selectors in ArchiveBox core or
 handwritten social scripts in this plugin. Feed declarations contain short task
 prompts; the agent learns against the selected account's real browser.
 
+The existing tab lifecycle, failure screenshots, and replay implementation live
+in `browserharness.runtime`; Stagehand's dependency and client instructions live
+in `stagehand`. The importer still owns the learn/repair loop and feed protocol.
+
 ## Setup
 
-- Install the declared `chrome` and `opencode` dependencies, including Browser
-  Harness and Stagehand: `abx-dl install chrome opencode`.
+- Install the importer and its declared dependencies:
+  `abx-dl install importers_browser`.
 - Configure a working model provider in ArchiveBox's existing Agent UI.
 - Sync a dedicated browser profile to a server Persona using the extension.
 - Select that Persona under **Importers**. The signed-in account is discovered

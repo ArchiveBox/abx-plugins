@@ -31,7 +31,7 @@
             "yarl==1.25.1",
             "beautifulsoup4==4.15.0",
             "bs4==0.0.2",
-            "certifi==2026.10.19",
+            "certifi==2026.10.23",
             "cffi==2.1.1",
             "charset-normalizer==3.5.2",
             "cryptography==50.0.2",
@@ -54,13 +54,13 @@
             "six==1.17.0",
             "soupsieve==3.0.4",
             "urllib3==2.8.0",
-            "w3lib==2.5.0",
-            "pypdf==6.21.2",
+            "w3lib==2.6.0",
+            "pypdf==6.21.4",
             "python-dotenv==1.2.4",
-            "--exclude-newer-package=certifi=2026-10-23T00:00:00Z",
+            "--exclude-newer-package=certifi=2026-11-07T00:00:00Z",
             "--exclude-newer-package=pycparser=2026-10-23T00:00:00Z",
             "--exclude-newer-package=soupsieve=2026-10-23T00:00:00Z",
-            "--exclude-newer-package=pypdf=2026-10-23T00:00:00Z"
+            "--exclude-newer-package=pypdf=2026-11-07T00:00:00Z"
           ],
           "min_release_age": 0
         }

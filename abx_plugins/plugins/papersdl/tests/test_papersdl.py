@@ -317,9 +317,9 @@ def test_papersdl_replaces_cached_vulnerable_trust_bundle(tmp_path):
     current = config["required_binaries"][0]
     previous = json.loads(json.dumps(current))
     args = previous["overrides"]["uv"]["install_args"]
-    args[args.index("certifi==2026.10.19")] = "certifi==2024.2.2"
+    args[args.index("certifi==2026.10.23")] = "certifi==2024.2.2"
     env = {**os.environ, "ABXPKG_LIB_DIR": str(tmp_path / "lib")}
-    for declaration, expected in ((previous, "2024.2.2"), (current, "2026.10.19")):
+    for declaration, expected in ((previous, "2024.2.2"), (current, "2026.10.23")):
         loaded = load_required_binary(
             declaration,
             config={**env, "PAPERSDL_BINARY": "papers-dl"},
@@ -366,12 +366,12 @@ import certifi
 versions = {name: importlib.metadata.version(name) for name in
             ('certifi', 'cryptography', 'requests', 'urllib3', 'pdfminer.six', 'pypdf')}
 print(versions)
-assert versions['certifi'] == '2026.10.19'
+assert versions['certifi'] == '2026.10.23'
 assert versions['cryptography'] == '50.0.2'
 assert versions['requests'] == '2.34.2'
 assert versions['urllib3'] == '2.8.0'
 assert versions['pdfminer.six'] == '20260107'
-assert versions['pypdf'] == '6.21.2'
+assert versions['pypdf'] == '6.21.4'
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 context.load_verify_locations(cafile=certifi.where())
 assert context.get_ca_certs()

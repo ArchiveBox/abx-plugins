@@ -385,6 +385,7 @@ jobs:
     needs: [prepare]
     if: needs.prepare.outputs.run_tests == 'true'
     env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -508,6 +509,17 @@ jobs:
           name: test-results-${{ strategy.job-index }}
           path: ${{ runner.temp }}/test-results/*.xml
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Save browser challenge DOM captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-challenge-dom-${{ strategy.job-index }}
+          path: |
+            ${{ runner.temp }}/pytest/**/test_three_challenges*/snap/test-snapshot/dom/output.html
+            ${{ runner.temp }}/pytest/**/test_ten_challenges*/snap/test-snapshot/dom/output.html
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Save failed hook diagnostics

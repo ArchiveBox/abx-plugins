@@ -32,7 +32,15 @@ async function runTask({
       [outputDir]: "allow",
       [path.join(outputDir, "**")]: "allow",
     };
-  const childEnv = { ...env, OPENCODE_CONFIG_CONTENT: JSON.stringify(config) };
+  // These short-lived, network-bound tasks do not amortize JSC's JIT compilation.
+  // Native CLI profiling showed >1 GiB startup peaks with JIT, versus <700 MiB
+  // without it. Keep the shared web server's execution settings unchanged.
+  const childEnv = {
+    ...env,
+    BUN_JSC_useJIT: "false",
+    BUN_OPTIONS: [env.BUN_OPTIONS, "--smol"].filter(Boolean).join(" "),
+    OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
+  };
   let child,
     timer,
     forceTimer,
