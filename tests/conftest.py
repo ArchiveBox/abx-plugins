@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import pytest
 from importlib.util import resolve_name
 from pathlib import Path
@@ -85,10 +86,17 @@ def plugin_dependency_violations():
         for path in PLUGINS_ROOT.glob("*/archivebox")
         if path.is_dir()
     )
+    app_modules = tuple(
+        config["app_module"]
+        for path in PLUGINS_ROOT.glob("*/config.json")
+        if (config := json.loads(path.read_text())).get("app_module")
+    )
+    integrations += (*app_modules, "abx_plugins.plugins.base.django")
     failures: list[str] = []
     for path in _iter_non_test_plugin_python_files():
         rel = path.relative_to(PLUGINS_ROOT)
-        is_host_adapter = len(rel.parts) > 2 and rel.parts[1] == "archivebox"
+        module = ".".join(path.relative_to(REPO_ROOT).with_suffix("").parts)
+        is_host_adapter = _is_forbidden_import(module, integrations)
         forbidden = (
             ("abx_dl",)
             if is_host_adapter
