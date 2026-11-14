@@ -205,9 +205,34 @@ async function main() {
             await element.focus();
             await page.keyboard.press("Enter");
           } else {
-            // The control is already hit-tested above. Locator's extra animation
-            // frame checks stall on this background tab before requesting export.
-            await element.click();
+            // Onboarding can cover a control between hit testing and native
+            // input. A completed mouse command does not prove that PDF was
+            // selected: observe which element received the trusted click.
+            const activation = await element.evaluateHandle((element) => {
+              const result = { clicked: false, listener: null };
+              result.listener = (event) => {
+                if (event.isTrusted) result.clicked = element.contains(event.target);
+              };
+              document.addEventListener("click", result.listener, true);
+              return result;
+            });
+            let clicked;
+            try {
+              // Locator's extra animation-frame checks stall background tabs.
+              await element.click();
+            } finally {
+              clicked = await activation.evaluate((result) => {
+                document.removeEventListener("click", result.listener, true);
+                return result.clicked;
+              });
+              await activation.dispose();
+            }
+            if (!clicked) {
+              console.error(`iWork export control covered during click: ${state}`);
+              await handle.dispose();
+              previous = "";
+              continue;
+            }
           }
           await handle.dispose();
           if (state === "pdf") {
