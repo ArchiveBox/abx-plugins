@@ -1,0 +1,23 @@
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  s_10bc94d001be49::t_7bf2a1e191f1c7 493-506,508-516,518
+  s_10bc94d001be49::t_dd6a5cb495a816 507,517,523-524,571,619-621,728-729,852-855
+  s_10bc94d001be49::t_5bbdf15bd60307 441-445,490-492,519-522
+abx_plugins/plugins/claudechrome/tests/test_claudechrome.py
+  s_10bc94d001be49::t_78abf8d777dc05 215-259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b937e0c3c2385231389c1fdabac652ee85faf194",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
