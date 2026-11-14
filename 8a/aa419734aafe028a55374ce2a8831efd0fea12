@@ -1,0 +1,71 @@
+abx_plugins/plugins/opencode/config.json
+  s_cb1e5966887ec6::t_41aa330571daf2 132-137
+abx_plugins/plugins/opencode/archivebox/views.py
+  s_cb1e5966887ec6::t_41aa330571daf2 80-82,107,177
+abx_plugins/plugins/hashes/app.py
+  s_cb1e5966887ec6::t_41aa330571daf2 41
+abx_plugins/plugins/seo/presentation.py
+  s_cb1e5966887ec6::t_41aa330571daf2 20-21,64-65,90,92-94,114
+abx_plugins/plugins/opencode/runtime.py
+  s_cb1e5966887ec6::t_41aa330571daf2 1-4,938-995,999-1009
+  s_a846bcd3059945::t_b150631148f211 996-998
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_cb1e5966887ec6::t_41aa330571daf2 6280,6399-6404
+  s_cb1e5966887ec6::t_8ded9a24ff8567 6405-6407
+abx_plugins/plugins/chrome/config.json
+  s_a46618ba6633c7::t_641b2ed840a79c 10-13
+abx_plugins/plugins/chrome_screencast/app.py
+  s_cb1e5966887ec6::t_41aa330571daf2 5,10,13-49,65,68-78,81,83,144,147
+  s_a846bcd3059945::t_b150631148f211 66-67,79-80
+README.md
+  s_cb1e5966887ec6::t_41aa330571daf2 88,91,98-100,109-114,130-131
+abx_plugins/plugins/base/host.py
+  s_cb1e5966887ec6::t_41aa330571daf2 15-21
+abx_plugins/plugins/podcast_archiver/on_Snapshot__33_podcast_archiver.finite.bg.py
+  s_a46618ba6633c7::t_7fc70ad2bfebeb 58-59,67-68
+  s_a46618ba6633c7::t_8817a3616be03d 35-36,52-56
+  s_a846bcd3059945::t_8e9ddd0d032d9e 105-113,115-117,120-128,130,139
+  s_a46618ba6633c7::t_84fe60b59e7e03 21-31,34,57,69-70,73-77,82-86,114,129,131-132,135-138,140-141,155-158
+abx_plugins/plugins/archivewebpage/presentation.py
+  s_cb1e5966887ec6::t_41aa330571daf2 319,321-322,338-339,344-345,377,379,404,406
+tests/test_archivewebpage_presentation.py
+  s_cb1e5966887ec6::t_41aa330571daf2 17-32,235,279,322,342,350,373,405-406
+abx_plugins/plugins/chrome/browser.py
+  s_cb1e5966887ec6::t_41aa330571daf2 5,20,75-106
+abx_plugins/plugins/opencode/app.py
+  s_cb1e5966887ec6::t_41aa330571daf2 1,3,5-9
+abx_plugins/plugins/chrome/templates/full.html
+  s_cb1e5966887ec6::t_41aa330571daf2 12,61-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8aaa419734aafe028a55374ce2a8831efd0fea12",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a846bcd3059945": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d96a-5ebb-7a72-b29d-a9785acc056a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
