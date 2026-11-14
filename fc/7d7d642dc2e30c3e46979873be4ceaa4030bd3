@@ -1,0 +1,32 @@
+abx_plugins/plugins/chrome/tests/test_orphan_service_workers.py
+  s_10bc94d001be49::t_84b44bc4263402 52,157-162,164-167,186-187,198-205
+  s_10bc94d001be49::t_d102b0492553d1 83,85
+  s_10bc94d001be49::t_dcfa900a6fccb4 9-17,22,26-27,30-31,34,188-197,207-209
+  s_10bc94d001be49::t_a4d1517f152e48 23-25,28-29,32-33
+  s_10bc94d001be49::t_8e55c1f1df6ba6 80,175-176,178-179
+  s_10bc94d001be49::t_4ef60e6afcead4 112-118
+  s_10bc94d001be49::t_7400c5badb2efb 144-156,163
+  s_10bc94d001be49::t_be932789e78e77 62
+  s_10bc94d001be49::t_3c02c180b7e1bf 21,42-46,57-61,63-64,76,78-79,81-82,119-129,143,168,173-174,177,180
+  s_10bc94d001be49::t_a50dd8787b7111 1-8,18-20,35-41,47-51,53-56,65-75,77,84,86-111,130-142,169-172,181-185,206
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_10bc94d001be49::t_382aa288564b41 5680-5683
+  s_10bc94d001be49::t_e0ac32f30d8797 5678-5679,5684-5685,5850-5854,6188
+  s_10bc94d001be49::t_505d803f4be961 6189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fc7d7d642dc2e30c3e46979873be4ceaa4030bd3",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
