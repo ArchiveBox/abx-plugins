@@ -199,12 +199,8 @@ def stop_active_process() -> None:
 
 def flush_result_and_exit(signum: int, frame) -> None:
     stop_active_process()
-    output = selected_output(downloaded_files(Path(".")))
-    if output:
-        emit_archive_result_record("succeeded", rel_output(output) or "")
-    else:
-        emit_archive_result_record("failed", "yt-dlp terminated before producing media")
-    sys.exit(0 if output else 1)
+    emit_archive_result_record("failed", "yt-dlp interrupted")
+    sys.exit(1)
 
 
 def save_ytdlp(url: str) -> tuple[bool, str | None, str]:

@@ -15,6 +15,7 @@ import hashlib
 import io
 import json
 import os
+import signal
 import socket
 import ssl
 import subprocess
@@ -982,6 +983,57 @@ def test_timed_out_media_download_is_not_successful_metadata(
     record = parse_jsonl_output(result.stdout)
     assert record and record["status"] == "failed", result.stdout
     assert record["output_str"] == "Timed out after 10 seconds", record
+
+
+def test_interrupted_download_preserves_files_without_reporting_old_media_as_success(
+    tmp_path,
+    httpserver,
+    ytdlp_runtime_env,
+):
+    media_bytes = _build_test_wav_bytes(duration_seconds=120)
+    httpserver.expect_request("/sample.wav").respond_with_data(
+        media_bytes,
+        content_type="audio/wav",
+    )
+    output_dir = tmp_path / "ytdlp"
+    output_dir.mkdir()
+    previous = output_dir / "previous.wav"
+    previous_bytes = _build_test_wav_bytes()
+    previous.write_bytes(previous_bytes)
+    process = subprocess.Popen(
+        [str(YTDLP_HOOK), "--url", httpserver.url_for("/sample.wav")],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **ytdlp_runtime_env,
+            "SNAP_DIR": str(tmp_path),
+            "YTDLP_ARGS_EXTRA": '["--limit-rate=64K", "--buffer-size=64K", "--no-resize-buffer"]',
+        },
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 30
+        while not any(p.stat().st_size for p in output_dir.glob("*.part")):
+            assert process.poll() is None, process.communicate()
+            assert time.monotonic() < deadline, "yt-dlp did not start downloading"
+            time.sleep(0.05)
+        process.send_signal(signal.SIGINT)
+        stdout, stderr = process.communicate(timeout=30)
+    finally:
+        if process.poll() is None:
+            process.send_signal(signal.SIGINT)
+            process.communicate(timeout=30)
+    assert process.returncode == 1, (stdout, stderr)
+    record = parse_jsonl_output(stdout)
+    assert record and record["status"] == "failed", stdout
+    assert record["output_str"] == "yt-dlp interrupted", record
+    assert previous.read_bytes() == previous_bytes
+    partials = list(output_dir.glob("*.part"))
+    assert len(partials) == 1
+    assert 0 < partials[0].stat().st_size < len(media_bytes)
+    assert not (output_dir / "sample.wav").exists()
 
 
 def test_config_ytdlp_enabled_false_skips(ytdlp_runtime_env):
