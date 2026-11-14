@@ -1,0 +1,45 @@
+abx_plugins/plugins/stagehand/runtime.py
+  s_10bc94d001be49::t_8de31b42a231c2 1-5,9-19
+abx_plugins/plugins/stagehand/on_Snapshot__31_stagehand.js
+  s_10bc94d001be49::t_a0028738ccc3e9 29,43
+  s_10bc94d001be49::t_aaa91553bcbba7 44,62-63,70,82-84,138-139,162,184
+abx_plugins/plugins/stagehand/config.json
+  s_10bc94d001be49::t_8de31b42a231c2 23-24
+abx_plugins/plugins/stagehand/README.md
+  s_10bc94d001be49::t_28fbf5f55021e5 28-55
+abx_plugins/plugins/stagehand/agent.js
+  s_10bc94d001be49::t_a0028738ccc3e9 7,11
+  s_10bc94d001be49::t_aaa91553bcbba7 12,30,59-60,67
+abx_plugins/plugins/stagehand/prepare.js
+  s_10bc94d001be49::t_77f29470f13412 28-29
+  s_10bc94d001be49::t_aaa91553bcbba7 12-14,20-22,31-33,40,45,53,58,64,74-80,85-94,104-110,114-117
+  s_10bc94d001be49::t_2e81e6f8587deb 49-52,54-56
+  s_10bc94d001be49::t_6d176036e7e95b 6,68-73,81-84,118-123
+  s_10bc94d001be49::t_4697ade3eb106c 1-5,7-11,15-19,23-24,27,30,35-39,41-44,46-48,57,59-63,65,99-102,111,113,124-136
+  s_10bc94d001be49::t_5b88f1587bd199 25-26,34,66-67,95-98,103,112
+abx_plugins/plugins/stagehand/tests/test_stagehand.py
+  s_10bc94d001be49::t_edd3a40f226dc5 26-28,34-40,46-48,50-52,73,77
+  s_10bc94d001be49::t_b876d7abf1c9cb 89,95-97,102
+  s_10bc94d001be49::t_9f6c6514965017 78-88,90-94,98-101,103-114,116-122
+  s_10bc94d001be49::t_4aa7832aaae310 74-76
+  s_10bc94d001be49::t_7b941ac12321b0 115,134,141
+  s_10bc94d001be49::t_37a7e30178d088 123-133,135-140,142-151
+  s_10bc94d001be49::t_955cd9765950a8 4,21-25,29-33,41-45,49,53-57
+  s_10bc94d001be49::t_728d05d1719dbd 58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f34b9dd6a8424dce0a62e3215be93fdec54407c",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
