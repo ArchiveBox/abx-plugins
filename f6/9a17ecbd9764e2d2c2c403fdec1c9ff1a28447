@@ -1,0 +1,21 @@
+tests/conftest.py
+  s_10bc94d001be49::t_6cfc4abf5eda71 4,89-94,98-99
+tests/test_chrome_abxbus_dependency.py
+  s_10bc94d001be49::t_bae30c3b88af85 168-169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f69a17ecbd9764e2d2c2c403fdec1c9ff1a28447",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "unknown"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
