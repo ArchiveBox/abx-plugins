@@ -95,7 +95,7 @@ def gather(registry, name, version, timeout):
                     item["filename"],
                     item.get("digests", {}).get("sha256"),
                     None,
-                )
+                ),
             )
     elif registry == "npm":
         raw = json_url(f"https://registry.npmjs.org/{qname}", timeout)
@@ -110,7 +110,7 @@ def gather(registry, name, version, timeout):
                 f"{name.split('/')[-1]}-{version}.tgz",
                 dist.get("shasum"),
                 dist.get("integrity"),
-            )
+            ),
         )
     elif registry == "crates":
         raw = json_url(f"https://crates.io/api/v1/crates/{qname}", timeout)
@@ -126,7 +126,7 @@ def gather(registry, name, version, timeout):
                 f"{name}-{version}.crate",
                 info.get("checksum"),
                 None,
-            )
+            ),
         )
     else:
         raw = json_url(f"https://rubygems.org/api/v1/gems/{qname}.json", timeout)
@@ -144,7 +144,7 @@ def gather(registry, name, version, timeout):
                 f"{name}-{version}.gem",
                 info.get("sha"),
                 None,
-            )
+            ),
         )
     return version, description, readme, raw, files
 
@@ -172,7 +172,7 @@ def download(url, filename, checksum, integrity, directory, timeout, remaining):
             size += len(chunk)
             if size > remaining:
                 raise ValueError(
-                    "Distribution downloads exceed PACKAGEREGISTRY_MAX_BYTES"
+                    "Distribution downloads exceed PACKAGEREGISTRY_MAX_BYTES",
                 )
             digest.update(chunk)
             if sri:
@@ -185,7 +185,9 @@ def download(url, filename, checksum, integrity, directory, timeout, remaining):
     return size
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True)
 def main(url):
     if not CONFIG.PACKAGEREGISTRY_ENABLED:
@@ -205,11 +207,15 @@ def main(url):
         ):
             raise ValueError("Invalid package name or version")
         version, description, readme, raw, files = gather(
-            registry, name, requested_version, int(CONFIG.PACKAGEREGISTRY_TIMEOUT)
+            registry,
+            name,
+            requested_version,
+            int(CONFIG.PACKAGEREGISTRY_TIMEOUT),
         )
         if not files:
             emit_archive_result_record(
-                "noresults", "No distributions available for release"
+                "noresults",
+                "No distributions available for release",
             )
             return
         with tempfile.TemporaryDirectory(prefix=".capture-", dir=output) as temporary:
@@ -234,7 +240,7 @@ def main(url):
                         "size": size,
                         "checksum": checksum,
                         "integrity": integrity,
-                    }
+                    },
                 )
             manifest = {
                 "registry": registry,
@@ -246,10 +252,10 @@ def main(url):
                 "files": captured,
             }
             (stage / "registry.json").write_text(
-                json.dumps(raw, ensure_ascii=False, indent=2) + "\n"
+                json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
             )
             (stage / "metadata.json").write_text(
-                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
             )
             for path in stage.iterdir():
                 os.replace(path, output / path.name)

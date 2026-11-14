@@ -14,7 +14,13 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__34_packageregistry.py
 def run_hook(tmp_path, url, **settings):
     env = dict(os.environ, SNAP_DIR=str(tmp_path), **settings)
     return subprocess.run(
-        [str(HOOK), "--url", url],
+        [
+            str(HOOK),
+            "--url",
+            url,
+            "--snapshot-id=019a0000-0000-7000-8000-000000000000",
+            "--depth=0",
+        ],
         env=env,
         cwd=tmp_path,
         text=True,
@@ -70,7 +76,9 @@ def test_unrelated_and_disabled(tmp_path):
     assert result.returncode == 0
     assert json.loads(result.stdout)["status"] == "noresults"
     result = run_hook(
-        tmp_path, "https://pypi.org/project/requests/", PACKAGEREGISTRY_ENABLED="false"
+        tmp_path,
+        "https://pypi.org/project/requests/",
+        PACKAGEREGISTRY_ENABLED="false",
     )
     assert result.returncode == 0
     assert json.loads(result.stdout)["status"] == "skipped"
