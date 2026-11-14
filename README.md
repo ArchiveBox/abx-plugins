@@ -113,8 +113,9 @@ Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
 `identity: list[str]`, and `contexts: list[str]` (default
 `["server", "runner", "command"]`). The prepared worker keeps the declared name.
 
-`templates/<slot>.html` contributes UI through `{% plugin_ui plugin slot %}`.
-Collection slots: `navigation`, `add`, `importers_actions`, `importer_sessions`.
+`templates/<slot>.html` contributes UI through `{% plugin_ui slot %}`;
+`{% plugin_ui plugin slot %}` selects one plugin. Collection slots: `navigation`,
+`add`, `importers_actions`, `importer_sessions`, `snapshot_head`.
 Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
 
 Command contracts:
