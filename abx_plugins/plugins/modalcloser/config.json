@@ -19,7 +19,7 @@
       ],
       "description": "Enable automatic modal and dialog closing"
     },
-    "MODALCLOSER_TIMEOUT": {
+    "MODALCLOSER_DIALOG_DELAY": {
       "type": "number",
       "default": 1.25,
       "minimum": 0.1,

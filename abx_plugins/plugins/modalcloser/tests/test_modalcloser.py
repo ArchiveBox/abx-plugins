@@ -452,12 +452,13 @@ def test_background_script_reports_noresults_when_nothing_closed(
                 terminate_hook_process(modalcloser_process)
 
 
-def test_dialog_handler_logs_dialogs(httpserver):
-    """Test that dialog handler is set up correctly."""
+@pytest.mark.parametrize("delay", [0.25, 1.75])
+def test_dialog_handler_logs_dialogs(httpserver, delay):
+    """Dismiss a real native dialog after the configured fractional delay."""
     with tempfile.TemporaryDirectory() as tmpdir:
         modalcloser_process = None
         try:
-            test_url = _modal_page_url(httpserver)
+            test_url = _plain_page_url(httpserver)
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-dialog",
@@ -467,6 +468,8 @@ def test_dialog_handler_logs_dialogs(httpserver):
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
+
+                env = {**env, "MODALCLOSER_DIALOG_DELAY": str(delay)}
 
                 modalcloser_process = subprocess.Popen(
                     [
@@ -484,9 +487,38 @@ def test_dialog_handler_logs_dialogs(httpserver):
 
                 assert read_closed_count(modalcloser_process) == 0
 
-                # Check stderr for "listening" message
-                # Note: Can't read stderr while process is running without blocking,
-                # so we just verify it exits cleanly
+                result = subprocess.run(
+                    [
+                        env["NODE_BINARY"],
+                        "-e",
+                        """
+const chrome = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await chrome.connectToPage({
+    chromeSessionDir: process.argv[2], timeoutMs: 10000,
+    waitForNavigationComplete: true, puppeteer: chrome.resolvePuppeteerModule(),
+  });
+  try {
+    const elapsed = await page.evaluate(() => {
+      const start = performance.now();
+      alert('Fractional delay');
+      return performance.now() - start;
+    });
+    console.log(JSON.stringify({elapsed}));
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+                        str(PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"),
+                        str(snapshot_chrome_dir),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                    env=env,
+                )
+                assert result.returncode == 0, result.stdout + result.stderr
+                assert json.loads(result.stdout)["elapsed"] >= delay * 1000
+                assert read_closed_count(modalcloser_process) == 1
                 stdout, stderr = terminate_hook_process(modalcloser_process)
                 returncode = modalcloser_process.returncode
                 modalcloser_process = None
