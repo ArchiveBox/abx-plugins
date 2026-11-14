@@ -50,7 +50,8 @@ async function restoreOriginStorage(browser, origins, {merge = false} = {}) {
     // A Persona can accumulate browser-extension and Playwright exports for
     // the same database. Keep their order and merge each supplied record set.
     const databases = entry.indexedDB || [];
-    if (databases.some(database => typeof database?.data === 'string') && databases.some(database => database?.data === undefined)) {
+    const native = databases.filter(database => database && database.data === undefined && Array.isArray(database.stores) && database.stores.every(store => Array.isArray(store.records)));
+    if (databases.some(database => typeof database?.data === 'string') && native.length) {
       for (let index = 0; index < databases.length; index++) {
         failures.push(...await restoreOriginStorage(browser, [{origin: entry.origin, localStorage: index === 0 ? entry.localStorage : undefined, indexedDB: [databases[index]]}], {merge: true}));
       }
@@ -64,7 +65,6 @@ async function restoreOriginStorage(browser, origins, {merge = false} = {}) {
       await page.setRequestInterception(true);
       page.on("request", request => request.respond({ status: 200, contentType: "text/html", body: "<!doctype html><title>Persona storage setup</title>" }));
       await page.goto(entry.origin);
-      const native = (entry.indexedDB || []).filter(database => database && database.data === undefined && database.stores?.every(store => Array.isArray(store.records)));
       if (native.length) {
         const {restorePlaywrightStorage} = require('./playwright_storage.js');
         failures.push(...await page.evaluate(restorePlaywrightStorage, native));

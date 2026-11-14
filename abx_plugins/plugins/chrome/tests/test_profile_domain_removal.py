@@ -36,7 +36,14 @@ def test_remove_profile_domain_preserves_other_hosts(tmp_path, profile_site_url,
     session_only = profile_site_url.replace("127.0.0.1", "session-only.localhost")
     with ExitStack() as sessions:
         _, _, chrome_dir, env = sessions.enter_context(
-            chrome_session(tmp_path, test_url=profile_site_url, navigate=False),
+            chrome_session(
+                tmp_path,
+                test_url=profile_site_url,
+                navigate=False,
+                # Hosted Linux workers restrict unprivileged user namespaces.
+                # Keep offline profile launches on the same policy as captures.
+                env_overrides={"CHROME_SANDBOX": "false"},
+            ),
         )
         setup = r"""
 const fs = require('fs');
@@ -195,7 +202,14 @@ def test_import_profile_state_merges_cookies_and_storage(
     )
     with ExitStack() as sessions:
         _, _, chrome_dir, env = sessions.enter_context(
-            chrome_session(tmp_path, test_url=profile_site_url, navigate=False),
+            chrome_session(
+                tmp_path,
+                test_url=profile_site_url,
+                navigate=False,
+                # Hosted Linux workers restrict unprivileged user namespaces.
+                # Keep offline profile launches on the same policy as captures.
+                env_overrides={"CHROME_SANDBOX": "false"},
+            ),
         )
         setup = r"""
 const fs = require('fs');
@@ -398,7 +412,14 @@ def test_import_profile_creates_native_playwright_database(
     auth = tmp_path / "playwright-auth.json"
     with ExitStack() as sessions:
         _, _, chrome_dir, env = sessions.enter_context(
-            chrome_session(tmp_path, test_url=profile_site_url, navigate=False),
+            chrome_session(
+                tmp_path,
+                test_url=profile_site_url,
+                navigate=False,
+                # Hosted Linux workers restrict unprivileged user namespaces.
+                # Keep offline profile launches on the same policy as captures.
+                env_overrides={"CHROME_SANDBOX": "false"},
+            ),
         )
         playwright = sessions.enter_context(sync_playwright())
         browser = playwright.chromium.connect_over_cdp(
