@@ -1663,10 +1663,28 @@ async function launchChromium(options = {}) {
 function isProcessAlive(pid) {
   try {
     process.kill(pid, 0); // Signal 0 checks existence without killing
-    return true;
   } catch (e) {
     return false;
   }
+  // An exited child keeps its PID until its parent reaps it. It cannot run or
+  // write capture files, and sending more signals cannot make it exit again.
+  try {
+    let state = "";
+    if (process.platform === "linux") {
+      const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+      state = stat.slice(stat.lastIndexOf(")") + 2, stat.lastIndexOf(")") + 3);
+    } else if (process.platform === "darwin") {
+      state = execFileSync("ps", ["-o", "stat=", "-p", String(pid)], {
+        encoding: "utf8",
+        timeout: 500,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim()[0];
+    }
+    if (state === "Z" || state === "X") return false;
+  } catch (e) {
+    // A failed status lookup is not proof of death; keep the signal-0 result.
+  }
+  return true;
 }
 
 function signalChromeProcessGroup(pid, signalName) {

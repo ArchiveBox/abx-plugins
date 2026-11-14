@@ -19,12 +19,23 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_googledrive.js"
 
 
 @pytest.mark.parametrize(
+    "language",
+    [None, "es"],
+    ids=["default-language", "spanish"],
+)
+@pytest.mark.parametrize(
     "custom_user_agent",
     [False, True],
     ids=["native-ua", "cross-platform-ua"],
 )
-def test_public_folder_zip(tmp_path, ensure_chrome_test_prereqs, custom_user_agent):
+def test_public_folder_zip(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    custom_user_agent,
+    language,
+):
     assert HOOK.is_file(), "googledrive folder download hook is missing"
+    url = f"{URL}?hl={language}" if language else URL
     # ArchiveBox configures a Mac UA even on Linux. The provider chooses its
     # keyboard shortcuts from that UA, which may differ from navigator.platform.
     platform = (
@@ -41,7 +52,7 @@ def test_public_folder_zip(tmp_path, ensure_chrome_test_prereqs, custom_user_age
     )
     with chrome_session(
         tmp_path,
-        test_url=URL,
+        test_url=url,
         timeout=60,
         env_overrides=overrides,
     ) as (_, _, chrome_dir, env):
@@ -63,7 +74,7 @@ def test_public_folder_zip(tmp_path, ensure_chrome_test_prereqs, custom_user_age
             )
             try:
                 result = subprocess.run(
-                    [str(HOOK), f"--url={URL}"],
+                    [str(HOOK), f"--url={url}"],
                     cwd=chrome_dir.parent,
                     env={**env, "GOOGLEDRIVE_TIMEOUT": "120"},
                     capture_output=True,

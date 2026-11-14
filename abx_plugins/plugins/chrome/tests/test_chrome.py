@@ -5268,6 +5268,49 @@ def test_chrome_cleanup_during_launch_uses_persisted_session_state(
             stdout_handle.close()
 
 
+def test_cleanup_recognizes_exited_unreaped_process():
+    """An exited child retains a PID until its parent reaps it, but is not alive."""
+    env = {**os.environ, **get_test_env()}
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import sys; sys.stdin.read()"],
+        stdin=subprocess.PIPE,
+        start_new_session=True,
+    )
+    try:
+        assert is_pid_alive(child.pid)
+        assert child.stdin is not None
+        child.stdin.close()
+        exited = os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT)
+        assert exited is not None
+        assert exited.si_pid == child.pid and exited.si_status == 0
+        state = subprocess.check_output(
+            ["ps", "-o", "stat=", "-p", str(child.pid)],
+            text=True,
+        ).strip()
+        assert state.startswith("Z"), state
+        os.kill(child.pid, 0)
+        assert not is_pid_alive(child.pid), state
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                "require(process.argv[1]).killChrome(Number(process.argv[2])).then(closed => {console.log(JSON.stringify(closed)); process.exit(closed ? 0 : 1);})",
+                str(CHROME_UTILS),
+                str(child.pid),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert json.loads(result.stdout) is True
+        assert "Sending SIGTERM" not in result.stderr
+        assert "SIGKILL" not in result.stderr
+    finally:
+        assert child.wait(timeout=5) == 0
+
+
 def test_zombie_prevention_hook_killed():
     """Integration test: Chrome is killed even if hook process is SIGKILL'd."""
     with tempfile.TemporaryDirectory() as tmpdir:

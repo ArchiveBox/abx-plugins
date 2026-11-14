@@ -74,7 +74,11 @@ async function main() {
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
-    await page.goto(sourcePage.url(), {
+    // Drive localizes its Download and ZIP-progress controls. Normalize only
+    // this owned export tab; preserve the captured page and other URL options.
+    const exportUrl = new URL(sourcePage.url());
+    exportUrl.searchParams.set("hl", "en");
+    await page.goto(exportUrl.href, {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
