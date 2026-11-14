@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Saved files</title></head>
+<body data-output="{{ output_path }}">
+<a id="files">View all files</a>
+<script>
+  const files = new URL("files/?files=1", new URL(document.body.dataset.output, document.baseURI));
+  document.getElementById("files").href = files.href;
+  location.replace(files.href);
+</script>
+</body>
+</html>

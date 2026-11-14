@@ -1,0 +1,60 @@
+[
+  {
+    "format": "STL",
+    "file": "3DBenchy.stl",
+    "url": "http://snap-df6501b0a9f1.archivebox.localhost:5888/caddl/files/3DBenchy.stl?preview=1&raw=1",
+    "geometry": {
+      "engine": "three.js r186",
+      "renderedTriangles": "225706",
+      "triangles": "225706",
+      "meshes": "1",
+      "state": "ready"
+    },
+    "orbit": true,
+    "zoom": true,
+    "reset": true,
+    "downloadBytes": 11285384,
+    "sha256": "6ab57f1c3f8e86bc3cbd302c6fa6270acf06277c6335454e922419c25d42e97e",
+    "rangeStatus": 206
+  },
+  {
+    "format": "GLB",
+    "file": "NeilArmstrong.glb",
+    "url": "http://snap-5947e4d794dd.archivebox.localhost:5888/caddl/files/NeilArmstrong.glb?preview=1&raw=1",
+    "geometry": {
+      "engine": "three.js r186",
+      "renderedTriangles": "43634",
+      "triangles": "43634",
+      "meshes": "4",
+      "state": "ready"
+    },
+    "orbit": true,
+    "zoom": true,
+    "reset": true,
+    "downloadBytes": 8947140,
+    "sha256": "3acbcab4fc849afb342ac6b64ac44fe6203ef9324a531d22eda045068a7e9359",
+    "rangeStatus": 206
+  },
+  {
+    "format": "3MF",
+    "file": "3DBenchy.3mf",
+    "url": "http://snap-df6501b0a9f1.archivebox.localhost:5888/caddl/files/3DBenchy.3mf?preview=1&raw=1",
+    "geometry": {
+      "engine": "three.js r186",
+      "renderedTriangles": "225154",
+      "triangles": "225154",
+      "meshes": "1",
+      "state": "ready"
+    },
+    "orbit": true,
+    "zoom": true,
+    "reset": true,
+    "downloadBytes": 3084864,
+    "sha256": "74ec6ee3dba54a4973bad319c13e4d7df20a860ef82209912adceedeb8e8e643",
+    "rangeStatus": 206
+  },
+  {
+    "genericResponsesPath": "http://snap-5947e4d794dd.archivebox.localhost:5888/responses/all/20261114T071629__GET__f8f1cf4c-aec7-4ec3-adba-8deaadf9cf8f__https_3A_2F_2Fmodelviewer.dev_2Fshared-assets_2Fmodels_2FNeilArm.glb?preview=1&raw=1",
+    "renderedTriangles": 43634
+  }
+]
