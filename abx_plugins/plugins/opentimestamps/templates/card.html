@@ -1,7 +1,7 @@
 <!doctype html><!-- Trusted card code runs inside this snapshot's origin. It
 reads only local proof files; web.* keeps the collection UI, and admin.* keeps
 the host-only session/CSRF cookies. --><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 system-ui,sans-serif}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.legacy{background:#fff1cf;color:#604511}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
+*{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 var(--font-family-primary, system-ui, sans-serif)}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.legacy{background:#fff1cf;color:#604511}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
 </style></head><body data-output="{{ output_path }}"><p id="status" class="status" role="status">Loading timestamp manifest…</p><code id="hash" class="hash"></code><script type="module">
 
 const output=new URL(document.body.dataset.output,document.baseURI);output.search='';output.hash='';

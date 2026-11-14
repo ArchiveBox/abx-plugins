@@ -24,7 +24,7 @@
         flex-direction: column;
         background: white;
         color: var(--ink);
-        font: 14px/1.5 system-ui, -apple-system, sans-serif;
+        font: 14px/1.5 var(--font-family-primary, system-ui, sans-serif);
       }
       body[data-kind="spreadsheets"] {
         --accent: #16805b;
@@ -120,7 +120,7 @@
         background: white;
         color: var(--ink);
         cursor: pointer;
-        font: 600 12px/1.75 system-ui, sans-serif;
+        font: 600 12px/1.75 var(--font-family-primary, system-ui, sans-serif);
       }
       .format:hover {
         border-color: #94a3b8;
