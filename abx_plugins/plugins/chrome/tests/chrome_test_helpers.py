@@ -1326,12 +1326,16 @@ def kill_chrome(pid: int, output_dir: str | None = None) -> bool:
 
 
 def is_pid_alive(pid: int) -> bool:
-    """Return True if the process still exists."""
+    """Return True for a running process, excluding exited unreaped children."""
     try:
-        os.kill(pid, 0)
-    except (ProcessLookupError, OSError):
+        return psutil.Process(pid).status() not in (
+            psutil.STATUS_ZOMBIE,
+            psutil.STATUS_DEAD,
+        )
+    except psutil.NoSuchProcess:
         return False
-    return True
+    except psutil.AccessDenied:
+        return True
 
 
 def get_test_env() -> dict:

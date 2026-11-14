@@ -182,7 +182,15 @@ def test_open_stream_does_not_block_completed_responses_or_shutdown(tmp_path):
                     wait_for_file(
                         index,
                         process=process,
-                        ready=lambda p: server.url_for("/fast") in p.read_text(),
+                        # Server yields and completed requests can precede CDP spooling.
+                        ready=lambda p: (
+                            server.url_for("/fast") in p.read_text()
+                            and any(
+                                body.read_bytes() == b"Unfinished response\n" * 4096
+                                for directory in scratch.glob("response-bodies-*")
+                                for body in directory.iterdir()
+                            )
+                        ),
                     )
                     assert started.wait(2)
                     assert not release.is_set()
