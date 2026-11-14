@@ -20,3 +20,21 @@ uv run pytest abx_plugins/plugins/puppeteer/tests -q
 ```
 
 Saved files appear under **Embedded media** on the snapshot detail page. Hooks write an `index.html` listing only when their output directory contains captured files; status logs alone produce no card. JavaScript scripts receive `outputDir`; Python script relative paths use the plugin output directory.
+
+## Domain-specific preparation
+
+The settings editor's **Domain guard** and **Route by domain** buttons generate
+ordinary JavaScript in the existing script field. Matching uses the attached
+page's hostname after redirects, with exact domains and their subdomains.
+
+```javascript
+const host = new URL(page.url()).hostname;
+if (host !== 'example.com' && !host.endsWith('.example.com')) {
+  return {status: 'skipped', reason: 'Domain not selected: ' + host};
+}
+// Prepare the matching page here.
+```
+
+Returning `{status: 'skipped', reason: '...'}` disconnects normally and emits the
+existing `skipped` ArchiveResult with exit code 10, without writing a successful
+preparation result. Scripts that return nothing retain their existing behavior.

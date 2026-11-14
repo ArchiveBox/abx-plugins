@@ -26,3 +26,23 @@ uv run pytest abx_plugins/plugins/browserharness/tests -q
 The normal CI test `test_ten_challenges` uses `OPENAI_API_KEY`, model `openai/gpt-6.1-sol`, and a 240-second hook timeout. It solves ten tasks on the public browser challenge page, calls `done`, then verifies a score of 10 or 11 in the DOM plugin’s saved HTML. It takes no screenshots.
 
 Saved files appear under **Embedded media** on the snapshot detail page. Hooks write an `index.html` listing only when their output directory contains captured files; status logs alone produce no card. JavaScript scripts receive `outputDir`; Python script relative paths use the plugin output directory.
+
+## Domain-specific preparation
+
+The settings editor can generate domain guards in the existing Python script
+field. Use the attached page's hostname to match exact domains and subdomains:
+
+```python
+import sys
+host = js('location.hostname')
+if host != 'example.com' and not host.endswith('.example.com'):
+    print('Domain not selected: ' + host)
+    sys.exit(10)
+# Prepare the matching page here.
+```
+
+Exit code 10 from the configured script emits the existing `skipped`
+ArchiveResult after the normal temporary-daemon cleanup. Script stdout becomes
+the reason, or `Script skipped` when empty. Other nonzero exits remain failures;
+normal scripts keep their existing behavior. Config keys and string values are
+unchanged.

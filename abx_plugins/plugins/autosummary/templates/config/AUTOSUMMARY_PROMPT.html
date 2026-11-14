@@ -1,0 +1,8 @@
+{% extends 'plugins/config_editor.html' %}
+{% block label %}Summary instructions{% endblock %}
+{% block language %}Prompt{% endblock %}
+{% block snippets %}
+<button type="button" data-config-insert="Use concise bullet points. Focus on the main ideas and conclusions.">+ Bullet points</button>
+<button type="button" data-config-insert="Include key names, dates, and numbers. Preserve links to cited sources.">+ Key facts</button>
+{% endblock %}
+{% block help %}Shape the tone, structure, and focus of each summary.{% endblock %}

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Source maps</title>
-<style>body{margin:0;background:#f5f6f8;color:#202b36;font:14px system-ui,sans-serif}header,main{padding:16px 24px}header{background:white;border-bottom:1px solid #ddd}h1{font-size:18px;margin:0}main{max-width:1000px;margin:auto}.map{background:white;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;padding:16px;overflow-wrap:anywhere}a{color:#326da8}.muted{color:#64748b;font-size:12px}</style></head><body>
+<style>body{margin:0;background:#f5f6f8;color:#202b36;font:14px var(--font-family-primary, system-ui, sans-serif)}header,main{padding:16px 24px}header{background:white;border-bottom:1px solid #ddd}h1{font-size:18px;margin:0}main{max-width:1000px;margin:auto}.map{background:white;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;padding:16px;overflow-wrap:anywhere}a{color:#326da8}.muted{color:#64748b;font-size:12px}</style></head><body>
 <header><h1>🗺️ Source maps</h1></header><main id="maps">Loading source maps…</main>
 <script>
 const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';

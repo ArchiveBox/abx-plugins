@@ -42,7 +42,7 @@ async function run() {
     const AsyncFunction = Object.getPrototypeOf(
       async function () {},
     ).constructor;
-    await new AsyncFunction(
+    const scriptResult = await new AsyncFunction(
       "browser",
       "page",
       "config",
@@ -50,6 +50,15 @@ async function run() {
       "outputDir",
       script,
     )(browser, page, config, client, outputDir);
+    if (scriptResult?.status === "skipped") {
+      return {
+        status: "skipped",
+        reason:
+          typeof scriptResult.reason === "string"
+            ? scriptResult.reason
+            : "Script skipped",
+      };
+    }
   } else {
     throw new Error("A script is required");
   }
@@ -92,7 +101,12 @@ Promise.race([
   .then(
     async (output) => {
       await cleanup();
-      emitArchiveResultRecord("succeeded", output);
+      if (output?.status === "skipped") {
+        emitArchiveResultRecord("skipped", output.reason);
+        process.exitCode = PROCESS_EXIT_SKIPPED;
+      } else {
+        emitArchiveResultRecord("succeeded", output);
+      }
     },
     async (error) => {
       emitArchiveResultRecord("failed", error.message);

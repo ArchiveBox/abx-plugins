@@ -36,7 +36,7 @@ def caddl_test_url(httpserver):
     )
     model = (PLUGIN_DIR / "tests/fixtures/Box.glb").read_bytes()
     httpserver.expect_request("/models/collision.glb").respond_with_data(
-        model, content_type="application/octet-stream"
+        model, content_type="application/octet-stream",
     )
     httpserver.expect_request("/models/direct.glb").respond_with_data(
         model,
@@ -83,7 +83,7 @@ def test_disabled_plugin_skips():
 
     assert result.returncode == 0, result.stderr
     record = json.loads(
-        next(line for line in result.stdout.splitlines() if line.startswith("{"))
+        next(line for line in result.stdout.splitlines() if line.startswith("{")),
     )
     assert record["status"] == "skipped"
     assert record["output_str"] == "CADDL_ENABLED=False"
@@ -120,7 +120,7 @@ def test_downloads_direct_and_embedded_assets(caddl_test_url):
             record = json.loads(
                 next(
                     line for line in result.stdout.splitlines() if line.startswith("{")
-                )
+                ),
             )
             assert record["status"] == "succeeded"
 

@@ -1,0 +1,4 @@
+{% extends "plugins/config_field.html" %}
+{% block label %}Preview frame rate{% endblock %}
+{% block widget %}{% include "plugins/config_range.html" with unit="fps" low="Lightweight" high="Smoother motion" step="1" %}{% endblock %}
+{% block help %}Frames per second in the live preview.{% endblock %}

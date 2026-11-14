@@ -1,7 +1,7 @@
 <!doctype html><!-- Trusted card code runs on this snapshot's origin, so proof
 files are same-origin. The admin session stays host-only on admin.*, and raw
 archived HTML/JS/CSS never executes on the web.* collection page. --><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 system-ui,sans-serif}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
+*{box-sizing:border-box}body{margin:0;padding:8px 10px;background:#f8fafc;color:#243443;font:11px/1.5 var(--font-family-primary, system-ui, sans-serif)}.status{margin:0;padding:5px 8px;border-radius:7px;background:#edf1f5}.success{background:#e4f5e9;color:#176335}.failed{background:#ffe8e8;color:#8b2424}.hash{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px/1.6 ui-monospace,monospace}
 </style></head><body><p id="status" class="status" role="status">Checking signature and archived response…</p><code id="hash" class="hash"></code><script type="module">
 
 // Self-contained copy of server/web/verify.mjs; keep verification checks in sync.
