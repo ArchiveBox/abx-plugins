@@ -72,6 +72,16 @@ await test("real HTTP capture accepts coding case and legal trailers", () => {
   );
   const parsed = parseResponse(response);
   const text = response.toString("latin1");
+  for (const status of [304, 403, 429, 503]) {
+    const rejected = Buffer.from(
+      text.replace(/^(HTTP\/1\.[01] )\d{3}/, `$1${status}`),
+      "latin1"
+    );
+    assert.throws(
+      () => parseResponse(rejected),
+      new RegExp(`Response is not a successful HTTP document \\(HTTP ${status}\\)`)
+    );
+  }
   assert(text.includes("Content-Encoding: gzip\r\n"));
   assert(text.endsWith("0\r\n\r\n"));
   const variedCase = Buffer.from(

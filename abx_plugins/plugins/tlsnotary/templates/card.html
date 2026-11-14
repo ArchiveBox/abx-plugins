@@ -111,9 +111,10 @@ export function parseResponse(bytes) {
   requireValue(split > 0, "Missing HTTP headers");
   const lines = new TextDecoder().decode(bytes.slice(0, split)).split("\r\n");
   const status = /^HTTP\/1\.[01] (\d{3}) /.exec(lines.shift());
+  requireValue(status, "Invalid HTTP response status line");
   requireValue(
-    status && Number(status[1]) >= 200 && Number(status[1]) < 300,
-    "Response is not a successful HTTP document"
+    Number(status[1]) >= 200 && Number(status[1]) < 300,
+    `Response is not a successful HTTP document (HTTP ${status[1]})`
   );
   const headers = new Map();
   for (const line of lines) {
