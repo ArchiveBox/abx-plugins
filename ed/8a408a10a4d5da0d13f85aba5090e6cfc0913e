@@ -1,0 +1,23 @@
+abx_plugins/plugins/defuddle/templates/full.html
+  s_10bc94d001be49::t_8e1aca58ef74e3 5,14-33,37-46
+abx_plugins/plugins/mercury/templates/full.html
+  s_10bc94d001be49::t_bd34782acaa634 5,14-33,37-46
+abx_plugins/plugins/readability/templates/full.html
+  s_10bc94d001be49::t_d2871d07e300ae 5,14-33,37-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ed8a408a10a4d5da0d13f85aba5090e6cfc0913e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
