@@ -1,0 +1,21 @@
+abx_plugins/plugins/stagehand/browser_skill.md
+  s_784d0e5fa3aa29::t_41054f6a9a08b5 14
+abx_plugins/plugins/stagehand/on_Snapshot__31_stagehand.js
+  s_784d0e5fa3aa29::t_41054f6a9a08b5 99-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7cc180ba1ee8b5397a8598f3138aa2e4b3bd7bb",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
