@@ -15,7 +15,7 @@ uv = "2026-10-23T00:00:00Z"
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.708"
+version = "1.13.711"
 source = { editable = "." }
 dependencies = [
     { name = "abxbus" },
@@ -60,7 +60,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abxbus", specifier = "==2.5.83" },
-    { name = "abxpkg", specifier = "==1.13.87" },
+    { name = "abxpkg", specifier = "==1.13.89" },
     { name = "certifi", specifier = ">=2026.10.19" },
     { name = "httpx", marker = "extra == 'opencode'", specifier = ">=0.28.1" },
     { name = "imagesize", specifier = ">=2.0.0" },
@@ -111,7 +111,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.13.87"
+version = "1.13.89"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
@@ -120,9 +120,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5d/9b/d8eabf9a21b4a343655aca6885fe7e9ed41b43f93c1581d052b5bee3d63f/abxpkg-1.13.87.tar.gz", hash = "sha256:f6d14a26282a0b59790fa48e63b44f2ceccdfb4ceb73957af8d14f01750f9a71", size = 255067, upload-time = "2026-11-14T09:59:07.252Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/22/939470d01991e5a3535a44a8996bc53829505e51b145909ae1ccf840439d/abxpkg-1.13.89.tar.gz", hash = "sha256:cbbef326740146b25da6a06a70ff7e32a37f80e66440ce8686056c0c60b558ad", size = 256313, upload-time = "2026-11-14T19:03:06.422Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/2e/5e2d2860ca333e1c4ddcfe991d49195873fd0071881995bbe8c7e3e1615e/abxpkg-1.13.87-py3-none-any.whl", hash = "sha256:f1f7f9143e62d5f534cb403475354608214c753c95f391585bea115538c9d9e1", size = 265932, upload-time = "2026-11-14T09:59:05.415Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/73/c1ad93bdb6dbcbab0f8d55b2aa417a9550e34e50ccd7060c4e6ec825be60/abxpkg-1.13.89-py3-none-any.whl", hash = "sha256:5fb5df23c142ad14f860cb014309ed01fbca93c256b5d7af12a7247de1d3766d", size = 266915, upload-time = "2026-11-14T19:03:04.346Z" },
 ]
 
 [[package]]
