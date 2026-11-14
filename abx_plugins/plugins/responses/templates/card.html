@@ -1,6 +1,6 @@
 {% load core_tags %}
 {% snapshot_results snapshot 'responses,staticfile,wget,liteparse' as captures %}
-{% snapshot_preview_url snapshot 'responses/index.jsonl' as responses_index_url %}
+{% snapshot_url snapshot 'responses/index.jsonl' as responses_index_url %}
 <style>
 /* Same 3x3 grid as the LiteParse card, showing only its original-file cells.
    The server renders every captured document/image so the script can dedupe
@@ -125,7 +125,8 @@
     // index/LiteParse fetches below only refine dedupe and order, and can take
     // seconds on a busy server.
     render(new Map());
-    const indexUrl = '{{ responses_index_url|cut:"?preview=1"|escapejs }}?raw=1';
+    const indexUrl = new URL('{{ responses_index_url|escapejs }}', document.baseURI);
+    indexUrl.searchParams.set('raw', '1');
     const raw = url => { const value = new URL(url); value.searchParams.set('raw', '1'); return value.href; };
     const snapshotRoot = new URL('../', indexUrl);
     const safeFile = (path, root) => {

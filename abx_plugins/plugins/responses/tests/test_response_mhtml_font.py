@@ -489,8 +489,8 @@ def test_responses_card_filters_url_later_classified_as_font(
     source = card_template.read_text(encoding="utf-8")
     script = source.split("<script>", 1)[1].split("</script>", 1)[0]
     script = script.replace(
-        "const indexUrl = '{{ responses_index_url|cut:\"?preview=1\"|escapejs }}?raw=1';",
-        f"const indexUrl = {json.dumps(httpserver.url_for('/responses/index.jsonl') + '?raw=1')};",
+        "'{{ responses_index_url|escapejs }}'",
+        json.dumps(httpserver.url_for("/responses/index.jsonl")),
     )
     script = re.sub(
         r"    const sources = \[.*?\];",
