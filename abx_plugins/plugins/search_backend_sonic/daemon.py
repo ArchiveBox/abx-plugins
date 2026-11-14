@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Literal, TypedDict
+from typing import Any, TypedDict
 from collections.abc import Mapping
 
 from abx_plugins.plugins.base.utils import (
@@ -18,7 +18,6 @@ from abx_plugins.plugins.base.utils import (
 
 
 SONIC_WORKER_NAME = "worker_sonic"
-SONIC_DAEMON_EVENT_TYPE = "SonicDaemonStartEvent"
 CONFIG_PATH = Path(__file__).with_name("config.json")
 
 
@@ -36,53 +35,14 @@ class SonicSupervisorWorker(TypedDict):
     redirect_stderr: str
 
 
-class SonicDaemonStartRecord(TypedDict):
-    type: Literal["SonicDaemonStartEvent"]
-    worker_name: str
-    url: str
-    host: str
-    port: int
-    config_path: str
-    output_dir: str
-
-
 @dataclass(frozen=True)
-class SonicDaemonStartEvent:
+class SonicDaemon:
     worker_name: str
     url: str
     host: str
     port: int
     config_path: str
     output_dir: str
-
-    def to_record(self) -> SonicDaemonStartRecord:
-        return {
-            "type": "SonicDaemonStartEvent",
-            "worker_name": self.worker_name,
-            "url": self.url,
-            "host": self.host,
-            "port": self.port,
-            "config_path": self.config_path,
-            "output_dir": self.output_dir,
-        }
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_record())
-
-    @classmethod
-    def from_record(cls, record: Mapping[str, Any]) -> SonicDaemonStartEvent:
-        if record.get("type") != SONIC_DAEMON_EVENT_TYPE:
-            raise ValueError(
-                f"Expected {SONIC_DAEMON_EVENT_TYPE}, got {record.get('type')}",
-            )
-        return cls(
-            worker_name=str(record["worker_name"]),
-            url=str(record["url"]),
-            host=str(record["host"]),
-            port=int(record["port"]),
-            config_path=str(record["config_path"]),
-            output_dir=str(record["output_dir"]),
-        )
 
 
 def config_value(config: Mapping[str, Any] | Any, key: str, default: Any = None) -> Any:
@@ -249,7 +209,7 @@ def prepare_sonic_daemon(
     config: Mapping[str, Any] | Any,
     *,
     crawl_dir: Path | None = None,
-) -> SonicDaemonStartEvent:
+) -> SonicDaemon:
     sonic_dir = get_sonic_dir(config, crawl_dir=crawl_dir)
     (sonic_dir / "store" / "kv").mkdir(parents=True, exist_ok=True)
     (sonic_dir / "store" / "fst").mkdir(parents=True, exist_ok=True)
@@ -258,7 +218,7 @@ def prepare_sonic_daemon(
 
     host = str(config_value(config, "SEARCH_BACKEND_SONIC_HOST_NAME"))
     port = int(config_value(config, "SEARCH_BACKEND_SONIC_PORT"))
-    return SonicDaemonStartEvent(
+    return SonicDaemon(
         worker_name=SONIC_WORKER_NAME,
         url=f"tcp://{host}:{port}",
         host=host,

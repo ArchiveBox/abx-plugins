@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stagehand",
+  "description": "Prepare the existing snapshot tab with stagehand before capture.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "stagehand",
+      "binproviders": "pnpm",
+      "min_version": "4.0.0-rc.56",
+      "min_release_age": 0,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser",
+          "min_release_age": 0,
+          "install_args": [
+            "shalpha@4.0.0-rc.56",
+            "abxbus@2.5.18",
+            "tsx@4.23.15"
+          ],
+          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/shalpha/index.ts",
+          "version": "4.0.0-rc.56"
+        }
+      }
+    },
+    {
+      "name": "opencode",
+      "binproviders": "env,pnpm",
+      "min_version": "1.19.4",
+      "min_release_age": 0,
+      "postinstall_scripts": true,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode",
+          "min_release_age": 0,
+          "postinstall_scripts": true,
+          "install_args": [
+            "opencode-ai@1.19.4",
+            "--no-optional"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/html"
+  ],
+  "properties": {
+    "STAGEHAND_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable configured browser preparation."
+    },
+    "STAGEHAND_SCRIPT": {
+      "type": "string",
+      "default": "",
+      "description": "Inline async JavaScript receiving browser, page and config."
+    },
+    "STAGEHAND_TIMEOUT": {
+      "type": "integer",
+      "default": 240,
+      "minimum": 1,
+      "description": "Maximum seconds for attachment and page preparation."
+    },
+    "STAGEHAND_PROMPT": {
+      "type": "string",
+      "default": "",
+      "description": "Instructions for the browser agent. Used when no script is configured."
+    },
+    "STAGEHAND_MODEL": {
+      "type": "string",
+      "default": "",
+      "description": "OpenCode agent model in provider/model format; required for prompt mode."
+    },
+    "STAGEHAND_VARIABLES": {
+      "type": "object",
+      "default": {},
+      "description": "Native Stagehand AI variables keyed by name, with type, value and optional description. Values are substituted by Stagehand, not interpolated into the prompt.",
+      "x-sensitive": true
+    },
+    "STAGEHAND_API_KEY": {
+      "type": "string",
+      "default": "",
+      "x-sensitive": true,
+      "description": "API key passed to the native Stagehand LLM connection. When empty, uses OPENAI_API_KEY or ANTHROPIC_API_KEY for those providers."
+    },
+    "STAGEHAND_BASE_URL": {
+      "type": "string",
+      "default": "",
+      "description": "Optional native Stagehand LLM base_url."
+    },
+    "STAGEHAND_LLM_MODEL": {
+      "type": "string",
+      "default": "",
+      "description": "Optional native Stagehand model for act() variable substitution. Defaults to STAGEHAND_MODEL."
+    }
+  },
+  "x-auto-run": true,
+  "hidden": false,
+  "agent_tools": {
+    "binaries": [
+      "stagehand"
+    ],
+    "environment": "abx_plugins.plugins.stagehand.runtime:agent_environment",
+    "scope": "browser"
+  },
+  "agent_skills": {
+    "browser": "browser_skill.md",
+    "screenshot": "screenshot_skill.md"
+  },
+  "category": "page_setup",
+  "display_order": 13,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Stagehand",
+  "output_str_type": "text",
+  "screenshot": "screenshot.json"
+}

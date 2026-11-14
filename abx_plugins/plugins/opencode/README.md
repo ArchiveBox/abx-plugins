@@ -5,6 +5,12 @@ state, session setup, HTTP/SSE/WebSocket forwarding, and agent UI templates. Imp
 plugin package does not import or start its runtime. The runtime's HTTP clients
 are declared in the `opencode` package extra.
 
+The `browserharness` and `stagehand` plugins own the browser client dependencies,
+environment helpers, and client instructions. OpenCode discovers their `agent_tools`
+and `agent_skills` declarations when preparing browser instructions or attaching
+to a browser. It has no direct dependency on either plugin. Registered browser
+clients are resolved on attachment; their existing install paths remain unchanged.
+
 `image.py` owns image-specific package cleanup and installed-binary checks.
 `archivebox/screenshots.py` owns gallery setup and the agent screenshot entry.
 ArchiveBox imports these entry points rather than duplicating plugin paths,
@@ -102,7 +108,7 @@ the selected tab's persona/crawl context appears above the bar.
 Blank tabs are omitted from both the tab bar and the preview.
 Selecting a tab activates that server tab and shows its native screencast. The
 managed `archivebox-browser` skill documents `--list`, `--current`, explicit
-browser/target selection, Browser Harness, and Stagehand v4. Clients attach to
+browser/target selection, browser-harness, and Stagehand v4. Clients attach to
 the same CDP session; they never launch a second automation browser.
 
 For persistent login or profile changes, pause the affected crawl, wait for its
@@ -130,7 +136,7 @@ Chrome instances. Run it through the host's `test_opencode_browser_panel.py`.
 
 OpenCode automatically loads the collection's editable `opencode/SKILL.md` and
 plugin-managed `opencode/server_context.md`. The latter points to one read-only
-command, `python -m abx_plugins.plugins.opencode.archivebox.context`, for current
+command, `archivebox plugin opencode context`, for current
 crawl/queue summaries, running processes, exact data/log/config paths, personas,
 and browser/tab connections. `--crawl UUID` scopes the view; default category
 limits keep large queues out of the prompt. Changes and execution use existing
@@ -146,7 +152,7 @@ is the documented default unless the administrator asks to recapture URLs.
 ## Web browsing and visual checks
 
 The managed browser skill is loaded as a system instruction for every session,
-including existing collections. It directs the agent to Browser Harness or
+including existing collections. It directs the agent to browser-harness or
 Stagehand after a Webfetch failure, or immediately for JavaScript, authenticated
 pages, interactions, or visual checks. Webfetch does not inherit browser cookies;
 ArchiveBox CLI/shell handles authenticated server operations.
@@ -159,3 +165,21 @@ lives under `opencode/screenshots/`, outside captured snapshot payloads.
 Dependency resolution preserves the host's Python environment. Browser clients
 use their own installed interpreters without projecting unrelated downloader
 packages into ArchiveBox CLI subprocesses.
+
+
+## Plugin agent tools and instructions
+
+Plugins declare `agent_tools` in `config.json`: a `scope` (currently `browser`),
+`binaries` resolved from that plugin's `required_binaries`, and an optional
+`environment` entry point (`module:function`). The entry point receives the
+selected CDP endpoint and resolved binaries and returns environment values.
+`agent_skills` maps the `browser` and `screenshot` instruction sections to local
+Markdown files. OpenCode composes the browser instructions generically, and
+resolves only tools in the browser scope when an agent explicitly attaches.
+Freshly selected browser and target IDs always take precedence over inherited
+connection values. Custom plugin directories follow `ABX_PLUGINS_DIR` ordering.
+
+This registration supplies executable tools and instructions; it does not
+implicitly turn every plugin command into an MCP or typed OpenCode tool.
+`task.js` runs standalone bounded tasks with OpenCode's native `done` custom tool.
+It has no browser-driver dependency and is shared by the AI snapshot hooks.

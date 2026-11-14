@@ -34,6 +34,7 @@ Each plugin lives under `plugins/<name>/` and may include:
 - ArchiveWeb.page removes its temporary recorder collection only after the exact WACZ has finished downloading and reached the snapshot output path. Failed exports retain their recording; unrelated collections and persona state are untouched. This prevents every exported capture from remaining duplicated in the browser profile.
 - ArchiveWeb.page's pinned 0.17.0 replay worker uses a hash-validated Storage proxy correction so archived pages can remove the legacy `Object.prototype.__proto__` accessor. Only served worker bytes change; installed extension and archive bytes remain intact. Updating that dependency requires reviewing the worker hash and the three exact prototype-lookup replacements in `presentation.py`, then passing native replay Storage tests.
 - Chrome MHTML previews optionally use unambiguous saved font responses from the sibling `responses/index.jsonl` when native MHTML omits them. Native MIME parts take precedence; missing/malformed metadata or different font bodies for one URL leave the native preview unchanged. Downloaded MHTML bytes are never rewritten.
+- Chrome navigation retries a temporary HTTP 429/503 GET at most once, using `Retry-After` (seconds or HTTP date), or a 60-second cooldown when that hint is absent or invalid. The existing `CHROME_TIMEOUT` still bounds the entire navigation: a cooldown that cannot fit is never shortened and the response is reported as failed. POST responses, access challenges, and other HTTP errors are not retried. Browser identity remains unchanged. `chrome/navigation.json` preserves the HTTP status, attempt count, and failure reason; completed HTTP error pages are not reported as successful navigation.
 - `config.json > required_binaries` binary dependency declarations (optional)
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
 - `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`
@@ -63,6 +64,65 @@ This temporarily needs space for one additional repository/checkout. Publication
 preserves runner sidecars, removes obsolete repository files, and reports copy
 failures as failures. The saved layout remains `git/`.
 
+### Metadata and modules
+
+Plugins may depend on other plugins through `required_plugins`. Plugin code must
+not import or require `archivebox` or `abx-dl`.
+
+| `config.json` key | Contract |
+| --- | --- |
+| `commands` | Command name → `[relative executable, ...arguments]`; JSON input/output follows the command's contract. |
+| `output_str_type` | `"path"` (default) or `"text"`; text results never identify output files. `default_output_path` identifies their saved artifact. |
+| `snapshot_<role>` / `snapshot_<role>_order` | Boolean participation and integer priority (default `0`, lower first, then plugin name). Roles include `list_icon`, `primary_preview`, `title_source`, `html_replay`, `live_preview`, `file_inventory`. |
+| `snapshot_live_preview_route` | Registered Django URL name accepting `snapshot_id`. |
+| `replay_assets` | Format → relative asset paths; an export uses one provider's complete bundle. |
+| `replay_document_patterns` | MIME type → snapshot-relative path globs handled by `rewrite_replay_document`. |
+| `search_order`, `search_fallback`, `search_scan` | Integer priority (default `1000`), fallback eligibility, filesystem-scan flag (both default `false`). |
+| `presentation_module` | Importable module providing the presentation functions below. |
+| `app_module` | Importable `app.py` providing optional native application functions below; import must not require Django setup. |
+| `agent_tools` | `{scope, binaries, environment?}`; `environment` is `module:function(endpoint, binaries) -> dict[str, str]`. |
+| `agent_skills` | Section name → relative Markdown file, selected by `agent_tools.scope`. |
+
+Presentation functions are optional:
+
+- `template_context(slot, context) -> dict`: additional template context.
+- `extra_snapshot_output_cards(outputs) -> list[dict]`: output records include `output_files` metadata, without model instances.
+- `serve_replay_asset_response(path, config, response_factory) -> response | None`.
+- `render_full_response(filename, output_path, *, wacz_path=None, fallback_url="", last_modified="", etag="", cache_control="", content_encoding="") -> (body, content_type, headers) | None`.
+- `rewrite_replay_document(text, *, snapshot_root, rel_path, content_type, page_url=None, replay_url=None, source_text=None) -> (text, replacement_count)`.
+- `replay_roots(snapshot_root, url) -> list[str] | tuple[str, ...]`: relative directories inside the snapshot.
+
+Application functions are optional. `host` implements
+[`base.host.Host`](abx_plugins/plugins/base/host.py); it supplies configuration,
+authorized records, request handling, and collection CLI command arguments.
+
+| Function | Return value |
+| --- | --- |
+| `get_urlpatterns(host)` | Native Django URL patterns. |
+| `get_websocket_views(host)` | URL name → ASGI callable `(scope, receive, send)`. |
+| `get_api_routers(host)` | `(prefix, ninja.Router)` pairs. |
+| `get_cli_commands(host)` | Native Click commands mounted at `archivebox plugin <plugin> <command>`. |
+| `get_services(host, config)` | Service dictionaries described below. |
+| `get_ignorable_url_patterns()` | Compiled URL regexes for existing request-log filtering. |
+| `serve_crawl_file(request, context, path)` | Response or `None`; host checks access first. Context contains `output_dirs` and `tmp_dir`. |
+| `read_snapshot_inventory(snapshot_dir, verify=False)` | `None` when absent, otherwise `{schema_version: 1, files: {path: {size, hash, is_dir}}}`; invalid inventories raise `ValueError`. |
+| `configure_gallery(model, config, data_dir)` | Boolean indicating whether gallery setup applies. |
+
+Services require `name`, `label`, and `prepare() -> supervisor_worker_dict`.
+Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
+`identity: list[str]`, and `contexts: list[str]` (default
+`["server", "runner", "command"]`). The prepared worker keeps the declared name.
+
+`templates/<slot>.html` contributes UI through `{% plugin_ui plugin slot %}`.
+Collection slots: `navigation`, `add`, `importers_actions`, `importer_sessions`.
+Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
+
+Command contracts:
+
+- `browser-open`: stdin `{config, persona_dir, name?, headless?, collection_dir?}`; emits a JSON readiness record with `ready` and `browser_pid`.
+- `browser-export-state`: stdin `{config, user_data_dir?, cdp_url?, profile_dir?, browser_binary?, cookies_output_file?, auth_output_file?}`; exports selected browser state.
+- `deduplicate`: stdin `{root, files: [{path, hash, size}]}`; emits `{type: "DeduplicateResult", schema_version: 1, supported_platform, attempted_files, extent_bytes_verified, failed_files, error?}`.
+
 ### Gallery screenshots
 
 Plugins need no screenshot registration. ArchiveBox captures the selectable outputs
@@ -81,7 +141,10 @@ to its `config.json` and keep the recipe beside it:
 ```
 
 `url` overrides the default snapshot source. Every source runs the full capture
-pipeline; the recipe only selects the output to photograph. `wait_for_text` waits
+pipeline. `config_overrides` supplies plugin settings for that capture, such as a
+script or agent prompt. `output_plugin` selects the saved output to photograph
+(default: the recipe's plugin); preparation plugins can show the normal `screenshot`
+output after their work. `wait_for_text` waits
 inside that output's preview before taking the screenshots. Recipes sharing a URL
 reuse one snapshot. An optional `view` selects an existing application gallery
 view instead, such as `"AI agent"`. With `"config": true`, `view` names a dedicated

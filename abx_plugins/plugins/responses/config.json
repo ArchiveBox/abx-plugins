@@ -41,5 +41,9 @@
   "presentation_module": "abx_plugins.plugins.responses.presentation",
   "snapshot_thumbnail_cards": [
     {"archive_result_name": "responses", "order": 4}
-  ]
+  ],
+  "replay_document_patterns": {
+    "text/html": ["*"],
+    "text/css": ["responses/*"]
+  }
 }

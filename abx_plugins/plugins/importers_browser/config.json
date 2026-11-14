@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Browser importers",
-  "description": "Reusable browser discovery scripts learned and repaired by OpenCode with Browser Harness and Stagehand.",
+  "description": "Reusable browser discovery scripts learned and repaired by OpenCode with browser-harness and Stagehand.",
   "type": "object",
   "additionalProperties": false,
   "category": "importers",
@@ -10,15 +10,14 @@
   "x-auto-run": false,
   "required_plugins": [
     "opencode",
-    "chrome"
+    "chrome",
+    "browserharness",
+    "stagehand"
   ],
   "required_binaries": [],
   "commands": {
     "import": [
       "importer.py"
-    ],
-    "import_archivebox": [
-      "archivebox/host.py"
     ]
   },
   "importers": {

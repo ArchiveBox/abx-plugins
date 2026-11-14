@@ -181,6 +181,9 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             "config",
             "view",
             "enabled",
+            "outputs",
+            "config_overrides",
+            "output_plugin",
         }, recipe_path
         assert not (recipe.get("url") and recipe.get("view")), recipe_path
         assert isinstance(recipe.get("enabled", True), bool), recipe_path
@@ -192,6 +195,46 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
                 )
         if "url" in recipe:
             assert recipe["url"].startswith(("https://", "http://")), recipe_path
+        if "output_plugin" in recipe:
+            assert (PLUGINS_ROOT / recipe["output_plugin"] / "config.json").is_file(), (
+                recipe_path
+            )
+        overrides = recipe.get("config_overrides", {})
+        assert isinstance(overrides, dict), recipe_path
+        all_properties = {
+            key: value
+            for directory in _iter_plugin_dirs()
+            for key, value in json.loads((directory / "config.json").read_text())
+            .get("properties", {})
+            .items()
+        }
+        for key, value in overrides.items():
+            assert key in all_properties, (recipe_path, key)
+            assert not all_properties[key].get("x-sensitive"), (recipe_path, key)
+            assert isinstance(value, (str, int, float, bool, list, dict)), (
+                recipe_path,
+                key,
+            )
+        outputs = recipe.get("outputs", [])
+        assert isinstance(outputs, list), recipe_path
+        for output in outputs:
+            assert isinstance(output, dict), recipe_path
+            assert output.keys() <= {"name", "path", "url", "model"}, recipe_path
+            assert _is_non_empty_string(output.get("name")), recipe_path
+            assert _is_non_empty_string(output.get("path")), recipe_path
+            assert not any(
+                char in output["name"] + output["path"] for char in "\r\n|"
+            ), recipe_path
+            from urllib.parse import urlsplit
+
+            path = urlsplit(output["path"])
+            assert (
+                not path.scheme and not path.netloc and not path.path.startswith("/")
+            ), recipe_path
+            assert ".." not in Path(path.path).parts, recipe_path
+            if "url" in output:
+                assert output["url"].startswith(("http://", "https://")), recipe_path
+            assert isinstance(output.get("model", False), bool), recipe_path
         assert isinstance(recipe.get("config", False), bool), recipe_path
         if recipe.get("config"):
             assert recipe.get("view"), recipe_path
@@ -509,3 +552,33 @@ def test_pnpm_required_binaries_resolve_through_plugin_config() -> None:
     assert not failures, "pnpm required binary config resolution failed:\n" + "\n".join(
         failures,
     )
+
+
+def test_plugin_modules_do_not_import_hosts():
+    import ast
+
+    forbidden = {"archivebox", "abx_dl"}
+    failures = []
+    for path in PLUGINS_ROOT.rglob("*.py"):
+        if (
+            "tests" in path.parts
+            or path.name == "conftest.py"
+            or path.name.endswith("_cases.py")
+        ):
+            continue
+        for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            names = (
+                [node.module]
+                if isinstance(node, ast.ImportFrom) and node.level == 0
+                else [alias.name for alias in node.names]
+                if isinstance(node, ast.Import)
+                else []
+            )
+            for name in names:
+                if name and name.split(".", 1)[0] in forbidden:
+                    failures.append(
+                        f"{path.relative_to(REPO_ROOT)}:{node.lineno}: {name}",
+                    )
+    assert not failures, "\n".join(failures)

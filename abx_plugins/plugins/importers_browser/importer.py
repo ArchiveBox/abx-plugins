@@ -4,175 +4,111 @@
 # ///
 """Replay browser importers; let a fresh OpenCode session learn or repair them."""
 
-import hashlib
 import json
 import os
+import select
 import signal
 import subprocess
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from abx_plugins.plugins.base.importers import emit, read_records, read_request
+from abx_plugins.plugins.base.importers import emit, read_request
+from abx_plugins.plugins.browserharness.runtime import (
+    capture_failure,
+    importer_environment,
+    remaining,
+    replay,
+    task_tab,
+)
 
 PLUGIN = Path(__file__).parent
 
 
-def remaining(deadline, maximum):
-    seconds = min(maximum, deadline - time.monotonic())
-    if seconds <= 0:
-        raise TimeoutError("Importer time budget exhausted; progress is preserved.")
-    return seconds
-
-
 @contextmanager
-def task_tab(env, run_dir):
-    """Use the dedicated tab owned by this run's named Browser Harness daemon."""
-    with (run_dir / "harness.log").open("w") as log:
-        try:
-            process = subprocess.run(
-                ["browser-harness"],
-                # Named daemons already create their own tab. Activate it so
-                # headless Chrome renders the page and accepts browser input.
-                input="import json\nactivate_tab(current_tab())\nprint(json.dumps(current_tab()['target_id']))\n",
-                env=env,
-                text=True,
+def connection(run_dir):
+    from abx_plugins.plugins.base.agents import agent_environment
+    from abx_plugins.plugins.base.utils import load_config
+    from abx_plugins.plugins.opencode import runtime
+
+    config = load_config(PLUGIN / "config.json", hydrate_binaries=False).model_dump(
+        mode="json",
+    )
+    settings = runtime._settings(config)
+    binary, env = runtime._resolve_binary(settings["binary"], config)
+    owner = None
+    log = None
+    try:
+        endpoint = os.environ.get("BU_CDP_WS") or os.environ.get("BU_CDP_URL")
+        if not endpoint:
+            name, directory = config.get("ACTIVE_PERSONA"), config.get("PERSONAS_DIR")
+            if not name or not directory:
+                raise ValueError(
+                    "Provide BU_CDP_WS/BU_CDP_URL or ACTIVE_PERSONA and PERSONAS_DIR for browser discovery.",
+                )
+            chrome = PLUGIN.parent / "chrome"
+            command = json.loads((chrome / "config.json").read_text())["commands"][
+                "browser-open"
+            ]
+            log = (run_dir / "browser.log").open("w")
+            owner = subprocess.Popen(
+                [sys.executable, str(chrome / command[0]), *command[1:]],
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=log,
-                timeout=30,
-                check=True,
+                text=True,
+                env=os.environ.copy(),
             )
-            env["IMPORTERS_TAB_ID"] = json.loads(process.stdout)
-            env["BH_REQUIRE_EXISTING_DAEMON"] = "1"
-            try:
-                yield
-            except BaseException:
-                # Cancellation and shutdown still need the last visible screen
-                # before the harness closes this run's dedicated tab.
-                capture_failure(env, run_dir)
-                raise
-        finally:
-            # Browser Harness owns both its daemon and dedicated tab.
-            subprocess.run(
-                ["browser-harness", "--reload"],
-                env=env,
-                stdout=log,
-                stderr=log,
-                timeout=15,
-                check=False,
+            assert owner.stdin is not None and owner.stdout is not None
+            owner.stdin.write(
+                json.dumps(
+                    {
+                        "config": config,
+                        "persona_dir": str(Path(directory) / name),
+                        "name": name,
+                        "headless": True,
+                    },
+                ),
             )
-
-
-def capture_failure(env, run_dir, attempt=0):
-    """Keep each attempt's first failing viewport private through tab cleanup."""
-    path = run_dir / f"failure-{attempt}.png"
-    try:
-        if path.exists():
-            return
-        subprocess.run(
-            ["browser-harness"],
-            input=f"capture_screenshot(path={str(path)!r})\n",
-            env=env,
-            text=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=10,
-            check=True,
-        )
-        path.chmod(0o600)
-    except (OSError, subprocess.SubprocessError) as error:
-        # Evidence failure must not replace the actual importer failure.
-        try:
-            with (run_dir / "evidence.log").open("a") as log:
-                log.write(
-                    f"Attempt {attempt}: screenshot unavailable ({type(error).__name__}).\n",
+            owner.stdin.close()
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                if select.select(
+                    [owner.stdout],
+                    [],
+                    [],
+                    max(0, min(1, deadline - time.monotonic())),
+                )[0]:
+                    line = owner.stdout.readline()
+                    if line:
+                        ready = json.loads(line)
+                        if ready.get("ready"):
+                            endpoint = ready["cdp_url"]
+                            break
+                if owner.poll() is not None:
+                    break
+            if not endpoint:
+                raise RuntimeError(
+                    "Persona browser did not become ready; see this run's browser.log.",
                 )
-        except OSError:
-            pass  # The original failure still reaches the caller on a full disk.
-
-
-def replay(workspace, request, env, run_dir, attempt, deadline):
-    script = workspace / "importer.py"
-    if not script.is_file():
-        if attempt:
-            capture_failure(env, run_dir, attempt)
-        return None, "No learned importer script exists yet."
-    succeeded = False
-    try:
-        process = subprocess.run(
-            ["browser-harness"],
-            input=(
-                "import runpy\n"
-                f"runpy.run_path({str(script.resolve())!r}, init_globals=globals(), run_name='__main__')\n"
-            ),
-            cwd=workspace,
-            env=env,
-            text=True,
-            capture_output=True,
-            timeout=remaining(deadline, 120),
-            check=False,
-        )
-        with (run_dir / f"replay-{attempt}.log").open(
-            "a" if request.get("delivered_ids") else "w",
-        ) as log:
-            if request.get("delivered_ids"):
-                log.write("\nContinuation validation with the returned checkpoint:\n")
-            log.write(process.stderr)
-        if process.returncode:
-            raise ValueError((process.stderr or process.stdout)[-12000:])
-        records = list(read_records(process.stdout.splitlines(), request))
-        result = records[-1]
-        if result["status"] == "failed":
-            raise ValueError(str(result.get("message", "Discovery failed.")))
-        if result["status"] == "succeeded" and not result.get("account", {}).get("id"):
-            raise ValueError("Identify the signed-in account before returning success.")
-        if (
-            result["status"] == "succeeded"
-            and request["action"] == "import"
-            and not request.get("delivered_ids")
-        ):
-            delivered = [
-                record["id"] for record in records if record["type"] == "ImporterItem"
-            ]
-            if delivered:
-                # Discovery is read-only. Probe one continuation before accepting
-                # the batch, so cursor defects reach the existing repair loop.
-                # Only the original batch is emitted/committed by the host.
-                continuation = {
-                    **request,
-                    "checkpoint": result.get("checkpoint", {}),
-                    "delivered_ids": delivered,
-                }
-                continuation_file = run_dir / "continuation-request.json"
-                continuation_file.write_text(json.dumps(continuation))
-                continuation_file.chmod(0o600)
-                following, error = replay(
-                    workspace,
-                    continuation,
-                    {**env, "IMPORTERS_REQUEST_FILE": str(continuation_file)},
-                    run_dir,
-                    attempt,
-                    deadline,
-                )
-                if following is None:
-                    return None, error + " Continuation request: " + str(
-                        continuation_file,
-                    )
-                if following[-1]["status"] != "succeeded":
-                    return following, ""
-        succeeded = result["status"] == "succeeded"
-        return records, ""
-    except (TypeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
-        message = f"{type(error).__name__}: {error}"
-        try:
-            with (run_dir / f"replay-{attempt}.log").open("a") as log:
-                log.write("\nReplay rejected: " + message + "\n")
-        except OSError:
-            pass  # Preserve the actual replay error if evidence cannot be saved.
-        return None, message
+        env = agent_environment("browser", endpoint, config=config, environ=env)
+        binary_path = binary.loaded_abspath
+        if binary.loaded_binprovider is not None:
+            binary_path = binary.loaded_binprovider._exec_bin_abspath(Path(binary_path))
+        env = runtime.process_environment(settings, env)
+        env["OPENCODE_BINARY"] = str(binary_path)
+        yield env
     finally:
-        if not succeeded and not request.get("delivered_ids"):
-            capture_failure(env, run_dir, attempt)
+        if owner is not None and owner.poll() is None:
+            owner.terminate()
+            try:
+                owner.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                owner.kill()
+                owner.wait(timeout=5)
+        if log:
+            log.close()
 
 
 def learn(binary, task, env, workspace, run_dir, error, attempt, deadline):
@@ -220,57 +156,56 @@ def main():
     request_file = run_dir / "request.json"
     request_file.write_text(json.dumps(request))
     request_file.chmod(0o600)
-    env = os.environ.copy()
-    if not (env.get("BU_CDP_WS") or env.get("BU_CDP_URL")):
-        raise ValueError("Provide BU_CDP_WS or BU_CDP_URL for browser discovery.")
-    env.update(
-        IMPORTERS_REQUEST_FILE=str(request_file),
-        BH_AGENT_WORKSPACE=str(state / "harness"),
-        BH_DOMAIN_SKILLS="1",
-        BH_TAB_MARKER="0",
-        BU_NAME="importers-" + hashlib.sha256(str(run_dir).encode()).hexdigest()[:16],
-    )
-    # Keep the Agent UI's provider settings, with this task's own instructions
-    # and workspace permissions. Every learning attempt starts a fresh session.
-    agent_config = json.loads(env.get("OPENCODE_CONFIG_CONTENT") or "{}")
-    agent_config["instructions"] = []
-    agent_config["permission"] = {
-        # Global Agent UI skills assume a collection cwd and own browser setup.
-        # This standalone task already has its connection and Harness knowledge.
-        "skill": "deny",
-        "external_directory": {
-            "*": "deny",
-            str(state / "*"): "allow",
-            str(run_dir / "*"): "allow",
-        },
-    }
-    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(agent_config)
-    with task_tab(env, run_dir):
-        records, error = replay(workspace, request, env, run_dir, 0, deadline)
-        for attempt in range(1, 3):
-            if records is not None:
-                break
-            emit(
-                {
-                    "type": "ImporterProgress",
-                    "message": f"Learning or repairing browser importer with OpenCode (attempt {attempt}/2).",
-                },
-            )
-            learn(
-                env.get("OPENCODE_BINARY") or "opencode",
-                task,
-                env,
-                workspace,
-                run_dir,
-                error,
-                attempt,
-                deadline - (120 if request["action"] == "import" else 0),
-            )
-            records, error = replay(workspace, request, env, run_dir, attempt, deadline)
-        if records is None:
-            raise RuntimeError(error)
-    for record in records:
-        emit(record)
+    with connection(run_dir) as env:
+        env.update(importer_environment(state, run_dir, request_file))
+        # Keep the Agent UI's provider settings, with this task's own instructions
+        # and workspace permissions. Every learning attempt starts a fresh session.
+        agent_config = json.loads(env.get("OPENCODE_CONFIG_CONTENT") or "{}")
+        agent_config["instructions"] = []
+        agent_config["permission"] = {
+            # Global Agent UI skills assume a collection cwd and own browser setup.
+            # This standalone task already has its connection and Harness knowledge.
+            "skill": "deny",
+            "external_directory": {
+                "*": "deny",
+                str(state / "*"): "allow",
+                str(run_dir / "*"): "allow",
+            },
+        }
+        env["OPENCODE_CONFIG_CONTENT"] = json.dumps(agent_config)
+        with task_tab(env, run_dir):
+            records, error = replay(workspace, request, env, run_dir, 0, deadline)
+            for attempt in range(1, 3):
+                if records is not None:
+                    break
+                emit(
+                    {
+                        "type": "ImporterProgress",
+                        "message": f"Learning or repairing browser importer with OpenCode (attempt {attempt}/2).",
+                    },
+                )
+                learn(
+                    env.get("OPENCODE_BINARY") or "opencode",
+                    task,
+                    env,
+                    workspace,
+                    run_dir,
+                    error,
+                    attempt,
+                    deadline - (120 if request["action"] == "import" else 0),
+                )
+                records, error = replay(
+                    workspace,
+                    request,
+                    env,
+                    run_dir,
+                    attempt,
+                    deadline,
+                )
+            if records is None:
+                raise RuntimeError(error)
+        for record in records:
+            emit(record)
 
 
 if __name__ == "__main__":

@@ -5280,9 +5280,16 @@ def test_cleanup_recognizes_exited_unreaped_process():
         assert is_pid_alive(child.pid)
         assert child.stdin is not None
         child.stdin.close()
-        exited = os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT)
-        assert exited is not None
-        assert exited.si_pid == child.pid and exited.si_status == 0
+        # Wait without reaping the child; waitid(WNOWAIT) is unavailable on macOS.
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            state = subprocess.check_output(
+                ["ps", "-o", "stat=", "-p", str(child.pid)],
+                text=True,
+            ).strip()
+            if state.startswith("Z"):
+                break
+            time.sleep(0.01)
         state = subprocess.check_output(
             ["ps", "-o", "stat=", "-p", str(child.pid)],
             text=True,

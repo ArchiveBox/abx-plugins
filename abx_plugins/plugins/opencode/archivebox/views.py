@@ -4,16 +4,15 @@ import json
 import logging
 import re
 from uuid import UUID
-from io import BytesIO
+from pathlib import Path
 
 from asgiref.sync import sync_to_async
 
-from django.contrib.auth.middleware import AuthenticationMiddleware
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.http import HttpResponseNotAllowed
 from django.contrib.auth.views import redirect_to_login
-from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import PermissionDenied
-from django.core.handlers.asgi import ASGIRequest
-from django.db import close_old_connections
 from django.http import (
     Http404,
     JsonResponse,
@@ -25,45 +24,30 @@ from django.template import engines
 from django.urls import Resolver404, resolve
 from django.views.decorators.csrf import csrf_exempt
 
-from archivebox.config import CONSTANTS
-from archivebox.config.common import get_request_config
-from archivebox.core.middleware import ReverseProxyAuthMiddleware
-from archivebox.core.routes_util import (
-    build_admin_url,
-    get_admin_host,
-    get_api_base_url,
-    get_base_url,
-    host_matches,
-)
-from archivebox.plugins.discovery import get_plugin_template
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _runtime_settings(request, config):
+def _runtime_settings(request, config, *, host):
     from abx_plugins.plugins.opencode import runtime
 
-    settings = runtime._settings(config, CONSTANTS.DATA_DIR)
-    route_config = request.__dict__.get("archivebox_config")
+    settings = runtime._settings(config, Path(config["DATA_DIR"]))
+    urls = host.route_urls(request)
     settings.update(
-        archivebox_base_url=get_base_url(request=request, config=route_config).rstrip(
-            "/",
-        ),
-        archivebox_admin_url=build_admin_url(
-            "/admin/",
-            request=request,
-            config=route_config,
-        ).rstrip("/"),
-        archivebox_api_url=f"{get_api_base_url(request=request, config=route_config).rstrip('/')}/api/",
+        archivebox_base_url=urls["base"],
+        archivebox_admin_url=urls["admin"],
+        archivebox_api_url=urls["api"],
+        browser_command=host.cli_command("opencode", "browser"),
+        context_command=host.cli_command("opencode", "context"),
     )
     return runtime, settings
 
 
-def _dispatch(request, path=None, browser_action=None):
+def _dispatch(request, path=None, browser_action=None, *, host):
     try:
         # Middleware already merged server defaults and live Machine overrides.
         # Re-resolving every extractor's config here stalls the UI request burst.
-        config = get_request_config(request).model_dump(mode="json")
+        config = host.request_config(request)
         if not config.get("OPENCODE_ENABLED", False):
             raise Http404
         if not request.user.is_authenticated:
@@ -71,7 +55,7 @@ def _dispatch(request, path=None, browser_action=None):
         if not request.user.is_active or not request.user.is_superuser:
             return HttpResponseForbidden("Agent access requires a superuser account.")
 
-        runtime, settings = _runtime_settings(request, config)
+        runtime, settings = _runtime_settings(request, config, host=host)
         if browser_action is not None:
             if not runtime._origin_allowed(
                 request.method,
@@ -81,21 +65,19 @@ def _dispatch(request, path=None, browser_action=None):
                 return HttpResponseForbidden("Cross-origin agent requests are blocked.")
             from .screencast import browser_view
 
-            return browser_view(request, settings, browser_action)
+            return browser_view(request, settings, browser_action, host=host)
         if path is None:
-            from archivebox.core.admin_site import archivebox_admin
-
             session_id = request.GET.get("session", "")
             if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
                 return HttpResponse("Invalid session ID.", status=400)
             context = {
-                **archivebox_admin.each_context(request),
+                **host.admin_context(request),
                 **runtime.agent_context(
                     settings,
                     session_id=request.GET.get("session", ""),
                 ),
             }
-            source = get_plugin_template("opencode", "agent", fallback=False)
+            source = host.get_template("opencode", "agent")
             if source is None:
                 raise RuntimeError("Agent template unavailable")
             return HttpResponse(
@@ -122,7 +104,6 @@ def _dispatch(request, path=None, browser_action=None):
             HttpResponse if isinstance(body, bytes) else StreamingHttpResponse
         )
         response = response_type(body, status=status, headers=headers)
-        response.xframe_options_exempt = True
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
         return response
@@ -138,25 +119,22 @@ def _dispatch(request, path=None, browser_action=None):
         )
 
 
-def agent_view(request):
-    return _dispatch(request)
+def agent_view(request, *, host):
+    return _dispatch(request, host=host)
 
 
-def agent_browser_view(request, action):
-    return _dispatch(request, browser_action=action)
-
-
-@csrf_exempt
-def opencode_proxy_view(request, path=None):
-    return _dispatch(request, path=path or "")
+def agent_browser_view(request, action, *, host):
+    return _dispatch(request, browser_action=action, host=host)
 
 
 @csrf_exempt
-def capture_task_view(request):
+def opencode_proxy_view(request, path=None, *, host):
+    return _dispatch(request, path=path or "", host=host)
+
+
+@csrf_exempt
+def capture_task_view(request, *, host):
     """Header-token-only submission; never grant the general agent proxy API auth."""
-    from archivebox.api.auth import auth_using_token
-    from archivebox.core.models import Snapshot
-
     if request.method != "POST":
         response = JsonResponse(
             {"error": "Use POST to submit a capture task."},
@@ -164,11 +142,7 @@ def capture_task_view(request):
         )
         response["Allow"] = "POST"
         return response
-    token = request.headers.get("X-ArchiveBox-API-Key", "")
-    authorization = request.headers.get("Authorization", "")
-    if not token and authorization.lower().startswith("bearer "):
-        token = authorization[7:].strip()
-    user = auth_using_token(token, request=request)
+    user = host.authenticate(request, api=True)
     if not user:
         return JsonResponse(
             {"error": "An administrator API key is required."},
@@ -179,7 +153,7 @@ def capture_task_view(request):
             {"error": "Agent access requires an active superuser."},
             status=403,
         )
-    config = get_request_config(request).model_dump(mode="json")
+    config = host.request_config(request)
     if not config.get("OPENCODE_ENABLED", False):
         return JsonResponse(
             {"error": "Enable the AI agent on this ArchiveBox server first."},
@@ -198,18 +172,16 @@ def capture_task_view(request):
             {"error": "Provide a snapshot UUID and a task of 1–8000 characters."},
             status=400,
         )
-    snapshot = Snapshot.objects.filter(pk=snapshot_id).first()
-    if snapshot is None:
+    try:
+        snapshot = host.snapshot_context(request, str(snapshot_id))
+    except Http404:
         return JsonResponse(
             {"error": "Snapshot not found. Wait for the capture to be submitted."},
             status=404,
         )
     context = {
-        "uuid": str(snapshot.id),
-        "url": snapshot.url,
-        "title": snapshot.title,
-        "crawl_id": str(snapshot.crawl_id) if snapshot.crawl_id else None,
-        "tags": snapshot.tags_str(),
+        "uuid": snapshot["id"],
+        **{key: snapshot[key] for key in ("url", "title", "crawl_id", "tags")},
     }
     prompt = (
         "A user of the ArchiveBox browser extension is asking you to do the following task related to this capture. "
@@ -221,10 +193,10 @@ def capture_task_view(request):
         + task.strip()
     )
     try:
-        runtime, settings = _runtime_settings(request, config)
+        runtime, settings = _runtime_settings(request, config, host=host)
         session_id = runtime.start_session(
             settings,
-            title=f"Capture: {snapshot.title or snapshot.url}"[:160],
+            title=f"Capture: {snapshot['title'] or snapshot['url']}"[:160],
             prompt=prompt,
         )
     except Exception:
@@ -236,11 +208,8 @@ def capture_task_view(request):
     response = JsonResponse(
         {
             "session_id": session_id,
-            "snapshot_id": str(snapshot.id),
-            "session_url": build_admin_url(
-                f"/admin/agent/?session={session_id}",
-                request=request,
-            ),
+            "snapshot_id": snapshot["id"],
+            "session_url": f"{host.route_urls(request)['admin']}/agent/?session={session_id}",
         },
         status=201,
     )
@@ -248,61 +217,37 @@ def capture_task_view(request):
     return response
 
 
-def _websocket_context(scope):
-    close_old_connections()
-    try:
-        match = resolve(scope["path"])
-        if match.url_name != "opencode-proxy":
-            raise PermissionDenied
-        request = ASGIRequest(
-            {
-                **scope,
-                "type": "http",
-                "method": "GET",
-                "scheme": "https" if scope.get("scheme") == "wss" else "http",
-            },
-            BytesIO(),
-        )
-        route_config = get_request_config(request, resolve_plugins=False)
-        request.archivebox_config = route_config
-        if not route_config.CONTROL_PLANE_ENABLED:
-            raise PermissionDenied
-        if (
-            route_config.USES_SUBDOMAIN_ROUTING
-            and route_config.BASE_URL
-            and not host_matches(
-                request.get_host(),
-                get_admin_host(config=route_config, request=request),
-            )
-        ):
-            raise PermissionDenied
-        SessionMiddleware(_dispatch).process_request(request)
-        AuthenticationMiddleware(_dispatch).process_request(request)
-        ReverseProxyAuthMiddleware(_dispatch).process_request(request)
-        config = route_config.model_dump(mode="json")
-        if (
-            not config.get("OPENCODE_ENABLED")
-            or not request.user.is_active
-            or not request.user.is_superuser
-        ):
-            raise PermissionDenied
-        runtime, settings = _runtime_settings(request, config)
-        if not request.headers.get("Origin") or not runtime._origin_allowed(
-            "POST",
-            request.get_host(),
-            request.headers,
-        ):
-            raise PermissionDenied
-        return runtime, settings, match.kwargs.get("path", "")
-    finally:
-        close_old_connections()
+def _websocket_context(scope, *, host):
+    match = resolve(scope["path"])
+    if match.url_name != "opencode-proxy":
+        raise PermissionDenied
+    request = host.websocket_request(scope)
+    config = host.request_config(request)
+    user = host.authenticate(request)
+    if (
+        not config.get("OPENCODE_ENABLED")
+        or not user.is_active
+        or not user.is_superuser
+    ):
+        raise PermissionDenied
+    runtime, settings = _runtime_settings(request, config, host=host)
+    if not request.headers.get("Origin") or not runtime._origin_allowed(
+        "POST",
+        request.get_host(),
+        request.headers,
+    ):
+        raise PermissionDenied
+    return runtime, settings, match.kwargs.get("path", "")
 
 
-async def websocket_view(scope, receive, send):
+async def websocket_view(scope, receive, send, *, host):
     if (await receive())["type"] != "websocket.connect":
         return
     try:
-        runtime, settings, path = await sync_to_async(_websocket_context)(scope)
+        runtime, settings, path = await sync_to_async(_websocket_context)(
+            scope,
+            host=host,
+        )
         await runtime.websocket_proxy(
             settings,
             path,
@@ -316,3 +261,35 @@ async def websocket_view(scope, receive, send):
     except Exception:
         _LOGGER.exception("Optional AI WebSocket failed")
         await send({"type": "websocket.close", "code": 1011})
+
+
+def create_custom(request, *, host):
+    user = host.authenticate(request)
+    if not user.is_authenticated:
+        return redirect_to_login(request.get_full_path(), login_url="/admin/login/")
+    if not user.is_active or not user.is_superuser:
+        raise PermissionDenied("Importer access requires a superuser account.")
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    config = host.request_config(request)
+    if not config.get("OPENCODE_ENABLED"):
+        messages.error(
+            request,
+            "Enable the OpenCode plugin in server settings to create an importer with AI.",
+        )
+        return redirect("importers:index")
+    runtime, settings = _runtime_settings(request, config, host=host)
+    prompt = (Path(__file__).parents[1] / "create_importer_prompt.md").read_text()
+    try:
+        session = runtime.start_session(
+            settings,
+            title="Create a custom importer",
+            prompt=prompt,
+        )
+    except (RuntimeError, OSError, ValueError):
+        messages.error(
+            request,
+            "The AI session could not start. Check the Agent provider settings, then try again.",
+        )
+        return redirect("importers:index")
+    return redirect(f"/admin/agent/?session={session}")

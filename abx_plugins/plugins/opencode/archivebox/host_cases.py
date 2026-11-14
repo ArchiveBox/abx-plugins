@@ -14,6 +14,7 @@ def test_version_shared_git_stays_installed_when_opencode_disabled(tmp_path):
         COLUMNS="300",
     )
     result = run_archivebox_cmd(["version", "--binaries=git"], cwd=tmp_path, env=env)
+    assert isinstance(result.stdout, str) and isinstance(result.stderr, str)
     assert result.returncode == 0, result.stdout + result.stderr
     rows = [re.split(r"\s{2,}", line.strip()) for line in result.stdout.splitlines()]
     git_rows = [row for row in rows if len(row) == 6 and row[0] == "git"]
@@ -25,16 +26,19 @@ def test_version_shared_git_stays_installed_when_opencode_disabled(tmp_path):
 
 
 def test_version_names_disabling_config_in_path_column(tmp_path):
-    env = cli_env(OPENCODE_ENABLED="False", COLUMNS="200")
+    env = cli_env(PLUGINS="opencode", OPENCODE_ENABLED="False", COLUMNS="500")
     result = run_archivebox_cmd(
         ["version", "--binaries=opencode"],
         cwd=tmp_path,
         env=env,
     )
+    assert isinstance(result.stdout, str) and isinstance(result.stderr, str)
     assert result.returncode == 0, result.stdout + result.stderr
     rows = [re.split(r"\s{2,}", line.strip()) for line in result.stdout.splitlines()]
-    opencode_rows = [row for row in rows if len(row) == 6 and row[1] == "opencode"]
-    assert len(opencode_rows) == 8, result.stdout
+    opencode_rows = [
+        row for row in rows if len(row) == 6 and "opencode" in row[1].split(", ")
+    ]
+    assert len(opencode_rows) == 6, result.stdout
     assert {row[0] for row in opencode_rows} == {
         "node",
         "npm",
@@ -42,13 +46,24 @@ def test_version_names_disabling_config_in_path_column(tmp_path):
         "jq",
         "file",
         "opencode",
-        "browser-harness",
-        "stagehand",
     }, result.stdout
-    assert all(
-        row[2] == "disabled" and row[5] == "disabled by OPENCODE_ENABLED=False"
-        for row in opencode_rows
-    )
+    assert all(row[2] == "disabled" for row in opencode_rows)
+    for row in opencode_rows:
+        if row[0] == "opencode":
+            assert set(row[1].split(", ")) == {
+                "browserharness",
+                "opencode",
+                "stagehand",
+            }
+            assert set(row[5].removeprefix("disabled by ").split(", ")) == {
+                "CHROME_ENABLED=False",
+                "BROWSERHARNESS_ENABLED=False",
+                "OPENCODE_ENABLED=False",
+                "STAGEHAND_ENABLED=False",
+            }
+        else:
+            assert row[1] == "opencode"
+            assert row[5] == "disabled by OPENCODE_ENABLED=False"
     assert "Disabled plugins are dimmed" not in result.stdout
 
 

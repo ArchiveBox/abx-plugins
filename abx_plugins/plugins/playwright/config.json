@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Playwright",
+  "type": "object",
+  "additionalProperties": false,
+  "required_binaries": [
+    {
+      "name": "playwright",
+      "binproviders": "pnpm",
+      "min_version": "1.62.0",
+      "max_version": "1.62.0",
+      "overrides": {
+        "pnpm": {
+          "install_args": [
+            "playwright@1.62.0"
+          ],
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/playwright"
+        }
+      }
+    }
+  ],
+  "required_plugins": [
+    "chrome"
+  ],
+  "category": "page_setup",
+  "display_order": 12,
+  "hidden": false,
+  "output_mimetypes": [
+    "text/html"
+  ],
+  "x-auto-run": true,
+  "description": "Prepare the existing snapshot tab with playwright before capture.",
+  "properties": {
+    "PLAYWRIGHT_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable configured browser preparation."
+    },
+    "PLAYWRIGHT_SCRIPT": {
+      "type": "string",
+      "default": "",
+      "description": "Inline async JavaScript receiving browser, page and config."
+    },
+    "PLAYWRIGHT_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 1,
+      "description": "Maximum seconds for attachment and page preparation."
+    }
+  },
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Playwright",
+  "output_str_type": "text",
+  "screenshot": "screenshot.json"
+}

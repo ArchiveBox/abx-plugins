@@ -14,14 +14,16 @@ import time
 import pytest
 from abxpkg import BinProvider
 
+from abx_plugins.plugins.base.agents import agent_environment
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
-from abx_plugins.plugins.importers_browser.importer import task_tab
-from abx_plugins.plugins.importers_browser.importer import capture_failure
-from abx_plugins.plugins.importers_browser.importer import replay
+from abx_plugins.plugins.browserharness.runtime import task_tab
+from abx_plugins.plugins.browserharness.runtime import capture_failure
+from abx_plugins.plugins.browserharness.runtime import replay
+from abx_plugins.plugins.importers_browser import importer
 from abx_plugins.plugins.importers_browser.importer import learn
 
-PLUGIN = Path(__file__).parents[1]
+PLUGIN = Path(__file__).parents[2] / "opencode"
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -52,11 +54,15 @@ def test_harness_and_stagehand_share_live_capture(tmp_path, httpserver):
         },
     ) as (_, _, chrome_dir, env):
         harness = install_required_binary_from_config(
-            PLUGIN,
+            PLUGIN.parent / "browserharness",
             "browser-harness",
             env=env,
         )
-        stagehand = install_required_binary_from_config(PLUGIN, "stagehand", env=env)
+        stagehand = install_required_binary_from_config(
+            PLUGIN.parent / "stagehand",
+            "stagehand",
+            env=env,
+        )
         env = BinProvider.build_exec_env(
             providers=[harness.loaded_binprovider, stagehand.loaded_binprovider],
             base_env=env,
@@ -78,6 +84,9 @@ def test_harness_and_stagehand_share_live_capture(tmp_path, httpserver):
         assert (
             session["target_id"] == (chrome_dir / "target_id.txt").read_text().strip()
         )
+        env = agent_environment("browser", session["cdp_url"], environ=env)
+        assert env["ARCHIVEBOX_STAGEHAND_MODULE"] == str(stagehand.loaded_abspath)
+        assert env["BU_CDP_WS"] == session["cdp_url"]
         env.update(
             {
                 "BU_CDP_WS": session["cdp_url"],
@@ -153,21 +162,7 @@ print(json.dumps(js("window.agentHeap = 'still-live'; sessionStorage.setItem('ag
             assert (evidence_dir / "failure-1.png").read_bytes() == screens[1]
             assert "still-live" in run_harness("print(js('window.agentHeap'))")
             task = tmp_path / "stagehand.mts"
-            task.write_text("""const {StagehandClient} = await import(process.env.ARCHIVEBOX_STAGEHAND_MODULE);
-const {writeFile} = await import('node:fs/promises');
-const client = new StagehandClient({cdp_url: process.env.BU_CDP_WS, keep_alive:true, logging:{sentry_enabled:false}});
-await client.connect();
-try {
-  const pages = await client.browser.pages({targetId:process.env.ARCHIVEBOX_BROWSER_TARGET_ID});
-  if (pages.length !== 1) throw new Error('Expected the existing capture tab');
-  const state = await pages[0].evaluate({expression: "({heap:window.agentHeap, session:sessionStorage.getItem('agent'), local:localStorage.getItem('agent'), cookie:document.cookie, language:navigator.language, timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})"});
-  console.log('STATE=' + JSON.stringify(state));
-  await pages[0].bringToFront();
-  const shot = await pages[0].screenshot({options:{type:'png', fullPage:false}});
-  if (!shot.screenshot) throw new Error('Screenshot missing');
-  await writeFile(process.env.STAGEHAND_SCREENSHOT, Buffer.from(shot.screenshot.replace(/^data:image\\/png;base64,/, ''), 'base64'));
-} finally { await client.close(); }
-""")
+            task.write_text((PLUGIN.parent / "stagehand/tests/browser.mts").read_text())
             stagehand_screenshot = tmp_path / "stagehand.png"
             result = subprocess.run(
                 ["tsx", str(task)],
@@ -396,7 +391,7 @@ if __name__ == '__main__':
             )
             (standalone_workspace / "importer.py").write_text(reader)
             standalone = subprocess.run(
-                [sys.executable, str(Path(replay.__code__.co_filename))],
+                [sys.executable, str(Path(importer.__file__))],
                 input=json.dumps(
                     {
                         **request,
@@ -516,7 +511,7 @@ emit({'type':'ImporterResult','status':'succeeded','account':source,'checkpoint'
                     "-c",
                     """import json, os, signal, sys
 from pathlib import Path
-from abx_plugins.plugins.importers_browser.importer import task_tab
+from abx_plugins.plugins.browserharness.runtime import task_tab
 env = os.environ.copy()
 with task_tab(env, Path(sys.argv[1])):
     print(json.dumps(env['IMPORTERS_TAB_ID']), flush=True)

@@ -2,7 +2,7 @@ You are operating a live ArchiveBox server. Start server work by reading its
 current context from the collection directory:
 
 ```sh
-{python} -m abx_plugins.plugins.opencode.archivebox.context
+{context_command}
 ```
 
 This read-only command returns active/queued/paused crawls, queue counts for those

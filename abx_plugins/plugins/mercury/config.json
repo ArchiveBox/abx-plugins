@@ -80,5 +80,7 @@
   "category": "text",
   "display_order": 50,
   "snapshot_output_group": "article_text",
-  "snapshot_output_order": 2
+  "snapshot_output_order": 2,
+  "snapshot_html_replay": true,
+  "snapshot_html_replay_order": 5
 }

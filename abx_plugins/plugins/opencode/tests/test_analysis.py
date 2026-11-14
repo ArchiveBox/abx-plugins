@@ -25,7 +25,7 @@ def analysis_environment(tmp_path_factory):
     env.setdefault("ABXPKG_LIB_DIR", str(tmp_path_factory.mktemp("opencode-lib")))
     env.pop("OPENCODE_CONFIG", None)
     env.pop("OPENCODE_CONFIG_DIR", None)
-    for name in ("node", "git", "browser-harness", "stagehand", "opencode"):
+    for name in ("node", "git", "opencode"):
         install_required_binary_from_config(PLUGIN, name, env=env)
     return env
 

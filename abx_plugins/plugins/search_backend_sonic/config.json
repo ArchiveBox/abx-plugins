@@ -1,5 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "app_module": "abx_plugins.plugins.search_backend_sonic.app",
+  "search_order": 100,
+  "search_fallback": true,
   "title": "Sonic Search",
   "description": "Index archived snapshot content into a Sonic search backend.",
   "type": "object",

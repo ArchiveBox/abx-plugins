@@ -77,5 +77,8 @@
   "snapshot_output_group": "html",
   "snapshot_output_order": 0,
   "snapshot_display_name": "ArchiveWebpage",
-  "presentation_module": "abx_plugins.plugins.archivewebpage.presentation"
+  "presentation_module": "abx_plugins.plugins.archivewebpage.presentation",
+  "replay_assets": {
+    "wacz": ["replay/ui.js", "replay/sw.js", "replay/sw-index.js", "replay/replay.html"]
+  }
 }

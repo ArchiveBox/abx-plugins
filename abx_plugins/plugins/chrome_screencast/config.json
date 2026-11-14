@@ -46,5 +46,8 @@
     }
   },
   "category": "media",
-  "display_order": 30
+  "display_order": 30,
+  "app_module": "abx_plugins.plugins.chrome_screencast.app",
+  "snapshot_live_preview": true,
+  "snapshot_live_preview_route": "api-1:snapshot_screencast"
 }

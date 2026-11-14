@@ -23,6 +23,8 @@ import httpx
 import psutil
 import requests
 
+from abx_plugins.plugins.base.agents import agent_skills
+
 _PROCESS: subprocess.Popen | None = None
 _PROCESS_READY: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
@@ -233,8 +235,6 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
             for required_binary in (
                 str(config.get("NODE_BINARY") or "node"),
                 str(config.get("GIT_BINARY") or "git"),
-                "browser-harness",
-                "stagehand",
                 binary,
             )
         ]
@@ -264,9 +264,6 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
         binary_env.pop(key, None)
         if key in binary_environ:
             binary_env[key] = binary_environ[key]
-    binary_env["ARCHIVEBOX_STAGEHAND_MODULE"] = str(
-        loaded_dependencies[-2].loaded_abspath,
-    )
     return loaded_dependencies[-1], binary_env
 
 
@@ -312,27 +309,27 @@ def _ensure_project_files(settings: dict) -> None:
     if not opencode_config_path.exists():
         opencode_config_path.write_text(_DEFAULT_CONFIG)
 
-    browser_skill = (
-        settings["config_home"]
-        / "opencode"
-        / "skills"
-        / "archivebox-browser"
-        / "SKILL.md"
-    )
-    browser_skill.parent.mkdir(parents=True, exist_ok=True)
-    browser_skill.write_text(
-        Path(__file__)
-        .with_name("browser_skill.md")
-        .read_text()
-        .replace("{python}", shlex.quote(sys.executable)),
-    )
-
-    (settings["opencode_dir"] / "server_context.md").write_text(
-        Path(__file__)
-        .with_name("server_context.md")
-        .read_text()
-        .replace("{python}", shlex.quote(sys.executable)),
-    )
+    if settings.get("browser_command"):
+        browser_skill = (
+            settings["config_home"] / "opencode/skills/archivebox-browser/SKILL.md"
+        )
+        browser_skill.parent.mkdir(parents=True, exist_ok=True)
+        browser_skill.write_text(
+            Path(__file__)
+            .with_name("browser_skill.md")
+            .read_text()
+            .replace("{agent_browser_skills}", agent_skills("browser", "browser"))
+            .replace("{agent_screenshot_skills}", agent_skills("browser", "screenshot"))
+            .replace("{browser_command}", shlex.join(settings["browser_command"]))
+            .replace("{python}", shlex.quote(sys.executable)),
+        )
+    if settings.get("context_command"):
+        (settings["opencode_dir"] / "server_context.md").write_text(
+            Path(__file__)
+            .with_name("server_context.md")
+            .read_text()
+            .replace("{context_command}", shlex.join(settings["context_command"])),
+        )
 
 
 def _ensure_default_session(settings: dict) -> str:
@@ -505,13 +502,20 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
                 **json.loads(_DEFAULT_CONFIG),
                 "instructions": [
                     str(settings["opencode_dir"] / "SKILL.md"),
-                    str(settings["opencode_dir"] / "server_context.md"),
-                    str(
-                        settings["config_home"]
-                        / "opencode"
-                        / "skills"
-                        / "archivebox-browser"
-                        / "SKILL.md",
+                    *(
+                        [str(settings["opencode_dir"] / "server_context.md")]
+                        if settings.get("context_command")
+                        else []
+                    ),
+                    *(
+                        [
+                            str(
+                                settings["config_home"]
+                                / "opencode/skills/archivebox-browser/SKILL.md",
+                            ),
+                        ]
+                        if settings.get("browser_command")
+                        else []
                     ),
                 ],
             },

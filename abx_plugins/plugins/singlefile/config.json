@@ -48,5 +48,7 @@
   "snapshot_output_group": "html",
   "snapshot_output_order": 1,
   "snapshot_display_name": "SingleFile",
-  "archive_result_aliases": ["chrome_extension_singlefile"]
+  "archive_result_aliases": ["chrome_extension_singlefile"],
+  "snapshot_html_replay": true,
+  "snapshot_html_replay_order": 0
 }

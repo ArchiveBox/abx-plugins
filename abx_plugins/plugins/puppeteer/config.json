@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Puppeteer",
+  "type": "object",
+  "additionalProperties": false,
+  "required_binaries": [],
+  "required_plugins": [
+    "chrome"
+  ],
+  "category": "page_setup",
+  "display_order": 11,
+  "hidden": false,
+  "output_mimetypes": [
+    "text/html"
+  ],
+  "x-auto-run": true,
+  "description": "Prepare the existing snapshot tab with puppeteer before capture.",
+  "properties": {
+    "PUPPETEER_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable configured browser preparation."
+    },
+    "PUPPETEER_SCRIPT": {
+      "type": "string",
+      "default": "",
+      "description": "Inline async JavaScript receiving browser, page and config."
+    },
+    "PUPPETEER_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 1,
+      "description": "Maximum seconds for attachment and page preparation."
+    }
+  },
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Puppeteer",
+  "output_str_type": "text",
+  "screenshot": "screenshot.json"
+}

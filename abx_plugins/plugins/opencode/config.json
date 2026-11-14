@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenCode Agent",
+  "app_module": "abx_plugins.plugins.opencode.app",
   "description": "Expose an admin-only embedded OpenCode web agent UI for ArchiveBox.",
   "screenshot": "screenshot.json",
   "type": "object",
@@ -67,39 +68,6 @@
             "opencode-ai@1.19.4",
             "--no-optional"
           ]
-        }
-      }
-    },
-    {
-      "name": "browser-harness",
-      "binproviders": "uv",
-      "min_version": "0.1.13",
-      "overrides": {
-        "uv": {
-          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/opencode-browser",
-          "postinstall_scripts": true,
-          "install_args": [
-            "browser-harness==0.1.13"
-          ]
-        }
-      }
-    },
-    {
-      "name": "stagehand",
-      "binproviders": "pnpm",
-      "min_version": "4.0.0-rc.56",
-      "min_release_age": 0,
-      "overrides": {
-        "pnpm": {
-          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser",
-          "min_release_age": 0,
-          "install_args": [
-            "shalpha@4.0.0-rc.56",
-            "abxbus@2.5.18",
-            "tsx@4.23.15"
-          ],
-          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/shalpha/index.ts",
-          "version": "4.0.0-rc.56"
         }
       }
     }

@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "browser-harness",
+  "description": "Prepare the existing snapshot tab with browser-harness before capture.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "browser-harness",
+      "binproviders": "uv",
+      "min_version": "0.1.13",
+      "overrides": {
+        "uv": {
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/opencode-browser",
+          "postinstall_scripts": true,
+          "install_args": [
+            "browser-harness==0.1.13"
+          ]
+        }
+      }
+    },
+    {
+      "name": "opencode",
+      "binproviders": "env,pnpm",
+      "min_version": "1.19.4",
+      "min_release_age": 0,
+      "postinstall_scripts": true,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode",
+          "min_release_age": 0,
+          "postinstall_scripts": true,
+          "install_args": [
+            "opencode-ai@1.19.4",
+            "--no-optional"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/html"
+  ],
+  "properties": {
+    "BROWSERHARNESS_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable configured browser preparation."
+    },
+    "BROWSERHARNESS_SCRIPT": {
+      "type": "string",
+      "default": "",
+      "description": "Inline Python using browser-harness helpers."
+    },
+    "BROWSERHARNESS_TIMEOUT": {
+      "type": "integer",
+      "default": 240,
+      "minimum": 1,
+      "description": "Maximum seconds for attachment and page preparation."
+    },
+    "BROWSERHARNESS_PROMPT": {
+      "type": "string",
+      "default": "",
+      "description": "Instructions for the browser agent. Used when no script is configured."
+    },
+    "BROWSERHARNESS_MODEL": {
+      "type": "string",
+      "default": "",
+      "description": "Model for the agent; required for prompt mode."
+    }
+  },
+  "x-auto-run": true,
+  "hidden": false,
+  "agent_tools": {
+    "binaries": [
+      "browser-harness"
+    ],
+    "environment": "abx_plugins.plugins.browserharness.runtime:agent_environment",
+    "scope": "browser"
+  },
+  "agent_skills": {
+    "browser": "browser_skill.md",
+    "screenshot": "screenshot_skill.md"
+  },
+  "category": "page_setup",
+  "display_order": 14,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "browser-harness",
+  "output_str_type": "text",
+  "screenshot": "screenshot.json"
+}

@@ -1,0 +1,9 @@
+{
+  "url": "https://pirate.github.io/stress-tests/challenge.html?plugin=browserharness",
+  "config_overrides": {
+    "BROWSERHARNESS_TIMEOUT": 240,
+    "BROWSERHARNESS_MODEL": "openai/gpt-6.1-sol",
+    "BROWSERHARNESS_PROMPT": "Solve any 10 challenges on this page using their intended browser interactions. Include expanding the native details section among your ten, and choose the other nine challenges you can solve. Stop once the visible score reaches 10, summarize the challenges you completed, then call the done tool. Do not directly call completion/scoring functions, edit the score or completed classes, change challenge code, or bypass the user-facing tasks. Do not navigate away, reload, or take screenshots. You have at most four minutes."
+  },
+  "output_plugin": "screenshot"
+}

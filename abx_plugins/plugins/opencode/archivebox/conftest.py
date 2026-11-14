@@ -62,6 +62,10 @@ def installed_opencode(opencode_archive_config):
 
     config = get_config().model_dump(mode="json")
     settings = runtime._settings(config, opencode_archive_config.data_dir)
+    from archivebox.plugins.host import host
+
+    settings["browser_command"] = host.cli_command("opencode", "browser")
+    settings["context_command"] = host.cli_command("opencode", "context")
     settings["archivebox_base_url"] = "http://admin.archivebox.localhost:5797"
     settings["archivebox_admin_url"] = "http://admin.archivebox.localhost:5797/admin"
     settings["archivebox_api_url"] = "http://admin.archivebox.localhost:5797/api/"

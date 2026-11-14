@@ -5696,6 +5696,7 @@ async function ensureChromeSession(options = {}) {
     onSpawn = null,
     onCdpReady = null,
     personaConfig = null,
+    hydrateReusedSession = true,
   } = options;
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
@@ -5905,7 +5906,7 @@ async function ensureChromeSession(options = {}) {
   // Cookie-only callers borrow an existing session: attaching another owner
   // leaks a connection and its later disconnect resets the daemon's download
   // policy. A derived downloadsDir alone must not transfer lifecycle ownership.
-  const personaHydration = personaConfig
+  const personaHydration = personaConfig && (!reusingSession || hydrateReusedSession)
     ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir, downloadsDir })
     : null;
   importState.save();

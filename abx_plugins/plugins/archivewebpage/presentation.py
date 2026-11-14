@@ -176,7 +176,7 @@ def serve_replay_asset_response(rel_path: str, config, response_factory):
     response = response_factory(body, content_type=content_type)
     for key, value in headers.items():
         response.headers[key] = value
-    return response
+    return _add_replay_archive_fallbacks(response)
 
 
 def _page_request_url(url: str) -> str:
@@ -441,3 +441,188 @@ def replay_response_headers() -> dict[str, str]:
         ),
         "X-Content-Type-Options": "nosniff",
     }
+
+
+def _add_replay_archive_fallbacks(response):
+    """Repair failed image/GET API lookups using only the same local WACZ.
+
+    The worker adapter preserves successful responses and captured bytes.
+    """
+    if (
+        response.status_code != 200
+        or response.streaming
+        or not response.has_header("Service-Worker-Allowed")
+        or "javascript" not in response.get("Content-Type", "")
+    ):
+        return response
+    script = rb"""
+;(() => {
+  try {
+    const replay = self.sw;
+    if (!replay || typeof replay.handleFetch !== "function" ||
+        typeof replay.getResponseFor !== "function" || !replay.collections ||
+        replay.proxyOriginMode || replay.topFramePassthrough || replay.__abxArchiveFallbacks) return;
+    const original = replay.handleFetch;
+    const documents = new Map();
+    const decode = value => value.replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[\da-f]+);/gi, entity => {
+      const named = {"&amp;":"&", "&quot;":'"', "&apos;":"'", "&lt;":"<", "&gt;":">"};
+      return named[entity.toLowerCase()] || String.fromCodePoint(
+        entity[2].toLowerCase() === "x" ? parseInt(entity.slice(3), 16) : parseInt(entity.slice(2), 10));
+    });
+    const attributes = tag => {
+      const attrs = {};
+      for (const m of tag.matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g)) {
+        attrs[m[1].toLowerCase()] = decode(m[2] ?? m[3] ?? m[4]);
+      }
+      return attrs;
+    };
+    const sourceSet = value => {
+      // URLs may contain commas (e.g. image-CDN transforms). Like HTML's
+      // srcset tokenizer, consume a URL through whitespace, then descriptors.
+      const urls = [];
+      let rest = value || "";
+      while (rest && urls.length < 64) {
+        rest = rest.replace(/^[\s,]+/, "");
+        const token = rest.match(/^\S+/)?.[0];
+        if (!token) break;
+        urls.push(token.replace(/,+$/, ""));
+        rest = rest.slice(token.length);
+        if (!token.endsWith(",")) rest = rest.replace(/^[^,]*(?:,|$)/, "");
+      }
+      return urls;
+    };
+    const splitReplay = (url, prefix) => {
+      if (!url.startsWith(prefix)) return null;
+      return url.slice(prefix.length).match(/^((?::[^/]+\/)?\d{0,14})(?:[a-z]+_)?\/((?:https?:)?\/\/.+)$/);
+    };
+    replay.handleFetch = async function(event) {
+      // Never catch/retry the original operation: preserve its normal behavior.
+      const response = await original.call(this, event);
+      const request = event.request;
+      if (response.status !== 404 || request.method !== "GET" ||
+          !["image", ""].includes(request.destination)) return response;
+      let expired = false, timer;
+      try {
+        const repair = async () => {
+          if (!request.url.startsWith(this.replayPrefix)) return response;
+          const name = this.collections.root || request.url.slice(this.replayPrefix.length).split("/", 1)[0];
+          const collection = await this.collections.getColl(name);
+          // Do not operate on live/proxy collections or remote source archives.
+          // lookupUrl is the archive index API, absent on the live proxy store.
+          if (!collection || typeof collection.store?.lookupUrl !== "function" || collection.liveRedirectOnNotFound ||
+              new URL(collection.config.sourceUrl).origin !== self.location.origin) return response;
+          const missing = splitReplay(request.url, collection.prefix);
+          const referring = splitReplay(request.referrer, collection.prefix);
+          if (!missing || !referring) return response;
+          const archiveURL = url => collection.prefix + referring[1] + "id_/" + url;
+          const read = url => this.getResponseFor(new Request(archiveURL(url), {
+            credentials: "same-origin", redirect: "manual", signal: request.signal,
+          }), event);
+          if (request.destination !== "image") {
+            const api = missing[2].match(/^https:\/\/api\.(x|twitter)\.com(\/graphql\/[\w-]+\/\w+)(\?.*)?$/);
+            if (!api || new URL(referring[2]).origin !== `https://${api[1]}.com`) return response;
+            const url = `https://${api[1]}.com/i/api${api[2]}${api[3] || ""}`;
+            const alternative = await read(url);
+            // Reading loads the relevant WACZ index block. Require an exact
+            // indexed URL too: upstream fuzzy matching must not substitute a
+            // different GraphQL query, operation, or authenticated response.
+            const indexed = await collection.store.lookupUrl(url, 0);
+            if (expired || !indexed || indexed.url !== url || alternative.status !== 200 ||
+                !alternative.headers.get("content-type")?.includes("application/json")) return response;
+            const headers = new Headers(alternative.headers);
+            headers.set("X-ArchiveBox-API-Alias", url);
+            headers.set("Cache-Control", "no-store");
+            return new Response(alternative.body, {status:200, headers});
+          }
+          const key = archiveURL(referring[2]);
+          if (!documents.has(key)) {
+            // Cache only candidate metadata, never whole HTML or image bodies.
+            // Both entry count and HTML reads are bounded; WACZ range loading
+            // remains the upstream replay engine's responsibility.
+            if (documents.size >= 16) documents.delete(documents.keys().next().value);
+            documents.set(key, (async () => {
+              const html = await read(referring[2]);
+              if (html.status !== 200 || !html.headers.get("content-type")?.includes("text/html")) return [];
+              const reader = html.body.getReader(), decoder = new TextDecoder();
+              let text = "", size = 0;
+              try {
+                while (true) {
+                  const chunk = await reader.read();
+                  if (chunk.done) break;
+                  size += chunk.value.byteLength;
+                  if (expired || size > 2 * 1024 * 1024) return [];
+                  text += decoder.decode(chunk.value, {stream:true});
+                }
+                text += decoder.decode();
+              } finally {await reader.cancel().catch(() => {});}
+              // Ignore tag-shaped strings in scripts/comments. Parsing is
+              // intentionally conservative; an odd/malformed page stays broken
+              // instead of acquiring an unrelated "similar looking" image.
+              text = text.replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
+              const groups = [];
+              let base = referring[2], picture = null;
+              const absolute = value => {
+                try {
+                  const url = new URL(value, base);
+                  if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
+                  url.hash = "";
+                  return url.href;
+                } catch {return null;}
+              };
+              for (const token of text.matchAll(/<\/?(?:base|picture|source|img)\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi)) {
+                const tag = token[0], attrs = attributes(tag);
+                if (/^<base\b/i.test(tag)) {if (attrs.href) base = absolute(attrs.href) || base; continue;}
+                if (/^<picture\b/i.test(tag)) {picture = []; continue;}
+                if (/^<\/picture\b/i.test(tag)) {picture = null; continue;}
+                const urls = [...new Set([attrs.src, ...sourceSet(attrs.srcset)].filter(Boolean).map(absolute).filter(Boolean))];
+                if (/^<source\b/i.test(tag)) {if (picture) picture.push(...urls); continue;}
+                if (!attrs.srcset && !picture?.length) continue;
+                groups.push([...new Set([...urls, ...(picture || [])])].slice(0, 64));
+                if (groups.length >= 512) break;
+              }
+              return groups;
+            })());
+          }
+          const groups = await documents.get(key);
+          const failed = new URL(missing[2], referring[2]); failed.hash = "";
+          const candidates = groups.find(group => group.includes(failed.href));
+          if (!candidates) return response;
+          // Prefer the img's explicit src, then alternatives in declaration
+          // order. Limit extra archive lookups, and never follow redirects.
+          for (const url of candidates.filter(url => url !== failed.href).slice(0, 6)) {
+            if (expired) break;
+            const alternative = await read(url);
+            if (alternative.status !== 200 || !alternative.headers.get("content-type")?.startsWith("image/")) continue;
+            if (expired) break;
+            const headers = new Headers(alternative.headers);
+            headers.set("X-ArchiveBox-Image-Fallback", url);
+            headers.set("Cache-Control", "no-store");
+            return new Response(alternative.body, {status:200, headers});
+          }
+          return response;
+        };
+        return await Promise.race([
+          repair().catch(() => response),
+          new Promise(resolve => {timer = setTimeout(() => {expired = true; resolve(response);}, 1500);}),
+        ]);
+      } catch {return response;}
+      finally {expired = true; clearTimeout(timer);}
+    };
+    replay.__abxArchiveFallbacks = true;
+  } catch { /* Optional repair must never prevent the worker from starting. */ }
+})();
+"""
+    try:
+        body = response.content
+        if b"self.sw=" not in body or b"__abxArchiveFallbacks" in body:
+            return response
+        response.content = body + script
+        # Upstream headers describe the unmodified worker. Revalidate this
+        # generated asset so existing captures can receive the repair too.
+        for header in ("ETag", "Last-Modified", "Content-Length"):
+            if response.has_header(header):
+                del response[header]
+        response["Cache-Control"] = "no-cache"
+    except Exception:
+        pass
+    return response

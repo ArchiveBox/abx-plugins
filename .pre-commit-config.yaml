@@ -12,7 +12,8 @@ repos:
     hooks:
       - id: codespell # See pyproject.toml for args
         # Preserve the upstream calendar parser byte-for-byte, including minified identifiers.
-        exclude: ^abx_plugins/plugins/calendar/vendor/ical\.cjs$
+        # SingleFile source patches and build anchors preserve upstream spellings.
+        exclude: ^abx_plugins/plugins/(calendar/vendor/ical\.cjs|singlefile/patches/font-serialization\.patch|singlefile/patches/css-tree/build\.js)$
         additional_dependencies:
           - tomli
 

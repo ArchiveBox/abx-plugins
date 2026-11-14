@@ -17,7 +17,7 @@ from .browser import (
 )
 
 
-def browser_view(request, settings, action):
+def browser_view(request, settings, action, *, host):
     config = settings["config"]
     headers = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
     if action == "list" and request.method == "GET":
@@ -26,7 +26,10 @@ def browser_view(request, settings, action):
         except (OSError, ValueError):
             selected = None
         return JsonResponse(
-            {"browsers": browser_inventory(config), "selected": selected},
+            {
+                "browsers": browser_inventory(config, sources=host.browser_sources()),
+                "selected": selected,
+            },
             headers=headers,
         )
     if action == "select" and request.method == "POST":
@@ -34,7 +37,7 @@ def browser_view(request, settings, action):
         browser = next(
             (
                 item
-                for item in browser_inventory(config)
+                for item in browser_inventory(config, sources=host.browser_sources())
                 if item["id"] == selected.get("id") and item["available"]
             ),
             None,
@@ -53,7 +56,7 @@ def browser_view(request, settings, action):
         browser = next(
             (
                 item
-                for item in published_browsers(config)
+                for item in published_browsers(config, sources=host.browser_sources())
                 if item["id"] == request.GET.get("id")
             ),
             None,

@@ -80,5 +80,7 @@
   "display_order": 10,
   "snapshot_output_group": "article_text",
   "snapshot_output_order": 0,
-  "snapshot_display_name": "Readability"
+  "snapshot_display_name": "Readability",
+  "snapshot_html_replay": true,
+  "snapshot_html_replay_order": 3
 }

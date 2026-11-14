@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "search_order": 200,
   "title": "SQLite Search",
   "description": "Index archived snapshot content into a SQLite FTS database for local search.",
   "type": "object",

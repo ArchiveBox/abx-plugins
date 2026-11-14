@@ -29,8 +29,6 @@ def opencode_env(tmp_path_factory):
         "git",
         "jq",
         "file",
-        "browser-harness",
-        "stagehand",
         "opencode",
     ):
         binary = install_required_binary_from_config(plugin_dir, name, env=env)
@@ -261,8 +259,8 @@ def test_collection_is_not_a_git_project_or_file_index(
         browser_skill = (
             settings["config_home"] / "opencode/skills/archivebox-browser/SKILL.md"
         )
-        assert str(browser_skill) in effective["instructions"]
-        assert browser_skill.is_file()
+        assert str(browser_skill) not in effective["instructions"]
+        assert not browser_skill.exists()
         # Verify the actual fallback indexer's traversal independently of its
         # asynchronous cache, which could otherwise be empty before indexing ends.
         indexed = subprocess.run(

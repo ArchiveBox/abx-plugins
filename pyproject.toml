@@ -23,6 +23,7 @@ dependencies = [
     "abxpkg==1.13.86",
     "certifi>=2026.10.19",
     "imagesize>=2.0.0",
+    "psutil>=7.2.1,!=7.2.2",
     "rich-click>=1.9.7",
     "uv>=0.13.5",
 ]
@@ -45,7 +46,6 @@ dev = [
     "requests>=2.28.0",
     "websockets>=15",
     "pydantic-settings>=2.0.0",
-    "psutil>=7.2.1",
     "jinja2>=3.1.0",
     "prek>=0.3.6",
     "pyright>=1.1.408",
@@ -127,17 +127,22 @@ pythonPlatform = "Linux"
 executionEnvironments = [
     { root = "abx_plugins/plugins/opencode/archivebox", reportMissingImports = false },
     { root = "abx_plugins/plugins/importers_browser/archivebox", reportMissingImports = false },
+    { root = "abx_plugins/plugins/chrome/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/chrome_screencast/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/opencode/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/base/django.py", reportMissingImports = false },
     { root = "." },
 ]
 
 [[tool.ty.overrides]]
-include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/importers_browser/archivebox/**"]
+include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/importers_browser/archivebox/**", "abx_plugins/plugins/base/django.py", "abx_plugins/plugins/chrome/app.py", "abx_plugins/plugins/chrome_screencast/app.py", "abx_plugins/plugins/opencode/app.py"]
 rules = { unresolved-import = "ignore" }
 
 [tool.codespell]
 # OT is oblivious transfer in the vendored TLSNotary cryptographic code.
 ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo,ot,cros"
-skip = "*.json"
+# Preserve exact upstream identifiers in the corresponding-source patch.
+skip = "*.json,abx_plugins/plugins/singlefile/patches/font-serialization.patch"
 
 [tool.ty.src]
 exclude = ["abx_plugins/plugins/papersdl/papers-dl-patches/**"]

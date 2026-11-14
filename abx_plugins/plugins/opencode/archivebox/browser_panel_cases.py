@@ -31,6 +31,7 @@ def test_agent_context_uses_real_queue_paths_and_shared_metrics(
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
     from archivebox.progressmonitor.metrics import progress_metrics
+    from archivebox.plugins.host import host
     from .context import server_context
 
     Crawl.objects.filter(pk=crawl.pk).update(status="paused")
@@ -41,7 +42,7 @@ def test_agent_context_uses_real_queue_paths_and_shared_metrics(
     ) is None and time.monotonic() < deadline:
         time.sleep(0.02)
     assert metrics is not None
-    context = server_context(crawl_id=str(crawl.pk), limit=1)
+    context = server_context(host, crawl_id=str(crawl.pk), limit=1)
     assert context["performance"] == metrics["system"]
     assert context["crawls"] == [
         {
@@ -99,6 +100,7 @@ for name in ('Preview A', 'Preview B'):
     # Persona launch belongs to ArchiveBox even when extraction-only config
     # does not include the optional OpenCode plugin.
     config['OPENCODE_ENABLED']=False
+    config['ABX_RUNTIME']='archivebox'
     config['ACTIVE_PERSONA']=persona.name
     config['CHROME_USER_DATA_DIR']=str(persona.CHROME_USER_DATA_DIR)
     result.append(config)
@@ -118,9 +120,7 @@ print(json.dumps(result))
         "CHROME_BINARY": str(browser_runtime["chrome_binary"]),
         "ABXPKG_LIB_DIR": str(browser_runtime["lib_dir"]),
     }
-    archivebox_file = __import__("archivebox").__file__
-    assert archivebox_file is not None
-    open_browser = Path(archivebox_file).parent / "personas" / "open_browser.js"
+    open_browser = Path(get_plugins_dir()) / "chrome" / "open_browser.js"
     owners = []
     logs = []
     cookie = _login_cookie(url)
@@ -267,15 +267,16 @@ from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
 from archivebox.misc.checks import check_data_folder
 from abx_plugins.plugins.opencode.archivebox.browser import browser_inventory
+from archivebox.plugins.host import host
 check_data_folder()
 config = get_config().model_dump(mode='json')
-browser_inventory(config)  # Open the DB connection outside the observed poll.
+browser_inventory(config, sources=host.browser_sources())  # Open the DB connection outside the observed poll.
 paths = []
 def observe(event, args):
     if event in ('open', 'os.scandir', 'os.listdir') and isinstance(args[0], (str, bytes, os.PathLike)):
         paths.append(os.path.realpath(os.fsdecode(args[0])))
 sys.addaudithook(observe)
-browsers = browser_inventory(config)
+browsers = browser_inventory(config, sources=host.browser_sources())
 data_dir = str(CONSTANTS.DATA_DIR.resolve())
 tmp_dir = os.path.realpath(config['TMP_DIR'])
 print(json.dumps({
@@ -342,6 +343,51 @@ for(const endpoint of JSON.parse(process.argv[2])) {
                     "Unchanged selection must not rewrite persistent state"
                 )
             selection_identity = identity
+        # Attach through the web agent's selected-browser path. Inherited values
+        # from an earlier attachment must never override the current selection.
+        out, err, code = run_python_cwd(
+            """
+import json, os, subprocess, sys
+from pathlib import Path
+from archivebox.config.django import setup_django
+setup_django(check_db=True)
+from archivebox.misc.checks import check_data_folder
+check_data_folder()
+from abx_plugins import get_plugins_dir
+from abx_plugins.plugins.opencode.archivebox.browser import browser_environment
+from archivebox.plugins.host import host
+os.environ['ARCHIVEBOX_BROWSER_CDP_URL'] = 'ws://127.0.0.1:1/stale'
+os.environ['ARCHIVEBOX_BROWSER_TARGET_ID'] = 'closed-tab'
+binding = host.browser_binding(current=True)
+env = browser_environment(binding=binding, sources=host.browser_sources(), remember=False)
+assert env['ARCHIVEBOX_BROWSER_TARGET_ID'] != 'closed-tab'
+assert env['ARCHIVEBOX_BROWSER_CDP_URL'] != 'ws://127.0.0.1:1/stale'
+probe = subprocess.run(
+    [*host.cli_command('opencode', 'browser'), '--current', '--', sys.executable, '-c',
+     "import json, os; print(json.dumps({key: os.environ[key] for key in ('ARCHIVEBOX_BROWSER_CDP_URL', 'ARCHIVEBOX_BROWSER_TARGET_ID')}))"],
+    text=True, capture_output=True, timeout=30,
+)
+assert probe.returncode == 0, probe.stderr
+assert json.loads(probe.stdout) == {key: env[key] for key in ('ARCHIVEBOX_BROWSER_CDP_URL', 'ARCHIVEBOX_BROWSER_TARGET_ID')}
+try:
+    result = subprocess.run(['browser-harness'], input="import os\\nswitch_tab(os.environ['ARCHIVEBOX_BROWSER_TARGET_ID'])\\nprint(js('document.title'))\\n",
+        env=env, text=True, capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == 'Live clock', result.stdout
+    result = subprocess.run([env.get('NODE_BINARY') or 'node', str(Path(get_plugins_dir()) / 'stagehand/agent.js')],
+        input="console.log(await page.evaluate({expression:'document.title'}));", env=env, text=True, capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == 'Live clock', result.stdout
+finally:
+    subprocess.run(['browser-harness','--reload'], env=env, capture_output=True, timeout=15, check=True)
+print(json.dumps({'target_id':env['ARCHIVEBOX_BROWSER_TARGET_ID'], 'cdp_url':env['ARCHIVEBOX_BROWSER_CDP_URL']}))
+""",
+            cwd=data_dir,
+            timeout=180,
+        )
+        assert code == 0, err
+        attached = json.loads(out.splitlines()[-1])
+        assert attached == {"target_id": target, "cdp_url": browser["cdp_url"]}
         select_resources.append(
             {
                 "phase": "after",

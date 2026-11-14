@@ -19,7 +19,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 def test_opencode_disabled_via_cli_stays_disabled(admin_client, initialized_archive):
     _set_archivebox_config(initialized_archive, "OPENCODE_ENABLED=False")
 
-    assert get_config().OPENCODE_ENABLED is False
+    assert get_config().model_dump()["OPENCODE_ENABLED"] is False
     assert (
         admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
     )
@@ -136,7 +136,7 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     assert str(state_dir / "SKILL.md") in instructions
     context_file = state_dir / "server_context.md"
     assert str(context_file) in instructions
-    assert "opencode.archivebox.context" in context_file.read_text()
+    assert "plugin opencode context" in context_file.read_text()
     assert live_opencode.process.poll() is None
     path = requests.get(
         f"{live_opencode.settings['origin']}/path",
@@ -230,4 +230,5 @@ print('OPTIONAL_SERVICE_FAILURE_ISOLATED')
         timeout=90,
     )
     assert result.returncode == 0, result.stderr or result.stdout
+    assert isinstance(result.stdout, str)
     assert "OPTIONAL_SERVICE_FAILURE_ISOLATED" in result.stdout
