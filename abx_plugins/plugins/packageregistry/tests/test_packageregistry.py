@@ -70,7 +70,9 @@ def test_unrelated_and_disabled(tmp_path):
     assert result.returncode == 0
     assert json.loads(result.stdout)["status"] == "noresults"
     result = run_hook(
-        tmp_path, "https://pypi.org/project/requests/", PACKAGEREGISTRY_ENABLED="false"
+        tmp_path,
+        "https://pypi.org/project/requests/",
+        PACKAGEREGISTRY_ENABLED="false",
     )
     assert result.returncode == 0
     assert json.loads(result.stdout)["status"] == "skipped"
