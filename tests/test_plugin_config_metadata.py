@@ -184,8 +184,11 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             "outputs",
             "config_overrides",
             "output_plugin",
+            "importer",
         }, recipe_path
         assert not (recipe.get("url") and recipe.get("view")), recipe_path
+        if "importer" in recipe:
+            assert recipe["importer"] in config.get("importers", {}), recipe_path
         assert isinstance(recipe.get("enabled", True), bool), recipe_path
         for key in ("url", "view", "wait_for_text"):
             if key in recipe:

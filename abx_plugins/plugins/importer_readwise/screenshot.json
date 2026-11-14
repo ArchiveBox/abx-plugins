@@ -1,0 +1,8 @@
+{
+  "view": "Readwise import",
+  "config": true,
+  "importer": "csv",
+  "config_overrides": {
+    "READWISE_EXPORT_URL": "https://raw.githubusercontent.com/duncanlew/demo-go-csv-parser/362b95782ac6676d70118a02edff3272bcf20207/example.csv"
+  }
+}

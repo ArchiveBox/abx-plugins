@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Readwise Reader",
+  "description": "Import saved Reader documents with their original URLs, titles, dates, and tags.",
+  "type": "object",
+  "additionalProperties": false,
+  "category": "importers",
+  "display_order": 40,
+  "screenshot": "screenshot.json",
+  "output_mimetypes": [],
+  "x-auto-run": false,
+  "required_plugins": ["base"],
+  "required_binaries": [],
+  "commands": {"import": ["importer.py"]},
+  "icon": "icons/readwise.svg",
+  "importers": {
+    "documents": {
+      "title": "Reader documents",
+      "provider": "Readwise",
+      "auth": "none",
+      "config_fields": ["READWISE_TOKEN", "READWISE_LOCATION", "READWISE_API_URL"]
+    },
+    "csv": {
+      "title": "Reader CSV export",
+      "provider": "Readwise",
+      "auth": "none",
+      "config_fields": ["READWISE_EXPORT_URL"]
+    }
+  },
+  "properties": {
+    "READWISE_EXPORT_URL": {
+      "type": "string",
+      "title": "CSV export URL",
+      "format": "uri",
+      "default": "",
+      "x-required": true,
+      "description": "URL of an Export Library as CSV file from Reader."
+    },
+    "READWISE_TOKEN": {
+      "type": "string",
+      "title": "Access token",
+      "format": "password",
+      "x-sensitive": true,
+      "default": "",
+      "x-required": true,
+      "description": "Get your token at https://readwise.io/access_token."
+    },
+    "READWISE_LOCATION": {
+      "type": "string",
+      "title": "Location",
+      "enum": ["archive", "all", "new", "later", "shortlist", "feed"],
+      "default": "archive",
+      "description": "Reader list to import."
+    },
+    "READWISE_API_URL": {
+      "type": "string",
+      "title": "API endpoint",
+      "format": "uri",
+      "default": "https://readwise.io/api/v3/list/",
+      "x-advanced": true,
+      "description": "Readwise Reader list endpoint."
+    }
+  }
+}
