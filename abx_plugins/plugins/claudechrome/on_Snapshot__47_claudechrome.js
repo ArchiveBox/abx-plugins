@@ -438,7 +438,11 @@ function callAnthropicAPI(body, options = {}) {
       }
     );
 
-    return JSON.parse(result);
+    const response = JSON.parse(result);
+    if (response.type === "error") {
+      throw new Error(`${response.error.type}: ${response.error.message}`);
+    }
+    return response;
   } finally {
     try {
       fs.unlinkSync(tmpFile);
@@ -483,33 +487,41 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
     const visibleText = await page
       .evaluate(() => document.body?.innerText || "")
       .catch(() => "");
-    const response = callAnthropicAPI(
-      {
-        model,
-        max_tokens: 2048,
-        system:
-          "You are analyzing a web page based on extracted visible text because screenshot capture is unavailable. " +
-          'Describe the page and explain whether you see an obvious "show more", "expand", or similar interaction the user should take.',
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `${prompt}\n\nVisible page text:\n${visibleText.slice(
-                  0,
-                  12000
-                )}`,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        maxTimeSeconds: Math.max(5, Math.floor(timeout / 2)),
-        connectTimeoutSeconds: 15,
-      }
-    );
+    let response;
+    try {
+      response = callAnthropicAPI(
+        {
+          model,
+          max_tokens: 2048,
+          system:
+            "You are analyzing a web page based on extracted visible text because screenshot capture is unavailable. " +
+            'Describe the page and explain whether you see an obvious "show more", "expand", or similar interaction the user should take.',
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `${prompt}\n\nVisible page text:\n${visibleText.slice(
+                    0,
+                    12000
+                  )}`,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          maxTimeSeconds: Math.max(5, Math.floor(timeout / 2)),
+          connectTimeoutSeconds: 15,
+        }
+      );
+    } catch (e) {
+      const error = `API error: ${e.message}`;
+      console.error(`[!] ${error}`);
+      conversation.push({ role: "error", text: error });
+      return { success: false, error, conversation, actionCount: 0, iterations: 1 };
+    }
     const textBlocks = (response.content || []).filter(
       (block) => block.type === "text"
     );
@@ -556,6 +568,7 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
   conversation.push({ role: "user", text: prompt });
 
   let actionCount = 0;
+  let error = null;
 
   for (let iteration = 0; iteration < maxActions; iteration++) {
     if (Date.now() - startTime > timeout * 1000) {
@@ -602,12 +615,10 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
           connectTimeoutSeconds: Math.min(30, remainingSeconds),
         }
       );
-      if (response.type === "error") {
-        throw new Error(`${response.error.type}: ${response.error.message}`);
-      }
     } catch (e) {
-      console.error(`[!] API error: ${e.message}`);
-      conversation.push({ role: "error", text: `API error: ${e.message}` });
+      error = `API error: ${e.message}`;
+      console.error(`[!] ${error}`);
+      conversation.push({ role: "error", text: error });
       break;
     }
 
@@ -714,7 +725,8 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
   );
 
   return {
-    success: true,
+    success: error === null,
+    error,
     conversation,
     actionCount,
     iterations: Math.min(actionCount + 1, maxActions),
@@ -837,9 +849,10 @@ async function main() {
     const outputFiles = ["conversation.json"];
     outputFiles.push(...movedFiles);
 
-    const outputStr = `${result.actionCount} actions, ${outputFiles.join(
-      ", "
-    )}`;
+    const outputStr = [
+      result.error,
+      `${result.actionCount} actions, ${outputFiles.join(", ")}`,
+    ].filter(Boolean).join("; ");
 
     emitArchiveResultRecord(result.success ? "succeeded" : "failed", outputStr);
 

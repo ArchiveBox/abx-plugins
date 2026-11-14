@@ -212,6 +212,51 @@ class TestClaudeChromePlugin:
                 ), f"Should mention chrome/CDP/puppeteer in error: {stderr}"
 
 
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+def test_api_rejection_fails_and_preserves_capture(tmp_path, claudechrome_test_url):
+    with chrome_session(
+        tmp_path,
+        crawl_id="test-claudechrome-rejection",
+        snapshot_id="snap-claudechrome-rejection",
+        test_url=claudechrome_test_url,
+        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+    ) as (_launch, _pid, snapshot_chrome_dir, env):
+        output = snapshot_chrome_dir.parent / "claudechrome"
+        output.mkdir()
+        env.update(
+            CLAUDECHROME_ENABLED="true",
+            ANTHROPIC_API_KEY="invalid-key-for-authentication-rejection",
+            CLAUDECHROME_MAX_ACTIONS="1",
+            CLAUDECHROME_TIMEOUT="30",
+        )
+        code, stdout, stderr = run_hook(
+            SNAPSHOT_HOOK,
+            claudechrome_test_url,
+            "snap-claudechrome-rejection",
+            cwd=output,
+            env=env,
+            timeout=60,
+        )
+        assert "authentication_error" in stderr, stderr
+        assert code == 1, stdout + stderr
+        result = parse_jsonl_output(stdout)
+        assert result is not None
+        assert result["status"] == "failed"
+        assert "authentication_error" in result["output_str"]
+        conversation = json.loads((output / "conversation.json").read_text())
+        assert conversation["success"] is False
+        assert any(
+            message["role"] == "error" and "authentication_error" in message["text"]
+            for message in conversation["conversation"]
+        )
+        assert "authentication_error" in (output / "conversation.txt").read_text()
+        assert (
+            (output / "screenshot_initial.png")
+            .read_bytes()
+            .startswith(b"\x89PNG\r\n\x1a\n")
+        )
+
+
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs", "ensure_anthropic_api_key")
 class TestClaudeChromeIntegration:
     """Integration tests requiring Chrome session and ANTHROPIC_API_KEY."""
