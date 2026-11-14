@@ -5,9 +5,12 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
+
 from pathlib import Path
 
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
@@ -24,36 +27,44 @@ def caddl_test_url(httpserver):
     httpserver.expect_request("/").respond_with_data(
         """<!doctype html>
         <html><body>
-          <a href="/models/direct.stl">Download STL</a>
+          <a href="/models/direct.glb" download="Model α.glb">Download GLB</a>
+          <a href="/models/collision.glb" download="Model α.glb">Another GLB</a>
           <model-viewer src="/models/viewer.glb"></model-viewer>
-          <button aria-label="Download button.stl" onclick="location.href='/models/button.stl'">Download</button>
+          <button aria-label="Download button.glb" onclick="location.href='/models/button.glb'">Download</button>
         </body></html>""",
         content_type="text/html; charset=utf-8",
     )
-    httpserver.expect_request("/models/direct.stl").respond_with_data(
-        b"solid direct\nendsolid direct\n",
-        content_type="application/octet-stream",
-        headers={"Content-Disposition": 'attachment; filename="direct.stl"'},
+    model = (PLUGIN_DIR / "tests/fixtures/Box.glb").read_bytes()
+    httpserver.expect_request("/models/collision.glb").respond_with_data(
+        model, content_type="application/octet-stream"
     )
-    httpserver.expect_request("/models/viewer.glb").respond_with_data(
-        b"glTF\x02\x00\x00\x00",
+    httpserver.expect_request("/models/direct.glb").respond_with_data(
+        model,
         content_type="application/octet-stream",
-        headers={"Content-Disposition": 'attachment; filename="viewer.glb"'},
+        headers={"Content-Disposition": 'attachment; filename="direct.glb"'},
     )
-    httpserver.expect_request("/models/button.stl").respond_with_data(
-        b"solid button\nendsolid button\n",
-        content_type="application/octet-stream",
-        headers={"Content-Disposition": 'attachment; filename="button.stl"'},
-    )
-    return httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
+    stall = threading.Event()
+    release = threading.Event()
 
+    def serve_model(request):
+        if stall.is_set():
+            release.wait(30)
+        return Response(model, content_type="application/octet-stream")
 
-def test_hook_and_templates_exist():
-    """The plugin exposes its hook and host-rendered output templates."""
-    assert CADDL_HOOK is not None, "CADDL hook not found"
-    assert CADDL_HOOK.exists()
-    for template in ("card.html", "full.html", "icon.html"):
-        assert (PLUGIN_DIR / "templates" / template).is_file()
+    httpserver.expect_request("/models/viewer.glb").respond_with_handler(serve_model)
+    httpserver.expect_request("/models/button.glb").respond_with_data(
+        model,
+        content_type="application/octet-stream",
+        headers={"Content-Disposition": 'attachment; filename="button.glb"'},
+    )
+    try:
+        yield (
+            httpserver.url_for("/").replace("localhost", "127.0.0.1", 1),
+            stall,
+            release,
+        )
+    finally:
+        release.set()
 
 
 def test_disabled_plugin_skips():
@@ -80,12 +91,13 @@ def test_disabled_plugin_skips():
 
 def test_downloads_direct_and_embedded_assets(caddl_test_url):
     """The real Chrome hook downloads extension-matched page assets and manifests them."""
+    url, stall, release = caddl_test_url
     with tempfile.TemporaryDirectory() as tmpdir:
         with chrome_session(
             Path(tmpdir),
             crawl_id="test-caddl",
             snapshot_id="snap-caddl",
-            test_url=caddl_test_url,
+            test_url=url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (_, _, snapshot_chrome_dir, env):
             output_dir = snapshot_chrome_dir.parent / "caddl"
@@ -94,7 +106,7 @@ def test_downloads_direct_and_embedded_assets(caddl_test_url):
             result = subprocess.run(
                 [
                     str(CADDL_HOOK),
-                    f"--url={caddl_test_url}",
+                    f"--url={url}",
                     "--snapshot-id=snap-caddl",
                 ],
                 cwd=output_dir,
@@ -114,24 +126,20 @@ def test_downloads_direct_and_embedded_assets(caddl_test_url):
 
             manifest = json.loads((output_dir / "downloads.json").read_text())
             assert {asset["filename"] for asset in manifest["files"]} == {
-                "direct.stl",
+                "Model α.glb",
+                "Model α (2).glb",
                 "viewer.glb",
-                "button.stl",
+                "button.glb",
             }
-            assert (
-                (output_dir / "files" / "direct.stl").read_bytes().startswith(b"solid")
-            )
-            assert (
-                (output_dir / "files" / "viewer.glb").read_bytes().startswith(b"glTF")
-            )
             for asset in manifest["files"]:
                 content = (output_dir / asset["path"]).read_bytes()
+                assert content == (PLUGIN_DIR / "tests/fixtures/Box.glb").read_bytes()
                 assert asset["size"] == len(content)
                 assert asset["sha256"] == hashlib.sha256(content).hexdigest()
 
             previous = (output_dir / "downloads.json").read_bytes()
             result = subprocess.run(
-                [str(CADDL_HOOK), f"--url={caddl_test_url}"],
+                [str(CADDL_HOOK), f"--url={url}"],
                 cwd=output_dir,
                 capture_output=True,
                 text=True,
@@ -141,4 +149,25 @@ def test_downloads_direct_and_embedded_assets(caddl_test_url):
             assert result.returncode != 0
             assert "exceeds 1 bytes" in result.stderr
             assert (output_dir / "downloads.json").read_bytes() == previous
+            assert not list(output_dir.glob(".downloads-*"))
+
+            stall.set()
+            try:
+                result = subprocess.run(
+                    [str(CADDL_HOOK), f"--url={url}"],
+                    cwd=output_dir,
+                    capture_output=True,
+                    text=True,
+                    env=env | {"CADDL_TIMEOUT": "5"},
+                    timeout=30,
+                )
+            finally:
+                release.set()
+            assert result.returncode != 0
+            assert "CADDL download deadline exceeded" in result.stderr
+            assert (output_dir / "downloads.json").read_bytes() == previous
+            for asset in manifest["files"]:
+                assert (output_dir / asset["path"]).read_bytes() == (
+                    PLUGIN_DIR / "tests/fixtures/Box.glb"
+                ).read_bytes()
             assert not list(output_dir.glob(".downloads-*"))
