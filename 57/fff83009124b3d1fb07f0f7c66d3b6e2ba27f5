@@ -1,0 +1,19 @@
+tests/test_chrome_stable_browser.py
+  s_784d0e5fa3aa29::t_fab2f076fb4be8 27-38,72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57fff83009124b3d1fb07f0f7c66d3b6e2ba27f5",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
