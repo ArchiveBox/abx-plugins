@@ -3,6 +3,7 @@
 import json
 import os
 import sqlite3
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,6 @@ import requests
 from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
     parse_jsonl_records,
-    run_hook,
 )
 from abx_plugins.plugins.opencode import runtime
 from abx_plugins.plugins.opencode.analysis import _configured_model
@@ -53,13 +53,36 @@ def test_saved_capture_without_selected_model_is_skipped(
         f"{plugin.upper()}_MODEL": "",
     }
     hook = next((PLUGIN.parent / plugin).glob("on_Snapshot__*.py"))
-    code, stdout, stderr = run_hook(
-        hook,
-        response.url,
-        "unconfigured-analysis",
+    # Standalone analysis uses the native CLI, not the optional web proxy.
+    # Install the package without dev dependencies or the opencode extra.
+    env.pop("PYTHONPATH", None)
+    env.pop("PYTHONHOME", None)
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--isolated",
+            "--no-project",
+            "--no-cache",
+            "--with",
+            str(PLUGIN.parents[2]),
+            "python",
+            "-c",
+            "import importlib.util, os, sys; "
+            "assert importlib.util.find_spec('httpx') is None; "
+            "assert importlib.util.find_spec('requests') is None; "
+            "os.execv(sys.argv[1], sys.argv[1:])",
+            str(hook),
+            f"--url={response.url}",
+            "--snapshot-id=unconfigured-analysis",
+        ],
         cwd=tmp_path,
         env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
+    code, stdout, stderr = result.returncode, result.stdout, result.stderr
     assert code == 0, stderr
     records = parse_jsonl_records(stdout)
     assert len(records) == 1, records

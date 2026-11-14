@@ -20,12 +20,13 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
-import httpx
 import psutil
-import requests
+
+if TYPE_CHECKING:
+    import requests
 
 from abx_plugins.plugins.base.agents import agent_skills
 
@@ -337,6 +338,8 @@ def _ensure_project_files(settings: dict) -> None:
 
 
 def _ensure_default_session(settings: dict) -> str:
+    import requests
+
     workdir = settings["workdir"].resolve()
     params = {"directory": str(workdir)}
     timeout = settings["timeout"]
@@ -366,6 +369,8 @@ def _ensure_default_session(settings: dict) -> str:
 
 
 def _create_session(settings: dict, title: str = "") -> str:
+    import requests
+
     workdir = settings["workdir"].resolve()
     session = requests.post(
         f"{settings['origin']}/session",
@@ -391,6 +396,8 @@ def _create_session(settings: dict, title: str = "") -> str:
 
 def start_session(settings: dict, *, title: str, prompt: str) -> str:
     """Start a separate prompted chat using the existing Agent service."""
+    import requests
+
     ok, error = _ensure_opencode(settings)
     if not ok:
         raise RuntimeError(error)
@@ -456,6 +463,8 @@ def _auth_header(settings: dict) -> str:
 
 def _server_state(settings: dict, timeout: float = 2) -> str:
     """Return "ready", "unsecured" (answers without credentials), or "down"."""
+    import requests
+
     try:
         response = requests.get(
             f"{settings['origin']}/global/health",
@@ -752,6 +761,8 @@ def agent_context(settings: dict, session_id: str = "") -> dict:
 
 
 async def _event_chunks(settings, path, method, params, headers):
+    import httpx
+
     # Stream failures happen after the host returns response headers.
     try:
         if not _owned_process_ready():
@@ -834,6 +845,8 @@ async def websocket_proxy(settings, path, query, protocols, receive, send):
 
 def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
     """Forward a request after the host authenticates it and checks its origin."""
+    import requests
+
     forwarded = {
         key: value
         for key, value in headers.items()
@@ -939,6 +952,8 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
 
 def _configure_gallery(model, config, data_dir):
     """Use the collection's real OpenCode server and its protected credential store."""
+    import requests
+
     collection = Path(data_dir).resolve()
     if not config.get("OPENCODE_ENABLED"):
         return False
