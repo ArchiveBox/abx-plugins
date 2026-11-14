@@ -1,0 +1,24 @@
+abx_plugins/plugins/modalcloser/tests/test_modalcloser.py
+  s_10bc94d001be49::t_2e5b53be9fbe44 456-457,461,472-473,490-521
+  s_10bc94d001be49::t_1ea9fe9c400a70 455
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  s_10bc94d001be49::t_3e96ecf0f11401 21,45,365,416
+abx_plugins/plugins/modalcloser/config.json
+  s_10bc94d001be49::t_3e96ecf0f11401 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "179e6eb2bc51e151e993d5101b29b6c9fd71615f",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
