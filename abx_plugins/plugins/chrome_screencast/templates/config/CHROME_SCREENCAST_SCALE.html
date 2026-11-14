@@ -1,0 +1,4 @@
+{% extends "plugins/config_field.html" %}
+{% block label %}Preview scale{% endblock %}
+{% block widget %}{% include "plugins/config_range.html" with unit="×" low="Compact" high="Full size" step="0.1" %}{% endblock %}
+{% block help %}Size of each preview frame relative to the browser viewport.{% endblock %}

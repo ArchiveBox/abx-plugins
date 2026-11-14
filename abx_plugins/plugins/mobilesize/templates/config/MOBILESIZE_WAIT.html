@@ -1,0 +1,4 @@
+{% extends "plugins/config_field.html" %}
+{% block label %}Settle time{% endblock %}
+{% block widget %}{% include "plugins/config_range.html" with unit="s" low="Faster capture" high="More time for assets" step="1" %}{% endblock %}
+{% block help %}Time for responsive assets to finish loading.{% endblock %}

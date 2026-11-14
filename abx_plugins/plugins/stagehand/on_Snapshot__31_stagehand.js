@@ -56,12 +56,12 @@ async function run() {
   page = pages[0];
   evaluate = (expression) => page.evaluate({ expression });
   await confirmMainWorld(evaluate, connection);
-  const summary = await evaluate(summaryExpression);
+  let selectedPrompt = prompt;
   if (script) {
     const AsyncFunction = Object.getPrototypeOf(
       async function () {},
     ).constructor;
-    await new AsyncFunction(
+    const scriptResult = await new AsyncFunction(
       "browser",
       "page",
       "config",
@@ -69,7 +69,20 @@ async function run() {
       "outputDir",
       script,
     )(browser, page, config, client, outputDir);
-  } else {
+    if (scriptResult?.status === "skipped") {
+      return {
+        status: "skipped",
+        reason:
+          typeof scriptResult.reason === "string"
+            ? scriptResult.reason
+            : "Script skipped",
+      };
+    }
+    selectedPrompt =
+      typeof scriptResult?.prompt === "string" ? scriptResult.prompt.trim() : "";
+  }
+  if (selectedPrompt) {
+    const summary = await evaluate(summaryExpression);
     const { runTask } = require("../opencode/task.js");
     const variableNames = Object.keys(config.STAGEHAND_VARIABLES)
       .map((name) => `%${name}%`)
@@ -79,7 +92,7 @@ async function run() {
       " " +
       JSON.stringify(path.join(__dirname, "agent.js"));
     const instructions =
-      taskPrompt(summary, prompt) +
+      taskPrompt(summary, selectedPrompt) +
       "\n\nUse the bash tool with this exact shell syntax. The heredoc contains async JavaScript with native Stagehand browser, page, client objects already attached to this tab:\n" +
       command +
       " <<'JS'\nconsole.log(await page.evaluate({expression: 'document.title'}));\nJS\n" +
@@ -151,7 +164,12 @@ Promise.race([
   .then(
     async (output) => {
       await cleanup();
-      emitArchiveResultRecord("succeeded", output);
+      if (output?.status === "skipped") {
+        emitArchiveResultRecord("skipped", output.reason);
+        process.exitCode = PROCESS_EXIT_SKIPPED;
+      } else {
+        emitArchiveResultRecord("succeeded", output);
+      }
     },
     async (error) => {
       emitArchiveResultRecord("failed", error.message);

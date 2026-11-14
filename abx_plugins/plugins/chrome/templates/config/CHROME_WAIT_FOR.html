@@ -1,0 +1,11 @@
+{% extends 'plugins/config_field.html' %}
+{% block label %}Start capture when{% endblock %}
+{% block widget %}
+<select class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}" aria-describedby="help_{{ field.input_name }}">
+    <option value="domcontentloaded"{% if field.value == 'domcontentloaded' %} selected{% endif %}>Page structure is ready</option>
+    <option value="load"{% if field.value == 'load' %} selected{% endif %}>Page assets have loaded</option>
+    <option value="networkidle2"{% if field.value == 'networkidle2' %} selected{% endif %}>Network is mostly quiet</option>
+    <option value="networkidle0"{% if field.value == 'networkidle0' %} selected{% endif %}>Network is idle</option>
+</select>
+{% endblock %}
+{% block help %}Wait for the page to settle before saving it.{% endblock %}

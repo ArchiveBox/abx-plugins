@@ -20,10 +20,10 @@
       "description": "Enable automatic modal and dialog closing"
     },
     "MODALCLOSER_TIMEOUT": {
-      "type": "integer",
-      "default": 1250,
-      "minimum": 100,
-      "description": "Delay before auto-closing dialogs (ms)"
+      "type": "number",
+      "default": 1.25,
+      "minimum": 0.1,
+      "description": "Delay before auto-closing dialogs in seconds"
     },
     "MODALCLOSER_POLL_INTERVAL": {
       "type": "integer",

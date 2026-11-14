@@ -35,7 +35,11 @@ if not config.BROWSERHARNESS_ENABLED or (not script and not prompt):
 SUMMARY = "({title:document.title,url:location.href,dom:(document.body?.innerText||document.documentElement.outerHTML).slice(0,16000)})"
 
 
-def run_process(command, env, deadline, *, source=None, cwd=None):
+class ScriptSkipped(Exception):
+    """The configured script explicitly declined this page."""
+
+
+def run_process(command, env, deadline, *, source=None, cwd=None, allow_skip=False):
     process = subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
@@ -51,6 +55,8 @@ def run_process(command, env, deadline, *, source=None, cwd=None):
             source,
             timeout=max(0.01, deadline - time.monotonic()),
         )
+        if allow_skip and process.returncode == PROCESS_EXIT_SKIPPED:
+            raise ScriptSkipped(stdout.strip() or "Script skipped")
         if process.returncode:
             raise RuntimeError(
                 f"{Path(command[0]).name} exited with status {process.returncode}: {stderr[-2000:]}",
@@ -111,6 +117,7 @@ def main():
                     deadline,
                     source=select + f"import os\nos.chdir({str(output)!r})\n" + script,
                     cwd=output,
+                    allow_skip=True,
                 )
             else:
                 if not config.BROWSERHARNESS_MODEL:
@@ -206,6 +213,9 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, terminate)
     try:
         main()
+    except ScriptSkipped as error:
+        emit_archive_result_record("skipped", str(error))
+        sys.exit(PROCESS_EXIT_SKIPPED)
     except Exception as error:
         emit_archive_result_record("failed", str(error))
         sys.exit(1)
