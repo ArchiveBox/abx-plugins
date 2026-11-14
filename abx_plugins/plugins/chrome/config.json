@@ -7,8 +7,14 @@
   "additionalProperties": false,
   "required_plugins": [],
   "commands": {
-    "browser-open": ["browser.py", "open"],
-    "browser-export-state": ["browser.py", "export-state"]
+    "browser-open": [
+      "browser.py",
+      "open"
+    ],
+    "browser-export-state": [
+      "browser.py",
+      "export-state"
+    ]
   },
   "required_binaries": [
     {
