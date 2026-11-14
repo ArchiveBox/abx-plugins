@@ -13,8 +13,8 @@ import pytest
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
-URL = "https://www.canva.com/design/DAHa0z1qR7Y/wufF6Eb9UfJTAjLFz7EGRA/edit"
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_canva.js"
+URL = json.loads(HOOK.with_name("screenshot.json").read_text())["url"]
 
 
 def run_observed_hook(tmp_path, chrome, env):
