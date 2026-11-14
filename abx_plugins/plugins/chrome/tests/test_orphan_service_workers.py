@@ -147,6 +147,16 @@ async function registrations(browser) {
           const session = await browser.target().createCDPSession();
           disabledId = (await session.send('Extensions.loadUnpacked', {path: disabledPath})).id;
           const freshTarget = await browser.waitForTarget(target => target.url().startsWith(`chrome-extension://${disabledId}/`) && target.type() === 'service_worker');
+          // The worker target appears before uBlock finishes writing its initial
+          // settings. Its options API waits for initialization, so disable a
+          // fully initialized extension before comparing its database bytes.
+          const optionsPage = await browser.newPage();
+          try {
+            const manifest = JSON.parse(fs.readFileSync(path.join(disabledPath, 'manifest.json'), 'utf8'));
+            await optionsPage.goto(`chrome-extension://${disabledId}/${manifest.options_page}`);
+            const config = await optionsPage.evaluate(() => chrome.runtime.sendMessage({what: 'getCurrentConfig'}));
+            assert.equal(config.version, extension.version);
+          } finally { await optionsPage.close(); }
           await (await freshTarget.worker()).evaluate(() => chrome.storage.local.set({retained: 'disabled extension state'}));
           assert.equal(await utils.removeOrphanExtensionServiceWorkers(browser, installed, 10000), 0);
           assert((await registrations(browser)).some(item => item.scopeURL === `chrome-extension://${disabledId}/` && !item.isDeleted));
