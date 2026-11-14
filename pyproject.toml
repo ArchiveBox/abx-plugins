@@ -64,6 +64,7 @@ include = ["abx_plugins/**"]
 exclude = [
     "**/.coverage",
     "**/__pycache__/**",
+    "**/node_modules/**",
     "**/*.pyc",
     "**/*.pyo",
     "abx_plugins/plugins/*/README.md", # Preserve nested runtime/deployment instructions.
@@ -77,6 +78,7 @@ include = ["abx_plugins/**", "README.md", "LICENSE", "pyproject.toml"]
 exclude = [
     "**/.coverage",
     "**/__pycache__/**",
+    "**/node_modules/**",
     "**/*.pyc",
     "**/*.pyo",
     "abx_plugins/plugins/*/README.md",
