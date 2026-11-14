@@ -1,8 +1,32 @@
-"""Django file responses shared by plugin views and their hosts."""
+"""Native Django integration shared by plugin apps and their hosts."""
 
 import asyncio
 
 from django.core.handlers.asgi import ASGIRequest
+from django.dispatch import Signal
+
+
+webhook_event = Signal()
+
+
+def register_webhooks(model, *, events=None, status_events=None):
+    """Register a model in signal_webhooks from its AppConfig.ready()."""
+    from signal_webhooks.settings import webhook_settings
+    from signal_webhooks.utils import reference_for_model
+
+    declarations = (
+        events if events is not None else getattr(model, "webhook_events", {})
+    )
+    if status_events is not None:
+        model._meta.get_field("status")
+        if set(status_events.values()) - declarations.keys():
+            raise ValueError("Status transitions require declared webhook events")
+        setattr(model, "webhook_status_events", status_events)
+    if events is not None:
+        setattr(model, "webhook_events", events)
+    # Reuse the package registry so native CRUD handlers and model validation
+    # see the same registration; preserve an explicitly disabled/custom handler.
+    webhook_settings.HOOKS.setdefault(reference_for_model(model), ...)
 
 
 class RangedFileReader:

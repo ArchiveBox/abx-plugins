@@ -8,7 +8,7 @@
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": ["application/json", "application/octet-stream"],
-  "default_output_path": "packageregistry/metadata.json",
+  "default_output_path": "metadata.json",
   "category": "media",
   "display_order": 65,
   "snapshot_output_group": "embedded_media",

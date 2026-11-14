@@ -73,6 +73,12 @@ not import or require `archivebox` or `abx-dl`.
 | --- | --- |
 | `commands` | Command name → `[relative executable, ...arguments]`; JSON input/output follows the command's contract. |
 | `output_str_type` | `"path"` (default) or `"text"`; text results never identify output files. `default_output_path` identifies their saved artifact. |
+| `default_output_path` | Saved filename relative to the plugin output directory. |
+| `archive_result_aliases` | List of historical ArchiveResult plugin names owned by this plugin. |
+| `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name` | Card group (`html`, `raster`, `article_text`, `embedded_media`, `metadata`, `other`), integer order, and label. |
+| `snapshot_thumbnail_cards` | List of `{archive_result_name, order}` entries selecting existing card templates for list/grid previews. |
+| `icon_hidden`, `card_hidden`, `card_interactive` | Hide icons, hide cards, or allow interactive cards respectively; booleans default to `false`. |
+| `output_extension_preference` | Ordered lists of equivalent file extensions, e.g. `[[".html", ".htm"], [".txt"]]`. |
 | `snapshot_<role>` / `snapshot_<role>_order` | Boolean participation and integer priority (default `0`, lower first, then plugin name). Roles include `list_icon`, `primary_preview`, `title_source`, `html_replay`, `live_preview`, `file_inventory`. |
 | `snapshot_live_preview_route` | Registered Django URL name accepting `snapshot_id`. |
 | `replay_assets` | Format → relative asset paths; an export uses one provider's complete bundle. |
@@ -83,6 +89,7 @@ not import or require `archivebox` or `abx-dl`.
 | `agent_tools` | `{scope, binaries, environment?}`; `environment` is `module:function(endpoint, binaries) -> dict[str, str]`. |
 | `agent_skills` | Section name → relative Markdown file, selected by `agent_tools.scope`. |
 
+Presentation metadata is validated when ArchiveBox loads the plugin catalog.
 Presentation functions are optional:
 
 - `template_context(slot, context) -> dict`: additional template context. Snapshot details supply plain `url`, `title`, `output_dir`, `output_files`, and ordered `primary_preview_plugins`.
@@ -113,6 +120,14 @@ label. The host installs it at startup; models, migrations, management commands,
 and `ready()` use standard Django behavior. Register signals and logging filters
 there. App registration is independent of hook enable flags.
 
+Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
+from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
+options (`label`, `icon`, `color`, `section`, `blocking`);
+`status_events` maps saved status values to declared events. These use the model's
+`webhook_events` and `webhook_status_events` attributes. Emit an explicit event with
+`webhook_event.send(sender=Model, instance=instance, event="READY", **metadata)` from the same module.
+Payloads use the existing serializer and optional `model.webhook_data()` method.
+
 Services require `name`, `label`, and `prepare() -> supervisor_worker_dict`.
 Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
 `identity: list[str]`, and `contexts: list[str]` (default
@@ -122,6 +137,8 @@ Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
 `{% plugin_ui plugin slot %}` selects one plugin. Collection slots: `navigation`,
 `add`, `importers_actions`, `importer_sessions`, `snapshot_head`.
 Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
+Templates and `template_context` receive the existing context, including Django
+models and `request` when supplied by the view.
 
 Command contracts:
 
