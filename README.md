@@ -85,16 +85,19 @@ not import or require `archivebox` or `abx-dl`.
 
 Presentation functions are optional:
 
-- `template_context(slot, context) -> dict`: additional template context.
+- `template_context(slot, context) -> dict`: additional template context. Snapshot details supply plain `url`, `title`, `output_dir`, `output_files`, and ordered `primary_preview_plugins`.
 - `extra_snapshot_output_cards(outputs) -> list[dict]`: output records include `output_files` metadata, without model instances.
 - `serve_replay_asset_response(path, config, response_factory) -> response | None`.
-- `render_full_response(filename, output_path, *, wacz_path=None, fallback_url="", last_modified="", etag="", cache_control="", content_encoding="") -> (body, content_type, headers) | None`.
+- `render_full_response(filename, output_path, *, source_path=None, replay_base, fallback_url="", last_modified="", etag="", cache_control="", content_encoding="") -> (body, content_type, headers) | None`.
 - `rewrite_replay_document(text, *, snapshot_root, rel_path, content_type, page_url=None, replay_url=None, source_text=None) -> (text, replacement_count)`.
 - `replay_roots(snapshot_root, url) -> list[str] | tuple[str, ...]`: relative directories inside the snapshot.
 
 Application functions are optional. `host` implements
 [`base.host.Host`](abx_plugins/plugins/base/host.py); it supplies configuration,
 authorized records, request handling, and collection CLI command arguments.
+`host.capture_context(request, *, snapshot_id=None, crawl_id=None)` requires
+exactly one ID and checks access before returning `output_dirs` and `tmp_dir`.
+Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 
 | Function | Return value |
 | --- | --- |
@@ -103,10 +106,12 @@ authorized records, request handling, and collection CLI command arguments.
 | `get_api_routers(host)` | `(prefix, ninja.Router)` pairs. |
 | `get_cli_commands(host)` | Native Click commands mounted at `archivebox plugin <plugin> <command>`. |
 | `get_services(host, config)` | Service dictionaries described below. |
-| `get_ignorable_url_patterns()` | Compiled URL regexes for existing request-log filtering. |
-| `serve_crawl_file(request, context, path)` | Response or `None`; host checks access first. Context contains `output_dirs` and `tmp_dir`. |
-| `read_snapshot_inventory(snapshot_dir, verify=False)` | `None` when absent, otherwise `{schema_version: 1, files: {path: {size, hash, is_dir}}}`; invalid inventories raise `ValueError`. |
-| `configure_gallery(model, config, data_dir)` | Boolean indicating whether gallery setup applies. |
+| `read_snapshot_inventory(snapshot_dir, *, verify=False)` | `None` when absent, otherwise `{path: {size, hash, is_dir}}`; invalid inventories raise `ValueError`. |
+
+`app.py` may export `AppConfig`, a native Django `AppConfig` subclass with a unique
+label. The host installs it at startup; models, migrations, management commands,
+and `ready()` use standard Django behavior. Register signals and logging filters
+there. App registration is independent of hook enable flags.
 
 Services require `name`, `label`, and `prepare() -> supervisor_worker_dict`.
 Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
@@ -122,6 +127,8 @@ Command contracts:
 
 - `browser-open`: stdin `{config, persona_dir, name?, headless?, collection_dir?}`; emits a JSON readiness record with `ready` and `browser_pid`.
 - `browser-export-state`: stdin `{config, user_data_dir?, cdp_url?, profile_dir?, browser_binary?, cookies_output_file?, auth_output_file?}`; exports selected browser state.
+- `configure-gallery`: stdin `{model, config, data_dir}`; stdout `{configured: bool}`.
+- `recover`: stdin `{config, paths}`; stdout `{processes_orphaned: nonnegative int}`. Recovery uses installed tools and preserves live owners.
 - `deduplicate`: stdin `{root, files: [{path, hash, size}]}`; emits `{type: "DeduplicateResult", schema_version: 1, supported_platform, attempted_files, extent_bytes_verified, failed_files, error?}`.
 
 ### Gallery screenshots

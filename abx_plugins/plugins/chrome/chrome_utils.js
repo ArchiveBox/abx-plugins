@@ -6277,6 +6277,7 @@ if (require.main === module) {
     );
     console.log("  killChrome <pid>          Kill Chrome process by PID");
     console.log("  killZombieChrome          Clean up zombie Chrome processes");
+    console.log("  recover <root>...         Recover abandoned browser sessions");
     console.log("");
     console.log("  getExtensionsDir          Get Chrome extensions directory");
     console.log("");
@@ -6392,6 +6393,15 @@ if (require.main === module) {
           const [snapDir] = commandArgs;
           const killed = await killZombieChrome(snapDir);
           console.log(killed);
+          break;
+        }
+
+        case "recover": {
+          let processes_orphaned = 0;
+          for (const root of commandArgs) {
+            processes_orphaned += await killZombieChrome(root);
+          }
+          console.log(JSON.stringify({ processes_orphaned }));
           break;
         }
 

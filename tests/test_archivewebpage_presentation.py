@@ -14,6 +14,22 @@ import pytest
 from abx_plugins.plugins.archivewebpage import presentation
 
 
+def test_replay_uses_supplied_asset_base_without_inferring_host_routes():
+    fixture = Path(__file__).parent / "fixtures/replay/iframetest.wacz"
+    response = presentation.render_full_response(
+        "capture.wacz",
+        "/saved/capture.wacz",
+        source_path=fixture,
+        replay_base="/assets/replay/",
+    )
+    assert response is not None
+    body, mime, _headers = response
+    assert mime == "text/html; charset=utf-8"
+    assert '<script src="/assets/replay/ui.js"></script>' in body
+    assert 'data-replaybase="/assets/replay/"' in body
+    assert "scope: '/assets/replay/'" in body
+
+
 @pytest.mark.parametrize(
     "supported, missing_record",
     [(True, False), (False, False), (True, True)],
@@ -216,7 +232,7 @@ def test_replay_prefers_requested_page_over_unrelated_first_page(
     html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
-        wacz_path=wacz_path,
+        source_path=wacz_path,
         fallback_url="https://x.com/theSquashSH",
     )
     assert 'data-url="https://x.com/theSquashSH"' in html
@@ -260,7 +276,7 @@ def test_replay_prefers_latest_capture_of_requested_page_including_post(
     html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
-        wacz_path=wacz_path,
+        source_path=wacz_path,
         fallback_url=url,
     )
     assert f'data-url="{html_escape(cleared, quote=True)}"' in html
@@ -303,7 +319,7 @@ def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path
     html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
-        wacz_path=capture,
+        source_path=capture,
         fallback_url=original,
     )
     assert f'data-url="{html_escape(final, quote=True)}"' in html
@@ -323,7 +339,7 @@ def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path
         html = presentation.render_replay_html(
             "archivewebpage.wacz",
             "/archivewebpage/archivewebpage.wacz",
-            wacz_path=capture,
+            source_path=capture,
             fallback_url=original,
         )
         assert f'data-url="{original}"' in html
@@ -331,7 +347,7 @@ def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path
     html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
-        wacz_path=capture,
+        source_path=capture,
         fallback_url=original,
     )
     assert f'data-url="{original}"' in html
@@ -354,7 +370,7 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/archivewebpage/archivewebpage.wacz",
-        wacz_path=wacz_path,
+        source_path=wacz_path,
         fallback_url="https://fallback.example/",
     )
 
@@ -386,7 +402,8 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     onedomain_html = presentation.render_replay_html(
         "archivewebpage.wacz",
         "/snapshot/06a219240eb5778d8000f850baa5d427/archivewebpage/archivewebpage.wacz",
-        wacz_path=wacz_path,
+        source_path=wacz_path,
+        replay_base="/snapshot/06a219240eb5778d8000f850baa5d427/replay/",
     )
 
     assert (

@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # ///
-"""Open a persona browser or export browser state; JSON request on stdin."""
+"""Open, export, or recover browser sessions; JSON request on stdin."""
 
 import argparse
 import json
@@ -17,7 +17,7 @@ from abx_plugins.plugins.base.utils import load_config, load_required_binary
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("open", "export-state"))
+    parser.add_argument("operation", choices=("open", "export-state", "recover"))
     parser.add_argument("--persona-dir")
     parser.add_argument("--persona-name")
     parser.add_argument("--headless", action="store_true")
@@ -72,6 +72,38 @@ def main():
         if request.get("browser_binary"):
             payload["CHROME_BINARY"] = request["browser_binary"]
     binaries = {}
+    if operation == "recover":
+        from abxpkg.exceptions import BinaryLoadError
+
+        paths = request.get("paths")
+        if not isinstance(paths, list) or any(
+            not isinstance(path, str) or not Path(path).is_absolute() for path in paths
+        ):
+            raise ValueError("paths must be a list of absolute runtime roots")
+        dependency = next(
+            item
+            for item in json.loads(config_path.read_text())["required_binaries"]
+            if item["name"] == "{NODE_BINARY}"
+        )
+        try:
+            node = load_required_binary(dependency, config=payload, install=False)
+        except BinaryLoadError:
+            print(json.dumps({"processes_orphaned": 0}))
+            return
+        env = BinProvider.build_exec_env(
+            providers=[node.loaded_binprovider] if node.loaded_binprovider else [],
+            base_env=os.environ,
+        )
+        os.execvpe(
+            str(node.abspath),
+            [
+                str(node.abspath),
+                str(Path(__file__).with_name("chrome_utils.js")),
+                "recover",
+                *paths,
+            ],
+            env,
+        )
     for dependency in json.loads(config_path.read_text())["required_binaries"]:
         name = dependency["name"]
         if operation == "export-state" and name == "{CHROME_BINARY}":

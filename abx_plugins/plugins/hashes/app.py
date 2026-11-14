@@ -38,7 +38,7 @@ def _read_inventory(path, mtime_ns, size, ctime_ns):
             or str(entry.get("path")).endswith("/"),
             "hash": entry.get("hash") or entry.get("hash_sha256"),
         }
-    return {"schema_version": 1, "files": files}, hashlib.sha256(raw).hexdigest()
+    return files, hashlib.sha256(raw).hexdigest()
 
 
 def read_snapshot_inventory(snapshot_dir, *, verify=False):

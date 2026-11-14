@@ -17,25 +17,8 @@ class _Text(HTMLParser):
 def template_context(slot, context):
     if slot != "snapshot_head":
         return {}
-    return {
-        "social": snapshot_metadata(
-            context["snapshot"],
-            output_dir=context.get("STATIC_EXPORT_DIR"),
-        ),
-    }
-
-
-def snapshot_metadata(snapshot, *, output_dir=None):
-    root = Path(output_dir or snapshot.output_dir).resolve()
-    results = snapshot.__dict__.get("_admin_archiveresults")
-    if results is None:
-        results = snapshot.archiveresult_set.filter(status="succeeded")
-    files = {}
-    for result in results:
-        if result.status == "succeeded":
-            for key in result.output_file_map():
-                if path := result.output_file_path(key):
-                    files[path] = result.plugin
+    root = Path(context["output_dir"]).resolve()
+    files = context["output_files"]
 
     def read(path, limit=262144):
         if path not in files:
@@ -78,8 +61,8 @@ def snapshot_metadata(snapshot, *, output_dir=None):
                 seo.get("twitter:title"),
                 seo.get("title"),
                 article.get("title"),
-                snapshot.title,
-                snapshot.url,
+                context["title"],
+                context["url"],
             )
             if (text := plain(value, 300))
         ),
@@ -104,15 +87,11 @@ def snapshot_metadata(snapshot, *, output_dir=None):
             if description := plain(read(path, 16384), 300):
                 break
     if not description:
-        description = plain(f"Archived snapshot of {snapshot.url}", 300)
+        description = plain(f"Archived snapshot of {context['url']}", 300)
     image = ""
-    for plugin in (
-        "screenshot",
-        "chrome_extension_screenshot",
-        "chrome_extension_viewport",
-    ):
-        for path, owner in files.items():
-            if owner != plugin or Path(path).suffix.lower() not in {
+    for plugin in context["primary_preview_plugins"]:
+        for path, file_metadata in files.items():
+            if file_metadata["plugin"] != plugin or Path(path).suffix.lower() not in {
                 ".png",
                 ".jpg",
                 ".jpeg",
@@ -132,4 +111,4 @@ def snapshot_metadata(snapshot, *, output_dir=None):
                 continue
         if image:
             break
-    return {"title": title, "description": description, "image_path": image}
+    return {"social": {"title": title, "description": description, "image_path": image}}

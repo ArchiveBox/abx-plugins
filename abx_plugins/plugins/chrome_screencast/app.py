@@ -2,19 +2,51 @@
 
 import os
 import re
+import logging
 from hashlib import sha256
 from pathlib import Path
 
 from functools import lru_cache
+from django.apps import AppConfig as DjangoAppConfig
 
 
-def get_ignorable_url_patterns():
-    return (
-        re.compile(r"/api/v1/core/snapshot/.*/screencast\.jpg(?:\?.*)?"),
-        re.compile(
-            r"/api/v1/crawls/crawl/.*/files/chrome_screencast/latest\.jpg(?:\?.*)?",
-        ),
-    )
+class _PreviewRequests(logging.Filter):
+    path = r"(?:/api/v1/core/snapshot/[^/]+/screencast\.jpg|/api/v1/crawls/crawl/[^/]+/files/chrome_screencast/latest\.jpg)(?:\?[^ ]*)?"
+    request = re.compile(rf'"GET {path} HTTP/[^\"]+" (?:2\d\d|30\d|404) .+')
+    not_found = re.compile(rf"Not Found: {path}")
+
+    def filter(self, record):
+        if (
+            record.name == "uvicorn.access"
+            and isinstance(record.args, tuple)
+            and len(record.args) == 5
+        ):
+            _, method, path, version, status = record.args
+            message = f'"{method} {path} HTTP/{version}" {status} 0'
+        else:
+            message = record.getMessage()
+        return not (
+            self.request.fullmatch(message) or self.not_found.fullmatch(message)
+        )
+
+
+_preview_requests = _PreviewRequests()
+
+
+class AppConfig(DjangoAppConfig):
+    name = "abx_plugins.plugins.chrome_screencast"
+    label = "abx_chrome_screencast"
+    default_auto_field = "django.db.models.BigAutoField"
+
+    def ready(self):
+        for name in (
+            "django.server",
+            "django.request",
+            "django.channels.server",
+            "uvicorn.access",
+            "daphne.access",
+        ):
+            logging.getLogger(name).addFilter(_preview_requests)
 
 
 @lru_cache(maxsize=1)
@@ -30,9 +62,25 @@ def get_api_routers(host):
         url_name="snapshot_screencast",
     )
     def snapshot_screencast(request: HttpRequest, snapshot_id: str):
-        return _snapshot_response(request, host.snapshot_context(request, snapshot_id))
+        return _snapshot_response(
+            request,
+            host.capture_context(request, snapshot_id=snapshot_id),
+        )
 
-    return (("/core/", router),)
+    crawl_router = Router(tags=["Live previews"])
+
+    @crawl_router.get(
+        "/crawl/{crawl_id}/files/chrome_screencast/latest.jpg",
+        auth=None,
+        url_name="crawl_screencast",
+    )
+    def crawl_screencast(request: HttpRequest, crawl_id: str):
+        return _crawl_response(
+            request,
+            host.capture_context(request, crawl_id=crawl_id),
+        )
+
+    return (("/core/", router), ("/crawls/", crawl_router))
 
 
 def _response(request, file, started_at=None):
@@ -93,12 +141,10 @@ def _snapshot_response(request, context):
     raise HttpError(404, "No frame for this capture yet")
 
 
-def serve_crawl_file(request, context, path):
-    """Resolve the historic crawl preview URL after the host checks access."""
+def _crawl_response(request, context):
     from ninja.errors import HttpError
 
-    if path != "chrome_screencast/latest.jpg":
-        return None
+    path = "chrome_screencast/latest.jpg"
     started_at = _started_at(request)
     live_root = Path(context["tmp_dir"]) / "chrome_screencast"
     for directory in context["output_dirs"]:

@@ -7,6 +7,10 @@
   "additionalProperties": false,
   "required_plugins": [],
   "commands": {
+    "recover": [
+      "browser.py",
+      "recover"
+    ],
     "browser-open": [
       "browser.py",
       "open"

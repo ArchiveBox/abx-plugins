@@ -313,29 +313,13 @@ def _replay_index(wacz_path: Path) -> dict:
         return {}
 
 
-def _replay_base_for_output_path(output_path: str) -> str:
-    """Return the route prefix used to serve replayweb.page assets.
-
-    Subdomain replay serves snapshot files from the host root, so ``/replay/``
-    is correct. One-domain replay serves the same files under
-    ``/snapshot/<id>/...``; in that mode the service worker and ui.js must be
-    loaded from ``/snapshot/<id>/replay/`` so they route back through
-    ``SnapshotReplayView`` instead of escaping to a nonexistent root route.
-    """
-    path = urlsplit(output_path or "").path
-    marker = "/archivewebpage/"
-    if marker in path:
-        prefix = path.split(marker, 1)[0].rstrip("/")
-        if prefix:
-            return f"{prefix}/replay/"
-    return "/replay/"
-
-
 def render_replay_html(
     filename: str,
     output_path: str,
-    wacz_path: Path | None = None,
+    source_path: Path | None = None,
     fallback_url: str = "",
+    *,
+    replay_base: str = "/replay/",
 ) -> str:
     """Render the plugin's private replay template for a saved WACZ.
 
@@ -351,14 +335,14 @@ def render_replay_html(
     pages index.
     """
     archived_url = ""
-    if wacz_path is not None and wacz_path.suffix.lower() == ".wacz":
-        archived_url = _first_archived_url(wacz_path, fallback_url)
+    if source_path is not None and source_path.suffix.lower() == ".wacz":
+        archived_url = _first_archived_url(source_path, fallback_url)
     if not archived_url:
         archived_url = fallback_url or ""
 
     replay_index = (
-        _replay_index(wacz_path)
-        if wacz_path and wacz_path.suffix.lower() == ".wacz"
+        _replay_index(source_path)
+        if source_path and source_path.suffix.lower() == ".wacz"
         else {}
     )
     if replay_index:
@@ -368,7 +352,6 @@ def render_replay_html(
         query = dict(parse_qsl(source.query))
         query["replay-index"] = replay_index["version"]
         output_path = urlunsplit(source._replace(query=urlencode(query)))
-    replay_base = _replay_base_for_output_path(output_path)
     archived_url_attr = (
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
     )
@@ -391,8 +374,9 @@ def render_full_response(
     filename: str,
     output_path: str,
     *,
-    wacz_path: Path | None = None,
+    source_path: Path | None = None,
     fallback_url: str = "",
+    replay_base: str,
     last_modified: str = "",
     etag: str = "",
     cache_control: str = "",
@@ -417,8 +401,9 @@ def render_full_response(
         render_replay_html(
             filename,
             output_path,
-            wacz_path=wacz_path,
+            source_path=source_path,
             fallback_url=fallback_url,
+            replay_base=replay_base,
         ),
         "text/html; charset=utf-8",
         headers,

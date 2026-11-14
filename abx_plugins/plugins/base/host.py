@@ -12,9 +12,13 @@ class Host(Protocol):
 
     def authenticate(self, request: Any, *, api: bool = False) -> Any: ...
 
-    def snapshot_context(self, request: Any, snapshot_id: str) -> dict[str, Any]: ...
-
-    def get_template(self, plugin: str, slot: str) -> str | None: ...
+    def capture_context(
+        self,
+        request: Any,
+        *,
+        snapshot_id: str | None = None,
+        crawl_id: str | None = None,
+    ) -> dict[str, Any]: ...
 
     def websocket_request(self, scope: dict[str, Any]) -> Any: ...
 

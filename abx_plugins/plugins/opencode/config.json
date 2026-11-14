@@ -129,5 +129,10 @@
     }
   },
   "x-auto-run": false,
-  "hidden": true
+  "hidden": true,
+  "commands": {
+    "configure-gallery": [
+      "runtime.py"
+    ]
+  }
 }

@@ -77,9 +77,9 @@ def _dispatch(request, path=None, browser_action=None, *, host):
                     session_id=request.GET.get("session", ""),
                 ),
             }
-            source = host.get_template("opencode", "agent")
-            if source is None:
-                raise RuntimeError("Agent template unavailable")
+            source = (
+                Path(__file__).parents[1] / "templates" / "agent.html"
+            ).read_text()
             return HttpResponse(
                 engines["django"].from_string(source).render(context, request),
             )
@@ -104,6 +104,7 @@ def _dispatch(request, path=None, browser_action=None, *, host):
             HttpResponse if isinstance(body, bytes) else StreamingHttpResponse
         )
         response = response_type(body, status=status, headers=headers)
+        setattr(response, "xframe_options_exempt", True)
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
         return response
@@ -173,7 +174,7 @@ def capture_task_view(request, *, host):
             status=400,
         )
     try:
-        snapshot = host.snapshot_context(request, str(snapshot_id))
+        snapshot = host.capture_context(request, snapshot_id=str(snapshot_id))
     except Http404:
         return JsonResponse(
             {"error": "Snapshot not found. Wait for the capture to be submitted."},
