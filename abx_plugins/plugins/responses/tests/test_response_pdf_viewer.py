@@ -21,19 +21,21 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 @pytest.mark.parametrize("reload_as_html", [False, True])
+@pytest.mark.parametrize("document_path", ["/document.pdf", "/pdf/1706.03762"])
 def test_pdf_response_remains_original_after_recorder_export(
     tmp_path,
     httpserver_ipv4,
     archivewebpage_crawl,
     reload_as_html,
+    document_path,
 ):
     env, _, tab_processes = archivewebpage_crawl
-    httpserver_ipv4.expect_request("/document.pdf").respond_with_data(
+    httpserver_ipv4.expect_request(document_path).respond_with_data(
         MINIMAL_PDF,
         content_type="application/pdf",
     )
     html = b"<!doctype html><h1>This document is now an HTML page</h1>"
-    url = httpserver_ipv4.url_for("/document.pdf")
+    url = httpserver_ipv4.url_for(document_path)
     snapshot_dir = tmp_path / "pdf-viewer"
     chrome_dir = snapshot_dir / "chrome"
     chrome_dir.mkdir(parents=True)
@@ -66,7 +68,7 @@ def test_pdf_response_remains_original_after_recorder_export(
         assert (snapshot_dir / "archivewebpage/archivewebpage.wacz").stat().st_size > 0
         if reload_as_html:
             httpserver_ipv4.clear()
-            httpserver_ipv4.expect_request("/document.pdf").respond_with_data(
+            httpserver_ipv4.expect_request(document_path).respond_with_data(
                 html,
                 content_type="text/html",
             )
@@ -81,6 +83,8 @@ def test_pdf_response_remains_original_after_recorder_export(
     documents = [row for row in records if row["url"] == url]
     assert len(documents) == (2 if reload_as_html else 1), documents
     assert documents[0]["mimeType"] == "application/pdf"
+    assert documents[0]["extension"] == "pdf"
+    assert documents[0]["path"].endswith(".pdf")
     assert (output / documents[0]["path"]).read_bytes() == MINIMAL_PDF
     if reload_as_html:
         assert documents[1]["mimeType"] == "text/html"
