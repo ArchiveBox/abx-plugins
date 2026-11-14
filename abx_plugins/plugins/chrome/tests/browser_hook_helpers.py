@@ -36,7 +36,7 @@ def read_config_macro(hook, label, attribute="data-config-insert"):
     parser.feed(
         (
             hook.parent / "templates/config" / f"{hook.parent.name.upper()}_SCRIPT.html"
-        ).read_text()
+        ).read_text(),
     )
     assert parser.code is not None, label
     return parser.code

@@ -81,7 +81,7 @@ def main(request):
         or parsed.fragment
     ):
         raise ValueError(
-            "Use an HTTP(S) API endpoint without credentials, query, or fragment."
+            "Use an HTTP(S) API endpoint without credentials, query, or fragment.",
         )
     if parsed.scheme != "https" and parsed.hostname not in {
         "localhost",
@@ -124,7 +124,7 @@ def main(request):
             if error.code in {401, 403}:
                 raise NeedsLogin("Readwise rejected the access token.") from None
             raise ValueError(
-                f"Readwise returned HTTP {error.code}; progress was not advanced."
+                f"Readwise returned HTTP {error.code}; progress was not advanced.",
             ) from None
         if len(content) > 10 * 1024 * 1024:
             raise ValueError("Readwise response exceeds 10 MiB.")
@@ -160,7 +160,7 @@ def main(request):
                 emit(item)
         if next_cursor:
             checkpoint.update(
-                cursor=next_cursor, started_at=started_at, requested_at=last_request
+                cursor=next_cursor, started_at=started_at, requested_at=last_request,
             )
         else:
             checkpoint = {"updated_after": started_at, "requested_at": last_request}
@@ -171,7 +171,7 @@ def main(request):
                 "checkpoint": checkpoint,
                 "has_more": bool(next_cursor),
                 "message": f"{len(items)} documents.",
-            }
+            },
         )
         return
 
@@ -181,7 +181,7 @@ def import_csv(request):
     content, _, _ = fetch(request["settings"]["READWISE_EXPORT_URL"])
     reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
     if not {"URL", "Title", "Saved date", "Document tags"} <= set(
-        reader.fieldnames or []
+        reader.fieldnames or [],
     ):
         raise ValueError("Expected a Readwise Reader library CSV export.")
     records = []
@@ -199,7 +199,7 @@ def import_csv(request):
                 "saved_at": row["Saved date"],
                 "tags": tags,
                 "location": row.get("Location", ""),
-            }
+            },
         )
         if record:
             records.append(record)

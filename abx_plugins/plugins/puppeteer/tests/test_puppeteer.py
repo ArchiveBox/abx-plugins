@@ -63,7 +63,7 @@ def test_saved_files(tmp_path, httpserver, ensure_chrome_test_prereqs):
     ],
 )
 def test_domain_filtered_script(
-    tmp_path, httpserver, ensure_chrome_test_prereqs, domain, status, title
+    tmp_path, httpserver, ensure_chrome_test_prereqs, domain, status, title,
 ):
     domain = domain or urlsplit(httpserver.url_for("/")).hostname
     script = read_config_macro(HOOK, "+ Domain guard").replace("example.com", domain)
