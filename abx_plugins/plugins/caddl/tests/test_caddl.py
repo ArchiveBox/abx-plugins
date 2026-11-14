@@ -36,7 +36,8 @@ def caddl_test_url(httpserver):
     )
     model = (PLUGIN_DIR / "tests/fixtures/Box.glb").read_bytes()
     httpserver.expect_request("/models/collision.glb").respond_with_data(
-        model, content_type="application/octet-stream",
+        model,
+        content_type="application/octet-stream",
     )
     httpserver.expect_request("/models/direct.glb").respond_with_data(
         model,

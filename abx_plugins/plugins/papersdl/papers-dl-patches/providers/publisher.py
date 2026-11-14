@@ -71,5 +71,7 @@ async def get_urls(session, identifier, headers=None):
             return []
         raise
     except ValueError as error:
-        logger.info("Couldn't discover a publisher PDF: {}: {}", type(error).__name__, error)
+        logger.info(
+            "Couldn't discover a publisher PDF: {}: {}", type(error).__name__, error
+        )
         return []

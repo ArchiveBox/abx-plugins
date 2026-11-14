@@ -34,9 +34,10 @@ field. Use the attached page's hostname to match exact domains and subdomains:
 
 ```python
 import sys
-host = js('location.hostname')
-if host != 'example.com' and not host.endswith('.example.com'):
-    print('Domain not selected: ' + host)
+
+host = js("location.hostname")
+if host != "example.com" and not host.endswith(".example.com"):
+    print("Domain not selected: " + host)
     sys.exit(10)
 # Prepare the matching page here.
 ```
