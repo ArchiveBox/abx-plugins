@@ -375,7 +375,7 @@ try:
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == 'Live clock', result.stdout
     result = subprocess.run([env.get('NODE_BINARY') or 'node', str(Path(get_plugins_dir()) / 'stagehand/agent.js')],
-        input="console.log(await page.evaluate({expression:'document.title'}));", env=env, text=True, capture_output=True, timeout=30)
+        input="console.log(await page.evaluate('document.title'));", env=env, text=True, capture_output=True, timeout=30)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == 'Live clock', result.stdout
 finally:
