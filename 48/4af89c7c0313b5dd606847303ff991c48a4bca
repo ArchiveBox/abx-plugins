@@ -1,0 +1,221 @@
+abx_plugins/plugins/opencode/archivebox/urls.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-2,10,14-27,29-47
+abx_plugins/plugins/title/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 35-37
+abx_plugins/plugins/opencode/done.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-9
+abx_plugins/plugins/search_backend_sqlite/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 3
+abx_plugins/plugins/opencode/server_context.md
+  s_a46618ba6633c7::t_626db758dbe0ad 5
+abx_plugins/plugins/opencode/tests/test_task.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-51
+abx_plugins/plugins/opencode/runtime.py
+  s_a46618ba6633c7::t_626db758dbe0ad 26-27,312-332,505-518
+abx_plugins/plugins/puppeteer/README.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-22
+abx_plugins/plugins/opencode/archivebox/browser.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1,10-13,49,59-64,87,144,152-156,187-188,194-200,219,242-243,245,252,273,277-280,284-296,298,301,303-305,307-338,340-366,370
+abx_plugins/plugins/mercury/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 83-85
+abx_plugins/plugins/stagehand/on_Snapshot__31_stagehand.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-173
+abx_plugins/plugins/browserharness/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-27,29-36,38-94
+  s_a46618ba6633c7::t_1e044c95a8b97c 28,37
+abx_plugins/plugins/stagehand/tests/test_stagehand.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-73
+.pre-commit-config.yaml
+  s_a46618ba6633c7::t_626db758dbe0ad 15-16
+abx_plugins/plugins/trafilatura/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 66-68
+abx_plugins/plugins/opencode/archivebox/host_cases.py
+  s_a46618ba6633c7::t_626db758dbe0ad 17,29,35,38-41,50-66
+abx_plugins/plugins/opencode/archivebox/context.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1,5,8,11,13,17,19-20,27-30,32,34,36-44,46
+abx_plugins/plugins/dom/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 35-37
+abx_plugins/plugins/dns/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 34-35
+abx_plugins/plugins/browserharness/screenshot_skill.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-10
+abx_plugins/plugins/importers_browser/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 4,13-15
+abx_plugins/plugins/browserharness/tests/test_browser.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-61,65-563
+  s_a46618ba6633c7::t_0a56257a8fc498 62-64
+abx_plugins/plugins/responses/presentation.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-11,18,23,26,46-388
+abx_plugins/plugins/opencode/tests/test_collection_isolation.py
+  s_a46618ba6633c7::t_626db758dbe0ad 262-263
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_a46618ba6633c7::t_1e044c95a8b97c 5283-5292
+abx_plugins/plugins/playwright/on_Snapshot__31_playwright.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-129
+abx_plugins/plugins/opencode/archivebox/screencast.py
+  s_a46618ba6633c7::t_626db758dbe0ad 20,29-32,40,59
+abx_plugins/plugins/responses/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 44-48
+abx_plugins/plugins/readability/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 83-85
+abx_plugins/plugins/stagehand/runtime.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-10
+abx_plugins/plugins/playwright/README.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-22
+abx_plugins/plugins/wget/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 114-117
+abx_plugins/plugins/opencode/archivebox/conftest.py
+  s_a46618ba6633c7::t_626db758dbe0ad 65-68
+abx_plugins/plugins/chrome/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 3,9-12
+abx_plugins/plugins/search_backend_sonic/daemon.py
+  s_a46618ba6633c7::t_626db758dbe0ad 11,39,212,221
+abx_plugins/plugins/stagehand/agent.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-75
+abx_plugins/plugins/browserharness/on_Snapshot__31_browserharness.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-211
+abx_plugins/plugins/stagehand/screenshot_skill.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-14
+abx_plugins/plugins/opencode/archivebox/agent_1_cases.py
+  s_a46618ba6633c7::t_626db758dbe0ad 22,139,233
+abx_plugins/plugins/opencode/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 4
+abx_plugins/plugins/stagehand/browser_skill.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-18
+abx_plugins/plugins/opencode/archivebox/views.py
+  s_a46618ba6633c7::t_626db758dbe0ad 7,11-13,31,34-35,37-41,46,50,58,68,74,80,122-123,126-127,131-132,136,145,156,175-177,183-184,196,199,211-212,220-240,243,247-250,264-295
+abx_plugins/plugins/archivewebpage/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 80-83
+abx_plugins/plugins/chrome/open_browser.js
+  s_a46618ba6633c7::t_6a15dc87a6a0be 1-64
+abx_plugins/plugins/opencode/README.md
+  s_a46618ba6633c7::t_626db758dbe0ad 8-13,111,139,155,168-185
+abx_plugins/plugins/opencode/archivebox/browser_panel_cases.py
+  s_a46618ba6633c7::t_626db758dbe0ad 34,45,103,123,270,273,279,346-390
+abx_plugins/plugins/stagehand/config.json
+  s_a46618ba6633c7::t_1e044c95a8b97c 33,42
+  s_a46618ba6633c7::t_626db758dbe0ad 1-32,34-41,43-121
+README.md
+  s_a46618ba6633c7::t_626db758dbe0ad 37,67-125,144-147
+abx_plugins/plugins/stagehand/screenshot.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-9
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-51
+abx_plugins/plugins/browserharness/tests/test_browserharness.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-73
+abx_plugins/plugins/base/agents.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-78
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_a46618ba6633c7::t_626db758dbe0ad 5699,5909
+abx_plugins/plugins/importers_browser/importer.py
+  s_a46618ba6633c7::t_626db758dbe0ad 9,12,17-24,30-33,35-41,43-48,50-52,54-93,95-101,103-111,159-208
+abx_plugins/plugins/opencode/browser_skill.md
+  s_a46618ba6633c7::t_626db758dbe0ad 3,9,28,50,62,74,81
+abx_plugins/plugins/playwright/tests/test_playwright.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-51
+tests/test_plugin_config_metadata.py
+  s_a46618ba6633c7::t_626db758dbe0ad 184-186,198-237,555-584
+abx_plugins/plugins/search_backend_sonic/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 3-5
+abx_plugins/plugins/browserharness/README.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-28
+abx_plugins/plugins/playwright/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-9,12-14,16-55
+  s_a46618ba6633c7::t_1e044c95a8b97c 10-11,15
+abx_plugins/plugins/stagehand/tests/browser.mts
+  s_a46618ba6633c7::t_626db758dbe0ad 1-14
+abx_plugins/plugins/opencode/tests/test_analysis.py
+  s_a46618ba6633c7::t_626db758dbe0ad 28
+pyproject.toml
+  s_a46618ba6633c7::t_626db758dbe0ad 26,130-133,138,144-145
+abx_plugins/plugins/chrome/tests/browser_hook_helpers.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-256
+abx_plugins/plugins/archivewebpage/presentation.py
+  s_a46618ba6633c7::t_626db758dbe0ad 179,444-628
+abx_plugins/plugins/chrome/export_browser_state.js
+  s_a46618ba6633c7::t_6a15dc87a6a0be 1-178
+abx_plugins/plugins/chrome_screencast/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 49-52
+abx_plugins/plugins/singlefile/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 51-53
+abx_plugins/plugins/puppeteer/on_Snapshot__31_puppeteer.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-114
+abx_plugins/plugins/browserharness/screenshot.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-9
+abx_plugins/plugins/browserharness/runtime.py
+  s_a46618ba6633c7::t_626db758dbe0ad 1-197
+abx_plugins/plugins/opencode/task.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-192
+abx_plugins/plugins/chrome/snapshot.js
+  s_a46618ba6633c7::t_626db758dbe0ad 1-80
+abx_plugins/plugins/puppeteer/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-40
+abx_plugins/plugins/playwright/screenshot.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-8
+abx_plugins/plugins/browserharness/browser_skill.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-22
+abx_plugins/plugins/defuddle/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 81-83
+abx_plugins/plugins/hashes/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 33-40
+abx_plugins/plugins/puppeteer/screenshot.json
+  s_a46618ba6633c7::t_626db758dbe0ad 1-8
+abx_plugins/plugins/search_backend_ripgrep/config.json
+  s_a46618ba6633c7::t_626db758dbe0ad 3-4
+abx_plugins/plugins/stagehand/README.md
+  s_a46618ba6633c7::t_626db758dbe0ad 1-28
+abx_plugins/plugins/base/django.py
+  s_cb1e5966887ec6::t_f5f97418d61f74 1-67
+abx_plugins/plugins/base/host.py
+  s_a46618ba6633c7::t_462222b58973bc 1-41
+abx_plugins/plugins/base/html.py
+  s_cb1e5966887ec6::t_aa17565ef16fb8 1-171
+abx_plugins/plugins/chrome/app.py
+  s_a46618ba6633c7::t_78faf72042f28c 1-63
+abx_plugins/plugins/chrome/browser.py
+  s_a46618ba6633c7::t_82297f6cbf467e 1-160
+abx_plugins/plugins/chrome_screencast/app.py
+  s_a46618ba6633c7::t_ecbcceb16d8196 1-126
+abx_plugins/plugins/hashes/app.py
+  s_a46618ba6633c7::t_c04a163639f635 1-63
+abx_plugins/plugins/hashes/deduplicate.py
+  s_a46618ba6633c7::t_3605adbca72655 1-72
+abx_plugins/plugins/opencode/app.py
+  s_a46618ba6633c7::t_5ded019c614b09 1-77
+abx_plugins/plugins/opencode/create_importer_prompt.md
+  s_a46618ba6633c7::t_b9a4d46b07faa8 1-9
+abx_plugins/plugins/opencode/templates/importer_sessions.html
+  s_a46618ba6633c7::t_ebe08aea4fa945 1
+abx_plugins/plugins/opencode/templates/importers_actions.html
+  s_a46618ba6633c7::t_9eab9cb13a41d0 1
+abx_plugins/plugins/search_backend_sonic/app.py
+  s_a46618ba6633c7::t_108c8ef63ef9de 1-52
+abx_plugins/plugins/wget/presentation.py
+  s_a46618ba6633c7::t_ce98b43d5654bf 1-19
+uv.lock
+  s_a46618ba6633c7::t_96e4f4e0d333e4 2,11,13-14,25,67,602,604,606-625
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "484af89c7c0313b5dd606847303ff991c48a4bca",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
