@@ -10,6 +10,11 @@
     "application/x-ndjson"
   ],
   "properties": {
+    "PARSER": {
+      "type": "string",
+      "default": "auto",
+      "description": "Input document format; csv and tsv preserve URL cell boundaries"
+    },
     "PARSE_TXT_URLS_ENABLED": {
       "type": "boolean",
       "default": true,

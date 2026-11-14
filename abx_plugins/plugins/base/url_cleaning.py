@@ -141,10 +141,15 @@ def fix_url_from_markdown(url_str: str, *, preceding_text: str | None = None) ->
     if preceding_text is not None:
         cleaned = sanitize_extracted_url(cleaned)
 
+    # Quotes and attribute assignments delimit a field without Markdown syntax.
+    has_field_boundary = (
+        preceding_text is None or surrounding_quote or preceding_text.endswith("=")
+    )
+
     # Stop at the first unmatched closing parenthesis, or the last balanced
     # prefix for an unmatched opening parenthesis. This is linear even for long
     # URLs and shares the existing Markdown behavior with the standalone hooks.
-    if "(" in cleaned or ")" in cleaned:
+    if not has_field_boundary and ("(" in cleaned or ")" in cleaned):
         balance = 0
         last_valid_end = 0
         for index, char in enumerate(cleaned, start=1):
@@ -180,7 +185,7 @@ def fix_url_from_markdown(url_str: str, *, preceding_text: str | None = None) ->
                     : max(host_start, scheme_end + 3) + host_quote.start()
                 ]
 
-        if not surrounding_quote:
+        if not has_field_boundary:
             # Match quotes inside the URL like parentheses, except contractions
             # (What's, rock'n'roll, l’été) don't open or close quoted text. Strip
             # a dangling closer plus following prose punctuation; keep ?q='word'.

@@ -21,20 +21,53 @@ URLS = [
     "https://example.com/What%27s%20new",
     "https://example.com/l’été",
     "https://example.com/What's_(new)",
+    "https://en.wikipedia.org/wiki/APL_(programming_language)",
+    "https://example.com/nested_(one_(two))",
+    "https://example.com/open(unclosed",
+    "https://example.com/close)tail",
+    "https://example.com/encoded%28value%29?q=(one)&other=)two",
 ]
 
 
 @pytest.mark.parametrize(
-    "plugin",
-    ["parse_jsonl_urls", "parse_rss_urls", "parse_netscape_urls", "parse_html_urls"],
+    "format",
+    ["json", "jsonl", "rss", "rss1", "atom", "netscape", "html", "html_unquoted"],
 )
-def test_structured_import_preserves_literal_apostrophes(tmp_path, plugin):
-    if plugin == "parse_jsonl_urls":
+def test_structured_import_preserves_url_fields(tmp_path, format):
+    plugin = {
+        "json": "parse_jsonl_urls",
+        "jsonl": "parse_jsonl_urls",
+        "rss": "parse_rss_urls",
+        "rss1": "parse_rss_urls",
+        "atom": "parse_rss_urls",
+        "netscape": "parse_netscape_urls",
+        "html": "parse_html_urls",
+        "html_unquoted": "parse_html_urls",
+    }[format]
+    if format in {"json", "jsonl"}:
         source = "\n".join(
             json.dumps({"url": url, "title": "A quoted URL"}) for url in URLS
         )
+        if format == "json":
+            source = json.dumps([json.loads(line) for line in source.splitlines()])
         suffix = ".jsonl"
-    elif plugin == "parse_rss_urls":
+    elif format == "rss1":
+        source = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/">'
+        source += "".join(
+            f'<item rdf:about="{escape(url, quote=True)}"><title>URL</title><link>{escape(url)}</link></item>'
+            for url in URLS
+        )
+        source += "</rdf:RDF>"
+        suffix = ".xml"
+    elif format == "atom":
+        source = '<feed xmlns="http://www.w3.org/2005/Atom"><title>URLs</title>'
+        source += "".join(
+            f'<entry><id>{escape(url)}</id><title>URL</title><link href="{escape(url, quote=True)}"/></entry>'
+            for url in URLS
+        )
+        source += "</feed>"
+        suffix = ".xml"
+    elif format == "rss":
         source = '<rss version="2.0"><channel><title>URLs</title>'
         source += "".join(
             f"<item><title>URL</title><link>{escape(url)}</link></item>" for url in URLS
@@ -47,6 +80,8 @@ def test_structured_import_preserves_literal_apostrophes(tmp_path, plugin):
             f'<DT><A HREF="{escape(url, quote=True)}">URL</A>' for url in URLS
         )
         source += "\n</DL>"
+        if format == "html_unquoted":
+            source = source.replace('HREF="', "HREF=").replace('">URL', ">URL")
         suffix = ".html"
     input_file = tmp_path / f"urls{suffix}"
     input_file.write_text(source)
@@ -73,15 +108,16 @@ def test_structured_import_preserves_literal_apostrophes(tmp_path, plugin):
     )
 
 
+@pytest.mark.parametrize("quoting", [csv.QUOTE_ALL, csv.QUOTE_MINIMAL])
 @pytest.mark.parametrize("quotechar", ["'", '"'])
 @pytest.mark.parametrize("delimiter", [",", ";", "\t"])
-def test_csv_quoted_url_fields(tmp_path, quotechar, delimiter):
+def test_csv_quoted_url_fields(tmp_path, quotechar, delimiter, quoting):
     source = io.StringIO()
     writer = csv.writer(
         source,
         quotechar=quotechar,
         delimiter=delimiter,
-        quoting=csv.QUOTE_ALL,
+        quoting=quoting,
     )
     writer.writerow(["title", "url", "notes"])
     for url in URLS:

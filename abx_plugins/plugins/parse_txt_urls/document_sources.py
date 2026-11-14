@@ -69,6 +69,30 @@ def iter_document_sources(snap_dir: Path):
             yield resolved
 
 
+def iter_delimited_content(stream, *, delimiter=","):
+    start = stream.tell()
+    sample = stream.read(8192)
+    stream.seek(start)
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
+    except csv.Error:
+        dialect = None
+    rows = (
+        csv.reader(stream, dialect=dialect)
+        if dialect
+        else csv.reader(stream, delimiter=delimiter)
+    )
+    for row in rows:
+        for cell in row:
+            value = cell.strip()
+            kind = (
+                "url"
+                if re.fullmatch(r"https?://[^\s<>\"`]+", value, re.IGNORECASE)
+                else "text"
+            )
+            yield kind, value
+
+
 def iter_document_content(path: Path):
     """Yield (kind, value) for text or exact hyperlink targets, never XML metadata.
 
@@ -79,12 +103,9 @@ def iter_document_content(path: Path):
     extension = path.suffix.lower()
     if extension in {".csv", ".tsv"}:
         with path.open(encoding="utf-8-sig", errors="replace", newline="") as stream:
-            for row in csv.reader(
-                stream,
-                delimiter="\t" if extension == ".tsv" else ",",
-            ):
-                for cell in row:
-                    yield "text", cell
+            yield from iter_delimited_content(
+                stream, delimiter="\t" if extension == ".tsv" else ","
+            )
         return
     with zipfile.ZipFile(path) as archive:
         total = 0

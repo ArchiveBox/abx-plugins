@@ -24,6 +24,7 @@ import csv
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from urllib.parse import urlparse, unquote
 
 from abx_plugins.plugins.base.url_cleaning import (
     URL_REGEX,
@@ -40,6 +41,7 @@ from abx_plugins.plugins.base.utils import (
 )
 from abx_plugins.plugins.parse_txt_urls.document_sources import (
     OFFICE_EXTENSIONS,
+    iter_delimited_content,
     iter_document_content,
     iter_document_sources,
 )
@@ -182,6 +184,26 @@ def extract_urls_from_reader(reader, *, source_url: str, urls_found: set[str]) -
     )
 
 
+def extract_urls_from_document(
+    content, *, source_url: str, urls_found: set[str]
+) -> None:
+    for kind, value in content:
+        if kind == "url":
+            if (
+                value.lower().startswith(("http://", "https://"))
+                and value != source_url
+            ):
+                urls_found.add(value)
+        else:
+            add_urls_from_text_chunk(
+                value,
+                carry="",
+                final=True,
+                source_url=source_url,
+                urls_found=urls_found,
+            )
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
@@ -195,31 +217,28 @@ def main(
     urls_file = get_output_file()
     urls_found = set()
     source_paths = tuple(iter_document_sources(urls_file.parent.parent))
+    input_path = (
+        Path(unquote(urlparse(url).path)).resolve()
+        if url.startswith("file://")
+        else None
+    )
     print(f"parsing {len(source_paths) if source_paths else 1} files for urls...")
     try:
         if source_paths:
             readers = []
             for source_path in source_paths:
+                if input_path == source_path.resolve():
+                    continue
                 try:
                     if source_path.suffix.lower() in OFFICE_EXTENSIONS | {
                         ".csv",
                         ".tsv",
                     }:
-                        for kind, value in iter_document_content(source_path):
-                            if kind == "url":
-                                if (
-                                    value.lower().startswith(("http://", "https://"))
-                                    and value != url
-                                ):
-                                    urls_found.add(value)
-                            else:
-                                add_urls_from_text_chunk(
-                                    value,
-                                    carry="",
-                                    final=True,
-                                    source_url=url,
-                                    urls_found=urls_found,
-                                )
+                        extract_urls_from_document(
+                            iter_document_content(source_path),
+                            source_url=url,
+                            urls_found=urls_found,
+                        )
                     else:
                         with source_path.open(
                             encoding="utf-8",
@@ -241,7 +260,22 @@ def main(
         # An explicit local input is authoritative even when other plugins have
         # already saved text. Saved titles/documents must not hide its URLs.
         if (file_content := read_file_url_text(url)) is not None:
-            readers = [io.StringIO(file_content)]
+            assert input_path is not None
+            input_format = load_config().PARSER.lower()
+            if input_format not in {"csv", "tsv"}:
+                input_format = input_path.suffix.lower().lstrip(".")
+            if input_format in {"csv", "tsv"}:
+                extract_urls_from_document(
+                    iter_delimited_content(
+                        io.StringIO(file_content),
+                        delimiter="\t" if input_format == "tsv" else ",",
+                    ),
+                    source_url=url,
+                    urls_found=urls_found,
+                )
+                readers = []
+            else:
+                readers = [io.StringIO(file_content)]
         elif not source_paths and url.startswith(("http://", "https://")):
             config = load_config()
             timeout = config.TIMEOUT
