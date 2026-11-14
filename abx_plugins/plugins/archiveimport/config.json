@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Archive Import",
+  "description": "Download Internet Archive items and available original WARC or WACZ exports from archive services.",
+  "screenshot": "screenshot.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": ["application/json", "application/warc", "application/zip", "application/octet-stream"],
+  "category": "media",
+  "display_order": 66,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Archive Import",
+  "default_output_path": "metadata.json",
+  "properties": {
+    "ARCHIVEIMPORT_ENABLED": {"type": "boolean", "default": true, "description": "Download supported archive items and exports"},
+    "ARCHIVEIMPORT_TIMEOUT": {"type": "integer", "default": 120, "minimum": 1, "x-fallback": "TIMEOUT", "description": "Network timeout in seconds"},
+    "ARCHIVEIMPORT_MAX_BYTES": {"type": "integer", "default": 104857600, "minimum": 0, "description": "Maximum total download size in bytes; 0 means unlimited"},
+    "ARCHIVEIMPORT_PERMA_API_KEY": {"type": "string", "default": "", "format": "password", "x-sensitive": true, "description": "Perma.cc API key for archives accessible to your account"}
+  }
+}
