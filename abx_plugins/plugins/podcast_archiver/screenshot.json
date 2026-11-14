@@ -1,0 +1,5 @@
+{
+  "url": "https://feeds.npr.org/510289/podcast.xml",
+  "enabled": true,
+  "config_overrides": {"PODCAST_ARCHIVER_MAX_EPISODES": 1}
+}

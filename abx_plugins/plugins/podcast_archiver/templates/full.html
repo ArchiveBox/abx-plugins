@@ -1,0 +1,9 @@
+{% load core_tags %}{% snapshot_results snapshot 'podcast_archiver' as captures %}
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Podcast episodes</title><style>body{font:15px system-ui;background:#f5f6f8;color:#222;margin:0}header,main{padding:16px}header{background:white;border-bottom:1px solid #ddd}main{max-width:850px;margin:auto}li{margin:12px 0;padding:12px;background:white;border:1px solid #ddd;border-radius:6px}audio{display:block;width:100%;margin-top:10px}a{color:#315c83}</style></head><body><header>{{ plugin_icon }} <strong>Podcast episodes</strong></header><main><ol id="episodes"></ol></main><script>
+const output = new URL('{{ output_path|escapejs }}', location.href);
+const root = new URL(output); const boundary = root.pathname.lastIndexOf('/podcast_archiver/');
+if (boundary >= 0) root.pathname = root.pathname.slice(0, boundary + 1);
+const files = [{% for capture in captures %}{% if capture.plugin == 'podcast_archiver' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }}},{% endfor %}{% endif %}{% endfor %}];
+const list = document.getElementById('episodes');
+for (const file of files) { const path=file.path.replace(/^\.\//,''); if(path.startsWith('/')||path.split('/').includes('..')||!/\.(mp3|m4a|mp4|ogg|opus|wav|flac|aac|webm)$/i.test(path)) continue; const url=new URL((file.root?path:'podcast_archiver/'+path).split('/').map(encodeURIComponent).join('/'), root);url.searchParams.set('raw','1');const li=document.createElement('li'),a=document.createElement('a'),audio=document.createElement('audio'); a.textContent=path.split('/').pop();a.href=url.href;audio.controls=true;audio.preload='none';audio.src=url.href;li.append(a,audio);list.append(li); }
+</script></body></html>

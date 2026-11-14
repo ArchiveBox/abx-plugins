@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Package Registry",
+  "description": "Save public PyPI, npm, crates.io, and RubyGems release metadata and distribution files.",
+  "screenshot": "screenshot.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": ["application/json", "application/octet-stream"],
+  "default_output_path": "packageregistry/metadata.json",
+  "category": "media",
+  "display_order": 65,
+  "snapshot_output_group": "embedded_media",
+  "snapshot_display_name": "Package Registry",
+  "properties": {
+    "PACKAGEREGISTRY_ENABLED": {"type": "boolean", "default": true, "x-aliases": ["SAVE_PACKAGEREGISTRY", "USE_PACKAGEREGISTRY"], "description": "Capture package registry releases"},
+    "PACKAGEREGISTRY_TIMEOUT": {"type": "integer", "default": 120, "minimum": 1, "x-fallback": "TIMEOUT", "description": "Network timeout in seconds"},
+    "PACKAGEREGISTRY_MAX_BYTES": {"type": "integer", "default": 104857600, "minimum": 1, "description": "Maximum total distribution download size in bytes"}
+  }
+}
