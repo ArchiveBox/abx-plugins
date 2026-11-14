@@ -1,0 +1,62 @@
+abx_plugins/plugins/browserharness/config.json
+  s_a46618ba6633c7::t_3d0c74a7936696 28,37
+abx_plugins/plugins/base/downloads.js
+  s_a46618ba6633c7::t_1e044c95a8b97c 10,20,45-85
+.github/workflows/test-parallel.yml
+  s_a46618ba6633c7::t_1e044c95a8b97c 388,514-522
+  s_a46618ba6633c7::t_07b3e7c342043a 523-524
+abx_plugins/plugins/importers_browser/README.md
+  s_a46618ba6633c7::t_1e044c95a8b97c 8-11
+  s_cb1e5966887ec6::t_905e202bd92f02 3,14-15
+abx_plugins/plugins/forumdl/config.json
+  s_a46618ba6633c7::t_d481a8528088df 40
+  s_cb1e5966887ec6::t_bf3f53d192714d 22-23,26,32,39
+abx_plugins/plugins/stagehand/config.json
+  s_a46618ba6633c7::t_3d0c74a7936696 33,42
+abx_plugins/plugins/chrome/config.json
+  s_a46618ba6633c7::t_c2fa10f35e6dff 56-57,68-69,75
+abx_plugins/plugins/opendataloader/config.json
+  s_a46618ba6633c7::t_d481a8528088df 21
+  s_cb1e5966887ec6::t_ea707656994a16 14-15,20
+abx_plugins/plugins/opencode/config.json
+  s_a46618ba6633c7::t_1e044c95a8b97c 59,68
+abx_plugins/plugins/opencode/task.js
+  s_cb1e5966887ec6::t_59733fb894daeb 35-43
+abx_plugins/plugins/papersdl/config.json
+  s_a46618ba6633c7::t_d481a8528088df 60,63
+  s_cb1e5966887ec6::t_585282ee68e231 34,57-58
+abx_plugins/plugins/liteparse/config.json
+  s_cb1e5966887ec6::t_e1765076ae0859 14,19,25
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_cb1e5966887ec6::t_828f91a6f7a15a 365,652
+abx_plugins/plugins/opencode/tests/test_task.py
+  s_cb1e5966887ec6::t_33cfc7f2f0e583 3,7-9,27-74,76
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_cb1e5966887ec6::t_594d3b478623fe 320,322,369,374
+abx_plugins/plugins/playwright/config.json
+  s_cb1e5966887ec6::t_379f4594d8451e 10-11,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "21113d3f92f8d5c7646d74f220e54631431fe62e",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
