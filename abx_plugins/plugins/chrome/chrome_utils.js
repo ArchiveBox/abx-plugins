@@ -5565,6 +5565,94 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   }
 }
 
+function readInstalledProfileExtensionIds(userDataDir, chromeArgs = []) {
+  if (!userDataDir) return null;
+  if (chromeArgs.some(arg => typeof arg !== "string" || arg !== arg.trim() || arg === "--")) return null;
+  let profileDirectory = "Default";
+  try {
+    const localState = JSON.parse(fs.readFileSync(path.join(userDataDir, "Local State"), "utf8"));
+    profileDirectory = localState?.profile?.last_used || profileDirectory;
+  } catch (error) {
+    if (error.code !== "ENOENT") return null;
+  }
+  for (const arg of chromeArgs) {
+    // Do not classify a different or off-the-record profile's registrations.
+    if (arg.startsWith("--profile-directory=")) profileDirectory = arg.slice("--profile-directory=".length);
+    else if (/^[/-]+(?:profile-directory|user-data-dir|guest|incognito)(?:=|$)/i.test(arg)) return null;
+  }
+  if (typeof profileDirectory !== "string" || !profileDirectory || profileDirectory.startsWith("--") ||
+      profileDirectory === "." || profileDirectory === ".." || /[/\\]/.test(profileDirectory)) return null;
+  let found = false;
+  const ids = new Set();
+  for (const filename of ["Preferences", "Secure Preferences"]) {
+    try {
+      const preferences = JSON.parse(fs.readFileSync(path.join(userDataDir, profileDirectory, filename), "utf8"));
+      const settings = preferences?.extensions?.settings;
+      if (settings && typeof settings === "object" && !Array.isArray(settings)) {
+        found = true;
+        for (const [id, extension] of Object.entries(settings)) {
+          if (typeof extension?.path === "string") ids.add(id);
+        }
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") return null;
+    }
+  }
+  try {
+    // Managed on-demand extensions keep their identities outside disposable
+    // install paths. Chrome may retire those paths before the next hook loads.
+    const keysDir = path.join(userDataDir, "archivebox-extension-keys");
+    for (const filename of fs.readdirSync(keysDir)) {
+      if (!filename.endsWith(".pub")) continue;
+      const key = Buffer.from(fs.readFileSync(path.join(keysDir, filename), "utf8").trim(), "base64");
+      crypto.createPublicKey({key, type: "spki", format: "der"});
+      ids.add(crypto.createHash("sha256").update(key).digest("hex").slice(0, 32)
+        .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16))));
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") return null;
+  }
+  return found ? ids : null;
+}
+
+async function removeOrphanExtensionServiceWorkers(browser, installedIds, timeoutMs) {
+  // Preferences preserve disabled extensions too. Missing or malformed inventory
+  // cannot establish that an extension was uninstalled.
+  if (!installedIds) return 0;
+  const protectedIds = new Set(installedIds);
+  try {
+    // Includes disabled unpacked extensions and newly loaded identities that
+    // Chrome has not persisted to preferences yet.
+    for (const id of (await browser.extensions()).keys()) protectedIds.add(id);
+  } catch (error) {
+    console.error(`[*] Skipping orphan service worker cleanup: extension inventory unavailable (${error.message})`);
+    return 0;
+  }
+  const page = (await browser.pages())[0];
+  if (!page) return 0;
+  const session = await page.createCDPSession();
+  const initial = new Promise(resolve => session.once("ServiceWorker.workerRegistrationUpdated", resolve));
+  try {
+    await session.send("ServiceWorker.enable");
+    const { registrations } = await withTimeout(() => initial, timeoutMs, "Timed out reading service worker registrations");
+    const origins = new Set();
+    for (const registration of registrations) {
+      const id = getExtensionIdFromUrl(registration.scopeURL);
+      if (id && !registration.isDeleted && !protectedIds.has(id)) {
+        origins.add(`chrome-extension://${id}`);
+      }
+    }
+    for (const origin of origins) {
+      // Chrome removes registrations and their script resources together. Never
+      // delete ScriptCache files behind its database or clear website storage.
+      await session.send("Storage.clearDataForOrigin", {origin, storageTypes: "service_workers"});
+    }
+    return origins.size;
+  } finally {
+    await session.detach();
+  }
+}
+
 async function ensureChromeSession(options = {}) {
   const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const {
@@ -5587,6 +5675,14 @@ async function ensureChromeSession(options = {}) {
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
   const userDataDir = chromeLaunchOptions.CHROME_USER_DATA_DIR;
+  // A restart may remove stale unpacked paths from preferences before their
+  // replacements load. Preserve those installed identities across startup.
+  const profileExtensionIds = processIsLocal
+    ? readInstalledProfileExtensionIds(userDataDir, [
+      ...(Array.isArray(chromeLaunchOptions.CHROME_ARGS) ? chromeLaunchOptions.CHROME_ARGS : getEnvArray("CHROME_ARGS", [])),
+      ...(Array.isArray(chromeLaunchOptions.CHROME_ARGS_EXTRA) ? chromeLaunchOptions.CHROME_ARGS_EXTRA : getEnvArray("CHROME_ARGS_EXTRA", [])),
+    ])
+    : null;
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -5749,6 +5845,11 @@ async function ensureChromeSession(options = {}) {
           eagerExtensions,
           timeoutMs
         );
+      }
+
+      if (launchedNewBrowser && profileExtensionIds) {
+        const removed = await removeOrphanExtensionServiceWorkers(browser, profileExtensionIds, timeoutMs);
+        if (removed) console.error(`[*] Removed ${removed} uninstalled extension service worker origins`);
       }
 
       if (cookiesFile && !importState.imported) {
@@ -6084,6 +6185,8 @@ module.exports = {
   isTargetExtension,
   loadExtensionFromTarget,
   loadUnpackedExtensionsIntoBrowser,
+  readInstalledProfileExtensionIds,
+  removeOrphanExtensionServiceWorkers,
   waitForExtensionTargetHandle,
   openExtensionPage,
   // New puppeteer best-practices helpers
