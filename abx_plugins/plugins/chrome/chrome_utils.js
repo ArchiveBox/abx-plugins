@@ -5092,9 +5092,9 @@ function readCookiesFromFile(cookiesFile) {
   return { cookies, skipped, extensionSync };
 }
 
-async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
+async function importCookiesFromFile(browser, cookiesFile, userDataDir, {reconcileExtension = true} = {}) {
   const files = [...new Set((Array.isArray(cookiesFile) ? cookiesFile : [cookiesFile]).filter(Boolean))];
-  if (!files.length) return;
+  if (!files.length) return 0;
   // Parse every artifact before changing the browser. Rich auth.json cookies
   // come last and replace Netscape duplicates without losing SameSite/expiry.
   const sources = files.map(readCookiesFromFile).filter(Boolean);
@@ -5106,11 +5106,11 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
   ]);
   const cookies = [...new Map(sources.flatMap(source => source.cookies).map(cookie => [cookieKey(cookie), cookie])).values()];
   const extensionSources = sources.filter(source => source.extensionSync);
-  const extensionSync = extensionSources.length > 0;
+  const extensionSync = reconcileExtension && extensionSources.length > 0;
   const skipped = sources.reduce((total, source) => total + source.skipped, 0);
   if (cookies.length === 0 && !extensionSync) {
     console.error("[!] No cookies found to import");
-    return;
+    return 0;
   }
 
   console.error(
@@ -5178,6 +5178,7 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       writeFileAtomic(syncStateFile, JSON.stringify(syncedDomains));
     }
     console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+    return imported;
   } finally {
     await page.close();
   }
@@ -5474,19 +5475,10 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     ...(navigatorPlatform ? { platform: navigatorPlatform } : {}),
   } : null;
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
-  const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
+  const { origins } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [] };
   // Import persistent storage once, before publishing readiness. All clients
   // subsequently observe the same live databases, not a replay on navigation.
   await restoreOriginStorage(browser, origins);
-  const sessionStates = [...origins.filter(entry => entry.sessionStorage).map(entry => ({
-    origin: entry.origin, sessionStorage: entry.sessionStorage,
-  })), ...tabs];
-  const sessionOrigins = new Map();
-  for (const state of sessionStates) {
-    const origin = state.origin || new URL(state.url).origin;
-    if (!sessionOrigins.has(origin)) sessionOrigins.set(origin, []);
-    sessionOrigins.get(origin).push(state);
-  }
   const pending = new Set();
   let startup = true;
   let failure = null;
@@ -5526,6 +5518,19 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     if (config.BROWSER_COLOR_SCHEME) await session.send("Emulation.setEmulatedMedia", {
       features: [{ name: "prefers-color-scheme", value: config.BROWSER_COLOR_SCHEME }],
     });
+    // Admin edits change the saved artifact while this daemon keeps running.
+    // Each new target must use its current session state, including removals;
+    // existing tabs retain their own sessionStorage.
+    const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
+    const sessionStates = [...origins.filter(entry => entry.sessionStorage).map(entry => ({
+      origin: entry.origin, sessionStorage: entry.sessionStorage,
+    })), ...tabs];
+    const sessionOrigins = new Map();
+    for (const state of sessionStates) {
+      const origin = state.origin || new URL(state.url).origin;
+      if (!sessionOrigins.has(origin)) sessionOrigins.set(origin, []);
+      sessionOrigins.get(origin).push(state);
+    }
     if (sessionStates.length) {
       await session.send("Page.enable");
       await session.send("Runtime.enable");

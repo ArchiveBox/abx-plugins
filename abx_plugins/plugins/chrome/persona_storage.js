@@ -39,13 +39,23 @@ function indexedDBScripts() {
   return ["dexie", "dexie-export-import"].map(name => fs.readFileSync(require.resolve(name), "utf8")).join("\n");
 }
 
-async function restoreOriginStorage(browser, origins) {
+async function restoreOriginStorage(browser, origins, {merge = false} = {}) {
+  const failures = [];
   // Saved site storage is optional login state synced from a user's browser.
   // One site's export that IndexedDB rejects (e.g. Dexie BulkError on a record)
   // must only skip that database: failing here aborted Chrome launch and
   // stopped every crawl that uses the persona.
   for (const entry of origins) {
     if (!entry.localStorage && !entry.indexedDB?.length) continue;
+    // A Persona can accumulate browser-extension and Playwright exports for
+    // the same database. Keep their order and merge each supplied record set.
+    const databases = entry.indexedDB || [];
+    if (databases.some(database => typeof database?.data === 'string') && databases.some(database => database?.data === undefined)) {
+      for (let index = 0; index < databases.length; index++) {
+        failures.push(...await restoreOriginStorage(browser, [{origin: entry.origin, localStorage: index === 0 ? entry.localStorage : undefined, indexedDB: [databases[index]]}], {merge: true}));
+      }
+      continue;
+    }
     const page = await browser.newPage();
     try {
       // A dedicated storage setup document, like Playwright storageState: no site
@@ -54,8 +64,13 @@ async function restoreOriginStorage(browser, origins) {
       await page.setRequestInterception(true);
       page.on("request", request => request.respond({ status: 200, contentType: "text/html", body: "<!doctype html><title>Persona storage setup</title>" }));
       await page.goto(entry.origin);
+      const native = (entry.indexedDB || []).filter(database => database && database.data === undefined && database.stores?.every(store => Array.isArray(store.records)));
+      if (native.length) {
+        const {restorePlaywrightStorage} = require('./playwright_storage.js');
+        failures.push(...await page.evaluate(restorePlaywrightStorage, native));
+      }
       if (entry.indexedDB?.length) await page.evaluate(indexedDBScripts());
-      const skipped = await page.evaluate(async (state) => {
+      const skipped = await page.evaluate(async ({state, merge}) => {
         const skipped = [];
         for (const item of state.localStorage || []) localStorage.setItem(item.name, item.value);
         for (const exported of state.indexedDB || []) {
@@ -100,7 +115,7 @@ async function restoreOriginStorage(browser, origins) {
                           return JSON.stringify(existing.keyPath) === JSON.stringify(index.keyPath) && existing.unique === index.unique && existing.multiEntry === index.multiEntry;
                         });
                     });
-                    if (!matches && [...db.objectStoreNames].some(store => !exported.stores.some(definition => definition.name === store))) {
+                    if (!matches && (merge || [...db.objectStoreNames].some(store => !exported.stores.some(definition => definition.name === store)))) {
                       throw new Error("Cannot replace IndexedDB schema while preserving stores omitted from the export");
                     }
                     // close() is deferred while this schema transaction is
@@ -147,7 +162,7 @@ async function restoreOriginStorage(browser, origins) {
               // profile's previous copy broke unique indexes (ConstraintError).
               const tables = metadata.data.tables.map(table => db.table(table.name));
               await db.transaction("rw", tables, async () => {
-                for (const table of tables) await table.clear();
+                if (!merge) for (const table of tables) await table.clear();
                 // The JSON is already parsed. Dexie's completed JsonStream
                 // input avoids asynchronous Blob reads inside this transaction.
                 await db.import({ result: metadata, done: () => true, eof: () => true }, { overwriteValues: true, noTransaction: true });
@@ -155,16 +170,21 @@ async function restoreOriginStorage(browser, origins) {
             } finally { db?.close(); }
           } catch (error) {
             const first = Object.values(error?.failuresByPos || {})[0] || error?.failures?.[0];
-            skipped.push(`${exported?.name || "<unnamed>"}: ${error?.name || "Error"} ${error?.message || error}${first ? ` (${first.name}: ${first.message})` : ""}`);
+            skipped.push(merge ? `IndexedDB import failed (${error?.name || "Error"})` : `${exported?.name || "<unnamed>"}: ${error?.name || "Error"} ${error?.message || error}${first ? ` (${first.name}: ${first.message})` : ""}`);
           }
         }
         return skipped;
-      }, entry);
-      for (const reason of skipped) console.error(`[!] Skipped saved IndexedDB for ${entry.origin}: ${reason}`);
+      }, {state: {...entry, indexedDB: (entry.indexedDB || []).filter(database => !native.includes(database))}, merge});
+      for (const reason of skipped) {
+        failures.push(`${entry.origin}: ${reason}`);
+        console.error(`[!] Skipped saved IndexedDB for ${entry.origin}: ${reason}`);
+      }
     } catch (error) {
+      failures.push(`${entry.origin}: ${error?.message || error}`);
       console.error(`[!] Skipped saved storage for ${entry.origin}: ${error?.message || error}`);
     } finally { await page.close().catch(() => {}); }
   }
+  return failures;
 }
 
 async function captureOriginStorage(page) {

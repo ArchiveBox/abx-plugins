@@ -40,7 +40,12 @@ def main():
         request.get("user_data_dir") or request.get("cdp_url")
     ):
         raise ValueError("user_data_dir or cdp_url is required")
-    if operation == "profile":
+    profile_state = operation == "profile" and request.get("action") in {
+        "remove-domain",
+        "import-state",
+        "inspect-domains",
+    }
+    if operation == "profile" and not profile_state:
         from abx_plugins.plugins.chrome.profiles import run
 
         print(json.dumps({"path": str(run(request))}))
@@ -69,6 +74,17 @@ def main():
             CHROME_HEADLESS=bool(request.get("headless")),
         )
     else:
+        if profile_state:
+            user_data_dir = Path(request["user_data_dir"])
+            if not user_data_dir.is_absolute():
+                raise ValueError("user_data_dir must be an absolute directory")
+            if request["action"] == "import-state":
+                user_data_dir.mkdir(parents=True, exist_ok=True)
+            elif not user_data_dir.is_dir():
+                raise ValueError("user_data_dir must be an existing directory")
+            profile_dir = request.get("profile_dir") or "Default"
+            if Path(profile_dir).name != profile_dir or profile_dir in {".", ".."}:
+                raise ValueError("profile_dir must name a single browser profile")
         if request.get("user_data_dir"):
             payload.update(
                 CHROME_USER_DATA_DIR=request["user_data_dir"],
@@ -183,6 +199,16 @@ def main():
             )
     else:
         env["CHROME_PROFILE_DIRECTORY"] = request.get("profile_dir") or "Default"
+        if profile_state:
+            with tempfile.TemporaryFile(mode="w+") as source:
+                json.dump(request, source)
+                source.seek(0)
+                os.dup2(source.fileno(), 0)
+                os.execvpe(
+                    node,
+                    [node, str(Path(__file__).with_name("profile_state.js"))],
+                    env,
+                )
         env["COOKIES_OUTPUT_FILE"] = request.get("cookies_output_file", "")
         env["AUTH_STORAGE_OUTPUT_FILE"] = request.get("auth_output_file", "")
         os.execvpe(

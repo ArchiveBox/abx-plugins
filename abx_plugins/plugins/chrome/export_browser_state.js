@@ -70,7 +70,7 @@ async function collectStorage(browser) {
     return {origins: [...origins.values()], tabs};
 }
 
-async function openBrowser() {
+async function openBrowser({reuseProfileSession = false} = {}) {
     const cdpUrl = process.env.CHROME_CDP_URL || '';
     if (cdpUrl) {
         const browser = await chromeUtils.connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
@@ -93,6 +93,28 @@ async function openBrowser() {
         throw new Error(`User data directory does not exist: ${userDataDir}`);
     }
 
+    if (reuseProfileSession) {
+        const endpoints = [];
+        const personaEndpoint = path.join(path.dirname(userDataDir), '.browser', 'cdp_url.txt');
+        if (fs.existsSync(personaEndpoint)) endpoints.push(fs.readFileSync(personaEndpoint, 'utf8').trim());
+        const activePort = path.join(userDataDir, 'DevToolsActivePort');
+        if (fs.existsSync(activePort)) {
+            const [port, browserPath] = fs.readFileSync(activePort, 'utf8').trim().split('\n');
+            if (/^\d+$/.test(port) && browserPath?.startsWith('/devtools/browser/')) {
+                endpoints.push(`ws://127.0.0.1:${port}${browserPath}`);
+            }
+        }
+        for (const endpoint of endpoints) {
+            try {
+                const browser = await chromeUtils.connectToBrowserEndpoint(puppeteer, endpoint, {defaultViewport: null});
+                return {browser, cleanup: () => browser.disconnect(), sourceDescription: userDataDir};
+            } catch (error) {
+                // An exited browser leaves its endpoint file behind. Launching
+                // below still respects Chrome's native profile lock.
+            }
+        }
+    }
+
     const binary = process.env.CHROME_BINARY;
     if (!binary || !path.isAbsolute(binary) || !fs.existsSync(binary)) {
         throw new Error('CHROME_BINARY must be an absolute executable path resolved by abxpkg');
@@ -107,8 +129,12 @@ async function openBrowser() {
         executablePath: binary,
         userDataDir,
         headless: true,
-        ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'],
-        args: ['--no-first-run', '--disable-sync', '--disable-background-networking',
+        ignoreDefaultArgs: reuseProfileSession ? [] : ['--use-mock-keychain', '--password-store=basic'],
+        args: [...(reuseProfileSession ? [
+                   ...chromeUtils.getEnvArray('CHROME_ARGS', []),
+                   ...chromeUtils.getEnvArray('CHROME_ARGS_EXTRA', []),
+               ] : []),
+               '--no-first-run', '--disable-sync', '--disable-background-networking',
                `--profile-directory=${process.env.CHROME_PROFILE_DIRECTORY || 'Default'}`, ...(process.platform === 'linux' && (process.getuid?.() === 0 || sandboxDisabled) ? ['--no-sandbox'] : [])],
     });
     return {
@@ -172,7 +198,9 @@ async function main() {
     }
 }
 
-main().catch((error) => {
+module.exports = {openBrowser};
+
+if (require.main === module) main().catch((error) => {
     console.error(`ERROR: ${error.message}`);
     process.exit(1);
 });
