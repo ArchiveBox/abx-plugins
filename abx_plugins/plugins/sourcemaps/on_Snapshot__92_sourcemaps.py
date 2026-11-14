@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -55,13 +56,23 @@ def get_map(reference, script_url, timeout):
     return raw, url
 
 
-def candidates(script, url, timeout):
+def candidates(script, url, timeout, headers):
     matches = list(REFERENCE.finditer(script))
     if matches:
         return [
             (matches[-1].group(1) or matches[-1].group(2)).decode("utf-8", "replace"),
         ]
     parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return []
+    headers = (
+        {str(key).lower(): value for key, value in headers.items()}
+        if isinstance(headers, dict)
+        else {}
+    )
+    header = headers.get("sourcemap") or headers.get("x-sourcemap")
+    if isinstance(header, str) and header.strip():
+        return [header.strip()]
     if parts.scheme in ("http", "https"):
         # The responses manifest does not retain HTTP headers. Re-fetch the
         # script to discover a published SourceMap header when possible.
@@ -75,15 +86,23 @@ def candidates(script, url, timeout):
                 return [header.strip()]
         except (HTTPError, URLError, TimeoutError) as error:
             print(f"Source map header unavailable: {url}: {error}", file=sys.stderr)
-    if not parts.path.endswith(".js"):
+    if not parts.path.lower().endswith(".min.js"):
         return []
-    # Some publishers omit the directive while publishing conventional map names.
+    # Some minified libraries omit the directive but publish conventional map names.
     return [
         urlunsplit((parts.scheme, parts.netloc, parts.path + ".map", parts.query, "")),
         urlunsplit(
             (parts.scheme, parts.netloc, parts.path[:-3] + ".map", parts.query, ""),
         ),
     ]
+
+
+class CaptureDeadlineExceeded(BaseException):
+    pass
+
+
+def deadline_expired(signum, frame):
+    raise CaptureDeadlineExceeded()
 
 
 @click.command(
@@ -94,6 +113,11 @@ def main(url):
     if not CONFIG.SOURCEMAPS_ENABLED:
         emit_archive_result_record("skipped", "SOURCEMAPS_ENABLED=False")
         return
+    # Keep an explicit total budget below the runner's hook timeout, including
+    # DNS, response bodies and all requests, so it can report an honest failure.
+    timeout = int(CONFIG.SOURCEMAPS_TIMEOUT)
+    signal.signal(signal.SIGALRM, deadline_expired)
+    signal.setitimer(signal.ITIMER_REAL, max(0.5, timeout * 0.8))
     try:
         OUTPUT.mkdir(parents=True, exist_ok=True)
         response_dir = SNAP_DIR / "responses"
@@ -108,6 +132,12 @@ def main(url):
             if entry.get("resourceType") != "script" or script_url in seen:
                 continue
             seen.add(script_url)
+            script_parts = urlsplit(script_url)
+            if (
+                script_parts.scheme not in ("http", "https")
+                or not script_parts.hostname
+            ):
+                continue
             source = (response_dir / entry.get("path", "")).resolve()
             if (
                 not source.is_relative_to(response_dir.resolve())
@@ -119,13 +149,14 @@ def main(url):
             for reference in candidates(
                 source.read_bytes(),
                 script_url,
-                int(CONFIG.SOURCEMAPS_TIMEOUT),
+                min(timeout, 5),
+                entry.get("headers", {}),
             ):
                 try:
                     raw, map_url = get_map(
                         reference,
                         script_url,
-                        int(CONFIG.SOURCEMAPS_TIMEOUT),
+                        min(timeout, 5),
                     )
                     if not raw or len(raw) > MAX_BYTES:
                         continue
@@ -162,6 +193,13 @@ def main(url):
             return
         write_text_atomic(OUTPUT / "index.json", json.dumps(records, indent=2) + "\n")
         emit_archive_result_record("succeeded", "sourcemaps/index.json")
+    except CaptureDeadlineExceeded:
+        print("Source map capture exceeded its total time budget", file=sys.stderr)
+        emit_archive_result_record(
+            "failed",
+            "Source map capture exceeded its time budget",
+        )
+        sys.exit(1)
     except Exception as error:
         print(
             f"Source map capture failed: {type(error).__name__}: {error}",
@@ -169,6 +207,8 @@ def main(url):
         )
         emit_archive_result_record("failed", str(error))
         sys.exit(1)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import base64
 import json
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,8 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__92_sourcemaps.py"
 
 
-def test_captures_external_and_inline_source_maps(tmp_path, httpserver):
+@pytest.mark.parametrize("slow", [False, True])
+def test_captures_external_and_inline_source_maps(tmp_path, httpserver, slow):
     external = json.dumps(
         {"version": 3, "sources": ["src/hello.ts"], "names": [], "mappings": "AAAA"},
     ).encode()
@@ -31,7 +33,8 @@ def test_captures_external_and_inline_source_maps(tmp_path, httpserver):
     ).encode()
     data = base64.b64encode(inline).decode()
     httpserver.expect_request("/").respond_with_data(
-        '<!doctype html><title>Source maps</title><script src="/bundle.js"></script><script src="/inline.js"></script><script src="/header.js"></script><script src="/legacy.js"></script>',
+        '<!doctype html><title>Source maps</title><script src="/bundle.js"></script><script src="/inline.js"></script><script src="/header.js"></script><script src="/legacy.js"></script>'
+        + ('<script src="/slow.js"></script>' if slow else ""),
         content_type="text/html",
     )
     httpserver.expect_request("/bundle.js").respond_with_data(
@@ -64,11 +67,26 @@ def test_captures_external_and_inline_source_maps(tmp_path, httpserver):
         external,
         content_type="application/json",
     )
+    if slow:
+        from werkzeug.wrappers import Response
+
+        httpserver.expect_request("/slow.js").respond_with_data(
+            'console.log("slow");\n//# sourceMappingURL=slow.map',
+            content_type="application/javascript",
+        )
+
+        def slow_map(request):
+            time.sleep(6)
+            return Response(external, content_type="application/json")
+
+        httpserver.expect_request("/slow.map").respond_with_handler(slow_map)
     url = httpserver.url_for("/")
     script_urls = [
         httpserver.url_for(path)
         for path in ("/bundle.js", "/inline.js", "/header.js", "/legacy.js")
     ]
+    if slow:
+        script_urls.append(httpserver.url_for("/slow.js"))
     with chrome_session(tmp_path, test_url=url, navigate=False, timeout=30) as (
         _,
         _,
@@ -109,11 +127,18 @@ def test_captures_external_and_inline_source_maps(tmp_path, httpserver):
         result = subprocess.run(
             [str(HOOK), f"--url={url}", "--snapshot-id=test", "--depth=0"],
             cwd=output,
-            env=env,
+            env={**env, **({"SOURCEMAPS_TIMEOUT": "5"} if slow else {})},
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=15,
         )
+    if slow:
+        assert result.returncode != 0
+        record = parse_jsonl_output(result.stdout)
+        assert record is not None
+        assert record["status"] == "failed"
+        assert "time budget" in record["output_str"]
+        return
     assert result.returncode == 0, result.stdout + result.stderr
     record = parse_jsonl_output(result.stdout)
     assert record is not None
