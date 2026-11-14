@@ -11,7 +11,7 @@ try {
   console.log(await Promise.all(pages.map(async page => ({targetId: page.pageId, url: await page.url()}))));
   if (pages.length !== 1) throw new Error('Select an explicit --target from --list');
   const page = pages[0];
-  // Native APIs: page.evaluate(() => document.title), page.locator('button').click(), page.keyPress('Enter').
+  // Native APIs: page.evaluate('document.title'), page.locator('button').click(), page.keyPress('Enter').
   // Run your task on this selected page.
 } finally { await browser.disconnect(); } // preserve the shared browser
 ```

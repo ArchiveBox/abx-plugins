@@ -96,8 +96,8 @@ async function run() {
       taskPrompt(summary, selectedPrompt) +
       "\n\nUse the bash tool with this exact shell syntax. The heredoc contains async JavaScript with native Stagehand browser, page, client objects already attached to this tab:\n" +
       command +
-      " <<'JS'\nconsole.log(await page.evaluate(() => document.title));\nJS\n" +
-      "Use page.evaluate(JAVASCRIPT_STRING_OR_FUNCTION) for main-world DOM inspection and interactions. " +
+      " <<'JS'\nconsole.log(await page.evaluate('document.title'));\nJS\n" +
+      "Use page.evaluate(JAVASCRIPT_STRING) for main-world DOM inspection and interactions. " +
       "Use native client/page APIs when DOM JavaScript is insufficient. Each call disconnects while preserving the tab. " +
       "Do not launch a browser or select a different tab. Save downloaded files to the outputDir variable provided to your code. " +
       (variableNames
