@@ -24,7 +24,8 @@ EXAMPLE = json.loads((Path(__file__).parent / "fixtures/reader-list.json").read_
 def test_public_reader_csv_batches_and_dates(httpserver):
     content = (Path(__file__).parent / "fixtures/reader-library.csv").read_bytes()
     httpserver.expect_request("/export.csv").respond_with_data(
-        content, content_type="text/csv",
+        content,
+        content_type="text/csv",
     )
     request = {
         "version": 1,
@@ -105,7 +106,8 @@ def test_pagination_and_incremental_checkpoint(httpserver):
     checkpoint = first[-1]["checkpoint"]
     assert checkpoint["cursor"] == EXAMPLE["nextPageCursor"]
     httpserver.expect_ordered_request(
-        "/list/", query_string={"limit": "100", "pageCursor": checkpoint["cursor"]},
+        "/list/",
+        query_string={"limit": "100", "pageCursor": checkpoint["cursor"]},
     ).respond_with_json(
         {**EXAMPLE, "results": documents[2:], "nextPageCursor": None},
     )
@@ -154,7 +156,9 @@ def test_read_only_actions_start_at_first_page(httpserver, action):
 )
 def test_http_failure_never_commits_progress(httpserver, status, expected):
     httpserver.expect_request("/list/").respond_with_data(
-        "", status=status, headers={"Location": httpserver.url_for("/must-not-follow")},
+        "",
+        status=status,
+        headers={"Location": httpserver.url_for("/must-not-follow")},
     )
     records = execute(httpserver)
     assert len(records) == 1

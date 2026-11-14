@@ -160,7 +160,9 @@ def main(request):
                 emit(item)
         if next_cursor:
             checkpoint.update(
-                cursor=next_cursor, started_at=started_at, requested_at=last_request,
+                cursor=next_cursor,
+                started_at=started_at,
+                requested_at=last_request,
             )
         else:
             checkpoint = {"updated_after": started_at, "requested_at": last_request}

@@ -185,7 +185,10 @@ def extract_urls_from_reader(reader, *, source_url: str, urls_found: set[str]) -
 
 
 def extract_urls_from_document(
-    content, *, source_url: str, urls_found: set[str],
+    content,
+    *,
+    source_url: str,
+    urls_found: set[str],
 ) -> None:
     for kind, value in content:
         if kind == "url":

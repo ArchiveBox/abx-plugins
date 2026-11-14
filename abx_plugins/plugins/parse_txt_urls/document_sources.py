@@ -104,7 +104,8 @@ def iter_document_content(path: Path):
     if extension in {".csv", ".tsv"}:
         with path.open(encoding="utf-8-sig", errors="replace", newline="") as stream:
             yield from iter_delimited_content(
-                stream, delimiter="\t" if extension == ".tsv" else ",",
+                stream,
+                delimiter="\t" if extension == ".tsv" else ",",
             )
         return
     with zipfile.ZipFile(path) as archive:
