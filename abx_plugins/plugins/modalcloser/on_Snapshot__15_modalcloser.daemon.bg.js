@@ -18,7 +18,7 @@
  *
  * Environment variables:
  *     MODALCLOSER_ENABLED: Enable/disable (default: true)
- *     MODALCLOSER_TIMEOUT: Delay before auto-closing dialogs in ms (default: 1250)
+ *     MODALCLOSER_TIMEOUT: Delay before auto-closing dialogs in seconds (default: 1.25)
  *     MODALCLOSER_POLL_INTERVAL: How often to check for CSS modals in ms (default: 500)
  */
 
@@ -361,7 +361,7 @@ async function main() {
     process.exit(1);
   }
 
-  const dialogTimeout = getEnvInt("MODALCLOSER_TIMEOUT", 1250);
+  const dialogTimeout = getEnvInt("MODALCLOSER_TIMEOUT", 1.25);
   const pollInterval = getEnvInt("MODALCLOSER_POLL_INTERVAL", 500);
 
   let browser = null;
@@ -412,7 +412,7 @@ async function main() {
       console.error(`Auto-closing dialog: ${type} - "${message}"`);
 
       // Small delay before accepting (some pages expect a brief pause)
-      await sleep(dialogTimeout);
+      await sleep(dialogTimeout * 1000);
       try {
         await dialog.accept();
         dialogsClosed++;

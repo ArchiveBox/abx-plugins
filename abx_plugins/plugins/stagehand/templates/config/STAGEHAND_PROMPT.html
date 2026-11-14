@@ -1,0 +1,8 @@
+{% extends 'plugins/config_editor.html' %}
+{% block label %}Browser instructions{% endblock %}
+{% block language %}Prompt{% endblock %}
+{% block snippets %}
+<button type="button" data-config-insert="Expand collapsed sections so their content is visible in the capture.">+ Expand content</button>
+<button type="button" data-config-insert="Scroll through the page to load its images and content, then return to the top.">+ Load the page</button>
+{% endblock %}
+{% block help %}Describe how to prepare the page. Used when the script is empty.{% endblock %}

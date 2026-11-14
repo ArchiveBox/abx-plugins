@@ -1,0 +1,8 @@
+{% extends 'plugins/config_editor.html' %}
+{% block label %}Tagging instructions{% endblock %}
+{% block language %}Prompt{% endblock %}
+{% block snippets %}
+<button type="button" data-config-insert="Prefer broad topic tags. Use lowercase words separated by hyphens.">+ Topics</button>
+<button type="button" data-config-insert="Include the names of people, organizations, and products discussed.">+ Names</button>
+{% endblock %}
+{% block help %}Choose the topics and naming style for generated tags.{% endblock %}

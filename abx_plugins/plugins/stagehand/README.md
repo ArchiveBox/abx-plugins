@@ -26,3 +26,27 @@ uv run pytest abx_plugins/plugins/stagehand/tests -q
 The normal CI test `test_ten_challenges` uses `OPENAI_API_KEY`, model `openai/gpt-6.1-sol`, and a 240-second hook timeout. It solves ten tasks on the public browser challenge page, calls `done`, then verifies a score of 10 or 11 in the DOM plugin’s saved HTML. It takes no screenshots.
 
 Saved files appear under **Embedded media** on the snapshot detail page. Hooks write an `index.html` listing only when their output directory contains captured files; status logs alone produce no card. JavaScript scripts receive `outputDir`; Python script relative paths use the plugin output directory.
+
+## Domain-specific preparation
+
+The settings editor's **Domain guard** and **Route by domain** buttons generate
+ordinary JavaScript in the existing script field. Matching uses the attached
+page's hostname after redirects, with exact domains and their subdomains.
+
+```javascript
+const host = await page.evaluate({expression: 'location.hostname'});
+if (host !== 'example.com' && !host.endsWith('.example.com')) {
+  return {status: 'skipped', reason: 'Domain not selected: ' + host};
+}
+// Prepare the matching page here.
+```
+
+Returning `{status: 'skipped', reason: '...'}` disconnects normally and emits the
+existing `skipped` ArchiveResult with exit code 10, without writing a successful
+preparation result. Scripts that return nothing retain their existing behavior.
+
+The **Domain prompts** button generates script branches returning
+`{prompt: 'Instructions for this domain'}`. This invokes the existing Stagehand
+agent path with `STAGEHAND_MODEL`, credentials, and variables; a selected prompt
+replaces `STAGEHAND_PROMPT` for this execution only. A script returning neither a
+prompt nor `skipped` continues to take precedence over the configured prompt.

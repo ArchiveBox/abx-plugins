@@ -1,0 +1,4 @@
+{% extends "plugins/config_field.html" %}
+{% block label %}Preview quality{% endblock %}
+{% block widget %}{% include "plugins/config_range.html" with unit="%" low="Smaller frames" high="More detail" step="1" %}{% endblock %}
+{% block help %}JPEG quality for the live preview.{% endblock %}

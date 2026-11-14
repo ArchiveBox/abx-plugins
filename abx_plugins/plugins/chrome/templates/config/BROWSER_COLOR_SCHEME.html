@@ -1,0 +1,15 @@
+{% extends 'plugins/config_field.html' %}
+{% block label %}Page appearance{% endblock %}
+{% block widget %}
+<div class="config-presets config-appearance">
+    <button type="button" data-config-preset=""><span class="config-window config-window-auto" aria-hidden="true"></span>Automatic</button>
+    <button type="button" data-config-preset="light"><span class="config-window config-window-light" aria-hidden="true"></span>Light</button>
+    <button type="button" data-config-preset="dark"><span class="config-window config-window-dark" aria-hidden="true"></span>Dark</button>
+</div>
+<select class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}" aria-describedby="help_{{ field.input_name }}">
+    <option value=""{% if field.value == '' %} selected{% endif %}>Browser default</option>
+    <option value="light"{% if field.value == 'light' %} selected{% endif %}>Light</option>
+    <option value="dark"{% if field.value == 'dark' %} selected{% endif %}>Dark</option>
+</select>
+{% endblock %}
+{% block help %}Choose how pages look when captured.{% endblock %}
