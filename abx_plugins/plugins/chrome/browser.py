@@ -17,7 +17,10 @@ from abx_plugins.plugins.base.utils import load_config, load_required_binary
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("open", "export-state", "recover"))
+    parser.add_argument(
+        "operation",
+        choices=("open", "export-state", "recover", "profile"),
+    )
     parser.add_argument("--persona-dir")
     parser.add_argument("--persona-name")
     parser.add_argument("--headless", action="store_true")
@@ -37,6 +40,11 @@ def main():
         request.get("user_data_dir") or request.get("cdp_url")
     ):
         raise ValueError("user_data_dir or cdp_url is required")
+    if operation == "profile":
+        from abx_plugins.plugins.chrome.profiles import run
+
+        print(json.dumps({"path": str(run(request))}))
+        return
     config_path = Path(__file__).with_name("config.json")
     request_config = request.get("config", {})
     config_env = {

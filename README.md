@@ -144,6 +144,7 @@ Command contracts:
 
 - `browser-open`: stdin `{config, persona_dir, name?, headless?, collection_dir?}`; emits a JSON readiness record with `ready` and `browser_pid`.
 - `browser-export-state`: stdin `{config, user_data_dir?, cdp_url?, profile_dir?, browser_binary?, cookies_output_file?, auth_output_file?}`; exports selected browser state.
+- `browser-profile`: stdin `{action: "copy" | "import", source_dir, destination_dir, profile_dir?}` or `{action: "prepare", persona_dir, source_dir?, name?, browser_binary?}`; stdout `{path}`. Paths are absolute; `import` requires `profile_dir` and normalizes it to `Default`.
 - `configure-gallery`: stdin `{model, config, data_dir}`; stdout `{configured: bool}`.
 - `recover`: stdin `{config, paths}`; stdout `{processes_orphaned: nonnegative int}`. Recovery uses installed tools and preserves live owners.
 - `deduplicate`: stdin `{root, files: [{path, hash, size}]}`; emits `{type: "DeduplicateResult", schema_version: 1, supported_platform, attempted_files, extent_bytes_verified, failed_files, error?}`.
