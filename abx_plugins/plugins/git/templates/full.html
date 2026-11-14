@@ -23,10 +23,11 @@ const formatSize = (value) => {
  const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';
  const root=new URL(output);const boundary=root.pathname.search(/\/git(?:\/|$)/);root.pathname=boundary>=0?root.pathname.slice(0,boundary+1):new URL('../',output).pathname;
  const folder=new URL('git/',root),byId=id=>document.getElementById(id),el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
- const captures=[{% for capture in captures %}{% if capture.plugin == 'git' or capture.plugin == 'dom' or capture.plugin == 'wget' or capture.plugin == 'singlefile' %}{% for path, info in capture.output_files.items %}{path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
+ const captures=[{% for capture in captures %}{% if capture.plugin == 'git' or capture.plugin == 'dom' or capture.plugin == 'wget' or capture.plugin == 'singlefile' %}{% for path, info in capture.output_files.items %}{% if STATIC_PREVIEW_PATHS %}{% snapshot_result_file_url snapshot capture path preview=True as preview_url %}{% else %}{% snapshot_result_file_url snapshot capture path as preview_url %}{% endif %}{url:'{{ preview_url|escapejs }}',path:'{{ path|escapejs }}',plugin:'{{ capture.plugin|escapejs }}',root:{{ info.root_relative|yesno:'true,false' }},size:{{ info.size|default:0 }}},{% endfor %}{% endif %}{% endfor %}];
  const relative=file=>file.root?file.path:file.plugin+'/'+file.path;
  const valid=path=>!path.startsWith('/')&&!path.split('/').some(part=>part==='..'||part==='.'||part==='');
- const fileURL=path=>new URL(path.split('/').map(encodeURIComponent).join('/'),root);
+ const fileURLs=new Map(captures.filter(file=>file.plugin==='git'&&file.url).map(file=>[relative(file),file.url]));
+ const fileURL=path=>fileURLs.has(path)?new URL(fileURLs.get(path),location.href):new URL(path.split('/').map(encodeURIComponent).join('/'),root);
  const files=[...new Map(captures.filter(f=>f.plugin==='git').map(f=>({...f,path:relative(f).replace(/^git\//,'')})).filter(f=>valid(f.path)&&!f.path.split('/').includes('.git')&&!/^on_Snapshot__|^git\.jsonl$/.test(f.path)).map(f=>[f.path,f])).values()];
  byId('files').href=folder.href+'?files=1';byId('count').textContent=files.length+' files';
  const source='{{ snapshot.url|escapejs }}';try{const url=new URL(source);if(['http:','https:'].includes(url.protocol)){byId('source').href=url.href;byId('source').hidden=false;const parts=url.pathname.split('/').filter(Boolean);byId('name').textContent=parts.slice(0,2).join(' / ').replace(/\.git$/,'')||url.hostname}}catch{}
