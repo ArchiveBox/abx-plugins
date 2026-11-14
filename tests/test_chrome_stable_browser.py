@@ -24,9 +24,18 @@ def test_managed_browser_is_stable_chrome(
         check=True,
         timeout=10,
     )
-    # Official Chrome for Testing stable release, independently checked against
-    # its published channel manifest when updating the dependency pin.
-    assert "Google Chrome for Testing 156.0.8078.47" in version.stdout
+    # Dependency updates change the committed Chrome pin. Check the real
+    # installed binary and browser session against that same exact version.
+    chrome = next(
+        binary
+        for binary in json.loads((CHROME_UTILS.parent / "config.json").read_text())[
+            "required_binaries"
+        ]
+        if binary["name"] == "{CHROME_BINARY}"
+    )
+    expected_version = chrome["min_version"]
+    assert chrome["max_version"] == expected_version
+    assert version.stdout.strip() == f"Google Chrome for Testing {expected_version}"
     httpserver.expect_request("/").respond_with_data(
         "<!doctype html><title>Stable Chrome capture</title><h1>ArchiveBox</h1>",
         content_type="text/html",
@@ -60,6 +69,6 @@ const utils = require(process.argv[1]);
         )
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout) == {
-            "version": "Chrome/156.0.8078.47",
+            "version": f"Chrome/{expected_version}",
             "title": "Stable Chrome capture",
         }
