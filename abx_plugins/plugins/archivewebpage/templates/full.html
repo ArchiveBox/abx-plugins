@@ -44,10 +44,46 @@
     }
 
     let replayPoll;
+    let replayResizeObserver;
+    let measuredDocument;
+    let reportReplayHeight;
+    function sizeReplayDocument(frame, doc) {
+        if (window.name !== 'preview' && window.name !== 'replay-preload') return;
+        if (measuredDocument === doc) return;
+        replayResizeObserver?.disconnect();
+        measuredDocument = doc;
+        const style = doc.createElement('style');
+        style.textContent = 'html,body{height:auto!important;min-height:0!important}body{display:flow-root}';
+        doc.head.append(style);
+        const resize = () => {
+            if (window.name !== 'preview') return;
+            const body = doc.body;
+            const margins = frame.contentWindow.getComputedStyle(body);
+            const height = Math.ceil(body.getBoundingClientRect().height +
+                parseFloat(margins.marginTop) + parseFloat(margins.marginBottom));
+            const root = document.getElementById('replay-root');
+            if (height <= 0 || root.style.height === `${height}px`) return;
+            root.style.height = `${height}px`;
+            parent.postMessage({type: 'archivebox-preview-height', height}, '*');
+        };
+        reportReplayHeight = resize;
+        replayResizeObserver = new ResizeObserver(resize);
+        replayResizeObserver.observe(doc.body);
+        doc.addEventListener('load', resize, true);
+        frame.contentWindow.addEventListener('resize', resize);
+        doc.fonts.ready.then(resize);
+        resize();
+    }
+    window.addEventListener('message', event => {
+        if (event.source === parent && event.data?.type === 'archivebox-preview-activated') reportReplayHeight?.();
+    });
     function replayDocumentLoaded(root) {
         for (const element of root.querySelectorAll('*')) {
             if (element.shadowRoot && replayDocumentLoaded(element.shadowRoot)) return true;
             if (element.tagName !== 'IFRAME') continue;
+            // Inline iframe baselines leave a descender gap below a 100%-high
+            // replay, making the wrapper itself scroll by a few pixels.
+            element.style.display = 'block';
             try {
                 const child = element.contentWindow;
                 const doc = element.contentDocument;
@@ -60,6 +96,7 @@
                     // Give this frame its own Canvas backdrop so the viewer's white
                     // background cannot show behind dark-mode foreground colors.
                     element.style.backgroundColor = 'Canvas';
+                    sizeReplayDocument(element, doc);
                     return true;
                 }
                 if (replayDocumentLoaded(doc)) return true;
@@ -73,7 +110,12 @@
         const replayElement = document.getElementById('replay-template').content.firstElementChild.cloneNode(true);
         replayElement.addEventListener('rwp-page-loading', (event) => {
             // A later navigation must not reuse the prior document's readiness.
-            if (event.detail && event.detail.loading === true) window.archiveboxReplayReady = null;
+            if (event.detail && event.detail.loading === true) {
+                window.archiveboxReplayReady = null;
+                replayResizeObserver?.disconnect();
+                measuredDocument = null;
+                watchReplayDocument();
+            }
             if (event.detail && event.detail.loading === false) {
                 // A missing-record response also has a loaded iframe body.
                 // Use the replay engine's result, not error-page text heuristics.
@@ -91,13 +133,20 @@
         root.replaceChildren(replayElement);
         // A fallback can fully cover this frame, suppressing animation frames
         // and paint entries. DOM readiness still works while it loads behind it.
+        watchReplayDocument();
+    }
+    function watchReplayDocument() {
+        clearInterval(replayPoll);
         replayPoll = setInterval(() => {
             if (!window.archiveboxReplayReady || window.archiveboxReplayError || !replayDocumentLoaded(document)) return;
             clearInterval(replayPoll);
             parent.postMessage({type: 'archivebox-replay-painted'}, '*');
         }, 50);
     }
-    window.addEventListener('pagehide', () => clearInterval(replayPoll), {once: true});
+    window.addEventListener('pagehide', () => {
+        clearInterval(replayPoll);
+        replayResizeObserver?.disconnect();
+    }, {once: true});
 
     // Download/activate the worker while the browser fetches and parses the UI.
     const replayWorkerReady = activateReplayWorker();

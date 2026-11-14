@@ -101,9 +101,9 @@ def test_replay_reports_real_document_or_unsupported_platform(
 
     httpserver.expect_request(source).respond_with_handler(serve_capture)
     httpserver.expect_request("/").respond_with_data(
-        f'<!doctype html><iframe id="replay" src="{source}?preview=1" style="width:100%;height:90vh"></iframe>'
+        f'<!doctype html><iframe id="replay" name="preview" src="{source}?preview=1" style="width:100%;height:90vh"></iframe>'
         '<script>window.messages=[];addEventListener("message",event=>{'
-        'if(event.source===document.getElementById("replay").contentWindow) messages.push(event.data);});</script>',
+        'if(event.source===document.getElementById("replay").contentWindow) {messages.push(event.data); if(event.data.type==="archivebox-preview-height") document.getElementById("replay").style.height=event.data.height+"px";}});</script>',
         content_type="text/html",
     )
     url = httpserver.url_for("/")
@@ -126,6 +126,20 @@ def test_replay_reports_real_document_or_unsupported_platform(
             )
             replay = next(frame for frame in page.frames if "/replay/w/" in frame.url)
             assert "Outside iframe" in replay.locator("body").inner_text()
+            for width, height in ((390, 240), (768, 1024), (1440, 900), (320, 568)):
+                page.set_viewport_size({"width": width, "height": height})
+                page.wait_for_function(
+                    "messages.some(message => message.type === 'archivebox-preview-height')",
+                )
+                replay.wait_for_function(
+                    "document.documentElement.scrollHeight <= innerHeight + 1",
+                )
+                for frame in page.frames:
+                    if frame == page.main_frame or frame.parent_frame == replay:
+                        continue
+                    frame.wait_for_function(
+                        "document.documentElement.scrollHeight <= innerHeight + 1",
+                    )
             assert not page.evaluate(
                 "messages.some(message => message.type === 'archivebox-replay-error')",
             )
