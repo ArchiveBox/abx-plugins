@@ -1,4 +1,22 @@
 {
   "url": "https://www.thingiverse.com/thing:763622/files",
-  "wait_for_text": "3DBenchy.stl"
+  "wait_for_text": "3DBenchy.stl",
+  "outputs": [
+    {
+      "name": "Model preview (STL)",
+      "path": "files/3DBenchy.stl?preview=1&raw=1",
+      "model": true
+    },
+    {
+      "name": "Model preview (3MF)",
+      "path": "files/3DBenchy.3mf?preview=1&raw=1",
+      "model": true
+    },
+    {
+      "name": "Model preview (GLB)",
+      "url": "https://modelviewer.dev/",
+      "path": "files/NeilArmstrong.glb?preview=1&raw=1",
+      "model": true
+    }
+  ]
 }

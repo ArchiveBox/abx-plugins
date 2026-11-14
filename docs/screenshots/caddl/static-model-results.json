@@ -1,0 +1,23 @@
+[
+  {
+    "file": "3DBenchy.stl",
+    "triangles": 225706,
+    "sha256": "6ab57f1c3f8e86bc3cbd302c6fa6270acf06277c6335454e922419c25d42e97e",
+    "viewer": "http://127.0.0.1:5916/archive/users/system/snapshots/20261114/www.thingiverse.com/06af80ca98b379398000df6501b0a9f1/_archivebox/73d09d9729a4bf5d-file.html",
+    "allRequestsLocal": true
+  },
+  {
+    "file": "3DBenchy.3mf",
+    "triangles": 225154,
+    "sha256": "74ec6ee3dba54a4973bad319c13e4d7df20a860ef82209912adceedeb8e8e643",
+    "viewer": "http://127.0.0.1:5916/archive/users/system/snapshots/20261114/www.thingiverse.com/06af80ca98b379398000df6501b0a9f1/_archivebox/47c5b7869d3bea4f-file.html",
+    "allRequestsLocal": true
+  },
+  {
+    "file": "NeilArmstrong.glb",
+    "triangles": 43634,
+    "sha256": "3acbcab4fc849afb342ac6b64ac44fe6203ef9324a531d22eda045068a7e9359",
+    "viewer": "http://127.0.0.1:5916/archive/users/system/snapshots/20261114/modelviewer.dev/06af80ac620b759780005947e4d794dd/_archivebox/797019e431e25e6b-file.html",
+    "allRequestsLocal": true
+  }
+]
