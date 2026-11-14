@@ -185,7 +185,9 @@ def download(url, filename, checksum, integrity, directory, timeout, remaining):
     return size
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True)
 def main(url):
     if not CONFIG.PACKAGEREGISTRY_ENABLED:
