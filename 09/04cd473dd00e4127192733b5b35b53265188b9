@@ -1,0 +1,31 @@
+abx_plugins/plugins/base/django.py
+  s_a46618ba6633c7::t_d5195ec764b319 1,6-16,19-29
+  s_a46618ba6633c7::t_2fd3e828883c3e 17-18
+abx_plugins/plugins/packageregistry/config.json
+  s_a46618ba6633c7::t_39af175a8660e6 11
+README.md
+  s_a46618ba6633c7::t_bf9873acaa57e8 76,92
+  s_a46618ba6633c7::t_a992825cc7b249 80
+  s_a46618ba6633c7::t_9674770f5a689e 124,126-127,129-130
+  s_a46618ba6633c7::t_bd2406daa8931a 141
+  s_a46618ba6633c7::t_55d0718b4f436e 123,128
+  s_a46618ba6633c7::t_486fd03023bc35 125
+  s_a46618ba6633c7::t_7dce437f938349 140
+  s_a46618ba6633c7::t_fc39935862afd7 77-79,81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0904cd473dd00e4127192733b5b35b53265188b9",
+  "prompts": {},
+  "sessions": {
+    "s_a46618ba6633c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8f0-fa22-70d1-9371-93fdd45189f2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
