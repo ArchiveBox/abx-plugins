@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Automatic tags",
+  "description": "Generate tags from saved capture text using the configured OpenCode provider.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "opencode"
+  ],
+  "required_binaries": [],
+  "wait_for_background_cleanup": true,
+  "output_mimetypes": [
+    "application/x-ndjson",
+    "application/json"
+  ],
+  "default_output_path": "tags.jsonl",
+  "properties": {
+    "AUTOTAG_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Generate tags from saved capture text using the configured OpenCode provider."
+    },
+    "AUTOTAG_MODEL": {
+      "type": "string",
+      "default": "",
+      "description": "Optional provider/model. Blank uses the existing OpenCode default model."
+    },
+    "AUTOTAG_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 10,
+      "description": "Total time allowed for one OpenCode request in seconds."
+    },
+    "AUTOTAG_LANGUAGE": {
+      "type": "string",
+      "default": "English",
+      "description": "Language for generated content."
+    },
+    "AUTOTAG_PROMPT": {
+      "type": "string",
+      "default": "",
+      "description": "Additional instructions for generated tags, including any preferred tag names."
+    },
+    "AUTOTAG_INPUTS": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "readability/content.txt",
+        "defuddle/content.txt",
+        "htmltotext/htmltotext.txt",
+        "trafilatura/content.txt",
+        "mercury/content.txt",
+        "dom/output.html",
+        "singlefile/singlefile.html",
+        "wget/**/*.html"
+      ],
+      "description": "Saved snapshot paths or glob patterns, in preference order. The first nonempty source is used. No pages are fetched."
+    },
+    "AUTOTAG_STYLE": {
+      "type": "string",
+      "default": "as_generated",
+      "enum": [
+        "as_generated",
+        "lower_spaces",
+        "lower_hyphens",
+        "lower_underscores",
+        "title_spaces",
+        "camel"
+      ],
+      "description": "Formatting for generated tag names."
+    }
+  },
+  "category": "postprocessing",
+  "display_order": 85
+}
