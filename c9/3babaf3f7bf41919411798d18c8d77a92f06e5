@@ -1,0 +1,60 @@
+abx_plugins/plugins/chrome/profile_state.js
+  s_10bc94d001be49::t_d0bac8574286b8 1-2,4-92,94-102,120-124,129,132-152,156-160,162-169
+  s_784d0e5fa3aa29::t_625ac68d9cce07 93,103-104,106-107,110-114,116-119
+  s_784d0e5fa3aa29::t_5b3f63d002f0e6 130,161
+  s_784d0e5fa3aa29::t_d6740a8a2ee8bf 3,125-128,153-155
+  s_784d0e5fa3aa29::t_6f515f93829c81 131
+  s_784d0e5fa3aa29::t_9c457a0021c7f9 105,108-109,115
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_784d0e5fa3aa29::t_ca329fea16c21a 5095,5109
+  s_784d0e5fa3aa29::t_53ed56be35fcb3 5097,5113,5181
+  s_10bc94d001be49::t_e3673c7e3ac38c 5478,5521-5533
+abx_plugins/plugins/chrome/persona_storage.js
+  s_784d0e5fa3aa29::t_545c249f8fc9a4 42,67-71,73,118,165,173,177
+  s_784d0e5fa3aa29::t_b7080673b148e6 43,178-181,183,187
+  s_784d0e5fa3aa29::t_2129a63e8e05f5 50-58
+abx_plugins/plugins/chrome/tests/test_playwright_storage_import.py
+  s_784d0e5fa3aa29::t_daea0314ea9e42 7-10,15,19-20,23,29-34,58-60,85-92,94-99,108-114
+  s_784d0e5fa3aa29::t_cdc2c354532f8e 14,75-82,93
+  s_784d0e5fa3aa29::t_fe8f9067a8c121 24,27,122,128
+  s_784d0e5fa3aa29::t_02c46821a942dd 1-6,11-13,28,35-55,61-74,83-84,100-107,115-118,138-139
+  s_10bc94d001be49::t_dd076dfdd24515 56-57
+  s_784d0e5fa3aa29::t_303374ed865a4e 119-121,129-137
+  s_784d0e5fa3aa29::t_587003b6045a54 16-18,21-22,25-26,123-127
+abx_plugins/plugins/chrome/export_browser_state.js
+  s_10bc94d001be49::t_3d88e61696297c 202
+  s_10bc94d001be49::t_d0bac8574286b8 73,96-117,201,203
+  s_784d0e5fa3aa29::t_25702ad6b6ed55 132-137
+abx_plugins/plugins/chrome/playwright_storage.js
+  s_784d0e5fa3aa29::t_d1c372db280a62 1-81
+abx_plugins/plugins/chrome/browser.py
+  s_784d0e5fa3aa29::t_2e4fc8915535f0 43-48,77-87,202-211
+abx_plugins/plugins/chrome/tests/test_profile_domain_removal.py
+  s_784d0e5fa3aa29::t_587003b6045a54 23-24,187-189,392-394
+  s_10bc94d001be49::t_d1d2f14ef6c9f1 9-22,25-35,40,80-173,180,199,241-317,324,378,385,402,406,440,469
+  s_784d0e5fa3aa29::t_59a3108167e887 1-8,36-39,41-79,174-179,181-186,190-198,200-240,318-323,325-377,379-384,386-391,395-401,403-405,407-439,441-468,470
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c93babaf3f7bf41919411798d18c8d77a92f06e5",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
