@@ -10,11 +10,11 @@
     "model-preview-stl-desktop.png": "0a7cf8c4f18f3f17b0ec14d03f70f21cfa9c1fb6e447f378dfea035a337ada92",
     "model-preview-stl-mobile.png": "7c4175b33dd622e70803074134f4559acc270ad01e9846f0888a59ce2dcca496",
     "model-preview-stl-tablet.png": "04458e55c1388ca3294787c0d81d78d65d0fbbd2a2f59e2c6f52d154373ee489",
-    "snapshot-view-caddl-desktop.png": "81018c677bda2cc67afedc67085aff7f1aa3fc2ca53472c9458971022850c443",
-    "snapshot-view-caddl-mobile.png": "956183bb213674c8d1ba94b862805a22e17e23511bd59bde651dfda780f34121",
-    "snapshot-view-caddl-tablet.png": "18fac1b0cf54babcb4a2d76a04439a23d5adb57cc82bfba594249cc82d565ec2"
+    "snapshot-view-caddl-desktop.png": "db4f8666150fb09db0434da4306a5f72a762eaaf4afee68e73117981e7b184d8",
+    "snapshot-view-caddl-mobile.png": "adf20fe01102ab29a6de8d7b7c78339e3bb717b030665bee028f0ca083c968ed",
+    "snapshot-view-caddl-tablet.png": "599a6489d3b95bb66be7ab9e0ae59ee7ecabfcd628a7e55ce96531e57513bdc8"
   },
-  "generated_at": "2026-11-14T08:25:50+00:00",
+  "generated_at": "2026-11-14T08:42:08+00:00",
   "revision": "1f878a5d9c60579f5fafe4278cbe3e8593b0160d",
   "version": "0.9.78rc111"
 }
