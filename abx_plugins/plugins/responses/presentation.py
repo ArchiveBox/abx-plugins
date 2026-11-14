@@ -178,6 +178,24 @@ def _rewrite_html_image_sources_to_responses(
     ):
         return html_text, 0
 
+    # DOM is captured after navigation, so relative resources belong to the
+    # settled page, not the URL that redirected to it. Existing captures can
+    # recover that base from Chrome's optional navigation artifact.
+    if html_rel_path == "dom/output.html":
+        try:
+            navigation = json.loads(
+                (snapshot_root / "chrome/navigation.json").read_text(),
+            )
+            if (
+                isinstance(navigation, dict)
+                and navigation.get("url") == page_url
+                and isinstance(navigation.get("finalUrl"), str)
+                and urlsplit(navigation["finalUrl"]).scheme in {"http", "https"}
+            ):
+                page_url = navigation["finalUrl"]
+        except (OSError, ValueError):
+            pass
+
     records = None
     index = snapshot_root / "responses" / "index.jsonl"
     if index.is_file():
