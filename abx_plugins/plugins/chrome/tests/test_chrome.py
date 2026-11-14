@@ -34,6 +34,7 @@ from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 import pytest
+import psutil
 from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -5362,6 +5363,8 @@ def test_zombie_prevention_hook_killed():
         except OSError:
             raise AssertionError("Both Chrome and hook should be running")
 
+        chrome_children = psutil.Process(chrome_pid).children(recursive=True)
+
         # Simulate hook getting SIGKILL'd (can't cleanup)
         os.kill(hook_pid, signal.SIGKILL)
         chrome_launch_process.wait(timeout=10)
@@ -5377,9 +5380,12 @@ def test_zombie_prevention_hook_killed():
             "shared kill_chrome cleanup should terminate the orphaned browser"
         )
 
-        # Chrome should now be dead
-        with pytest.raises(ProcessLookupError):
-            os.kill(chrome_pid, 0)
+        # An orphan can retain its PID as a zombie until its new parent reaps
+        # it. Check that neither the browser nor its descendants can run, rather
+        # than depending on the host init process having reaped them already.
+        assert not is_pid_alive(chrome_pid)
+        assert all(not is_pid_alive(child.pid) for child in chrome_children)
+        assert not (chrome_dir / "chrome.pid").exists()
 
 
 @pytest.mark.parametrize("columns", ["80", "240"])
