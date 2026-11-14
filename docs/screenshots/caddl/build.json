@@ -1,11 +1,11 @@
 {
   "capture_count": 3,
   "files": {
-    "snapshot-view-caddl-desktop.png": "1a610462a4bcf8fe68af4cde1cb674e526e2fe26fa04ea9188c70b008bcbd2f0",
-    "snapshot-view-caddl-mobile.png": "fe4fb8cc52267745c883db95fcc696ffb770ac754f69fc1ff49da2d345ac8238",
-    "snapshot-view-caddl-tablet.png": "0df9434d610fbe75ff46fbea10f2b372241f2df11f3c83842aafd9f2b91e72c4"
+    "snapshot-view-caddl-desktop.png": "af10a2e57e53cc719e5faa34e008cd94d7c383bd18c550c3b3f186bd15312954",
+    "snapshot-view-caddl-mobile.png": "c5c01bc80a694522d22f6eb90c2eba3e012823b5a6847eb123c34a07158587fa",
+    "snapshot-view-caddl-tablet.png": "a9695bd03f82592db967d3015a8cbce6dcc907b1c12b98b3baa8c6988fbb89c1"
   },
-  "generated_at": "2026-11-14T07:42:51+00:00",
-  "revision": "e6a21662ff8e7adecb2c895225fb5e27d031ffff",
-  "version": "0.9.78rc112"
+  "generated_at": "2026-11-14T07:51:35+00:00",
+  "revision": "147148bd9274bb1890163dc2b959f6721e5fafb6",
+  "version": "0.9.78rc117"
 }
