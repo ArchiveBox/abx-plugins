@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAD / 3D</title>
+<style>
+:root{color-scheme:light dark;--paper:#fff;--ink:#252932;--muted:#68717c;--line:#e5e7eb;--accent:#a51b55}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:13px/1.5 system-ui,-apple-system,sans-serif}
+header{display:flex;align-items:center;gap:12px;height:42px;padding:0 14px;border-bottom:1px solid var(--line)}header strong{font-weight:600}header span{color:var(--muted)}nav{display:flex;gap:14px;margin-left:auto}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+table{border-collapse:collapse;width:100%;text-align:left;table-layout:fixed}th,td{padding:9px 14px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:11px;font-weight:600}th:first-child{width:55%}th:nth-child(2){width:15%}th:last-child{text-align:right;width:30%}td:last-child{text-align:right;font-variant-numeric:tabular-nums}td:first-child{overflow-wrap:anywhere}td:nth-child(2){color:var(--muted);font-size:11px}#status{margin:14px;color:var(--muted)}.card-view header{height:30px;padding:0 8px}.card-view nav,.card-view thead{display:none}.card-view th,.card-view td{padding:5px 8px;font-size:11px}
+@media(prefers-color-scheme:dark){:root{--paper:#171a20;--ink:#e5e7eb;--muted:#a1a8b3;--line:#323741;--accent:#ee8db4}}
+</style>
+</head>
+<body data-output="{{ output_path }}">
+<header><strong>CAD / 3D</strong><span id="summary"></span><nav><a id="files">Files</a><a id="raw">JSON</a></nav></header>
+<table><thead><tr><th>File</th><th>Type</th><th>Size</th></tr></thead><tbody id="assets"></tbody></table><p id="status" hidden></p>
+<script>
+(async()=>{
+  document.body.classList.toggle('card-view',new URLSearchParams(location.search).get('card')==='1');
+  const output=new URL(document.body.dataset.output,location.href);output.search='';output.hash='';
+  const folder=new URL('./',output);
+  document.getElementById('files').href=new URL('files/?files=1',folder).href;
+  document.getElementById('raw').href=output.href+'?raw=1';
+  const size=n=>new Intl.NumberFormat(undefined,{maximumFractionDigits:1}).format(n>=1048576?n/1048576:n>=1024?n/1024:n)+(n>=1048576?' MB':n>=1024?' KB':' B');
+  try{
+    const response=await fetch(output);if(!response.ok)throw new Error(String(response.status));
+    const data=await response.json();const assets=Array.isArray(data.files)?data.files:[];
+    document.getElementById('summary').textContent=assets.length+' file'+(assets.length===1?'':'s');
+    for(const asset of assets){
+      if(!asset.filename||!String(asset.filename).split('/').every(part=>part&&part!=='.'&&part!=='..'))continue;
+      const row=document.createElement('tr');const name=document.createElement('td');const link=document.createElement('a');
+      link.textContent=asset.filename;link.href=new URL('files/'+asset.filename.split('/').map(encodeURIComponent).join('/'),folder).href;link.download=asset.filename;link.title=asset.sha256||'';name.append(link);
+      const type=document.createElement('td');type.textContent=String(asset.format||'').toUpperCase();const bytes=document.createElement('td');bytes.textContent=size(Number(asset.size)||0);row.append(name,type,bytes);document.getElementById('assets').append(row);
+    }
+  }catch(error){const status=document.getElementById('status');status.hidden=false;status.textContent='Cannot read saved files: '+error.message;}
+})();
+</script>
+</body></html>

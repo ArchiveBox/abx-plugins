@@ -3438,7 +3438,7 @@ async function withConnectedBrowser(options, operation) {
  * directory untouched and handles cross-origin export redirects inside Chrome.
  * The caller owns outputPath (normally a temporary file) and validates its type.
  */
-async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs }) {
+async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs, maxBytes = Infinity }) {
   const deadline = Date.now() + timeoutMs;
   const send = (method, params = {}) => {
     const timeout = deadline - Date.now();
@@ -3457,10 +3457,14 @@ async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs 
     }
     const file = await fs.promises.open(outputPath, "w");
     try {
+      let size = 0;
       let eof = false;
       while (!eof) {
         const chunk = await send("IO.read", { handle: resource.stream, size: 256 * 1024 });
-        await file.writeFile(Buffer.from(chunk.data, chunk.base64Encoded ? "base64" : "utf8"));
+        const bytes = Buffer.from(chunk.data, chunk.base64Encoded ? "base64" : "utf8");
+        size += bytes.length;
+        if (size > maxBytes) throw new Error(`Browser resource exceeds ${maxBytes} bytes`);
+        await file.writeFile(bytes);
         eof = chunk.eof;
       }
     } finally {
@@ -3529,6 +3533,7 @@ async function captureBrowserDownloads({
   timeoutMs,
   trigger,
   expectedDownloads = 1,
+  maxBytes = Infinity,
 }) {
   if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
   if (!Number.isInteger(expectedDownloads) || expectedDownloads < 1)
@@ -3587,6 +3592,8 @@ async function captureBrowserDownloads({
     const item = downloads.get(event.guid);
     if (!item) return;
     Object.assign(item, event);
+    if (event.receivedBytes > maxBytes || event.totalBytes > maxBytes)
+      reject(new Error(`Browser download exceeds ${maxBytes} bytes`));
     if (["canceled", "interrupted"].includes(event.state))
       reject(new Error(`Browser download ${event.state}`));
     check();
