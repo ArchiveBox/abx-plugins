@@ -11,20 +11,18 @@
     {
       "name": "stagehand",
       "binproviders": "pnpm",
-      "min_version": "4.0.0-rc.56",
+      "min_version": "4.4.0",
       "min_release_age": 0,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser",
           "min_release_age": 0,
           "install_args": [
-            "shalpha@4.0.0-rc.56",
-            "abxbus@2.5.18",
-            "tsx@4.23.15",
-            "fflate@0.8.2"
+            "@browserbasehq/stagehand@4.4.0",
+            "tsx@4.23.15"
           ],
-          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/shalpha/index.ts",
-          "version": "4.0.0-rc.56"
+          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/@browserbasehq/stagehand/dist/index.mjs",
+          "version": "4.4.0"
         }
       }
     },
@@ -80,7 +78,7 @@
     "STAGEHAND_VARIABLES": {
       "type": "object",
       "default": {},
-      "description": "Native Stagehand AI variables keyed by name, with type, value and optional description. Values are substituted by Stagehand, not interpolated into the prompt.",
+      "description": "Native Stagehand variables keyed by name: a primitive value or an object with value and optional description. Values are substituted by Stagehand, not interpolated into the prompt.",
       "x-sensitive": true
     },
     "STAGEHAND_API_KEY": {
@@ -88,11 +86,6 @@
       "default": "",
       "x-sensitive": true,
       "description": "API key passed to the native Stagehand LLM connection. When empty, uses OPENAI_API_KEY or ANTHROPIC_API_KEY for those providers."
-    },
-    "STAGEHAND_BASE_URL": {
-      "type": "string",
-      "default": "",
-      "description": "Optional native Stagehand LLM base_url."
     },
     "STAGEHAND_LLM_MODEL": {
       "type": "string",

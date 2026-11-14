@@ -3,14 +3,14 @@
 {% block language %}JavaScript · async{% endblock %}
 {% block snippets %}
 <button type="button" data-config-insert="{
-  const host = await page.evaluate({expression: &#x27;location.hostname&#x27;});
+  const host = await page.evaluate(&#x27;location.hostname&#x27;);
   const domain = &#x27;example.com&#x27;;
   if (host !== domain &amp;&amp; !host.endsWith(&#x27;.&#x27; + domain)) {
     return {status: &#x27;skipped&#x27;, reason: &#x27;Domain not selected: &#x27; + host};
   }
 }
 " data-config-position="start">+ Domain guard</button>
-<button type="button" data-config-wrap="const host = await page.evaluate({expression: &#x27;location.hostname&#x27;});
+<button type="button" data-config-wrap="const host = await page.evaluate(&#x27;location.hostname&#x27;);
 const onDomain = domain =&gt; host === domain || host.endsWith(&#x27;.&#x27; + domain);
 if (onDomain(&#x27;example.com&#x27;)) {
 __SCRIPT__
@@ -20,7 +20,7 @@ __SCRIPT__
   return {status: &#x27;skipped&#x27;, reason: &#x27;Domain not selected: &#x27; + host};
 }
 ">+ Route by domain</button>
-<button type="button" data-config-insert="const host = await page.evaluate({expression: &#x27;location.hostname&#x27;});
+<button type="button" data-config-insert="const host = await page.evaluate(&#x27;location.hostname&#x27;);
 const onDomain = domain =&gt; host === domain || host.endsWith(&#x27;.&#x27; + domain);
 if (onDomain(&#x27;example.com&#x27;)) {
   return {prompt: __VALUE__};
@@ -30,7 +30,7 @@ if (onDomain(&#x27;example.org&#x27;)) {
 }
 return {status: &#x27;skipped&#x27;, reason: &#x27;Domain not selected: &#x27; + host};
 " data-config-source="STAGEHAND_PROMPT" data-config-source-default="Prepare the main content for capture.">+ Domain prompts</button>
-<button type="button" data-config-insert="await page.evaluate({expression: &quot;document.querySelectorAll(&#x27;details&#x27;).forEach(el =&gt; el.open = true)&quot;});">+ Expand details</button>
-<button type="button" data-config-insert="await page.evaluate({expression: &quot;window.scrollTo(0, document.body.scrollHeight)&quot;});">+ Scroll to end</button>
+<button type="button" data-config-insert="await page.evaluate(&quot;document.querySelectorAll(&#x27;details&#x27;).forEach(el =&gt; el.open = true)&quot;);">+ Expand details</button>
+<button type="button" data-config-insert="await page.evaluate(&quot;window.scrollTo(0, document.body.scrollHeight)&quot;);">+ Scroll to end</button>
 {% endblock %}
 {% block help %}Run before capture with browser, page, config, client, and outputDir.{% endblock %}

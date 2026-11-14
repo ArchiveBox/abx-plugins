@@ -1,22 +1,8 @@
-"""Prepared Stagehand module environment for browser clients."""
-
-import os
-import subprocess
-from pathlib import Path
+"""Official Stagehand module environment for browser clients."""
 
 
 def browser_environment(binary):
-    module = subprocess.run(
-        [
-            os.environ.get("NODE_BINARY") or "node",
-            str(Path(__file__).with_name("prepare.js")),
-            str(binary.loaded_abspath),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    return {"ARCHIVEBOX_STAGEHAND_MODULE": module}
+    return {"ARCHIVEBOX_STAGEHAND_MODULE": str(binary.loaded_abspath)}
 
 
 def agent_environment(endpoint, binaries):

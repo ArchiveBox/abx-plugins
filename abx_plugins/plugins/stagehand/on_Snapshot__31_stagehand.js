@@ -26,7 +26,13 @@ const {
   taskPrompt,
 } = require("../chrome/snapshot.js");
 const { writeDownloadsIndex } = require("../base/downloads.js");
-const { prepareStagehand } = require("./prepare.js");
+const { pathToFileURL } = require("node:url");
+// The official package exposes an import-only entry; resolve it in the runner's
+// provider module paths, then import its published ESM file directly.
+const stagehandModule = require.resolve.paths("@browserbasehq/stagehand")
+  .map(root => path.join(root, "@browserbasehq/stagehand/dist/index.mjs"))
+  .find(candidate => fs.existsSync(candidate));
+if (!stagehandModule) throw new Error("Official Stagehand package is not installed");
 const outputDir = path.join(path.resolve(config.SNAP_DIR || "."), "stagehand");
 fs.mkdirSync(outputDir, { recursive: true });
 process.chdir(outputDir);
@@ -35,27 +41,20 @@ let connection, browser, page, client, evaluate, disconnect;
 let timer, agentResult;
 const started = Date.now();
 
+async function connectStagehand() {
+  const { Stagehand, localBrowser } = await import(pathToFileURL(stagehandModule).href);
+  browser = await localBrowser.connect({cdpUrl: connection.browser.wsEndpoint()});
+  disconnect = () => browser.disconnect();
+  client = await Stagehand.create({browser});
+  const pages = (await browser.context.pages()).filter(candidate => candidate.pageId === connection.targetId);
+  if (pages.length !== 1) throw new Error("Snapshot tab is no longer available");
+  page = pages[0];
+  evaluate = expression => page.evaluate(expression);
+}
+
 async function run() {
   connection = await attachSnapshot(config, timeoutMs);
-  const { tsImport } = require("tsx/esm/api");
-  const { pathToFileURL } = require("node:url");
-  const { StagehandClient } = await tsImport(
-    prepareStagehand(require.resolve("shalpha")),
-    pathToFileURL(__filename).href
-  );
-  client = new StagehandClient({
-    cdp_url: connection.browser.wsEndpoint(),
-    keep_alive: true,
-    logging: { sentry_enabled: false },
-  });
-  disconnect = () => client.close();
-  await client.connect();
-  browser = client.browser;
-  const pages = await browser.pages({ targetId: connection.targetId });
-  if (pages.length !== 1)
-    throw new Error("Snapshot tab is no longer available");
-  page = pages[0];
-  evaluate = (expression) => page.evaluate({ expression });
+  await connectStagehand();
   await confirmMainWorld(evaluate, connection);
   let selectedPrompt = prompt;
   if (script) {
@@ -97,13 +96,16 @@ async function run() {
       taskPrompt(summary, selectedPrompt) +
       "\n\nUse the bash tool with this exact shell syntax. The heredoc contains async JavaScript with native Stagehand browser, page, client objects already attached to this tab:\n" +
       command +
-      " <<'JS'\nconsole.log(await page.evaluate({expression: 'document.title'}));\nJS\n" +
-      "Use page.evaluate({expression: JAVASCRIPT_STRING}) for main-world DOM inspection and interactions. " +
+      " <<'JS'\nconsole.log(await page.evaluate(() => document.title));\nJS\n" +
+      "Use page.evaluate(JAVASCRIPT_STRING_OR_FUNCTION) for main-world DOM inspection and interactions. " +
       "Use native client/page APIs when DOM JavaScript is insufficient. Each call disconnects while preserving the tab. " +
       "Do not launch a browser or select a different tab. Save downloaded files to the outputDir variable provided to your code. " +
       (variableNames
         ? `Native variables: ${variableNames}. Use await act('instruction using %name%') to substitute their values through Stagehand. Never read or print the values. `
         : "");
+    // One native Stagehand instance owns the extension at a time. Release it
+    // before the agent connects, preserving Chrome and the exact capture tab.
+    await disconnect();
     agentResult = await runTask({
       prompt: instructions,
       model: config.STAGEHAND_MODEL,
@@ -111,16 +113,16 @@ async function run() {
       outputDir,
       env: {
         ...process.env,
-        ARCHIVEBOX_STAGEHAND_MODULE: require.resolve("shalpha"),
+        ARCHIVEBOX_STAGEHAND_MODULE: stagehandModule,
         ARCHIVEBOX_BROWSER_CDP_URL: connection.browser.wsEndpoint(),
         ARCHIVEBOX_BROWSER_TARGET_ID: connection.targetId,
         STAGEHAND_VARIABLES: JSON.stringify(config.STAGEHAND_VARIABLES),
         STAGEHAND_API_KEY: config.STAGEHAND_API_KEY,
-        STAGEHAND_BASE_URL: config.STAGEHAND_BASE_URL,
         STAGEHAND_LLM_MODEL:
           config.STAGEHAND_LLM_MODEL || config.STAGEHAND_MODEL,
       },
     });
+    await connectStagehand();
   }
   const result = await evaluate(summaryExpression);
   const output = outputDir;

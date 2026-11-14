@@ -1,6 +1,8 @@
 # Stagehand
 
-Plugin identifier: `stagehand`.
+Plugin identifier: `stagehand`. Uses the official `@browserbasehq/stagehand@4.4.0` package without local SDK or extension patches.
+
+Scripts use the official v4 API: `page.evaluate(expressionOrFunction)`, `page.keyPress(key)`, `browser.context.pages()`, and `client.act(instruction, {page, model})`. This replaces the obsolete alpha API; custom LLM base URLs are not supported by the official model schema. `client` is a native `Stagehand` instance. Disconnect with `browser.disconnect()`; never close the shared browser.
 
 `on_Snapshot__31_stagehand.js` runs in the foreground after Chrome navigation and before scrolling or capture. It exits with status `skipped` (code 10) when no script or prompt is configured, before loading a browser driver. Dependencies are declared in `config.json` and installed by the runner/abxpkg.
 
@@ -9,11 +11,11 @@ Set `STAGEHAND_SCRIPT` through plugin/persona config or an environment variable.
 Example:
 
 ```sh
-export STAGEHAND_SCRIPT="await page.evaluate({expression: \"document.querySelector('#prepare').click()\"});"
+export STAGEHAND_SCRIPT="await page.evaluate(\"document.querySelector('#prepare').click()\");"
 abx-dl --plugins=stagehand,title 'https://example.com'
 ```
 
-Set `STAGEHAND_PROMPT` and `STAGEHAND_MODEL` (provider/model, for example `openai/gpt-6.1-sol`) for AI page preparation. A configured script takes precedence. The task receives the current title, URL, bounded DOM summary and your instructions. Provider credentials come from the provider environment variables. OpenCode runs the task loop and calls the native Stagehand client on the same tab; a native `done` tool ends the task. The pinned Stagehand release offers action planning rather than a complete task loop. `STAGEHAND_VARIABLES` accepts the native JSON mapping of variable names to `{type, value, description}` objects; reference them as `%name%` in the prompt. The agent can call `act(instruction)` for native Stagehand substitution; values are passed directly to Stagehand, not interpolated into the task prompt. `STAGEHAND_LLM_MODEL`, `STAGEHAND_API_KEY`, and `STAGEHAND_BASE_URL` configure that native LLM connection when needed.
+Set `STAGEHAND_PROMPT` and `STAGEHAND_MODEL` (provider/model, for example `openai/gpt-6.1-sol`) for AI page preparation. A configured script takes precedence. The task receives the current title, URL, bounded DOM summary and your instructions. Provider credentials come from the provider environment variables. OpenCode runs the task loop and calls the native Stagehand client on the same tab; a native `done` tool ends the task. `STAGEHAND_VARIABLES` accepts the native JSON mapping of variable names to primitive values or `{value, description}` objects; reference them as `%name%` in the prompt. The agent can call `act(instruction)` for native Stagehand substitution; values are passed directly to Stagehand, not interpolated into the task prompt. `STAGEHAND_LLM_MODEL` and `STAGEHAND_API_KEY` configure that native LLM connection when needed.
 
 The plugin also declares `agent_tools` and `agent_skills` for OpenCode browser agents. These declarations preserve web UI access without making OpenCode depend on this plugin. Importers explicitly depend on both browser clients; the existing replay and tab lifecycle remain unchanged.
 
@@ -25,34 +27,6 @@ uv run pytest abx_plugins/plugins/stagehand/tests -q
 
 The normal CI test `test_ten_challenges` uses `OPENAI_API_KEY`, model `openai/gpt-6.1-sol`, and a 240-second hook timeout. It solves ten tasks on the public browser challenge page, calls `done`, then verifies a score of 10 or 11 in the DOM plugin’s saved HTML. It takes no screenshots.
 
-## Published rc.56 corrections
-
-`prepare.js` prepares a separate copy of npm `shalpha@4.0.0-rc.56` and its
-`stagehand-ext-v4.0.0rc56-f3179ab9.zip` under `ABXPKG_LIB_DIR/stagehand`.
-The installed package remains untouched. Its `index.ts`, `client.ts`, and all
-extension files except `stagehand-modcdp/background.js` retain their original
-contents; the prepared package metadata records the original module path.
-
-The background bundle's `stagehand_cdp.ts` registers bare bus-event names with
-ModCDP, which requires `Domain.event`. That exception aborts startup before the
-offscreen-port listener is installed: every native command then spends five
-seconds waiting for a listener that does not exist. The correction namespaces
-both registrations and mirrored events as `Stagehand.<event>`; the SDK runtime's
-`busEventType` removes that namespace before its existing typed-event dispatch.
-Native title reads previously took 5.04–5.08 seconds despite 24–31ms driver work.
-
-The bundled `understudy/page/send_cdp.ts` also drops the resolved frame ID.
-Passing it through to `CDPSendEvent` fixes native input commands rejected by the
-driver's frame-routing invariant. Browser commands and page interactions still
-run through the native SDK and extension.
-
-Preparation checks the pinned version and each changed source construct, then
-publishes the complete copy atomically. Its cache key includes the original SDK,
-extension archive, corrected code, and dependency locations. The hook, agent,
-and exported browser environment all use this prepared module. Remove these
-corrections when a published SDK includes the fixes and passes the native startup,
-typed-event, keyboard, and unchanged live challenge tests.
-
 Saved files appear under **Embedded media** on the snapshot detail page. Hooks write an `index.html` listing only when their output directory contains captured files; status logs alone produce no card. JavaScript scripts receive `outputDir`; Python script relative paths use the plugin output directory.
 
 ## Domain-specific preparation
@@ -62,7 +36,7 @@ ordinary JavaScript in the existing script field. Matching uses the attached
 page's hostname after redirects, with exact domains and their subdomains.
 
 ```javascript
-const host = await page.evaluate({expression: 'location.hostname'});
+const host = await page.evaluate('location.hostname');
 if (host !== 'example.com' && !host.endsWith('.example.com')) {
   return {status: 'skipped', reason: 'Domain not selected: ' + host};
 }
