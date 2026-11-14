@@ -5239,6 +5239,7 @@ async function closeBrowserInChromeSession(options = {}) {
     Date.now() + Math.max(1, Math.floor(forceKillTimeoutMs / 2));
   const remainingCdpMs = () => Math.max(0, cdpDeadline - Date.now());
   let browserEndpoint = cdpUrl;
+  let closeRequested = false;
 
   if (cdpUrl) {
     let browser = null;
@@ -5257,6 +5258,7 @@ async function closeBrowserInChromeSession(options = {}) {
         async () => {
           browserEndpoint = browser.wsEndpoint();
           await sendBrowserCommand(browser, "Browser.close");
+          closeRequested = true;
         },
         Math.max(1, remainingCdpMs()),
         `Timed out closing browser at ${cdpUrl}`
@@ -5279,7 +5281,16 @@ async function closeBrowserInChromeSession(options = {}) {
   const debugPort = cdpUrl ? getChromeDebugPortFromCdpUrl(cdpUrl) : null;
   let closed = false;
   if (processIsLocal && pid) {
-    closed = await killChrome(pid, outputDir, remainingCleanupMs());
+    // Browser.close acknowledges shutdown before profile writers finish. Sending
+    // SIGTERM to the group immediately can kill the network service before it
+    // flushes persistent cookies. Let native shutdown drain first, reserving
+    // half of the existing cleanup budget for escalation if it gets stuck.
+    if (closeRequested) {
+      closed = await waitForChromeProcessTreeExit(
+        pid, debugPort, Math.floor(remainingCleanupMs() / 2)
+      );
+    }
+    if (!closed) closed = await killChrome(pid, outputDir, remainingCleanupMs());
   } else if (cdpUrl) {
     closed = await waitForBrowserEndpointGone(
       cdpUrl,
