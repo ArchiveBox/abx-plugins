@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Source maps</title>
+<style>body{margin:0;background:#f5f6f8;color:#202b36;font:14px system-ui,sans-serif}header,main{padding:16px 24px}header{background:white;border-bottom:1px solid #ddd}h1{font-size:18px;margin:0}main{max-width:1000px;margin:auto}.map{background:white;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;padding:16px;overflow-wrap:anywhere}a{color:#326da8}.muted{color:#64748b;font-size:12px}</style></head><body>
+<header><h1>🗺️ Source maps</h1></header><main id="maps">Loading source maps…</main>
+<script>
+const output=new URL('{{ output_path|escapejs }}',location.href);output.search='';output.hash='';
+fetch(output).then(r=>{if(!r.ok)throw Error(r.status);return r.json()}).then(maps=>{const root=document.getElementById('maps');root.textContent='';for(const map of maps){const row=document.createElement('section');row.className='map';const title=document.createElement('strong');title.textContent=map.script_url;const count=document.createElement('p');count.className='muted';count.textContent=map.sources+' sources';const link=document.createElement('a');link.href=new URL(map.path,output);link.textContent='Download source map';link.download='';row.append(title,count,link);root.append(row)}}).catch(()=>{document.getElementById('maps').textContent='Source maps unavailable'});
+</script></body></html>

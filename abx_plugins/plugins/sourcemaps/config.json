@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Source Maps",
+  "description": "Save source maps for JavaScript loaded by the page.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["responses"],
+  "required_binaries": [],
+  "output_mimetypes": ["application/json"],
+  "properties": {
+    "SOURCEMAPS_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_SOURCEMAPS", "USE_SOURCEMAPS"],
+      "description": "Save JavaScript source maps"
+    },
+    "SOURCEMAPS_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for source map downloads in seconds"
+    }
+  },
+  "category": "media",
+  "display_order": 25,
+  "wait_for_background_cleanup": true,
+  "snapshot_output_group": "embedded_media",
+  "screenshot": "screenshot.json"
+}
