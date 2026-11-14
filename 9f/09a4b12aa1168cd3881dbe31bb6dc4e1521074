@@ -1,0 +1,19 @@
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_784d0e5fa3aa29::t_7de4130dda764a 37,5366-5367,5383-5388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f09a4b12aa1168cd3881dbe31bb6dc4e1521074",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
