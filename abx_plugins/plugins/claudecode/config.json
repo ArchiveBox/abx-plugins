@@ -9,7 +9,7 @@
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,node,apt,brew",
-      "min_version": "24.22.1",
+      "min_version": "24.22.2",
       "overrides": {
         "apt": {
           "install_args": [
@@ -17,7 +17,7 @@
           ]
         }
       },
-      "max_version": "24.22.1"
+      "max_version": "24.22.2"
     },
     {
       "name": "{CLAUDECODE_BINARY}",
