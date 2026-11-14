@@ -1,0 +1,29 @@
+abx_plugins/plugins/chrome/persona_storage.js
+  s_10bc94d001be49::t_3672ee77ab60ab 53-54
+abx_plugins/plugins/chrome/tests/test_profile_domain_removal.py
+  s_784d0e5fa3aa29::t_3818c11712bda9 39-46,205-212,415-422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "63be311538e89685c45cd3b4a60b65753acb33aa",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
