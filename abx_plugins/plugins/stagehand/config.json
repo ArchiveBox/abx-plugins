@@ -20,7 +20,8 @@
           "install_args": [
             "shalpha@4.0.0-rc.56",
             "abxbus@2.5.18",
-            "tsx@4.23.15"
+            "tsx@4.23.15",
+            "fflate@0.8.2"
           ],
           "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode-browser/node_modules/shalpha/index.ts",
           "version": "4.0.0-rc.56"

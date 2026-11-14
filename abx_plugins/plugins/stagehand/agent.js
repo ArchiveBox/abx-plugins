@@ -4,11 +4,12 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { ensureNodeModuleResolution } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
+const { prepareStagehand } = require("./prepare.js");
 (async () => {
   const { tsImport } = require("tsx/esm/api");
   const { StagehandClient } = await tsImport(
-    process.env.ARCHIVEBOX_STAGEHAND_MODULE,
-    pathToFileURL(__filename).href,
+    prepareStagehand(process.env.ARCHIVEBOX_STAGEHAND_MODULE),
+    pathToFileURL(__filename).href
   );
   const client = new StagehandClient({
     cdp_url: process.env.ARCHIVEBOX_BROWSER_CDP_URL,
@@ -26,7 +27,7 @@ ensureNodeModuleResolution(module);
     const page = pages[0];
     const outputDir = path.join(
       path.resolve(process.env.SNAP_DIR || "."),
-      "stagehand",
+      "stagehand"
     );
     const variables = JSON.parse(process.env.STAGEHAND_VARIABLES || "{}");
     // Native Stagehand substitution keeps variable values out of the agent prompt.
@@ -55,16 +56,15 @@ ensureNodeModuleResolution(module);
         autoheal: true,
       });
     };
-    const AsyncFunction = Object.getPrototypeOf(
-      async function () {},
-    ).constructor;
+    const AsyncFunction = Object.getPrototypeOf(async function () {})
+      .constructor;
     await new AsyncFunction(
       "browser",
       "page",
       "client",
       "act",
       "outputDir",
-      fs.readFileSync(0, "utf8"),
+      fs.readFileSync(0, "utf8")
     )(browser, page, client, act, outputDir);
   } finally {
     await client.close();

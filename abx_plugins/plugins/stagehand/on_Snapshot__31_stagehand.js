@@ -26,6 +26,7 @@ const {
   taskPrompt,
 } = require("../chrome/snapshot.js");
 const { writeDownloadsIndex } = require("../base/downloads.js");
+const { prepareStagehand } = require("./prepare.js");
 const outputDir = path.join(path.resolve(config.SNAP_DIR || "."), "stagehand");
 fs.mkdirSync(outputDir, { recursive: true });
 process.chdir(outputDir);
@@ -39,8 +40,8 @@ async function run() {
   const { tsImport } = require("tsx/esm/api");
   const { pathToFileURL } = require("node:url");
   const { StagehandClient } = await tsImport(
-    require.resolve("shalpha"),
-    pathToFileURL(__filename).href,
+    prepareStagehand(require.resolve("shalpha")),
+    pathToFileURL(__filename).href
   );
   client = new StagehandClient({
     cdp_url: connection.browser.wsEndpoint(),
@@ -58,16 +59,15 @@ async function run() {
   await confirmMainWorld(evaluate, connection);
   let selectedPrompt = prompt;
   if (script) {
-    const AsyncFunction = Object.getPrototypeOf(
-      async function () {},
-    ).constructor;
+    const AsyncFunction = Object.getPrototypeOf(async function () {})
+      .constructor;
     const scriptResult = await new AsyncFunction(
       "browser",
       "page",
       "config",
       "client",
       "outputDir",
-      script,
+      script
     )(browser, page, config, client, outputDir);
     if (scriptResult?.status === "skipped") {
       return {
@@ -79,7 +79,9 @@ async function run() {
       };
     }
     selectedPrompt =
-      typeof scriptResult?.prompt === "string" ? scriptResult.prompt.trim() : "";
+      typeof scriptResult?.prompt === "string"
+        ? scriptResult.prompt.trim()
+        : "";
   }
   if (selectedPrompt) {
     const summary = await evaluate(summaryExpression);
@@ -133,8 +135,8 @@ async function run() {
         ...(agentResult || {}),
       },
       null,
-      2,
-    ) + "\n",
+      2
+    ) + "\n"
   );
   return writeDownloadsIndex(outputDir)
     ? "stagehand/index.html"
@@ -157,7 +159,7 @@ Promise.race([
   new Promise((_, reject) => {
     timer = setTimeout(
       () => reject(new Error("stagehand timed out")),
-      timeoutMs,
+      timeoutMs
     );
   }),
 ])
@@ -179,7 +181,7 @@ Promise.race([
         console.error(cleanupError.message);
       }
       process.exitCode = 1;
-    },
+    }
   )
   .catch((error) => {
     emitArchiveResultRecord("failed", error.message);

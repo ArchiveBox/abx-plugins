@@ -25,6 +25,34 @@ uv run pytest abx_plugins/plugins/stagehand/tests -q
 
 The normal CI test `test_ten_challenges` uses `OPENAI_API_KEY`, model `openai/gpt-6.1-sol`, and a 240-second hook timeout. It solves ten tasks on the public browser challenge page, calls `done`, then verifies a score of 10 or 11 in the DOM plugin’s saved HTML. It takes no screenshots.
 
+## Published rc.56 corrections
+
+`prepare.js` prepares a separate copy of npm `shalpha@4.0.0-rc.56` and its
+`stagehand-ext-v4.0.0rc56-f3179ab9.zip` under `ABXPKG_LIB_DIR/stagehand`.
+The installed package remains untouched. Its `index.ts`, `client.ts`, and all
+extension files except `stagehand-modcdp/background.js` retain their original
+contents; the prepared package metadata records the original module path.
+
+The background bundle's `stagehand_cdp.ts` registers bare bus-event names with
+ModCDP, which requires `Domain.event`. That exception aborts startup before the
+offscreen-port listener is installed: every native command then spends five
+seconds waiting for a listener that does not exist. The correction namespaces
+both registrations and mirrored events as `Stagehand.<event>`; the SDK runtime's
+`busEventType` removes that namespace before its existing typed-event dispatch.
+Native title reads previously took 5.04–5.08 seconds despite 24–31ms driver work.
+
+The bundled `understudy/page/send_cdp.ts` also drops the resolved frame ID.
+Passing it through to `CDPSendEvent` fixes native input commands rejected by the
+driver's frame-routing invariant. Browser commands and page interactions still
+run through the native SDK and extension.
+
+Preparation checks the pinned version and each changed source construct, then
+publishes the complete copy atomically. Its cache key includes the original SDK,
+extension archive, corrected code, and dependency locations. The hook, agent,
+and exported browser environment all use this prepared module. Remove these
+corrections when a published SDK includes the fixes and passes the native startup,
+typed-event, keyboard, and unchanged live challenge tests.
+
 Saved files appear under **Embedded media** on the snapshot detail page. Hooks write an `index.html` listing only when their output directory contains captured files; status logs alone produce no card. JavaScript scripts receive `outputDir`; Python script relative paths use the plugin output directory.
 
 ## Domain-specific preparation
