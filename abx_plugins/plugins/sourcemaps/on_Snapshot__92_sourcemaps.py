@@ -4,6 +4,7 @@
 # dependencies = ["rich-click"]
 # ///
 """Save source maps for scripts captured by the responses plugin."""
+
 import base64
 import hashlib
 import json
@@ -17,19 +18,29 @@ from urllib.request import Request, urlopen
 
 import rich_click as click
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    load_config,
+    write_text_atomic,
+)
 
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT = SNAP_DIR / "sourcemaps"
 MAX_BYTES = 32 * 1024 * 1024
-REFERENCE = re.compile(rb"(?:/\/[#@]\s*sourceMappingURL\s*=\s*([^\s]+)|/\*[#@]\s*sourceMappingURL\s*=\s*([^\s*]+)\s*\*/)")
+REFERENCE = re.compile(
+    rb"(?:/\/[#@]\s*sourceMappingURL\s*=\s*([^\s]+)|/\*[#@]\s*sourceMappingURL\s*=\s*([^\s*]+)\s*\*/)",
+)
 
 
 def get_map(reference, script_url, timeout):
     if reference.startswith("data:"):
         header, data = reference.split(",", 1)
-        raw = base64.b64decode(data, validate=True) if ";base64" in header else unquote_to_bytes(data)
+        raw = (
+            base64.b64decode(data, validate=True)
+            if ";base64" in header
+            else unquote_to_bytes(data)
+        )
         return raw, "inline"
     url = urljoin(script_url, reference)
     if urlsplit(url).scheme not in ("http", "https"):
@@ -47,7 +58,9 @@ def get_map(reference, script_url, timeout):
 def candidates(script, url, timeout):
     matches = list(REFERENCE.finditer(script))
     if matches:
-        return [(matches[-1].group(1) or matches[-1].group(2)).decode("utf-8", "replace")]
+        return [
+            (matches[-1].group(1) or matches[-1].group(2)).decode("utf-8", "replace"),
+        ]
     parts = urlsplit(url)
     if parts.scheme in ("http", "https"):
         # The responses manifest does not retain HTTP headers. Re-fetch the
@@ -55,7 +68,9 @@ def candidates(script, url, timeout):
         try:
             request = Request(url, headers={"User-Agent": str(CONFIG.USER_AGENT)})
             with urlopen(request, timeout=timeout) as response:
-                header = response.headers.get("SourceMap") or response.headers.get("X-SourceMap")
+                header = response.headers.get("SourceMap") or response.headers.get(
+                    "X-SourceMap",
+                )
             if header:
                 return [header.strip()]
         except (HTTPError, URLError, TimeoutError) as error:
@@ -63,11 +78,17 @@ def candidates(script, url, timeout):
     if not parts.path.endswith(".js"):
         return []
     # Some publishers omit the directive while publishing conventional map names.
-    return [urlunsplit((parts.scheme, parts.netloc, parts.path + ".map", parts.query, "")),
-            urlunsplit((parts.scheme, parts.netloc, parts.path[:-3] + ".map", parts.query, ""))]
+    return [
+        urlunsplit((parts.scheme, parts.netloc, parts.path + ".map", parts.query, "")),
+        urlunsplit(
+            (parts.scheme, parts.netloc, parts.path[:-3] + ".map", parts.query, ""),
+        ),
+    ]
 
 
-@click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True)
 def main(url):
     if not CONFIG.SOURCEMAPS_ENABLED:
@@ -88,20 +109,38 @@ def main(url):
                 continue
             seen.add(script_url)
             source = (response_dir / entry.get("path", "")).resolve()
-            if not source.is_relative_to(response_dir.resolve()) or not source.is_file():
+            if (
+                not source.is_relative_to(response_dir.resolve())
+                or not source.is_file()
+            ):
                 continue
             if source.stat().st_size > MAX_BYTES:
                 continue
-            for reference in candidates(source.read_bytes(), script_url, int(CONFIG.SOURCEMAPS_TIMEOUT)):
+            for reference in candidates(
+                source.read_bytes(),
+                script_url,
+                int(CONFIG.SOURCEMAPS_TIMEOUT),
+            ):
                 try:
-                    raw, map_url = get_map(reference, script_url, int(CONFIG.SOURCEMAPS_TIMEOUT))
+                    raw, map_url = get_map(
+                        reference,
+                        script_url,
+                        int(CONFIG.SOURCEMAPS_TIMEOUT),
+                    )
                     if not raw or len(raw) > MAX_BYTES:
                         continue
                     parsed = json.loads(raw)
-                    if not isinstance(parsed, dict) or parsed.get("version") != 3 or not ("mappings" in parsed or "sections" in parsed):
+                    if (
+                        not isinstance(parsed, dict)
+                        or parsed.get("version") != 3
+                        or not ("mappings" in parsed or "sections" in parsed)
+                    ):
                         continue
                 except (ValueError, UnicodeError, OSError) as error:
-                    print(f"Invalid source map for {script_url}: {error}", file=sys.stderr)
+                    print(
+                        f"Invalid source map for {script_url}: {error}",
+                        file=sys.stderr,
+                    )
                     continue
                 digest = hashlib.sha256(raw).hexdigest()
                 filename = f"{digest}.map"
@@ -109,7 +148,14 @@ def main(url):
                 temp = target.with_suffix(".tmp")
                 temp.write_bytes(raw)
                 os.replace(temp, target)
-                records.append({"script_url": script_url, "map_url": map_url, "path": filename, "sources": len(parsed.get("sources", []))})
+                records.append(
+                    {
+                        "script_url": script_url,
+                        "map_url": map_url,
+                        "path": filename,
+                        "sources": len(parsed.get("sources", [])),
+                    },
+                )
                 break
         if not records:
             emit_archive_result_record("noresults", "No source maps found")
@@ -117,7 +163,10 @@ def main(url):
         write_text_atomic(OUTPUT / "index.json", json.dumps(records, indent=2) + "\n")
         emit_archive_result_record("succeeded", "sourcemaps/index.json")
     except Exception as error:
-        print(f"Source map capture failed: {type(error).__name__}: {error}", file=sys.stderr)
+        print(
+            f"Source map capture failed: {type(error).__name__}: {error}",
+            file=sys.stderr,
+        )
         emit_archive_result_record("failed", str(error))
         sys.exit(1)
 
