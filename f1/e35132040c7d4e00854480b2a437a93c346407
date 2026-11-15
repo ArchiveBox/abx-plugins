@@ -1,0 +1,27 @@
+abx_plugins/plugins/browserharness/README.md
+  s_532dc92fd8220a::t_d1839661db0913 35-36,42-43
+.github/workflows/docs.yml
+  s_532dc92fd8220a::t_0796bc46e70c72 150,164-171
+  s_532dc92fd8220a::t_b3c7f82886c835 172
+tests/test_pytest_bootstrap.py
+  s_532dc92fd8220a::t_f11cfc010c56e7 6-8,10,48-75,77-93
+  s_532dc92fd8220a::t_5dd9a9163a606f 23-24,34-35
+  s_532dc92fd8220a::t_0796bc46e70c72 9,12,20-22,25-33,36,38-43
+  s_532dc92fd8220a::t_8adcf6b970bbfb 11,37,44-45,76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f1e35132040c7d4e00854480b2a437a93c346407",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
