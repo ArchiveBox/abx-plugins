@@ -294,8 +294,8 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         )
         captured = real_html_snapshot(
             data_dir / "capture",
-            "https://www.google.com",
-            "google-live",
+            "https://archivebox.io",
+            "archivebox-current-layout",
         )
         snapshot_root.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(captured, snapshot_root)
@@ -314,7 +314,7 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         assert roots == [self.data_dir / "archive" / "users" / "system" / "snapshots"]
 
     def test_search_finds_snapshot_in_current_layout(self):
-        results = search("google", environ=self.env)
+        results = search("archivebox", environ=self.env)
         assert results == [self.snapshot_id]
 
     def test_search_roots_support_configured_users_dir_name(self):
