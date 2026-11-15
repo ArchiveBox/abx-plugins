@@ -130,6 +130,15 @@ async function main() {
       timeoutMs: remaining(),
       downloadPath: resolveChromeLaunchOptions(config).CHROME_DOWNLOADS_DIR,
       trigger: async () => {
+        // Observe before clicking: a rejected export never starts a download.
+        const exportResponse = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname.endsWith(
+              "/export_shared_document",
+            ) && response.request().method() === "POST",
+          { timeout: remaining() },
+        );
+        exportResponse.catch(() => {}); // UI failure closes the page below.
         let previous = "";
         const completed = [];
         while (true) {
@@ -279,6 +288,20 @@ async function main() {
                 Date.now() - (deadline - timeoutMs)
               }ms)`,
             );
+            const response = await exportResponse;
+            if (!response.ok()) {
+              // Share credentials may occur elsewhere in the error body.
+              // Retain only symbolic/numeric error codes, never raw payloads.
+              const body = await response.json().catch(() => ({}));
+              const codes = Object.entries(body || {}).filter(
+                ([key, value]) =>
+                  /^(error_?code|code|reason|status)$/i.test(key) &&
+                  /^(?:[A-Z][A-Z0-9_]{0,79}|\d{1,8})$/.test(String(value)),
+              );
+              throw new Error(
+                `iWork export request failed: HTTP ${response.status()} ${JSON.stringify(Object.fromEntries(codes))}`,
+              );
+            }
             return;
           }
           if (
