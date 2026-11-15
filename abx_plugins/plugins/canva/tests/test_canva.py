@@ -54,7 +54,57 @@ def test_public_export_restriction(
         # Control readiness is logged before waiting so a killed hook still
         # identifies its last phase. The prerequisite itself remains exact.
         diagnostics = result.stderr.strip().splitlines()
+        # Navigation/readiness observations arrive asynchronously, before the
+        # final control/prerequisite messages. They contain no raw page text.
+        observations = [
+            line
+            for line in diagnostics
+            if line.startswith(
+                (
+                    "Canva export readiness: ",
+                    "Canva export document response: ",
+                    "Canva source document response: ",
+                ),
+            )
+        ]
+        for line in observations:
+            state = json.loads(line.split(": ", 1)[1])
+            if "controls" in state:
+                assert set(state) == {
+                    "frame",
+                    "readyState",
+                    "blocked",
+                    "titleState",
+                    "controls",
+                }
+                assert state["frame"] in {"main", "child"}
+                assert state["titleState"] in {
+                    "empty",
+                    "canva",
+                    "challenge",
+                    "document",
+                }
+                assert all(
+                    set(control)
+                    == {"label", "role", "tag", "disabled", "visible", "exposed"}
+                    for control in state["controls"]
+                )
+            else:
+                assert state == {"status": 200, "challenge": False}
+        diagnostics = [
+            line
+            for line in diagnostics
+            if line not in observations
+            and line
+            not in {
+                "Canva export DOM loaded",
+                "Canva export load complete",
+                "Canva source DOM loaded",
+                "Canva source load complete",
+            }
+        ]
         if url == URL:
+            assert observations
             prefix = "Canva export navigation: "
             assert diagnostics[0].startswith(prefix), result.stderr
             assert json.loads(diagnostics.pop(0)[len(prefix) :]) == {

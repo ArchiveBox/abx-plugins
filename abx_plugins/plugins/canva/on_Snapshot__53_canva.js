@@ -82,12 +82,68 @@ async function main() {
       console.error("No export in public view");
       return emitArchiveResultRecord("noresults", "No export in public view");
     }
+    const observeNavigation = (target, kind) => {
+      target.on("response", (response) => {
+        const request = response.request();
+        if (!request.isNavigationRequest() || request.frame() !== target.mainFrame()) return;
+        console.error(`Canva ${kind} document response:`, JSON.stringify({
+          status: response.status(),
+          challenge: response.headers()["cf-mitigated"] === "challenge",
+        }));
+      });
+      target.on("domcontentloaded", () => console.error(`Canva ${kind} DOM loaded`));
+      target.on("load", () => console.error(`Canva ${kind} load complete`));
+    };
+    observeNavigation(sourcePage, "source");
     // Export controls must never modify the shared capture tab.
     page = await openExportPage({
       page: sourcePage,
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
+    observeNavigation(page, "export");
+    const readinessPrefix = "ArchiveBox Canva readiness: ";
+    page.on("console", (message) => {
+      if (message.type() === "debug" && message.text().startsWith(readinessPrefix))
+        console.error("Canva export readiness:", message.text().slice(readinessPrefix.length));
+    });
+    await page.evaluateOnNewDocument((prefix) => {
+      let previous = "";
+      let scheduled = false;
+      const report = () => {
+        scheduled = false;
+        const state = {
+          frame: window === top ? "main" : "child",
+          readyState: document.readyState,
+          blocked: /We.ll have you designing again soon|RayID:|verify you are human/i.test(document.body?.textContent || ""),
+          titleState: !document.title ? "empty" : document.title === "Canva" ? "canva" : /just a moment|attention required/i.test(document.title) ? "challenge" : "document",
+          controls: [...document.querySelectorAll('button,[role="menuitem"]')]
+            .map((element) => ({element, label: element.getAttribute("aria-label") || element.textContent.trim()}))
+            .filter(({label}) => ["Share", "All Publish Options", "Download", "Log in", "Sign in", "Continue with Google", "Continue with email"].includes(label))
+            .slice(0, 20)
+            .map(({element, label}) => {
+              const bounds = element.getBoundingClientRect();
+              return {label, role: element.getAttribute("role"), tag: element.tagName,
+                disabled: Boolean(element.disabled) || element.getAttribute("aria-disabled") === "true",
+                visible: bounds.width > 0 && bounds.height > 0,
+                exposed: element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2))};
+            }),
+        };
+        const signature = JSON.stringify(state);
+        if (signature !== previous) {
+          previous = signature;
+          console.debug(prefix + signature);
+        }
+      };
+      // Capture changes before an outer hook deadline can terminate diagnostics.
+      // Only fixed known control labels and title classes leave the browser.
+      new MutationObserver(() => {
+        if (!scheduled) { scheduled = true; setTimeout(report, 100); }
+      }).observe(document, {subtree: true, childList: true, attributes: true,
+        attributeFilter: ["role", "aria-label", "aria-disabled", "disabled", "class", "style"]});
+      window.addEventListener("load", report, {once: true});
+      report();
+    }, readinessPrefix);
     const exportResponse = await page.goto(sourcePage.url(), {
       waitUntil: "domcontentloaded",
       timeout: remaining(),

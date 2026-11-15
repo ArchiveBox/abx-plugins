@@ -147,6 +147,20 @@ def test_authenticated_design_exports(tmp_path, ensure_chrome_test_prereqs, reso
     ) as (_, _, chrome, env):
         result = run_observed_hook(tmp_path, chrome, env)
         assert result.returncode == 0, result.stderr
+        readiness = [
+            json.loads(line.split(": ", 1)[1])
+            for line in result.stderr.splitlines()
+            if line.startswith("Canva export readiness: ")
+        ]
+        assert any(
+            state["titleState"] == "document"
+            and any(
+                control["label"] in {"Share", "All Publish Options"}
+                and control["visible"]
+                for control in state["controls"]
+            )
+            for state in readiness
+        ), result.stderr
         # A visible format selector can belong to the provisional download form.
         # Verify both real selections wait for export readiness, without replaying
         # clicks, in addition to checking the complete downloaded files below.
