@@ -1,0 +1,20 @@
+abx_plugins/plugins/canva/tests/test_canva.py
+  s_784d0e5fa3aa29::t_d458a5517c80a1 3,56-59,61-64,70
+  s_784d0e5fa3aa29::t_363725c6d48efc 60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8c2afff7164f4eee6a504d1658083f474ad89d8e",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
