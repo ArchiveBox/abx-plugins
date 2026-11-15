@@ -1,0 +1,23 @@
+abx_plugins/plugins/canva/README.md
+  s_532dc92fd8220a::t_c0db6999af7b29 22,39
+.github/workflows/docs.yml
+  s_532dc92fd8220a::t_4d0d274d72d02e 80,96,104,112-118,122,140,143,146,148-149
+.github/workflows/test-parallel.yml
+  s_532dc92fd8220a::t_4d0d274d72d02e 603-604
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2531724c2122a6cec3718183ac8527fb4904012b",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
