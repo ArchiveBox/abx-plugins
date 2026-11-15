@@ -56,25 +56,35 @@ def unrelated_page(request, tmp_path_factory, ensure_chrome_test_prereqs):
     with chrome_session(
         root,
         test_url=url,
-        navigate=not failed_navigation,
+        navigate=False,
         timeout=60,
         env_overrides={"AUTH_STORAGE_FILE": ""},
     ) as (_, _, chrome, env):
+        # Run the remaining hooks after either navigation outcome, as the
+        # runner does. URL-scoped hooks can reject an unrelated URL even when
+        # its server returns an HTTP error or an access challenge.
+        result = subprocess.run(
+            [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+            cwd=chrome,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        navigation = json.loads((chrome / "navigation.json").read_text())
+        record = parse_jsonl_output(result.stdout)
+        assert record is not None, result.stdout + result.stderr
+        assert navigation["url"] == url, navigation
         if failed_navigation:
-            # Preserve the real failed-navigation target, just as the runner
-            # does before invoking the remaining snapshot hooks. The normal
-            # test helper raises and tears down Chrome on navigation failure.
-            result = subprocess.run(
-                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
-                cwd=chrome,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=90,
-            )
-            assert result.returncode != 0, result.stdout
-            navigation = json.loads((chrome / "navigation.json").read_text())
             assert navigation["error"], navigation
+        if navigation.get("error"):
+            assert result.returncode == 1, result.stdout + result.stderr
+            assert record["status"] == "failed", record
+            assert record["output_str"] == navigation["error"], record
+        else:
+            assert result.returncode == 0, result.stdout + result.stderr
+            assert record["status"] == "succeeded", record
+            assert 200 <= navigation["status"] < 400, navigation
         yield url, chrome.parent, env
 
 
