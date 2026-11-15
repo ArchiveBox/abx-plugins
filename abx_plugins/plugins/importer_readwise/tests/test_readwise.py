@@ -1,6 +1,6 @@
 """Real importer subprocesses against Readwise's published document examples.
 
-fixtures/reader-list.json is the LIST response from https://readwise.io/reader_api
+../examples/reader-list.json is the LIST response from https://readwise.io/reader_api
 (retrieved 2026-11-14; JSON trailing commas removed, document values unchanged).
 HTTP tests serve that public example; they do not establish live account access.
 reader-library.csv is unchanged from duncanlew/demo-go-csv-parser at
@@ -18,7 +18,9 @@ import pytest
 from abx_plugins.plugins.base.importers import read_records
 from abx_plugins.plugins.importer_readwise.importer import document_item
 
-EXAMPLE = json.loads((Path(__file__).parent / "fixtures/reader-list.json").read_text())
+EXAMPLE = json.loads(
+    (Path(__file__).parents[1] / "examples/reader-list.json").read_text()
+)
 
 
 def test_public_reader_csv_batches_and_dates(httpserver):

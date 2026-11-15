@@ -17,7 +17,7 @@ class _Text(HTMLParser):
 def template_context(slot, context):
     if slot != "snapshot_head":
         return {}
-    root = Path(context["output_dir"]).resolve()
+    root = Path(context["output_dir"])
     files = context["output_files"]
 
     def read(path, limit=262144):
@@ -25,7 +25,7 @@ def template_context(slot, context):
             return ""
         try:
             source = (root / path).resolve()
-            if not source.is_relative_to(root):
+            if not source.is_relative_to(root.resolve()):
                 return ""
             with source.open("rb") as handle:
                 data = handle.read(limit + 1)
@@ -101,7 +101,7 @@ def template_context(slot, context):
             try:
                 source = (root / path).resolve()
                 if (
-                    source.is_relative_to(root)
+                    source.is_relative_to(root.resolve())
                     and source.is_file()
                     and source.stat().st_size
                 ):
