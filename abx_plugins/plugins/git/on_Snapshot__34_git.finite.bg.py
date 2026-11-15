@@ -205,6 +205,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
             # Never clear another live attempt; after all owners exit, startup
             # discards only this snapshot's scratch instead of accumulating GBs.
             fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquisition_succeeded = False
             try:
                 if repo_dir.exists():
                     shutil.rmtree(repo_dir)
@@ -283,6 +284,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                             error_prefix == "git fetch failed"
                             and "not found" in output.lower()
                         ):
+                            acquisition_succeeded = True
                             return True, "No git repository found", ""
                         return (
                             False,
@@ -329,11 +331,25 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                         file=sys.stderr,
                         flush=True,
                     )
+                acquisition_succeeded = True
                 return True, str(OUTPUT_DIR), ""
 
             finally:
-                if repo_dir.exists():
-                    shutil.rmtree(repo_dir)
+                try:
+                    if repo_dir.exists():
+                        shutil.rmtree(repo_dir)
+                except OSError as cleanup_error:
+                    # Preserve the acquisition failure, but never hide a cleanup
+                    # failure or report an otherwise successful capture as clean.
+                    print(
+                        f"ERROR: git scratch cleanup failed; retained scratch at {repo_dir}: "
+                        f"{type(cleanup_error).__name__}: {cleanup_error}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    if acquisition_succeeded:
+                        error_prefix = "git scratch cleanup failed"
+                        raise
 
     except subprocess.TimeoutExpired:
         return False, None, f"{error_prefix}: Timed out after {timeout} seconds"

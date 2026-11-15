@@ -1224,7 +1224,11 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
     # response index is reset for each capture and records only completed bodies.
     try:
         navigation = json.loads((base / "chrome/navigation.json").read_text())
-        if isinstance(navigation, dict) and 200 <= navigation.get("status", 0) < 300:
+        if (
+            isinstance(navigation, dict)
+            and isinstance(navigation.get("finalUrl"), str)
+            and 200 <= navigation.get("status", 0) < 300
+        ):
             final_url = urldefrag(navigation["finalUrl"])[0]
             response_dir = base / "responses"
             document_paths: set[Path] = set()
@@ -1240,6 +1244,7 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
                     entry.get("resourceType") == "document"
                     and entry.get("method") == "GET"
                     and 200 <= entry.get("status", 0) < 300
+                    and isinstance(entry.get("url"), str)
                     and urldefrag(entry.get("url", ""))[0] == final_url
                     and (
                         mime_type.startswith("text/")

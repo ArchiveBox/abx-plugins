@@ -2104,6 +2104,33 @@ const progress = (...args) => console.error(`Replay probe +${Date.now() - starte
   });
   try {
     const replayResponses = [];
+    // buffer() waits for Puppeteer's completion event before sending its
+    // separately bounded CDP body command. Keep both event streams so a hang
+    // distinguishes a stalled response from missing observer bookkeeping.
+    const replayRequestIds = new Set();
+    const observedClients = new WeakSet();
+    for (const event of ["requestfinished", "requestfailed"]) {
+      page.on(event, (request) => {
+        if (replayRequestIds.has(request.id)) {
+          progress(event, { id: request.id, failure: request.failure() });
+        }
+      });
+    }
+    page.on("response", (response) => {
+      let pathname;
+      try { pathname = new URL(response.url()).pathname; } catch { return; }
+      if (pathname !== "/replay/") return;
+      const request = response.request();
+      replayRequestIds.add(request.id);
+      progress("replay response", { id: request.id, status: response.status(), worker: response.fromServiceWorker() });
+      if (observedClients.has(request.client)) return;
+      observedClients.add(request.client);
+      for (const event of ["Network.loadingFinished", "Network.loadingFailed"]) {
+        request.client.on(event, (details) => {
+          if (replayRequestIds.has(details.requestId)) progress(event, details);
+        });
+      }
+    });
     const workerResponse = page.waitForResponse(
       (response) => {
         let pathname = "";

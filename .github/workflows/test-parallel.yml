@@ -11,7 +11,7 @@ on:
         options: [linux, macos]
         default: linux
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/feature-*']
   push:
     branches: [main]
 

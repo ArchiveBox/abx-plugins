@@ -128,6 +128,35 @@ def test_refused_git_connection_remains_failed(tmp_path):
     assert "Failed to connect" in record["output_str"]
 
 
+def test_denied_https_preserves_acquisition_error_and_previous_output(tmp_path):
+    output = tmp_path / "git"
+    output.mkdir()
+    previous = output / "previous.txt"
+    previous.write_bytes(b"Previous complete capture\n")
+    result = subprocess.run(
+        [str(GIT_HOOK), "--url", "https://example.com/repository.git"],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "TMP_DIR": str(tmp_path / "runtime"),
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "protocol.https.allow",
+            "GIT_CONFIG_VALUE_0": "never",
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "failed",
+        "output_str": "git fetch failed (exit=128): fatal: transport 'https' not allowed",
+    }
+    assert previous.read_bytes() == b"Previous complete capture\n"
+
+
 def test_real_git_repo():
     """Test that git can clone a real GitHub repository."""
     git_loaded = install_required_binary_from_config(PLUGIN_DIR, "git")

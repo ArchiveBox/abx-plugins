@@ -140,6 +140,38 @@ Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
 Templates and `template_context` receive the existing context, including Django
 models and `request` when supplied by the view.
 
+### Configuration field templates
+
+ArchiveBox renders the existing `config.json` properties as searchable plugin
+settings on `/add/` and Persona admin. No extra manifest is needed. A field can
+replace its presentation through `templates/config/<EXACT_CONFIG_KEY>.html`:
+
+```django
+{% extends "plugins/config_field.html" %}
+{% block label %}Image size{% endblock %}
+{% block widget %}{% include "plugins/config_resolution.html" %}{% endblock %}
+{% block help %}Choose a preset or enter width,height in pixels.{% endblock %}
+```
+
+The template receives `plugin` and `field` (key, input_name, value, label,
+description, minimum, maximum, options). Without an override, the shared renderer
+handles booleans, enums, numbers, strings, secrets, and JSON. Keep the canonical
+control's `name="{{ field.input_name }}"`, `id="id_{{ field.input_name }}"`,
+`class="plugin-config-input"`, and `data-config-key="{{ field.key }}"` so existing
+validation, Persona defaults, and saving continue to work. Presentation templates
+do not change the schema or persisted key/value shapes.
+
+Shared controls include `plugins/config_range.html` (pass `unit`, `low`, `high`,
+and `step`), `plugins/config_resolution.html`, and `plugins/config_editor.html`.
+The editor extends the field template with `language` and `snippets` blocks;
+buttons with `data-config-insert` insert text at the cursor. Add
+`data-config-position="start"` for a guard before existing code, or use
+`data-config-wrap` with an `__SCRIPT__` placeholder to wrap the existing script.
+`data-config-source` reads a sibling field into an `__VALUE__` placeholder as a
+quoted string (useful for routing prompts by domain). See Puppeteer's script
+and Autosummary's prompt templates for working examples. Editors submit ordinary
+strings; snippets are inserted only when selected.
+
 Command contracts:
 
 - `browser-open`: stdin `{config, persona_dir, name?, headless?, collection_dir?}`; emits a JSON readiness record with `ready` and `browser_pid`.

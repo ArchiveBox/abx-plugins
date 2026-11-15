@@ -45,11 +45,20 @@ process.on('SIGTERM', () => { if (browser) browser.disconnect(); process.exit(0)
       window.__archiveboxCanvaInputObserved = true;
       const rect = el => { const r = el?.getBoundingClientRect();
         return r && {x: r.x, y: r.y, width: r.width, height: r.height}; };
-      const describe = el => el && ({tag: el.tagName, role: el.getAttribute('role'),
-        label: el.getAttribute('aria-label'), rect: rect(el)});
+      const identities = new WeakMap(); let nextIdentity = 0;
+      const describe = el => {
+        if (!el) return null;
+        if (!identities.has(el)) identities.set(el, ++nextIdentity);
+        return {identity: identities.get(el), connected: el.isConnected,
+          tag: el.tagName, role: el.getAttribute('role'),
+          label: el.getAttribute('aria-label'), rect: rect(el)};
+      };
       const state = () => {
         const control = document.querySelector('[role="combobox"][aria-label="File type"]');
         return {control: describe(control), expanded: control?.getAttribute('aria-expanded'),
+          controlAttributes: control && Object.fromEntries([...control.attributes]
+            .filter(a => ['id', 'class', 'disabled', 'aria-busy', 'aria-disabled', 'aria-controls'].includes(a.name))
+            .map(a => [a.name, a.value])),
           submit: [...document.querySelectorAll('form button[type="submit"]')].map(el => ({disabled: el.disabled,
             ariaDisabled: el.getAttribute('aria-disabled'), text: el.innerText})),
           selectedFormat: control?.innerText.slice(0, 100),

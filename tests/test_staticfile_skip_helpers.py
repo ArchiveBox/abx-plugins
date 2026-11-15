@@ -213,7 +213,17 @@ def test_parser_reuses_raw_main_html_when_origin_is_offline(
     navigation_text = navigation_path.read_text()
     navigation_path.write_text("{}")
     assert iter_staticfile_text_inputs(snapshot_dir) == ()
+    navigation_path.write_text(
+        json.dumps({**navigation, "finalUrl": {"invalid": True}}),
+    )
+    assert iter_staticfile_text_inputs(snapshot_dir) == ()
     navigation_path.write_text(navigation_text)
+    index_path = snapshot_dir / "responses/index.jsonl"
+    index_text = index_path.read_text()
+    main_entry["url"] = {"invalid": True}
+    index_path.write_text("\n".join(json.dumps(entry) for entry in response_entries))
+    assert iter_staticfile_text_inputs(snapshot_dir) == ()
+    index_path.write_text(index_text)
     outside_source = tmp_path / "outside.html"
     captured_body.rename(outside_source)
     captured_body.symlink_to(outside_source)

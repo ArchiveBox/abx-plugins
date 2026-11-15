@@ -18,7 +18,13 @@ PREPARE_HOOK = PLUGIN_DIR / "on_CrawlSetup__80_tlsnotary_prepare.py"
 @pytest.fixture
 def installed_extension(tmp_path):
     env = setup_test_env(tmp_path)
-    env.update({"TLSNOTARY_ENABLED": "true", "TLSNOTARY_EXTENSION_DIR": ""})
+    env.update(
+        {
+            "TLSNOTARY_ENABLED": "true",
+            "TLSNOTARY_EXTENSION_DIR": "",
+            "TLSNOTARY_MUX_PATCH_ENABLED": "true",
+        },
+    )
     install_required_binary_from_config(PLUGIN_DIR, "tlsnotary", env=env)
     downloaded = json.loads(
         (
@@ -134,3 +140,30 @@ def test_mux_delta_reconstructs_pinned_wasm_and_rejects_damage(installed_extensi
     for damaged in (b"invalid!" + patch[8:], patch[:31], patch[:-1]):
         with pytest.raises((ValueError, OSError)):
             _apply_delta(original, damaged, wasm["output_size"])
+
+
+def test_prepare_can_disable_mux_patch_and_switch_back(installed_extension):
+    env, source = installed_extension
+    env["TLSNOTARY_MUX_PATCH_ENABLED"] = "false"
+    result = prepare(env)
+    assert result.returncode == 0, result.stderr
+    metadata_path = Path(env["CRAWL_DIR"]) / "tlsnotary" / "extension.json"
+    metadata = json.loads(metadata_path.read_text())
+    assert metadata["mux_patch"] == 0
+    unpatched = Path(metadata["unpacked_path"])
+    for name in ("tlsn_wasm_bg.wasm", "c215ca8b495a7eadf02b.wasm"):
+        assert (unpatched / name).read_bytes() == (source / name).read_bytes()
+    assert metadata["export_patch"] == 2
+    assert (unpatched / "offscreen.bundle.js").read_bytes() != (
+        source / "offscreen.bundle.js"
+    ).read_bytes()
+    env["TLSNOTARY_MUX_PATCH_ENABLED"] = "true"
+    result = prepare(env)
+    assert result.returncode == 0, result.stderr
+    patched_metadata = json.loads(metadata_path.read_text())
+    assert patched_metadata["mux_patch"] == 1
+    assert Path(patched_metadata["unpacked_path"]) != unpatched
+    env["TLSNOTARY_MUX_PATCH_ENABLED"] = "false"
+    result = prepare(env)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(metadata_path.read_text()) == metadata

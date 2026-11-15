@@ -89,7 +89,7 @@ def test_navigation_waits_for_cleared_challenge(tmp_path, httpserver, clearance)
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-def test_unsolved_challenge_is_kept_without_failing(tmp_path, httpserver):
+def test_unsolved_challenge_is_preserved_as_failed_navigation(tmp_path, httpserver):
     httpserver.expect_request("/article").respond_with_handler(
         challenge_site("unsolved"),
     )
@@ -106,12 +106,11 @@ def test_unsolved_challenge_is_kept_without_failing(tmp_path, httpserver):
             chrome_dir,
             {**env, "CHROME_TIMEOUT": "20"},
         )
-        assert result.returncode == 0, result.stderr
-        assert record["status"] == "succeeded"
-        assert (
-            record["output_str"]
-            == "page loaded http=403 (Cloudflare challenge unsolved)"
-        )
+        assert result.returncode == 1, result.stdout
+        assert record["status"] == "failed"
+        assert record["output_str"] == "HTTP 403: document request failed"
         assert navigation["status"] == 403
         assert navigation["challenge"] == "unsolved"
+        assert navigation["attempts"] == 1
+        assert navigation["error"] == "HTTP 403: document request failed"
         assert 10000 <= navigation["elapsed"] < 20000, navigation

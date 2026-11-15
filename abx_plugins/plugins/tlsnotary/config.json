@@ -36,6 +36,11 @@
       "default": false,
       "description": "Enable private extension proofs; significantly increases archiving time and bandwidth."
     },
+    "TLSNOTARY_MUX_PATCH_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Apply the temporary upstream mux-close fix. False keeps official WASM (final proof frames may be lost); local proof export remains enabled."
+    },
     "TLSNOTARY_VERIFIER_URL": {
       "type": "string",
       "default": "https://tlsnotary.archivebox.io",
