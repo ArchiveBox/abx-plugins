@@ -1,0 +1,19 @@
+abx_plugins/plugins/importer_readwise/tests/test_readwise.py
+  s_784d0e5fa3aa29::t_38827a27ef1927 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7f3f7bd3ce2af7949f945e01a7b54accc460933b",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
