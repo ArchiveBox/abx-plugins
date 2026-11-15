@@ -75,7 +75,12 @@
         resize();
     }
     window.addEventListener('message', event => {
-        if (event.source === parent && event.data?.type === 'archivebox-preview-activated') reportReplayHeight?.();
+        if (event.source === parent && event.data?.type === 'archivebox-preview-activated') {
+            // Updating the iframe's name attribute does not rename an already
+            // loaded cross-origin browsing context. Activate it here as well.
+            window.name = 'preview';
+            reportReplayHeight?.();
+        }
     });
     function replayDocumentLoaded(root) {
         for (const element of root.querySelectorAll('*')) {
