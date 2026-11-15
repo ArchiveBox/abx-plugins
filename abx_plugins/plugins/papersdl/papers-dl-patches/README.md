@@ -4,7 +4,7 @@ Upstream: https://github.com/benmuth/papers-dl/pull/5
 Base PyPI package: papers-dl 0.0.25 (51b265c).
 License: MIT; see LICENSE. These Python files are based on the canonical
 papers-dl source at `668760286b1bf29befc349f3ba8bf2ba38fb700e`, with the local
-PDF identity validation described below.
+PDF identity validation and SciDB error propagation described below.
 
 The papersdl snapshot hook puts this directory first on the installed CLI's
 PYTHONPATH. It replaces its CLI entrypoint and parser/fetch/provider modules
@@ -18,11 +18,14 @@ PMC, Europe PMC, bioRxiv, and medRxiv. Existing publisher and repository provide
 follow. A successful PDF ends discovery. Responses must pass HTTP status and
 PDF-signature checks.
 
-PMC, publisher, and bioRxiv/medRxiv discovery preserve network errors instead of converting them
+PMC, publisher, SciDB, and bioRxiv/medRxiv discovery preserve network errors instead of converting them
 to empty searches. Discovery/download errors still allow the next selected
 provider to supply a valid PDF. If none succeeds, retained request errors fail
 the CLI and hook; a clean empty search remains `noresults`. The hook respects a
 nonzero CLI exit even when its diagnostics contain words such as "not found".
+SciDB checks HTTP status before parsing; a missing paper (404) stays an empty
+search, while DNS failures and refused requests reach the existing fallback/error
+collector instead of becoming "No papers found".
 Versioned bioRxiv/medRxiv links resolve directly to their PDF endpoint; metadata
 discovery is only needed when the requested version or preprint DOI is unknown.
 

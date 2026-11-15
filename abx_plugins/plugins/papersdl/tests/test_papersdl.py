@@ -69,7 +69,10 @@ def test_open_paper_download_does_not_probe_mirrors(tmp_path):
     assert "SciDB" not in result.stderr, result.stderr
 
 
-@pytest.mark.parametrize("providers", ["publisher", "publisher,unpaywall"])
+@pytest.mark.parametrize(
+    "providers",
+    ["publisher", "publisher,unpaywall", "scidb", "scidb,unpaywall"],
+)
 def test_provider_connection_failure_is_not_an_empty_search(tmp_path, providers):
     binary = require_papersdl_binary()
     # Close before connecting: a bound, non-listening socket can time out on macOS.
@@ -98,7 +101,7 @@ def test_provider_connection_failure_is_not_an_empty_search(tmp_path, providers)
     )
     pdfs = list(tmp_path.glob("*.pdf"))
     assert "Cannot connect to host 127.0.0.1" in result.stderr
-    if providers == "publisher":
+    if providers in {"publisher", "scidb"}:
         assert result.returncode != 0, result.stdout + result.stderr
         assert "No papers found" not in result.stdout
         assert not pdfs

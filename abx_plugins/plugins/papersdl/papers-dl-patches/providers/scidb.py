@@ -12,12 +12,11 @@ async def get_url(session, identifier):
     if is_doi:
         url = urljoin(base_url, identifier)
         logger.info("searching SciDB: {}", url)
-        try:
-            res = await session.get(url)
-        except Exception as e:
-            logger.error("Couldn't connect to SciDB: {}", e)
-            return None
-        pdf_url = find_pdf_url(await res.read())
+        async with session.get(url) as response:
+            if response.status == 404:
+                return None
+            response.raise_for_status()
+            pdf_url = find_pdf_url(await response.read())
         if pdf_url is None:
             logger.info("No direct link to PDF found from SciDB")
         return pdf_url
