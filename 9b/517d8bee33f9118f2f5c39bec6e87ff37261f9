@@ -1,0 +1,29 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_532dc92fd8220a::t_8ab63273ef272c 5985,6009-6012
+abx_plugins/plugins/headers/tests/test_headers.py
+  s_532dc92fd8220a::t_8ab63273ef272c 493-498
+abx_plugins/plugins/canva/on_Snapshot__53_canva.js
+  s_532dc92fd8220a::t_8ab63273ef272c 285-287,298
+abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py
+  s_532dc92fd8220a::t_8ab63273ef272c 39-40,727,898,970
+abx_plugins/plugins/figma/tests/test_figma.py
+  s_532dc92fd8220a::t_f364014b098ca7 10,38,50-63
+abx_plugins/plugins/title/tests/test_title.py
+  s_532dc92fd8220a::t_8ab63273ef272c 357-362
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9b517d8bee33f9118f2f5c39bec6e87ff37261f9",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
