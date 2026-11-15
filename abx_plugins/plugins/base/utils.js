@@ -720,6 +720,18 @@ function writeFileAtomic(filePath, contents) {
 // Sibling plugin output checking
 // ---------------------------------------------------------------------------
 
+// Match Python's has_failed_source_navigation for optional sibling metadata.
+function hasFailedSourceNavigation(url, snapshotDir) {
+  try {
+    const navigation = JSON.parse(fs.readFileSync(path.join(snapshotDir, "chrome/navigation.json"), "utf8"));
+    if (!navigation || navigation.url !== url) return false;
+    return (Number.isInteger(navigation.status) && navigation.status >= 400 && navigation.status < 600) ||
+      (navigation.status == null && String(navigation.error || "").includes("net::ERR_"));
+  } catch {
+    return false;
+  }
+}
+
 // Match Python's is_non_html_document, including 2xx attachment navigations.
 function isNonHtmlDocument(navigationPath = "../chrome/navigation.json") {
   try {
@@ -819,6 +831,7 @@ module.exports = {
   writeFileAtomic,
   hasStaticFileOutput,
   isNonHtmlDocument,
+  hasFailedSourceNavigation,
   iterStaticfileTextInputs,
 };
 

@@ -25,6 +25,7 @@ const {
   writeFileAtomic,
   hasStaticFileOutput,
   isNonHtmlDocument,
+  hasFailedSourceNavigation,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const { connectToPage } = require("../chrome/chrome_utils.js");
@@ -133,6 +134,10 @@ async function main() {
       console.error("Browser document is not HTML");
       emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
+    }
+    if (hasFailedSourceNavigation(url, SNAP_DIR)) {
+      emitArchiveResultRecord("failed", "Source navigation failed");
+      process.exit(1);
     }
 
     const timeoutMs = getEnvInt("DOM_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000;

@@ -28,6 +28,7 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_NAVIGATE_HOOK,
     chrome_extension_install_env,
     chrome_session,
     get_test_env,
@@ -46,6 +47,128 @@ SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 TEST_URL = "https://archivebox.io/tests/"
+
+
+@pytest.mark.parametrize("status", [404, 503])
+def test_browser_http_errors_preserve_previous_outputs(
+    tmp_path,
+    httpserver,
+    singlefile_install_state,
+    status,
+):
+    error_page = (
+        "<!doctype html><html><head><title>Unavailable</title></head><body>"
+        "<h1>The source is unavailable</h1><p>This response remains part of the capture.</p></body></html>"
+    )
+    saved_page = (PLUGIN_DIR / "tests/fixtures/archivebox-test-page.html").read_text()
+    url = httpserver.url_for("/article")
+    state = singlefile_install_state
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=False,
+        env_overrides={
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(state["extensions_dir"].parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(state["extensions_dir"]),
+        },
+    ) as (_, _, chrome_dir, env):
+        snap_dir = Path(env["SNAP_DIR"])
+        previous = {}
+        for source_status in (200, status):
+            httpserver.clear()
+            httpserver.expect_request("/article").respond_with_data(
+                saved_page if source_status == 200 else error_page,
+                status=source_status,
+                headers={"Retry-After": "300"},
+                content_type="text/html",
+            )
+            httpserver.expect_request("/favicon.ico").respond_with_data("", status=204)
+            navigation = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                env={**env, "CHROME_TIMEOUT": "10"},
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert (
+                json.loads((chrome_dir / "navigation.json").read_text())["status"]
+                == source_status
+            )
+            for plugin, hook, output in (
+                (
+                    "dom",
+                    PLUGIN_DIR.parent / "dom/on_Snapshot__53_dom.js",
+                    "output.html",
+                ),
+                ("singlefile", SNAPSHOT_HOOK, "singlefile.html"),
+            ):
+                result = subprocess.run(
+                    [str(hook), f"--url={url}"],
+                    cwd=snap_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                record = parse_jsonl_output(result.stdout)
+                assert record is not None, result.stdout + result.stderr
+                if source_status == 200:
+                    assert result.returncode == 0, result.stdout + result.stderr
+                    assert record["status"] == "succeeded"
+                    previous[plugin] = (snap_dir / plugin / output).read_bytes()
+                    assert b"ArchiveBox Test Page" in previous[plugin]
+                else:
+                    assert result.returncode == 1, (
+                        result.stdout + result.stderr + navigation.stderr
+                    )
+                    assert record == {
+                        "type": "ArchiveResult",
+                        "status": "failed",
+                        "output_str": "Source navigation failed",
+                    }
+                    assert (snap_dir / plugin / output).read_bytes() == previous[plugin]
+
+        assert (
+            len(
+                [
+                    request
+                    for request, _ in httpserver.log
+                    if request.path == "/article"
+                ],
+            )
+            == 1
+        )
+        httpserver.clear()
+        httpserver.expect_request("/article").respond_with_data(
+            saved_page,
+            content_type="text/html",
+        )
+        wget = PLUGIN_DIR.parent / "wget"
+        binary = install_required_binary_from_config(wget, "wget")
+        result = subprocess.run(
+            [str(get_hook_script(wget, "on_Snapshot__*_wget.*")), f"--url={url}"],
+            cwd=snap_dir,
+            env={**env, "WGET_BINARY": str(binary.loaded_abspath)},
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record is not None, result.stdout + result.stderr
+        assert record["status"] == "succeeded", result.stdout
+        assert "ArchiveBox Test Page" in (snap_dir / record["output_str"]).read_text()
+        assert (
+            len(
+                [
+                    request
+                    for request, _ in httpserver.log
+                    if request.path == "/article"
+                ],
+            )
+            == 1
+        )
 
 
 @pytest.fixture

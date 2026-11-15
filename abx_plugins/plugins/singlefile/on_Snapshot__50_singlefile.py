@@ -19,6 +19,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     has_staticfile_output,
     is_non_html_document,
+    has_failed_source_navigation,
 )
 
 
@@ -119,6 +120,9 @@ def main(url: str) -> None:
     if is_non_html_document():
         emit_archive_result_record("noresults", "Browser document is not HTML")
         raise SystemExit(0)
+    if has_failed_source_navigation(url, SNAP_DIR):
+        emit_archive_result_record("failed", "Source navigation failed")
+        raise SystemExit(1)
 
     try:
         print("SingleFile extraction started", flush=True)
