@@ -384,6 +384,9 @@ jobs:
     runs-on: ${{ matrix.test.ugnas && fromJSON(needs.prepare.outputs.runner) || matrix.test.os }}
     needs: [prepare]
     if: needs.prepare.outputs.run_tests == 'true'
+    permissions:
+      contents: read
+      id-token: write
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -467,6 +470,17 @@ jobs:
             # emulated GPU stalls Figma on CPU-limited runners.
             echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
           fi
+
+      - name: Login to Docker Hub for verifier builds
+        if: >-
+          github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' &&
+          github.event_name != 'pull_request' &&
+          contains(join(matrix.test.paths, ' '), 'abx_plugins/plugins/tlsnotary/tests/')
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
+        with:
+          username: archivebox
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
 
       - name: Run ${{ matrix.test.path }}
         env:
