@@ -75,7 +75,7 @@ not import or require `archivebox` or `abx-dl`.
 | `output_str_type` | `"path"` (default) or `"text"`; text results never identify output files. `default_output_path` identifies their saved artifact. |
 | `default_output_path` | Saved filename relative to the plugin output directory. |
 | `archive_result_aliases` | List of historical ArchiveResult plugin names owned by this plugin. |
-| `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name` | Card group (`html`, `raster`, `article_text`, `embedded_media`, `metadata`, `other`), integer order, and label. |
+| `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name` | Card group (`html`, `article_text`, `images`, `embedded_media`, `metadata`, `other`), integer order, and label. |
 | `snapshot_thumbnail_cards` | List of `{archive_result_name, order}` entries selecting existing card templates for list/grid previews. |
 | `icon_hidden`, `card_hidden`, `card_interactive` | Hide icons, hide cards, or allow interactive cards respectively; booleans default to `false`. |
 | `output_extension_preference` | Ordered lists of equivalent file extensions, e.g. `[[".html", ".htm"], [".txt"]]`. |

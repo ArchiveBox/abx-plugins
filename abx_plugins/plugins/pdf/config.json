@@ -54,6 +54,6 @@
   },
   "category": "main",
   "display_order": 30,
-  "snapshot_output_group": "raster",
+  "snapshot_output_group": "images",
   "snapshot_output_order": 1
 }
