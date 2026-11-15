@@ -55,15 +55,33 @@
         const style = doc.createElement('style');
         style.textContent = 'html,body{height:auto!important;min-height:0!important}body{display:flow-root}';
         doc.head.append(style);
+        let bounded = false;
+        const measure = () => {
+            const margins = frame.contentWindow.getComputedStyle(doc.body);
+            return Math.ceil(doc.body.getBoundingClientRect().height +
+                parseFloat(margins.marginTop) + parseFloat(margins.marginBottom));
+        };
         const resize = () => {
             if (window.name !== 'preview') return;
-            const body = doc.body;
-            const margins = frame.contentWindow.getComputedStyle(body);
-            const height = Math.ceil(body.getBoundingClientRect().height +
-                parseFloat(margins.marginTop) + parseFloat(margins.marginBottom));
+            if (bounded) {
+                parent.postMessage({type: 'archivebox-preview-height', bounded: true}, '*');
+                return;
+            }
+            const height = measure();
             const root = document.getElementById('replay-root');
             if (height <= 0 || root.style.height === `${height}px`) return;
             root.style.height = `${height}px`;
+            // A viewport-dependent document has no stable intrinsic height.
+            // Verify our resize before feeding it back into the outer frame.
+            if (Math.abs(measure() - height) > 1) {
+                bounded = true;
+                replayResizeObserver?.disconnect();
+                style.remove();
+                root.style.height = '100%';
+                root.dataset.sizeMode = 'viewport';
+                parent.postMessage({type: 'archivebox-preview-height', bounded: true}, '*');
+                return;
+            }
             parent.postMessage({type: 'archivebox-preview-height', height}, '*');
         };
         reportReplayHeight = resize;
