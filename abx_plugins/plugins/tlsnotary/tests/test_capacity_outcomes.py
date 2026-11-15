@@ -27,6 +27,7 @@ from abx_plugins.plugins.tlsnotary.tests.test_navigation_headers import (
     CHROME_UTILS,
     PLUGIN_DIR,
     PREPARE_HOOK,
+    PUBLIC_PROOF_URL,
     SNAPSHOT_HOOK,
     _inspect_browser,
     verifier as verifier,
@@ -354,7 +355,7 @@ def test_real_proof_fits_between_admission_and_stop_reserves(tmp_path, verifier)
     )
     assert reserves["ram"] > 0, reserves
 
-    url = "https://news.ycombinator.com/"
+    url = PUBLIC_PROOF_URL
     with chrome_session(
         tmp_path,
         test_url=url,
