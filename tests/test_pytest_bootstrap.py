@@ -49,6 +49,9 @@ def test_pytest_bootstrap_disables_bytecode_writes():
 
 def test_nested_docs_runs_preserve_separate_reports_and_real_failures(tmp_path):
     root = Path(__file__).resolve().parent.parent
+    # This exercises pytest reporting, not capture setup. Loading the plugin
+    # suite's autouse fixtures in both children also starts unrelated services.
+    addopts = "addopts=-p tests.test_pytest_bootstrap --codeblocks"
     missing = tmp_path / "missing.txt"
     test_file = tmp_path / "test_required_file.py"
     test_file.write_text(
@@ -59,7 +62,7 @@ def test_nested_docs_runs_preserve_separate_reports_and_real_failures(tmp_path):
     readme = tmp_path / "README.md"
     readme.write_text(
         "```sh\n"
-        f"uv run --no-sync --no-sources pytest -c '{root / 'pyproject.toml'}' '{test_file}' -q\n"
+        f"uv run --no-sync --no-sources pytest -c '{root / 'pyproject.toml'}' -o '{addopts}' '{test_file}' -q\n"
         "```\n",
     )
     reports = tmp_path / "reports"
@@ -72,6 +75,8 @@ def test_nested_docs_runs_preserve_separate_reports_and_real_failures(tmp_path):
             "pytest",
             "-c",
             str(root / "pyproject.toml"),
+            "-o",
+            addopts,
             str(readme),
             "-q",
         ],
