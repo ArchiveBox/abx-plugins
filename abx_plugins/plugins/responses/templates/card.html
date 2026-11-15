@@ -10,6 +10,7 @@
 .responses-thumbnail>img{display:block;width:100%;height:100%;object-fit:contain;}
 .responses-thumbnail>:nth-child(n+10){display:none;}
 </style>
+<noscript style="display:contents">
 <div class="responses-thumbnail" aria-label="Captured documents and images" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:3px;width:100%;height:100%;overflow:hidden;background:#f5f6f8;">
 {% for path, info in result.output_files.items %}
     {% if info.mimetype == 'application/pdf' or info.extension == 'pdf' or 'officedocument' in info.mimetype or 'opendocument' in info.mimetype or info.mimetype == 'application/epub+zip' or info.mimetype == 'application/msword' or info.mimetype == 'application/vnd.ms-excel' or info.mimetype == 'application/vnd.ms-powerpoint' or info.mimetype == 'text/markdown' or info.mimetype == 'text/x-markdown' or info.extension == 'epub' or info.extension == 'doc' or info.extension == 'docx' or info.extension == 'ppt' or info.extension == 'pptx' or info.extension == 'xls' or info.extension == 'xlsx' or info.extension == 'odt' or info.extension == 'ods' or info.extension == 'odp' or info.extension == 'rtf' or info.extension == 'md' or info.extension == 'markdown' %}
@@ -33,6 +34,7 @@
     {% endif %}
 {% endfor %}
 </div>
+</noscript>
 <div class="responses-summary" style="padding:12px;font:12px system-ui;color:#475569;">
     <strong>Captured responses</strong>
     <div>No document or image thumbnails</div>
@@ -40,7 +42,13 @@
 <script>
 (() => {
     const summary = document.currentScript.previousElementSibling;
-    const grid = summary.previousElementSibling;
+    const fallback = summary.previousElementSibling;
+    // Keep image URLs inert until selection: lazy loading can otherwise fetch
+    // the first insertion-order tiles before this script sorts them by size.
+    // The same markup still renders normally when JavaScript is disabled.
+    const template = document.createElement('template');
+    template.innerHTML = fallback.textContent;
+    const grid = template.content.firstElementChild;
     const fallbackItems = Array.from(grid.children);
     const showItems = items => {
         grid.replaceChildren(...items);
@@ -125,6 +133,7 @@
     // index/LiteParse fetches below only refine dedupe and order, and can take
     // seconds on a busy server.
     render(new Map());
+    fallback.replaceWith(grid);
     const indexUrl = new URL('{{ responses_index_url|escapejs }}', document.baseURI);
     indexUrl.searchParams.set('raw', '1');
     const raw = url => { const value = new URL(url); value.searchParams.set('raw', '1'); return value.href; };
