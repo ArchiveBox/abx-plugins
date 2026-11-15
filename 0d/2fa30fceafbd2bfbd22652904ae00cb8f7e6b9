@@ -1,0 +1,25 @@
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_532dc92fd8220a::t_007bc49dff7485 73-74
+  s_532dc92fd8220a::t_9fb07ec0ff963b 72,75
+  s_532dc92fd8220a::t_50108e5d1b506c 104
+abx_plugins/plugins/papersdl/papers-dl-patches/README.md
+  s_532dc92fd8220a::t_db4aab6815d627 7,21,26-28
+abx_plugins/plugins/papersdl/papers-dl-patches/providers/scidb.py
+  s_532dc92fd8220a::t_1401c3dbc05284 15-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d2fa30fceafbd2bfbd22652904ae00cb8f7e6b9",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
