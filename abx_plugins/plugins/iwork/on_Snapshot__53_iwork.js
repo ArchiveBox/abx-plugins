@@ -90,12 +90,26 @@ async function main() {
     // log full request URLs or response bodies: they contain share credentials.
     page.on("response", async (response) => {
       const action = new URL(response.url()).pathname.split("/").pop();
-      if (!["export_shared_document", "check_shared_export_status", "download_shared_exported_document"].includes(action)) return;
-      console.error(`iWork export response: ${action} HTTP ${response.status()} (${Date.now() - (deadline - timeoutMs)}ms)`);
+      if (
+        ![
+          "export_shared_document",
+          "check_shared_export_status",
+          "download_shared_exported_document",
+        ].includes(action)
+      )
+        return;
+      console.error(
+        `iWork export response: ${action} HTTP ${response.status()} (${
+          Date.now() - (deadline - timeoutMs)
+        }ms)`,
+      );
       if (action === "check_shared_export_status") {
         try {
           const body = await response.json();
-          if (typeof body.job_status === "string" && /^[A-Z_]+$/.test(body.job_status))
+          if (
+            typeof body.job_status === "string" &&
+            /^[A-Z_]+$/.test(body.job_status)
+          )
             console.error("iWork export status:", body.job_status);
         } catch (error) {
           console.error("iWork export status unreadable:", error.name);
@@ -180,27 +194,45 @@ async function main() {
                   return { state, element };
               return false;
             },
-            { timeout: remaining() },
+            // Background export tabs can paint at 1 Hz under Xvfb even when
+            // focus/visibility are emulated. Hit testing needs no animation frame.
+            { polling: 100, timeout: remaining() },
             { previous, completed, tools },
           );
           const state = await (await handle.getProperty("state")).jsonValue();
           const element = (await handle.getProperty("element")).asElement();
           // The shared deadline covers UI interaction and Apple's export queue.
           // Log before awaiting a click so a timeout identifies which was pending.
-          console.error(`iWork export control: ${state} (${Date.now() - (deadline - timeoutMs)}ms)`);
+          console.error(
+            `iWork export control: ${state} (${
+              Date.now() - (deadline - timeoutMs)
+            }ms)`,
+          );
           if (state === "guest") {
-            await page.waitForSelector("#participant-name", {
-              visible: true,
-              timeout: remaining(),
-            });
-            await page.type("#participant-name", "ArchiveBox");
-          }
-          if (state === "guest") {
-            const join = await page.waitForSelector(
-              'ui-alert-actions ui-button[aria-disabled="false"]',
-              { visible: true, timeout: remaining() },
+            // The state gate already proved this input is visible and topmost.
+            await element.type("ArchiveBox");
+            const join = await page.waitForFunction(
+              () => {
+                const button = document.querySelector(
+                  'ui-alert-actions ui-button[aria-disabled="false"]',
+                );
+                if (!button) return false;
+                const bounds = button.getBoundingClientRect();
+                const visibility = getComputedStyle(button).visibility;
+                return visibility !== "hidden" &&
+                  visibility !== "collapse" &&
+                  bounds.width > 0 &&
+                  bounds.height > 0
+                  ? button
+                  : false;
+              },
+              { polling: 100, timeout: remaining() },
             );
-            await join.click();
+            try {
+              await join.asElement().click();
+            } finally {
+              await join.dispose();
+            }
           } else if (state === "intro") {
             await element.focus();
             await page.keyboard.press("Enter");
@@ -211,15 +243,19 @@ async function main() {
             const activation = await element.evaluateHandle((element) => {
               const result = { clicked: false, listener: null };
               result.listener = (event) => {
-                if (event.isTrusted) result.clicked = element.contains(event.target);
+                if (event.isTrusted)
+                  result.clicked = element.contains(event.target);
               };
               document.addEventListener("click", result.listener, true);
               return result;
             });
             let clicked;
             try {
-              // Locator's extra animation-frame checks stall background tabs.
-              await element.click();
+              // The state gate already proved a topmost visible point. Avoid
+              // ElementHandle.click's IntersectionObserver wait: background
+              // export tabs can deliver those observations only once a second.
+              const { x, y } = await element.clickablePoint();
+              await page.mouse.click(x, y);
             } finally {
               clicked = await activation.evaluate((result) => {
                 document.removeEventListener("click", result.listener, true);
@@ -228,7 +264,9 @@ async function main() {
               await activation.dispose();
             }
             if (!clicked) {
-              console.error(`iWork export control covered during click: ${state}`);
+              console.error(
+                `iWork export control covered during click: ${state}`,
+              );
               await handle.dispose();
               previous = "";
               continue;
@@ -236,7 +274,11 @@ async function main() {
           }
           await handle.dispose();
           if (state === "pdf") {
-            console.error(`iWork PDF export requested (${Date.now() - (deadline - timeoutMs)}ms)`);
+            console.error(
+              `iWork PDF export requested (${
+                Date.now() - (deadline - timeoutMs)
+              }ms)`,
+            );
             return;
           }
           if (
