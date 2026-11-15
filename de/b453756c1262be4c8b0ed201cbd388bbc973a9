@@ -1,0 +1,19 @@
+abx_plugins/plugins/archivewebpage/templates/full.html
+  s_14a19a88ce4adc::t_575998efffac42 58-63,66-70,74-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "deb453756c1262be4c8b0ed201cbd388bbc973a9",
+  "prompts": {},
+  "sessions": {
+    "s_14a19a88ce4adc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de66-6d53-7fb1-ba86-fd5d2eb1a345",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
