@@ -1,0 +1,23 @@
+.github/workflows/docs.yml
+  s_532dc92fd8220a::t_6868cc8c0d251f 141-172,245-252
+  s_532dc92fd8220a::t_a3de03c0e234d2 253
+abx_plugins/plugins/tlsnotary/README.md
+  s_532dc92fd8220a::t_db5572c2ad6365 105-108,110,114,117-119
+  s_532dc92fd8220a::t_6868cc8c0d251f 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4b0c7fc7fab2b269f8e8b23bb0f3eca42678d3f",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
