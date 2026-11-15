@@ -232,7 +232,7 @@
             {% if archived_url %}url="{{ archived_url }}"{% endif %}
             embed="replayonly"
             noWebWorker
-            noCache
+            {{ replay_cache_attribute }}
             swName="sw-index.js"
             replaybase="{{ replay_base }}"></replay-web-page>
     </template>

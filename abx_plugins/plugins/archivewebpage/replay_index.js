@@ -1,4 +1,5 @@
-// Transport cache for ZIP metadata only. WARC payloads always use real fetch.
+// Inline ZIP metadata avoids serial startup requests. Archived response bodies
+// use wabac's persistent payload cache and normal versioned HTTP caching.
 // The viewer supplies original compressed index bytes; wabac still parses and
 // verifies them. Keep this worker-local, bounded, and separate from payload IDB.
 (() => {
@@ -29,6 +30,9 @@
     const url = typeof input === 'string' ? new URL(input, self.location.href).href : input.url || input.href;
     const index = indexes.get(url);
     if (!index) return networkFetch(input, init);
+    // Wabac otherwise forces no-store even for immutable, revisioned sources.
+    // Respect origin Cache-Control; never force-cache private/mutable responses.
+    if (new URL(url).searchParams.has('replay-cache')) init = {...init, cache: 'default'};
     const method = (init?.method || input.method || 'GET').toUpperCase();
     const headers = new Headers(init?.headers || input.headers);
     const responseHeaders = {'Accept-Ranges': 'bytes', 'Content-Length': String(index.size), 'Content-Type': 'application/wacz'};

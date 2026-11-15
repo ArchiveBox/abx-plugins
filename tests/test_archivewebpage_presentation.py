@@ -386,15 +386,16 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
         "/archivewebpage/archivewebpage.wacz",
         source_path=wacz_path,
         fallback_url="https://fallback.example/",
+        source_revision="completed-hashes-revision",
     )
 
-    assert 'data-source="/archivewebpage/archivewebpage.wacz?replay-index=' in html
+    assert 'data-source="/archivewebpage/archivewebpage.wacz?replay-cache=' in html
     assert 'data-url="https://example.com/"' in html
     assert "navigator.serviceWorker.register(" in html
     assert "customElements.whenDefined('replay-web-page')" in html
     assert ".then(mountReplay)" in html
     assert "noWebWorker" in html
-    assert "noCache" in html
+    assert "noCache" not in html
     assert "rwp-page-loading" in html
     assert "archivebox-replay-ready" in html
     assert "openBrowser.href = window.location.href" in html
@@ -431,6 +432,55 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
         'data-replaybase="/snapshot/06a219240eb5778d8000f850baa5d427/replay/"'
         in onedomain_html
     )
+
+
+def test_hashed_replay_metadata_is_cached_by_generation(tmp_path):
+    import sys
+    import shutil
+
+    source = tmp_path / "capture.wacz"
+    shutil.copyfile(Path(__file__).parent / "fixtures/replay/iframetest.wacz", source)
+    reads = []
+
+    def trace(frame, event, arg):
+        if event == "call" and frame.f_code is presentation._replay_index.__code__:
+            reads.append(source)
+
+    previous = sys.getprofile()
+    sys.setprofile(trace)
+    try:
+        first = presentation.render_replay_html(
+            "capture.wacz",
+            "/capture.wacz",
+            source,
+            source_revision="hash-generation-1",
+        )
+        repeat = presentation.render_replay_html(
+            "capture.wacz",
+            "/capture.wacz",
+            source,
+            source_revision="hash-generation-1",
+        )
+        assert first == repeat
+        assert len(reads) == 1
+        changed = presentation.render_replay_html(
+            "capture.wacz",
+            "/capture.wacz",
+            source,
+            source_revision="hash-generation-2",
+        )
+        assert len(reads) == 2
+        assert 'source="/capture.wacz?replay-cache=hash-generation-2"' in changed
+        assert "noCache" not in changed
+        unsealed = presentation.render_replay_html(
+            "capture.wacz",
+            "/capture.wacz",
+            source,
+        )
+        assert "noCache" in unsealed
+        assert "replay-cache=" not in unsealed
+    finally:
+        sys.setprofile(previous)
 
 
 def test_replay_index_contains_exact_metadata_but_no_warc_response_bytes():

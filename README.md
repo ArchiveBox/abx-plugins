@@ -95,7 +95,7 @@ Presentation functions are optional:
 - `template_context(slot, context) -> dict`: additional template context. Snapshot details supply plain `url`, `title`, `output_dir`, `output_files`, and ordered `primary_preview_plugins`.
 - `extra_snapshot_output_cards(outputs) -> list[dict]`: output records include `output_files` metadata, without model instances.
 - `serve_replay_asset_response(path, config, response_factory) -> response | None`.
-- `render_full_response(filename, output_path, *, source_path=None, replay_base, fallback_url="", last_modified="", etag="", cache_control="", content_encoding="") -> (body, content_type, headers) | None`.
+- `render_full_response(filename, output_path, *, source_path=None, replay_base, fallback_url="", last_modified="", etag="", cache_control="", content_encoding="") -> (body, content_type, headers) | None`. A source `etag` enables persistent replay payload caching and reuse of parsed WACZ metadata; changing it invalidates both. It must not be returned as the generated viewer HTML's ETag.
 - `rewrite_replay_document(text, *, snapshot_root, rel_path, content_type, page_url=None, replay_url=None, source_text=None) -> (text, replacement_count)`.
 - `replay_roots(snapshot_root, url) -> list[str] | tuple[str, ...]`: relative directories inside the snapshot.
 

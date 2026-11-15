@@ -313,6 +313,16 @@ def _replay_index(wacz_path: Path) -> dict:
         return {}
 
 
+@lru_cache(maxsize=32)
+def _hashed_replay_metadata(
+    source_path: Path,
+    source_revision: str,
+    fallback_url: str,
+) -> tuple[str, dict]:
+    """Read each completed hash generation once, not on every viewer reload."""
+    return _first_archived_url(source_path, fallback_url), _replay_index(source_path)
+
+
 def render_replay_html(
     filename: str,
     output_path: str,
@@ -320,6 +330,7 @@ def render_replay_html(
     fallback_url: str = "",
     *,
     replay_base: str = "/replay/",
+    source_revision: str = "",
 ) -> str:
     """Render the plugin's private replay template for a saved WACZ.
 
@@ -335,22 +346,28 @@ def render_replay_html(
     pages index.
     """
     archived_url = ""
+    replay_index = {}
     if source_path is not None and source_path.suffix.lower() == ".wacz":
-        archived_url = _first_archived_url(source_path, fallback_url)
+        if source_revision:
+            archived_url, replay_index = _hashed_replay_metadata(
+                source_path,
+                source_revision,
+                fallback_url,
+            )
+        else:
+            archived_url = _first_archived_url(source_path, fallback_url)
+            replay_index = _replay_index(source_path)
     if not archived_url:
         archived_url = fallback_url or ""
 
-    replay_index = (
-        _replay_index(source_path)
-        if source_path and source_path.suffix.lower() == ".wacz"
-        else {}
-    )
-    if replay_index:
-        # Separate old body-caching collections and invalidate indexes when a
-        # capture is replaced. The raw endpoint ignores this version parameter.
+    if source_revision or replay_index:
+        # A distinct collection enables payload caching for viewers previously
+        # opened with noCache. Replacing the archive also creates a new identity.
         source = urlsplit(output_path)
         query = dict(parse_qsl(source.query))
-        query["replay-index"] = replay_index["version"]
+        query["replay-cache" if source_revision else "replay-index"] = (
+            source_revision or replay_index["version"]
+        )
         output_path = urlunsplit(source._replace(query=urlencode(query)))
     archived_url_attr = (
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
@@ -367,6 +384,7 @@ def render_replay_html(
         .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
         .replace("{{ replay_base }}", html_escape(replay_base, quote=True))
         .replace("{{ replay_index }}", json.dumps(replay_index, separators=(",", ":")))
+        .replace("{{ replay_cache_attribute }}", "" if source_revision else "noCache")
     )
 
 
@@ -391,8 +409,8 @@ def render_full_response(
     }
     if last_modified:
         headers["Last-Modified"] = last_modified
-    if etag:
-        headers["ETag"] = etag
+    # The supplied ETag identifies saved bytes, not this generated viewer.
+    # Use it for replay persistence without freezing the HTML across deploys.
     if cache_control:
         headers["Cache-Control"] = cache_control
     if content_encoding:
@@ -404,6 +422,7 @@ def render_full_response(
             source_path=source_path,
             fallback_url=fallback_url,
             replay_base=replay_base,
+            source_revision=etag.strip('"'),
         ),
         "text/html; charset=utf-8",
         headers,
