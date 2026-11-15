@@ -2007,8 +2007,37 @@ def chrome_session(
                     env=tab_env,
                 )
                 if result.returncode != 0:
+                    navigation_metadata = ""
+                    try:
+                        navigation = json.loads(
+                            (snapshot_chrome_dir / "navigation.json").read_text(),
+                        )
+                    except (OSError, ValueError):
+                        navigation = None
+                    if isinstance(navigation, dict):
+                        metadata = {
+                            key: navigation[key]
+                            for key in (
+                                "status",
+                                "attempts",
+                                "elapsed",
+                                "retry_after_ms",
+                            )
+                            if isinstance(navigation.get(key), (int, float))
+                        }
+                        metadata["challenge_detected"] = navigation.get(
+                            "challenge",
+                        ) in ("cleared", "unsolved")
+                        metadata["challenge_cleared"] = (
+                            navigation.get("challenge") == "cleared"
+                        )
+                        navigation_metadata = (
+                            f"\nNavigation metadata: {json.dumps(metadata)}"
+                        )
                     kill_chromium_session(chrome_launch_process, chrome_dir)
-                    raise RuntimeError(f"Navigation failed: {result.stderr}")
+                    raise RuntimeError(
+                        f"Navigation failed: {result.stderr}{navigation_metadata}",
+                    )
             except subprocess.TimeoutExpired:
                 kill_chromium_session(chrome_launch_process, chrome_dir)
                 raise RuntimeError("Navigation timed out after 120s")
