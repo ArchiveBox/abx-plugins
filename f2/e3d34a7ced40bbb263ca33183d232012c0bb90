@@ -1,0 +1,21 @@
+tests/test_ci_docs_routing.py
+  s_532dc92fd8220a::t_005ade65764c77 1-53
+.github/workflows/docs.yml
+  s_532dc92fd8220a::t_14ef41c542b6f7 32-34,36-45,81,151,195-196,199-202,204-209,213,215,221,257,267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f2e3d34a7ced40bbb263ca33183d232012c0bb90",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
