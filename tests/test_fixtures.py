@@ -125,6 +125,7 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
         if "# ci-runner: ugnas" in path.read_text().splitlines()[:5]
     }
     assert pinned_providers == {
+        PLUGINS_ROOT / "canva/tests/test_canva_authenticated.py",
         PLUGINS_ROOT / "figma/tests/test_figma_authenticated.py",
         PLUGINS_ROOT / "ytdlp/tests/test_substack_authenticated.py",
     }
