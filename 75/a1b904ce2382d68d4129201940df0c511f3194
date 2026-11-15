@@ -1,0 +1,19 @@
+abx_plugins/plugins/chrome/tests/test_persona_hydration.py
+  s_532dc92fd8220a::t_9417804d1dbd27 322,327-329,358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75a1b904ce2382d68d4129201940df0c511f3194",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
