@@ -145,6 +145,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PYTEST_DEBUG_TEMPROOT: ${{ runner.temp }}/docs-pytest
+          # Later nested pytest runs must not remove earlier failure evidence.
+          PYTEST_ADDOPTS: "-o tmp_path_retention_count=100"
         run: |
           mkdir -p "$PYTEST_DEBUG_TEMPROOT"
           mapfile -t plugin_readmes < <(uv run --no-cache --no-project python - <<'PY'
@@ -158,6 +160,33 @@ jobs:
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
 
+      - name: Summarize failed browser navigation
+        if: failure()
+        run: |
+          uv run --no-project python - <<'PYNAV'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "docs-pytest"
+          records = []
+          for path in sorted(root.glob("**/snap/test-snapshot/chrome/navigation.json")):
+              state = json.loads(path.read_text())
+              record = {"file": str(path.relative_to(root))}
+              for key in ("status", "attempts", "elapsed", "retry_after_ms", "challenge", "content_type", "timestamp"):
+                  if key in state:
+                      record[key] = state[key]
+              # Redirect URLs and errors may contain authorization codes. Keep
+              # only the host, never URL paths, queries, headers or page bodies.
+              for key in ("url", "finalUrl", "pageUrl"):
+                  if state.get(key):
+                      record[key + "_host"] = urlsplit(state[key]).hostname
+              records.append(record)
+          destination = Path(os.environ["RUNNER_TEMP"]) / "docs-navigation-summary.json"
+          destination.write_text(json.dumps(records, indent=2))
+          PYNAV
+
       - name: Save failed browser control diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -165,14 +194,16 @@ jobs:
           name: docs-browser-control-logs
           # Nested pytest output omits this observer log. Allow only reviewed
           # control diagnostics, never persona files or raw network logs.
-          path: ${{ runner.temp }}/docs-pytest/**/snap/test-snapshot/chrome/canva-observer.stderr.log
+          path: |
+            ${{ runner.temp }}/docs-pytest/**/snap/test-snapshot/chrome/canva-observer.stderr.log
+            ${{ runner.temp }}/docs-navigation-summary.json
           if-no-files-found: ignore
           retention-days: 14
 
       - name: Remove authentication and browser profiles
         if: always()
         run: |
-          rm -f "$RUNNER_TEMP"/docs-auth.*
+          rm -f "$RUNNER_TEMP"/docs-auth.* "$RUNNER_TEMP/docs-navigation-summary.json"
           rm -rf "$RUNNER_TEMP/docs-personas" "$RUNNER_TEMP/docs-abx-lib" "$RUNNER_TEMP/docs-pytest"
 
   complete:
