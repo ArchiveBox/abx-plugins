@@ -1,5 +1,6 @@
 """Exercise public provider export restrictions with a real browser session."""
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -52,12 +53,21 @@ def test_public_export_restriction(
         assert record["output_str"] == reason, result.stdout
         # Control readiness is logged before waiting so a killed hook still
         # identifies its last phase. The prerequisite itself remains exact.
+        diagnostics = result.stderr.strip().splitlines()
+        if url == URL:
+            prefix = "Canva export navigation: "
+            assert diagnostics[0].startswith(prefix), result.stderr
+            assert json.loads(diagnostics.pop(0)[len(prefix) :]) == {
+                "status": 200,
+                "path": "/design/DAFzz5bvS5k/Fd3WlIpCPDxW9j8dQ_z7Bg/view",
+                "title": "FAFSA Night Flyer",
+            }
         expected_diagnostics = (
             ["Waiting for Canva export control: button View template"]
             if url == URL
             else []
         )
-        assert result.stderr.strip().splitlines() == [*expected_diagnostics, reason]
+        assert diagnostics == [*expected_diagnostics, reason]
         assert not (chrome.parent / "canva" / "downloads.json").exists()
 
 
