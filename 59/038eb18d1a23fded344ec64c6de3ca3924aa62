@@ -1,0 +1,23 @@
+abx_plugins/plugins/chrome/tests/test_navigation_failure_diagnostics.py
+  s_532dc92fd8220a::t_0b17c2ee830049 1-10,14-28
+  s_532dc92fd8220a::t_8eac2e7a8e3cfc 11-13
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_532dc92fd8220a::t_8eac2e7a8e3cfc 2012-2014,2020-2025,2028-2036,2038-2040
+  s_532dc92fd8220a::t_dcd0d7e4c2d003 2010-2011,2015-2019,2026-2027
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "59038eb18d1a23fded344ec64c6de3ca3924aa62",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
