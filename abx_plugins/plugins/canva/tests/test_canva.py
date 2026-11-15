@@ -19,7 +19,7 @@ HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_canva.js"
     [
         (URL, "noresults", "Persona must be logged in to canva.com"),
         (
-            "https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view",
+            URL.split("?", 1)[0],
             "noresults",
             "No export in public view",
         ),

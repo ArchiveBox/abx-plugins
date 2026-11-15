@@ -264,11 +264,24 @@ async function main() {
       current.searchParams.get("mode") === "preview"
     ) {
       await click("button", "View template");
-      const iframe = await page.waitForSelector(
-        'iframe[title="Open template"]',
-        { visible: true, timeout: remaining() },
-      );
-      const frame = await iframe.contentFrame();
+      // Like the controls above, this frame can appear in an export tab that
+      // is not painting under Xvfb. Visible-selector waits poll with RAF;
+      // use the same timer polling while retaining the visibility check.
+      const iframe = await page.waitForFunction(
+        () => {
+          const element = document.querySelector('iframe[title="Open template"]');
+          if (!element) return false;
+          const visibility = getComputedStyle(element).visibility;
+          const bounds = element.getBoundingClientRect();
+          return visibility !== "hidden" && visibility !== "collapse" &&
+            bounds.width > 0 && bounds.height > 0 ? element : false;
+        },
+        { polling: 100, timeout: remaining() },
+      ).catch(async (error) => {
+        await reportControls(page, "iframe");
+        throw error;
+      });
+      const frame = await iframe.asElement()?.contentFrame();
       if (!frame)
         throw new Error("Canva template sign-in frame is unavailable");
       const state = await frame.waitForFunction(
