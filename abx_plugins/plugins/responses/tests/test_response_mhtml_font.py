@@ -596,10 +596,10 @@ def test_responses_card_filters_url_later_classified_as_font(
     )
     httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
     page_html = (
-        '<div class="responses-thumbnail">'
+        '<!doctype html><html><body><noscript style="display:contents"><div class="responses-thumbnail">'
         + "".join(candidates)
-        + '</div><div class="responses-summary"><div>No thumbnails</div></div>'
-        + f"<script>{script}</script>"
+        + '</div></noscript><div class="responses-summary"><div>No thumbnails</div></div>'
+        + f"<script>{script}</script></body></html>"
     )
     httpserver.expect_request("/card.html").respond_with_data(
         page_html,
