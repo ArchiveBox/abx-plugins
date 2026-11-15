@@ -1,4 +1,6 @@
 # ci-environment: provider-capture
+# ci-runner: ugnas
+# Hosted egress intermittently receives unsolved Cloudflare HTTP 403 challenges.
 """Live PDF and PPTX exports from the authorized Canva design."""
 
 import hashlib
