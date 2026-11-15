@@ -92,6 +92,11 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
+    console.error("Canva export navigation:", JSON.stringify({
+      status: exportResponse?.status(),
+      path: new URL(page.url()).pathname,
+      title: (await page.title()).slice(0, 200),
+    }));
     const reportControls = async (frame, selector, target = null) => {
       try {
         const state = await frame.evaluate((selector, target) => {
