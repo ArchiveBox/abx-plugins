@@ -138,6 +138,38 @@ jobs:
             echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/docs-abx-lib"
             echo "PERSONAS_DIR=$RUNNER_TEMP/docs-personas"
           } >> "$GITHUB_ENV"
+      - name: Start an owned TLSNotary verifier for documentation proofs
+        run: |
+          umask 077
+          export TLSNOTARY_STATE_DIR="$RUNNER_TEMP/docs-tlsnotary"
+          export TLSNOTARY_UID="$(id -u)" TLSNOTARY_GID="$(id -g)"
+          export TLSNOTARY_PORT=0
+          export TLSNOTARY_DOCS_PROJECT="tlsnotary-docs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          export TLSNOTARY_GATEWAY_IMAGE="$TLSNOTARY_DOCS_PROJECT:latest"
+          mkdir -p "$TLSNOTARY_STATE_DIR"
+          openssl genpkey -algorithm ED25519 -out "$TLSNOTARY_STATE_DIR/signing.pem"
+          export TLSNOTARY_TRUSTED_KEY="$(openssl pkey -in "$TLSNOTARY_STATE_DIR/signing.pem" -pubout -outform DER | openssl base64 -A)"
+          # Persist cleanup configuration before building or starting anything.
+          for name in TLSNOTARY_STATE_DIR TLSNOTARY_UID TLSNOTARY_GID TLSNOTARY_PORT TLSNOTARY_DOCS_PROJECT TLSNOTARY_GATEWAY_IMAGE TLSNOTARY_TRUSTED_KEY; do
+            printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
+          done
+          docker build --platform linux/amd64 -t "$TLSNOTARY_GATEWAY_IMAGE" abx_plugins/plugins/tlsnotary/server
+          compose=(docker compose --env-file /dev/null --project-name "$TLSNOTARY_DOCS_PROJECT" --file abx_plugins/plugins/tlsnotary/server/docker-compose.yml)
+          "${compose[@]}" up --detach --no-build --wait verifier gateway
+          export TLSNOTARY_VERIFIER_URL="http://$("${compose[@]}" port gateway 7047)"
+          deadline=$((SECONDS + 30))
+          until curl -fsS "$TLSNOTARY_VERIFIER_URL/key" > "$TLSNOTARY_STATE_DIR/public-key.json"; do
+            (( SECONDS < deadline )) || exit 1
+            sleep 0.2
+          done
+          uv run --no-project python - <<'PY'
+          import json, os
+          from pathlib import Path
+          actual = json.loads((Path(os.environ["TLSNOTARY_STATE_DIR"]) / "public-key.json").read_text())
+          assert actual["publicKey"] == os.environ["TLSNOTARY_TRUSTED_KEY"]
+          PY
+          echo "TLSNOTARY_VERIFIER_URL=$TLSNOTARY_VERIFIER_URL" >> "$GITHUB_ENV"
+
       - name: Run documentation code blocks
         env:
           CHROME_HEADLESS: "false"
@@ -209,6 +241,15 @@ jobs:
             ${{ runner.temp }}/docs-navigation-summary.json
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Stop the documentation TLSNotary verifier
+        if: always()
+        run: |
+          if [[ -n "${TLSNOTARY_DOCS_PROJECT:-}" ]]; then
+            docker compose --env-file /dev/null --project-name "$TLSNOTARY_DOCS_PROJECT" \
+              --file abx_plugins/plugins/tlsnotary/server/docker-compose.yml down --volumes --remove-orphans
+          fi
+          rm -rf "$RUNNER_TEMP/docs-tlsnotary"
 
       - name: Remove authentication and browser profiles
         if: always()

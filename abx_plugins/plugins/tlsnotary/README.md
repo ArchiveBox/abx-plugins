@@ -22,7 +22,7 @@ uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with abx-dl==1.12.2
 TLSNOTARY_ENABLED=true uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with abx-dl==1.12.276 abx-dl dl \
   --plugins=title,screenshot,tlsnotary --dir="$capture_dir" 'https://news.ycombinator.com/'
 node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs \
-  "$capture_dir/tlsnotary" MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=
+  "$capture_dir/tlsnotary" "${TLSNOTARY_TRUSTED_KEY:-MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=}"
 ```
 
 Run these source-checkout examples from the abx-plugins repository root. The
@@ -102,19 +102,21 @@ export TLSNOTARY_GID="$(id -g)"
 openssl genpkey -algorithm ED25519 -out "$TLSNOTARY_STATE_DIR/signing.pem"
 chmod 600 "$TLSNOTARY_STATE_DIR/signing.pem"
 cd abx_plugins/plugins/tlsnotary/server
-docker compose -p tlsnotary-example up -d --build
+verifier_project="tlsnotary-example-$$"
+trap 'docker compose -p "$verifier_project" down --volumes --remove-orphans; rm -rf "$TLSNOTARY_STATE_DIR"' EXIT
+docker compose -p "$verifier_project" up -d --wait verifier gateway
+verifier_url="http://$(docker compose -p "$verifier_project" port gateway 7047)"
 deadline=$((SECONDS + 30))
-until curl -fsS "http://127.0.0.1:$TLSNOTARY_PORT/health"; do
+until curl -fsS "$verifier_url/health"; do
   (( SECONDS < deadline )) || exit 1
   sleep 0.2
 done
-curl -fsS "http://127.0.0.1:$TLSNOTARY_PORT/key"
+curl -fsS "$verifier_url/key"
 ```
 
-Choose a durable `TLSNOTARY_STATE_DIR` for deployment; the example creates a new
-key in a temporary directory. Save that path before leaving the shell. The service
-continues running until `docker compose -p tlsnotary-example down` is called from
-the server directory with the same environment.
+This example stops its verifier and removes its temporary signing key on exit.
+For a persistent deployment, follow [the server instructions](server/README.md)
+and choose a durable `TLSNOTARY_STATE_DIR`.
 
 Use that independently obtained `publicKey` as `TLSNOTARY_TRUSTED_KEY`; point
 `TLSNOTARY_VERIFIER_URL` at the HTTPS service. Loopback HTTP is allowed for local
