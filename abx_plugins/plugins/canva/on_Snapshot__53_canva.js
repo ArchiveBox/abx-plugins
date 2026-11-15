@@ -282,7 +282,9 @@ async function main() {
       const iframe = await page.waitForFunction(
         () => {
           const element = document.querySelector('iframe[title="Open template"]');
-          if (!element) return false;
+          // Canva also opens template sign-in in the top-level document.
+          // That is the same prerequisite, not a missing iframe to wait out.
+          if (!element) return /Continue with Google|Continue with email|We.ll have you designing again soon|RayID:|verify you are human/i.test(document.body.innerText);
           const visibility = getComputedStyle(element).visibility;
           const bounds = element.getBoundingClientRect();
           return visibility !== "hidden" && visibility !== "collapse" &&
@@ -293,7 +295,7 @@ async function main() {
         await reportControls(page, "iframe");
         throw error;
       });
-      const frame = await iframe.asElement()?.contentFrame();
+      const frame = iframe.asElement() ? await iframe.asElement().contentFrame() : page;
       if (!frame)
         throw new Error("Canva template sign-in frame is unavailable");
       const state = await frame.waitForFunction(

@@ -5982,7 +5982,7 @@ async function ensureChromeSession(options = {}) {
  * @param {number} [timeoutMs=120000] - Timeout in milliseconds
  * @param {number} [postLoadDelayMs=0] - Additional delay after successful navigation
  * @returns {Promise<Object>} - Parsed navigation state
- * @throws {Error} - If timeout waiting for navigation or navigation.json reports an error
+ * @throws {Error} - If timeout waiting for navigation or no document was loaded
  */
 async function waitForNavigationComplete(
   chromeSessionDir,
@@ -6006,7 +6006,10 @@ async function waitForNavigationComplete(
         throw new SyntaxError("navigation.json is empty");
       }
       const navigationState = JSON.parse(rawNavigationState);
-      if (navigationState?.error) {
+      // HTTP error documents still contain real titles, headers and bodies to
+      // preserve. Navigation reports the HTTP failure; dependent extractors
+      // may use a fully settled document, never a timeout's leftover page.
+      if (navigationState?.error && !(navigationState.finalUrl && navigationState.status >= 400)) {
         throw new Error(navigationState.error);
       }
 

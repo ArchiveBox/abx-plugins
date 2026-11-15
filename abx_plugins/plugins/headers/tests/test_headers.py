@@ -490,7 +490,12 @@ def test_handles_404_gracefully(require_chrome_runtime, headers_test_urls):
             )
 
         hook_code, _stdout, _stderr, nav_result, headers_file = result
-        assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
+        assert nav_result.returncode == 1, nav_result.stdout
+        assert parse_jsonl_output(nav_result.stdout) == {
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": "HTTP 404: document request failed",
+        }
         assert hook_code == 0, "Headers hook should succeed for HTTP 404 responses"
         assert headers_file.exists(), "headers.json not created"
         output_data = json.loads(headers_file.read_text())

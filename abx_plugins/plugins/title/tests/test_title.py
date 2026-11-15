@@ -354,7 +354,12 @@ def test_handles_404_gracefully(title_test_urls):
                 title_test_urls["not_found"],
                 "test404",
             )
-            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
+            assert nav_result.returncode == 1, nav_result.stdout
+            assert parse_jsonl_output(nav_result.stdout) == {
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": "HTTP 404: document request failed",
+            }
 
         assert_title_succeeded(result, title_dir, "Not Found Fixture")
 

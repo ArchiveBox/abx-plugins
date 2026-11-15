@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_NAVIGATE_HOOK,
     CHROME_UTILS,
     _create_https_test_server,
     chrome_session,
@@ -34,6 +35,7 @@ def test_human_verification_with_empty_visible_body_has_noresults(
         with chrome_session(
             tmp_path,
             test_url=URL,
+            navigate=False,
             env_overrides={
                 "AUTH_STORAGE_FILE": "",
                 "CHROME_CHECK_SSL_VALIDITY": "false",
@@ -45,6 +47,20 @@ def test_human_verification_with_empty_visible_body_has_noresults(
                 "FIGMA_TIMEOUT": "5",
             },
         ) as (_, _, chrome, env):
+            navigated = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={URL}"],
+                cwd=chrome,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert navigated.returncode == 1, navigated.stdout
+            assert parse_jsonl_output(navigated.stdout) == {
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": "HTTP 405: document request failed",
+            }
             navigation = json.loads((chrome / "navigation.json").read_text())
             assert navigation["status"] == 405
             probe = subprocess.run(

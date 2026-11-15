@@ -36,6 +36,8 @@ PREPARE_HOOK = PLUGIN_DIR / "on_CrawlSetup__80_tlsnotary_prepare.py"
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__31_tlsnotary.finite.bg.js"
 CHECK_CAPTURE = PLUGIN_DIR / "tests" / "check_capture.mjs"
 TARGET_URL = "https://docs.sweeting.me/s/cookie-dilemma"
+# Lifecycle tests need a real TLS peer, not a third-party site's rate limit.
+PUBLIC_PROOF_URL = "https://archivebox.io/tests/"
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 pytest_plugins = ["tests.test_archivewebpage_concurrent_collections"]
 
@@ -722,7 +724,7 @@ def test_sigterm_finishes_proof_and_closes_its_managed_window(
     one terminal result and leave no auth page or extension behind in Chrome.
     """
 
-    url = "https://news.ycombinator.com/"
+    url = PUBLIC_PROOF_URL
     with chrome_session(
         tmp_path,
         test_url=url,
@@ -893,7 +895,7 @@ def test_real_proof_does_not_inherit_active_archivewebpage_recorder(
     env, crawl_chrome, tabs = archivewebpage_crawl
     env["TLSNOTARY_ENABLED"] = "true"
     _install_and_prepare(env, crawl_chrome)
-    url = "https://news.ycombinator.com/"
+    url = PUBLIC_PROOF_URL
     snapshot, env = _start_snapshot_recording(
         tmp_path / "snapshots",
         env,
@@ -965,7 +967,7 @@ def test_background_readiness_preserves_target_before_waiting_for_proof_lock(
         run_hook,
     )
 
-    url = "https://news.ycombinator.com/"
+    url = PUBLIC_PROOF_URL
     with chrome_session(
         tmp_path,
         test_url=url,
