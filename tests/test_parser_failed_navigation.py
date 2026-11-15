@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from pytest_httpserver import HTTPServer
 
+from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
@@ -126,14 +127,25 @@ def test_parser_does_not_retry_failed_capture(
             if failure_status is None:
                 httpserver.start()
         recorded = json.loads((chrome / "navigation.json").read_text())
+        assert navigation.returncode == 1, navigation.stdout
+        assert parse_jsonl_output(navigation.stdout) == {
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": recorded["error"],
+        }
         if failure_status is None:
-            assert navigation.returncode != 0, navigation.stdout
             assert "ERR_CONNECTION_REFUSED" in recorded["error"], recorded
             assert not recorded["status"], recorded
         else:
-            assert navigation.returncode == 0, navigation.stderr
             assert recorded["status"] == failure_status, recorded
-            assert recorded.get("error") is None, recorded
+            assert (
+                recorded["error"]
+                == {
+                    404: "HTTP 404: document request failed",
+                    503: "HTTP 503: server cooldown exceeds remaining navigation budget",
+                }[failure_status]
+            ), recorded
+            assert recorded["attempts"] == 1, recorded
             assert [request.path for request, _ in httpserver.log] == ["/source"]
             httpserver.clear()
         assert recorded["url"] == url
