@@ -29,9 +29,20 @@ jobs:
   documentation:
     needs: changes
     if: needs.changes.outputs.changed == 'true' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main'
-    name: Documentation code blocks
-    runs-on: ubuntu-24.04
+    name: Documentation code blocks / ${{ matrix.ugnas && 'providers' || 'hosted' }}
+    # Provider READMEs inherit the same required egress as their live tests.
+    runs-on: ${{ matrix.ugnas && fromJSON('["self-hosted","ugnas-linux"]') || 'ubuntu-24.04' }}
     environment: provider-capture
+    strategy:
+      fail-fast: false
+      matrix:
+        ugnas: [false, true]
+    env:
+      DOCS_UGNAS: ${{ matrix.ugnas }}
+      IN_DOCKER: ${{ matrix.ugnas && 'true' || 'false' }}
+      CHROME_SANDBOX: ${{ matrix.ugnas && 'false' || 'true' }}
+      # Use SwiftShader only for WebGL, retaining software 2D PDF export.
+      CHROME_ARGS_EXTRA: '["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]'
 
     steps:
       - name: Checkout repository
@@ -67,15 +78,13 @@ jobs:
           echo "ABX_PLUGINS_DIR=$GITHUB_WORKSPACE/abx_plugins/plugins" >> "$GITHUB_ENV"
 
       - name: Install the matching Chrome sandbox helper
+        if: runner.environment == 'github-hosted'
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib
         run: |
           chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python .github/ci_chrome_sandbox.py)"
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
-          # Use SwiftShader only for WebGL; routing 2D PDF export through the
-          # emulated GPU stalls Figma on CPU-limited runners.
-          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
@@ -139,6 +148,7 @@ jobs:
             echo "PERSONAS_DIR=$RUNNER_TEMP/docs-personas"
           } >> "$GITHUB_ENV"
       - name: Start an owned TLSNotary verifier for documentation proofs
+        if: '!matrix.ugnas'
         run: |
           umask 077
           export TLSNOTARY_STATE_DIR="$RUNNER_TEMP/docs-tlsnotary"
@@ -182,22 +192,33 @@ jobs:
           ABX_CI_TEST_RESULTS_DIR: ${{ runner.temp }}/docs-test-results
         run: |
           mkdir -p "$PYTEST_DEBUG_TEMPROOT"
-          mapfile -t plugin_readmes < <(uv run --no-cache --no-project python - <<'PY'
+          mapfile -t documentation_paths < <(uv run --no-cache --no-project python - <<'PY'
+          import os
           from pathlib import Path
 
+          ugnas = os.environ["DOCS_UGNAS"] == "true"
+          if not ugnas:
+              for path in ("README.md", "AGENTS.md", "skills", "docs"):
+                  print(path)
           for readme in sorted(Path("abx_plugins/plugins").glob("*/README.md")):
-              print(readme)
+              requires_ugnas = any(
+                  "# ci-runner: ugnas" in test.read_text().splitlines()[:5]
+                  for test in (readme.parent / "tests").rglob("test_*.py")
+              )
+              if requires_ugnas == ugnas:
+                  print(readme)
           PY
           )
           test -f "$AUTH_STORAGE_FILE"
+          (( ${#documentation_paths[@]} > 0 ))
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
-            README.md AGENTS.md skills docs "${plugin_readmes[@]}"
+            "${documentation_paths[@]}"
 
       - name: Save documentation test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: docs-test-results
+          name: docs-test-results-${{ matrix.ugnas && 'providers' || 'hosted' }}
           path: ${{ runner.temp }}/docs-test-results/*.xml
           if-no-files-found: error
           retention-days: 14
@@ -233,7 +254,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: docs-browser-control-logs
+          name: docs-browser-control-logs-${{ matrix.ugnas && 'providers' || 'hosted' }}
           # Nested pytest output omits this observer log. Allow only reviewed
           # control diagnostics, never persona files or raw network logs.
           path: |
@@ -243,7 +264,7 @@ jobs:
           retention-days: 14
 
       - name: Stop the documentation TLSNotary verifier
-        if: always()
+        if: always() && !matrix.ugnas
         run: |
           if [[ -n "${TLSNOTARY_DOCS_PROJECT:-}" ]]; then
             docker compose --env-file /dev/null --project-name "$TLSNOTARY_DOCS_PROJECT" \
