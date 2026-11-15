@@ -140,10 +140,6 @@ def analyze(config, *, data_dir, title, prompt, model, timeout):
         text=True,
         timeout=remaining,
     )
-    if completed.returncode:
-        raise RuntimeError(
-            f"OpenCode exited with status {completed.returncode}: {completed.stderr.strip()[:2000]}",
-        )
     text = []
     session_id = ""
     finished = False
@@ -174,6 +170,10 @@ def analyze(config, *, data_dir, title, prompt, model, timeout):
                     "OpenCode mixed multiple sessions in one analysis result.",
                 )
             session_id = event["sessionID"]
+    if completed.returncode:
+        raise RuntimeError(
+            f"OpenCode exited with status {completed.returncode}: {completed.stderr.strip()[:2000]}",
+        )
     if not session_id or not finished or not text:
         raise RuntimeError("OpenCode stopped without a completed analysis result.")
     try:
