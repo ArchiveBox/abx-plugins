@@ -1,0 +1,69 @@
+.github/workflows/test-parallel.yml
+  s_d02a42695bee92::t_91fb7856dad001 14
+README.md
+  s_10bc94d001be49::t_b8ac39cc6c16f3 143-174
+abx_plugins/plugins/base/utils.py
+  s_d02a42695bee92::t_dbb48f3d085d10 1227-1231,1247
+abx_plugins/plugins/canva/tests/test_canva_authenticated.py
+  s_d02a42695bee92::t_fb8a2b67c9a7cc 48-55,59-61
+abx_plugins/plugins/chrome/on_Snapshot__30_chrome_navigate.js
+  s_d02a42695bee92::t_10b411a0b0c848 61-95,123,138-139,160-171,176-177,183,197-198,225-226,246,248,251,264,266,270,274-277,290-293,295-303,305-365,369-372,377-404,409,420-421,456-473
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_d02a42695bee92::t_de3d7821fbe477 1850,1856,1957-1959
+abx_plugins/plugins/chrome/tests/test_chrome_challenge.py
+  s_d02a42695bee92::t_2a704d89dba6b6 92,109-111,114-115
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_d02a42695bee92::t_1e7892af9ba0d6 692-724
+abx_plugins/plugins/chrome/tests/test_chrome_transient_responses.py
+  s_cb1e5966887ec6::t_94cc0f89473967 1-564
+abx_plugins/plugins/git/on_Snapshot__34_git.finite.bg.py
+  s_d02a42695bee92::t_28b3c8538e44da 208,287,334,338-352
+abx_plugins/plugins/git/templates/card.html
+  s_d02a42695bee92::t_61437e63a5bca3 3,8,13
+abx_plugins/plugins/git/tests/test_git.py
+  s_d02a42695bee92::t_31a63e89de734f 131-159
+abx_plugins/plugins/tlsnotary/config.json
+  s_d02a42695bee92::t_caf02a6c388955 39-43
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  s_d02a42695bee92::t_77a961a8040f38 59-61,127-142,168
+abx_plugins/plugins/tlsnotary/tests/test_mux_overlay.py
+  s_d02a42695bee92::t_a343f977adb9a5 21-27,143-169
+abx_plugins/plugins/tlsnotary/vendor/mux-close-drain/README.md
+  s_d02a42695bee92::t_2a542c7743c3fb 1-24,28-44
+tests/test_archivewebpage_concurrent_collections.py
+  s_d02a42695bee92::t_7ce2af4b6bfd76 2107-2133
+tests/test_staticfile_skip_helpers.py
+  s_d02a42695bee92::t_b13db8fcde48f2 216-219,221-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "25f713cb445c7758df048c8b02c6a039d1ecfcc8",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cb1e5966887ec6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d8e1-723a-7502-8479-19b65068d9cc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_d02a42695bee92": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de71-82fc-7f12-9e37-d77f5122d227",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
