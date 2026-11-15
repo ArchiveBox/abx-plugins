@@ -19,8 +19,7 @@ source URL in a background tab using the same Chrome persona; the main capture
 tab stays untouched. Export tabs close on completion or shutdown signals.
 Chrome also cleans abandoned export tabs, with a hard 60-minute lifetime cap.
 
-Public fixture: [SUNY Oswego certificate](https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview&utm_campaign=designshare&utm_content=DAGudZAYlEE&utm_medium=link&utm_source=publishsharelink),
-published in the [university's official Canva toolkit](https://ww1.oswego.edu/marketing-and-communications/Toolkit/Canva).
+Authenticated export fixture: [certificate design](https://www.canva.com/design/DAHa0z1qR7Y/wufF6Eb9UfJTAjLFz7EGRA/edit).
 [Provider file-type documentation](https://www.canva.com/help/download-file-types/).
 [Anonymous guests cannot download designs](https://www.canva.com/en_au/help/collaborate-with-anyone-variantb/).
 
@@ -37,7 +36,7 @@ Files live under `canva/files/`;
 ArchiveBox offers format buttons and direct previews.
 
 ```bash
-uv run abx-dl dl --dir="$(mktemp -d)" --plugins=canva 'https://www.canva.com/design/DAGudZAYlEE/VzrUrqpV2RhkVHCg43lvKQ/view?mode=preview'
+uv run abx-dl dl --dir="$(mktemp -d)" --plugins=canva 'https://www.canva.com/design/DAHa0z1qR7Y/wufF6Eb9UfJTAjLFz7EGRA/edit'
 ```
 
 The command uses the configured persona. Authenticated exports require that
