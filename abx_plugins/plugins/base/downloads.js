@@ -28,9 +28,10 @@ function saveDownloads(
       stderr += chunk;
     });
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       if (code !== 0)
-        return reject(new Error(stderr.trim() || "Download extraction failed"));
+        return reject(new Error(stderr.trim() ||
+          `Download extraction failed (exit code ${code}, signal ${signal || "none"}, ${timeoutMs}ms budget)`));
       try {
         resolve(JSON.parse(stdout));
       } catch (error) {
