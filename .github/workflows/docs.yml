@@ -141,6 +141,9 @@ jobs:
       - name: Run documentation code blocks
         env:
           CHROME_HEADLESS: "false"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PYTEST_DEBUG_TEMPROOT: ${{ runner.temp }}/docs-pytest
         run: |
           mkdir -p "$PYTEST_DEBUG_TEMPROOT"
