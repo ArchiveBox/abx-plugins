@@ -32,14 +32,15 @@ Saved files appear under **Embedded media** on the snapshot detail page. Hooks w
 The settings editor can generate domain guards in the existing Python script
 field. Use the attached page's hostname to match exact domains and subdomains:
 
-```python
-import sys
+```sh
+export BROWSERHARNESS_SCRIPT='import sys
 
 host = js("location.hostname")
 if host != "example.com" and not host.endswith(".example.com"):
     print("Domain not selected: " + host)
     sys.exit(10)
-# Prepare the matching page here.
+# Prepare the matching page here.'
+abx-dl --plugins=browserharness,title 'https://example.com'
 ```
 
 Exit code 10 from the configured script emits the existing `skipped`
