@@ -1,0 +1,31 @@
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_784d0e5fa3aa29::t_28481664998d4a 54-57,134-145,164-168
+  s_784d0e5fa3aa29::t_021bf21407fab1 31,52,58-75,90-91,93,123,126-127,129-131,133,146-158,160-161,163,169,171
+  s_784d0e5fa3aa29::t_6d38980f604ce8 115,159
+  s_784d0e5fa3aa29::t_0cf3b95c8d2991 53,76-89,92,94-114,116-122,124-125,128,132,162,170,172-173
+abx_plugins/plugins/base/utils.js
+  s_784d0e5fa3aa29::t_557a8bcc71e9c2 724-734,834
+  s_784d0e5fa3aa29::t_6d38980f604ce8 723
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  s_784d0e5fa3aa29::t_557a8bcc71e9c2 28
+  s_784d0e5fa3aa29::t_1b75f24864ac48 138-141
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_784d0e5fa3aa29::t_557a8bcc71e9c2 22
+  s_784d0e5fa3aa29::t_1b75f24864ac48 123-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fae3490afc48f63c958f9b7b798f540d490b4647",
+  "prompts": {},
+  "sessions": {
+    "s_784d0e5fa3aa29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1959f-0085-7eb0-8a52-b23d37baa0e4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
