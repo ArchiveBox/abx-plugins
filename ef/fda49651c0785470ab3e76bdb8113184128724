@@ -1,0 +1,26 @@
+abx_plugins/plugins/chrome/tests/test_docs_persona_merge.py
+  s_532dc92fd8220a::t_309fff204abd73 23-106,110-173,180-192,196-197,199-201
+  s_532dc92fd8220a::t_7c624f79381bbe 107-109
+  s_532dc92fd8220a::t_1f9b00326eaa3d 174,176-179,193-195,198,202-204
+  s_532dc92fd8220a::t_4c27dc67c4bb48 1-22,175
+.github/workflows/docs.yml
+  s_532dc92fd8220a::t_beb2e555cce55d 104-119,122,130-131
+  s_532dc92fd8220a::t_38debc5b7b3ff5 120-121
+  s_532dc92fd8220a::t_86477f8985c03d 103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "effda49651c0785470ab3e76bdb8113184128724",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
