@@ -19,7 +19,7 @@ from abx_plugins.plugins.base.importers import read_records
 from abx_plugins.plugins.importer_readwise.importer import document_item
 
 EXAMPLE = json.loads(
-    (Path(__file__).parents[1] / "examples/reader-list.json").read_text()
+    (Path(__file__).parents[1] / "examples/reader-list.json").read_text(),
 )
 
 
