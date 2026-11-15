@@ -130,13 +130,16 @@ function emitResult(statusOverride) {
   );
 }
 
-function publishSuccess(outputStr, versionOverride = "") {
+function writeRandomSeedEvidence() {
   // Durable capture evidence, deliberately separate from mutable session markers.
   // Native entropy and external/legacy sessions have no known fixed launch seed.
   writeFileAtomic(
     path.join(OUTPUT_DIR, "random_seed.json"),
     JSON.stringify({ random_seed: readBrowserMetadata(OUTPUT_DIR)?.random_seed ?? null }, null, 2) + "\n"
   );
+}
+
+function publishSuccess(outputStr, versionOverride = "") {
   finalStatus = "succeeded";
   finalOutput = outputStr || "";
   finalError = "";
@@ -504,6 +507,7 @@ async function main() {
             fs.unlinkSync(path.join(OUTPUT_DIR, "chrome.pid"));
           } catch (error) {}
         }
+        writeRandomSeedEvidence();
         fs.writeFileSync(existingUrlFile, url);
         status = "succeeded";
         output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
@@ -559,8 +563,9 @@ async function main() {
           fs.unlinkSync(path.join(OUTPUT_DIR, "chrome.pid"));
         } catch (error) {}
       }
-      fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
+      writeRandomSeedEvidence();
       fs.writeFileSync(path.join(OUTPUT_DIR, "url.txt"), url);
+      fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
 
       status = "succeeded";
       output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
@@ -630,14 +635,16 @@ async function main() {
           fs.unlinkSync(path.join(OUTPUT_DIR, "chrome.pid"));
         } catch (error) {}
       }
-      fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
-      fs.writeFileSync(path.join(OUTPUT_DIR, "url.txt"), url);
       if (crawlSession.browser) {
         writeFileAtomic(
           path.join(OUTPUT_DIR, "browser.json"),
           JSON.stringify(crawlSession.browser, null, 2)
         );
       }
+      // Publish readiness only after the capture evidence and session metadata.
+      writeRandomSeedEvidence();
+      fs.writeFileSync(path.join(OUTPUT_DIR, "url.txt"), url);
+      fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
 
       status = "succeeded";
       output = `target=${targetId} port=${getPortFromCdpUrl(
