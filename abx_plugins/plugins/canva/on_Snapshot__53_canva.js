@@ -88,7 +88,7 @@ async function main() {
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
-    await page.goto(sourcePage.url(), {
+    const exportResponse = await page.goto(sourcePage.url(), {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
@@ -99,6 +99,10 @@ async function main() {
             '[role="combobox"][aria-label="File type"]',
           );
           return {
+            title: document.title,
+            path: location.pathname,
+            readyState: document.readyState,
+            text: document.body?.innerText.slice(0, 1000),
             selectedFormat: control?.innerText.slice(0, 100),
             expanded: control?.getAttribute("aria-expanded"),
             viewport: { width: innerWidth, height: innerHeight },
@@ -139,7 +143,10 @@ async function main() {
               }),
           };
         }, selector, target);
-        console.error("Canva export controls:", JSON.stringify(state));
+        console.error("Canva export controls:", JSON.stringify({
+          navigationStatus: exportResponse?.status(),
+          ...state,
+        }));
       } catch (error) {
         console.error("Canva menu diagnostics unavailable:", error.message);
       }
