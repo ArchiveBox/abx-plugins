@@ -319,10 +319,14 @@ const utils = require(process.argv[1]);
         console.log(JSON.stringify(await page.evaluate(async accountKeyPath => {
           const db = await new Promise((resolve,reject) => {const r=indexedDB.open('login-state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
           const store = db.transaction('sessions').objectStore('sessions');
+          const accountStore = db.transaction('accountData').objectStore('accountData');
           const row = await new Promise((resolve,reject) => {const r=store.get(7);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
           const unique=store.index('byAccount').unique;
           const result = {version:db.version,keyPath:store.keyPath,autoIncrement:store.autoIncrement,
             accountKeyPath:db.transaction('accountData').objectStore('accountData').keyPath,
+            schemaDiagnostics:{userAgent:navigator.userAgent,
+              keyPathIsArray:Array.isArray(accountStore.keyPath),keyPathJSON:JSON.stringify(accountStore.keyPath),
+              keys:await new Promise((resolve,reject)=>{const r=db.transaction('accountData').objectStore('accountData').getAllKeys();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);})},
             accountData:await new Promise((resolve,reject)=>{const r=db.transaction('accountData').objectStore('accountData').get(Array.isArray(accountKeyPath) ? ['settings'] : 'settings');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);}),
             unique,account:row.account,token:row.token,date:row.created.toISOString(),
             bytes:Array.from(row.bytes),blob:await row.blob.text(),local:localStorage.getItem('token'),session:sessionStorage.getItem('token'),
@@ -351,6 +355,7 @@ const utils = require(process.argv[1]);
                     indent=2,
                 ),
             )
+            actual.pop("schemaDiagnostics")
             assert actual == {
                 "version": 3,
                 "keyPath": "id",
