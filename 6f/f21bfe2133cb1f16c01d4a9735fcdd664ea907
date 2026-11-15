@@ -1,0 +1,25 @@
+abx_plugins/plugins/canva/on_Snapshot__53_canva.js
+  s_532dc92fd8220a::t_ae56b0fb29f10c 118
+  s_532dc92fd8220a::t_c5f22e452d3d37 85-97,104-117,119-146
+abx_plugins/plugins/canva/tests/test_canva.py
+  s_532dc92fd8220a::t_ae56b0fb29f10c 73-77,79,86
+  s_532dc92fd8220a::t_1f8152be4650e7 57-72,78,80-85,87-105,107
+abx_plugins/plugins/canva/tests/test_canva_authenticated.py
+  s_532dc92fd8220a::t_d2220ec278c94b 150-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ff21bfe2133cb1f16c01d4a9735fcdd664ea907",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
