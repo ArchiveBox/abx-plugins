@@ -1,0 +1,19 @@
+.github/workflows/docs.yml
+  s_532dc92fd8220a::t_22b4937cff5996 148-149,163-189,197-199,206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "69472b8d84650ea8d2d18f1326357a9efa1b01bf",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
