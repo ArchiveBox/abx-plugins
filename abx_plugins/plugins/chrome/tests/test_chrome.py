@@ -3969,11 +3969,11 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
 def test_tab_cleanup_on_sigterm(chrome_test_url, tmp_path):
     """Integration test: Tab cleanup when receiving SIGTERM."""
     tmpdir = tmp_path
+    crawl_dir = Path(tmpdir) / "crawl"
+    chrome_dir = crawl_dir / "chrome"
     chrome_launch_process = None
     try:
-        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
         launch_env = _isolated_test_env(
