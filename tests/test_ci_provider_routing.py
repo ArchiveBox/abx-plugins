@@ -21,6 +21,7 @@ AUTHENTICATED = {
 }
 PUBLIC = {
     "abx_plugins/plugins/iwork/tests/test_iwork.py",
+    "abx_plugins/plugins/microsoft365/tests/test_microsoft365.py",
     "abx_plugins/plugins/onedrive/tests/test_onedrive.py",
 }
 API = {
@@ -76,6 +77,7 @@ def test_live_provider_partition_preserves_coverage(platform):
             "abx_plugins/plugins/canva/tests/test_canva.py",
             "abx_plugins/plugins/figma/tests/test_figma.py",
             "abx_plugins/plugins/miro/tests/test_miro.py",
+            "abx_plugins/plugins/microsoft365/tests/test_microsoft365_local.py",
             "abx_plugins/plugins/chrome/tests/test_persona_cookie_sources.py",
         ):
             assert path in paths["test-matrix"]
