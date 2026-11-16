@@ -3654,10 +3654,7 @@ http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.
 """
     server = subprocess.Popen(
         [
-            "uv",
-            "run",
-            "--no-project",
-            "python",
+            sys.executable,
             "-u",
             "-c",
             server_script,
@@ -3969,9 +3966,11 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
-def test_tab_cleanup_on_sigterm(chrome_test_url):
+def test_tab_cleanup_on_sigterm(chrome_test_url, tmp_path):
     """Integration test: Tab cleanup when receiving SIGTERM."""
-    with tempfile.TemporaryDirectory() as tmpdir:
+    tmpdir = tmp_path
+    chrome_launch_process = None
+    try:
         crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / "chrome"
@@ -4011,9 +4010,12 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
 
         # Send SIGTERM to tab process
         tab_process.send_signal(signal.SIGTERM)
-        stdout, stderr = tab_process.communicate(timeout=10)
+        tab_process.communicate(timeout=10)
 
-        assert tab_process.returncode == 0, f"Tab process should exit cleanly: {stderr}"
+        assert tab_process.returncode == 0, (
+            "Tab process should exit cleanly: "
+            + (snapshot_chrome_dir / "chrome_tab.stderr.log").read_text()
+        )
         _assert_snapshot_page_state_cleared(snapshot_chrome_dir)
         assert (snapshot_chrome_dir / "cdp_url.txt").exists(), (
             "tab cleanup must leave the browser CDP marker for crawl-level browser ownership"
@@ -4025,8 +4027,9 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         except OSError:
             raise AssertionError("Chrome should still be running after tab cleanup")
 
-        # Cleanup
-        _cleanup_launch_process(chrome_launch_process, chrome_dir)
+    finally:
+        if chrome_launch_process is not None:
+            _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
 @pytest.mark.parametrize("wait_until", ["domcontentloaded", "load"])

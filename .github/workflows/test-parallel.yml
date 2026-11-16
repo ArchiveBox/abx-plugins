@@ -524,9 +524,11 @@ jobs:
 
       - name: Login to Docker Hub for verifier builds
         if: >-
+          runner.os == 'Linux' &&
           github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' &&
           github.event_name != 'pull_request' &&
-          contains(join(matrix.test.paths, ' '), 'abx_plugins/plugins/tlsnotary/tests/')
+          (contains(matrix.test.paths, 'abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py') ||
+           contains(matrix.test.paths, 'abx_plugins/plugins/tlsnotary/tests/test_capacity_outcomes.py'))
         uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
         with:
           username: archivebox

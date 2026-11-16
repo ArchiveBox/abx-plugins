@@ -139,12 +139,11 @@ function writeRandomSeedEvidence() {
   );
 }
 
-function publishSuccess(outputStr, versionOverride = "") {
+function recordSuccess(outputStr, versionOverride = "") {
   finalStatus = "succeeded";
   finalOutput = outputStr || "";
   finalError = "";
   cmdVersion = versionOverride || cmdVersion || "";
-  emitResult("succeeded");
 }
 
 function cleanupFiles(fileNames, reason) {
@@ -231,7 +230,7 @@ async function stopTargetMonitor() {
 
 async function startTargetMonitor() {
   await stopTargetMonitor();
-  if (!currentCdpUrl || !targetId) {
+  if (shuttingDown || !currentCdpUrl || !targetId) {
     return;
   }
 
@@ -243,6 +242,10 @@ async function startTargetMonitor() {
     requireTargetId: true,
     puppeteer,
   });
+  if (shuttingDown || targetId !== expectedTargetId) {
+    await connection.browser.disconnect();
+    return;
+  }
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
   // Puppeteer's browser connection already discovers targets. Observe Chrome's
@@ -513,8 +516,14 @@ async function main() {
         output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
         releaseLock();
         releaseLock = null;
+        // Ready markers must imply successful startup, even if SIGTERM arrives
+        // during monitor attachment. Keep result emission after the observer.
+        recordSuccess(output, version || "");
         await startTargetMonitorBestEffort();
-        publishSuccess(output, version || "");
+        if (shuttingDown) return;
+        status = finalStatus;
+        if (status !== "succeeded") return cleanup();
+        emitResult(status);
         startExportSweep();
         await new Promise(() => {});
       }
@@ -575,8 +584,13 @@ async function main() {
       console.error(`[+] Page target ID: ${targetId}`);
       releaseLock();
       releaseLock = null;
+      // Ready markers must imply successful startup, even if SIGTERM arrives
+      // during monitor attachment. Keep result emission after the observer.
+      recordSuccess(output, version || "");
       await startTargetMonitorBestEffort();
-      publishSuccess(output, version || "");
+      if (shuttingDown) return;
+      status = finalStatus;
+      if (status === "succeeded") emitResult(status);
     } else {
       const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
@@ -656,8 +670,13 @@ async function main() {
       console.error(`[+] Page target ID: ${targetId}`);
       releaseLock();
       releaseLock = null;
+      // Ready markers must imply successful startup, even if SIGTERM arrives
+      // during monitor attachment. Keep result emission after the observer.
+      recordSuccess(output, version || "");
       await startTargetMonitorBestEffort();
-      publishSuccess(output, version || "");
+      if (shuttingDown) return;
+      status = finalStatus;
+      if (status === "succeeded") emitResult(status);
     }
   } catch (e) {
     error = `${e.name}: ${e.message}`;
