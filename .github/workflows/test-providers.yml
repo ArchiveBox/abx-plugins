@@ -157,12 +157,12 @@ jobs:
             "$RUNNER_TEMP/provider-runtime" "$RUNNER_TEMP/provider-pytest-cache"
 
   public-providers:
-    name: Public provider / ${{ matrix.test.path }}
+    name: ${{ matrix.test.api && 'API' || 'Public' }} provider / ${{ matrix.test.path }}
     needs: prepare
     if: needs.prepare.outputs.public-provider-matrix != '[]' && github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     env:
-      # Public Apple fixtures must never receive an authenticated persona.
+      # Public and model API fixtures never receive a browser persona.
       AUTH_STORAGE_FILE: ""
       COOKIES_FILE: ""
     permissions:
@@ -203,8 +203,11 @@ jobs:
           chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python .github/ci_chrome_sandbox.py)"
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
-      - name: Run real public provider acceptance
+      - name: Run real hosted provider acceptance
         env:
+          # API credentials belong only to the billed tests, never setup or public fixtures.
+          OPENAI_API_KEY: ${{ matrix.test.api && secrets.OPENAI_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ matrix.test.api && secrets.ANTHROPIC_API_KEY || '' }}
           TEST_PATH: ${{ matrix.test.path }}
           CHROME_HEADLESS: "false"
         run: |
@@ -215,7 +218,7 @@ jobs:
             --junitxml="$RUNNER_TEMP/provider-pytest/results.xml" \
             -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
       - name: Save failed public export evidence
-        if: failure()
+        if: failure() && !matrix.test.api
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: public-provider-exports-${{ strategy.job-index }}
@@ -231,6 +234,14 @@ jobs:
             ${{ runner.temp }}/provider-pytest/**/exported-frame-*.jpg
             ${{ runner.temp }}/provider-pytest/**/exported-*.ppm
             ${{ runner.temp }}/provider-pytest/**/exported-sticky-ocr.txt
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Save failed API test results
+        if: failure() && matrix.test.api
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: api-provider-results-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/provider-pytest/results.xml
           if-no-files-found: ignore
           retention-days: 14
       - name: Remove authentication and browser profiles

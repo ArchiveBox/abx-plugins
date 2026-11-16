@@ -19,7 +19,16 @@ AUTHENTICATED = {
         ("ytdlp", "test_substack_authenticated.py"),
     )
 }
-PUBLIC = {"abx_plugins/plugins/iwork/tests/test_iwork.py"}
+PUBLIC = {
+    "abx_plugins/plugins/iwork/tests/test_iwork.py",
+    "abx_plugins/plugins/onedrive/tests/test_onedrive.py",
+}
+API = {
+    "abx_plugins/plugins/claudechrome/tests/test_claudechrome_api.py",
+    "abx_plugins/plugins/browserharness/tests/test_browserharness_api.py",
+    "abx_plugins/plugins/stagehand/tests/test_stagehand_api.py",
+    "abx_plugins/plugins/opencode/tests/test_task.py",
+}
 
 
 @pytest.mark.parametrize("platform", ["linux", "macos"])
@@ -40,8 +49,14 @@ def test_live_provider_partition_preserves_coverage(platform):
         for key, items in matrices.items()
     }
     assert set(paths["provider-matrix"]) == AUTHENTICATED
-    assert set(paths["public-provider-matrix"]) == PUBLIC
-    assert not (set(paths["test-matrix"]) & (AUTHENTICATED | PUBLIC))
+    assert set(paths["public-provider-matrix"]) == PUBLIC | API
+    assert {
+        item["path"] for item in matrices["public-provider-matrix"] if item["api"]
+    } == API
+    assert {
+        item["path"] for item in matrices["public-provider-matrix"] if not item["api"]
+    } == PUBLIC
+    assert not (set(paths["test-matrix"]) & (AUTHENTICATED | PUBLIC | API))
     assert all(not item["ugnas"] for item in matrices["public-provider-matrix"])
     assigned = Counter(path for partition in paths.values() for path in partition)
     assert all(count == 1 for count in assigned.values())
@@ -54,6 +69,10 @@ def test_live_provider_partition_preserves_coverage(platform):
         assert set(assigned) == discovered
         # Public/no-login and local cookie lifecycle tests are not reclassified.
         for path in (
+            "abx_plugins/plugins/claudechrome/tests/test_claudechrome.py",
+            "abx_plugins/plugins/browserharness/tests/test_browserharness.py",
+            "abx_plugins/plugins/stagehand/tests/test_stagehand.py",
+            "tests/test_provider_noresults.py",
             "abx_plugins/plugins/canva/tests/test_canva.py",
             "abx_plugins/plugins/figma/tests/test_figma.py",
             "abx_plugins/plugins/miro/tests/test_miro.py",
@@ -82,5 +101,53 @@ def test_live_workflow_is_independent_and_restricted():
     assert "Missing provider-capture Substack cookies" in live
     assert live.count("ref: ${{ github.sha }}") == 3
     public = live.split("  public-providers:\n", 1)[1]
-    assert "secrets." not in public and "    environment:" not in public
+    assert "    environment:" not in public
     assert 'AUTH_STORAGE_FILE: ""' in public and 'COOKIES_FILE: ""' in public
+    assert "PROVIDER_AUTH_STORAGE_JSON" not in public
+    before_test, test_and_after = public.split(
+        "      - name: Run real hosted provider acceptance\n",
+        1,
+    )
+    test_step, after_test = test_and_after.split(
+        "      - name: Save failed public export evidence\n",
+        1,
+    )
+    assert "secrets." not in before_test + after_test
+    for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
+        assert f"{key}: ${{{{ matrix.test.api && secrets.{key} || '' }}}}" in test_step
+    assert "if: failure() && !matrix.test.api" in after_test
+    api_results = after_test.split("      - name: Save failed API test results\n", 1)[1]
+    api_results = api_results.split("      - name:", 1)[0]
+    assert "if: failure() && matrix.test.api" in api_results
+    assert "path: ${{ runner.temp }}/provider-pytest/results.xml\n" in api_results
+    assert "**" not in api_results
+
+
+def test_api_partition_retains_local_script_coverage():
+    import ast
+
+    for plugin in ("browserharness", "stagehand"):
+        tests = ROOT / f"abx_plugins/plugins/{plugin}/tests"
+        required = ast.parse((tests / f"test_{plugin}.py").read_text())
+        live = ast.parse((tests / f"test_{plugin}_api.py").read_text())
+        required_names = {
+            node.name for node in required.body if isinstance(node, ast.FunctionDef)
+        }
+        live_names = {
+            node.name for node in live.body if isinstance(node, ast.FunctionDef)
+        }
+        assert live_names == {"test_prompt_capture", "test_ten_challenges"}
+        assert {
+            "test_unconfigured_hook",
+            "test_script_capture",
+            "test_script_failure_preserves_tab",
+            "test_saved_files",
+            "test_domain_filtered_script",
+        } <= required_names
+        assert not required_names & live_names
+    required = (
+        ROOT / "abx_plugins/plugins/claudechrome/tests/test_claudechrome.py"
+    ).read_text()
+    assert "class TestClaudeChromePlugin:" in required
+    assert "class TestClaudeChromeIntegration:" not in required
+    assert "test_snapshot_hook_fails_without_api_key" in required

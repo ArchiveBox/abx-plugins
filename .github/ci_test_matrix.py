@@ -5,7 +5,7 @@ import os
 from collections import Counter
 from itertools import cycle
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 SUPPORTED_CELLS = (
     ("ubuntu-24.04", "3.12"),
@@ -25,6 +25,7 @@ class TestMatrixItem(TypedDict):
     python: str
     ugnas: bool
     workers: int
+    api: NotRequired[bool]
 
 
 def discover_tests() -> list[Path]:
@@ -68,7 +69,11 @@ if __name__ == "__main__":
         for line in (REPO_ROOT / path).read_text().splitlines()[:5]
         if line.startswith("# ci-environment: ")
     }
-    if set(environments.values()) - {"provider-capture", "provider-public"}:
+    if set(environments.values()) - {
+        "provider-capture",
+        "provider-public",
+        "provider-api",
+    }:
         raise SystemExit("Unknown ci-environment requirement")
     if any(
         requirement == "ugnas" and environments.get(path) != "provider-capture"
@@ -88,7 +93,7 @@ if __name__ == "__main__":
             expected_tests.append(test_path)
             selected_matrix = (
                 public_provider_matrix
-                if environments[str(test_path)] == "provider-public"
+                if environments[str(test_path)] in {"provider-api", "provider-public"}
                 else provider_matrix
             )
             selected_matrix.append(
@@ -99,6 +104,7 @@ if __name__ == "__main__":
                     "python": "3.13",
                     "ugnas": runner_requirements.get(str(test_path)) == "ugnas",
                     "workers": 0,
+                    "api": environments[str(test_path)] == "provider-api",
                 },
             )
             continue
