@@ -46,6 +46,7 @@ if __name__ == "__main__":
     targets = cycle(SUPPORTED_CELLS)
     test_matrix: list[TestMatrixItem] = []
     provider_matrix: list[TestMatrixItem] = []
+    public_provider_matrix: list[TestMatrixItem] = []
     cells_used: set[tuple[str, str]] = set()
     durations = json.loads((REPO_ROOT / ".github/test-durations.json").read_text())[
         "seconds"
@@ -67,10 +68,10 @@ if __name__ == "__main__":
         for line in (REPO_ROOT / path).read_text().splitlines()[:5]
         if line.startswith("# ci-environment: ")
     }
-    if set(environments.values()) - {"provider-capture"}:
+    if set(environments.values()) - {"provider-capture", "provider-public"}:
         raise SystemExit("Unknown ci-environment requirement")
     if any(
-        requirement == "ugnas" and path not in environments
+        requirement == "ugnas" and environments.get(path) != "provider-capture"
         for path, requirement in runner_requirements.items()
     ):
         raise SystemExit("Required ugNAS jobs must use a protected CI environment")
@@ -85,7 +86,12 @@ if __name__ == "__main__":
         os_name, python_version = next(targets)
         if str(test_path) in environments:
             expected_tests.append(test_path)
-            provider_matrix.append(
+            selected_matrix = (
+                public_provider_matrix
+                if environments[str(test_path)] == "provider-public"
+                else provider_matrix
+            )
+            selected_matrix.append(
                 {
                     "path": str(test_path),
                     "paths": [str(test_path)],
@@ -102,7 +108,7 @@ if __name__ == "__main__":
             if os_name != "macos-15":
                 continue
         else:
-            # Every file runs on Linux on every commit. The original Mac
+            # Every ordinary file runs on Linux on every commit. The original Mac
             # assignments are additional scheduled compatibility coverage.
             os_name = "ubuntu-24.04"
         expected_tests.append(test_path)
@@ -186,7 +192,9 @@ if __name__ == "__main__":
             item["workers"] = 2
 
     assigned = Counter(
-        Path(path) for item in test_matrix + provider_matrix for path in item["paths"]
+        Path(path)
+        for item in test_matrix + provider_matrix + public_provider_matrix
+        for path in item["paths"]
     )
     if assigned != Counter(expected_tests):
         raise SystemExit(
@@ -207,3 +215,4 @@ if __name__ == "__main__":
 
     print(f"test-matrix={json.dumps(test_matrix)}")
     print(f"provider-matrix={json.dumps(provider_matrix)}")
+    print(f"public-provider-matrix={json.dumps(public_provider_matrix)}")
