@@ -3648,15 +3648,22 @@ import signal
 faulthandler.register(signal.SIGTERM, all_threads=True, chain=True)
 
 import http.server
+import socketserver
 import functools
 import sys
+
+class LoopbackHTTPServer(http.server.ThreadingHTTPServer):
+    def server_bind(self):
+        # Numeric loopback needs no reverse DNS before the readiness banner.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 class RevalidatedFiles(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
 
-http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.argv[1]), port=0, bind='127.0.0.1')
+http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.argv[1]), ServerClass=LoopbackHTTPServer, port=0, bind='127.0.0.1')
 """
     server = subprocess.Popen(
         [
