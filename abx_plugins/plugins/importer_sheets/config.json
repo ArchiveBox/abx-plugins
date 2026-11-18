@@ -49,7 +49,10 @@
   "importers_setup": [
     {
       "title": "Add links to a URL column",
-      "description": "Use a sheet or CSV with a column named URL. A Title column is optional. Change the column name under Advanced if needed."
+      "description": "Use a sheet or CSV with a column named URL. A Title column is optional. Change the column name under Advanced if needed.",
+      "image": "setup/links-sheet.svg",
+      "image_alt": "Google Sheets showing URLs, dates, reporters, and titles.",
+      "image_inline": true
     },
     {
       "title": "Paste the sheet or CSV link",
