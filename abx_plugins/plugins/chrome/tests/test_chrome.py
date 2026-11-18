@@ -3004,10 +3004,28 @@ def test_missing_or_invalid_auth_export_fails_launch(tmp_path, contents):
     assert "ERROR:" in result.stderr
     assert "session started" not in result.stdout
     assert not (chrome_dir / "cdp_url.txt").exists()
+    prefix = "ERROR: chrome startup "
+    diagnostic = json.loads(
+        next(
+            line.removeprefix(prefix)
+            for line in result.stderr.splitlines()
+            if line.startswith(prefix)
+        ),
+    )
+    expected_reason = (
+        "missing_auth_file"
+        if contents is None
+        else "invalid_auth_json"
+        if contents
+        else "empty_auth_json"
+    )
+    assert diagnostic["reason"] == expected_reason
+    assert str(auth_file) not in json.dumps(diagnostic)
+    assert "not JSON" not in json.dumps(diagnostic)
     if contents is None:
-        assert f"Cookies file not found: {auth_file}" in result.stderr
+        assert "Cookies file not found" in result.stderr
     else:
-        assert f"Invalid JSON cookie export: {auth_file}" in result.stderr
+        assert "Invalid JSON cookie export" in result.stderr
 
 
 def test_cookies_imported_on_launch():

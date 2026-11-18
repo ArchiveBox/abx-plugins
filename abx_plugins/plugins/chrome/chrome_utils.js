@@ -6,6 +6,7 @@
  * Ported from the TypeScript implementation in archivebox.ts
  */
 
+const { startupValidationError } = require("./startup_diagnostic.js");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -5031,7 +5032,7 @@ function readCookiesFromFile(cookiesFile) {
 
   if (!fs.existsSync(cookiesFile)) {
     if (cookiesFile.endsWith(".json")) {
-      throw new Error(`Cookies file not found: ${cookiesFile}`);
+      throw startupValidationError("missing_auth_file");
     }
     console.error(`[!] Cookies file not found: ${cookiesFile}; continuing without cookie import`);
     return;
@@ -5049,8 +5050,7 @@ function readCookiesFromFile(cookiesFile) {
     try {
       auth = JSON.parse(contents);
     } catch {
-      const reason = contents.trim() ? "invalid JSON" : "file is empty";
-      throw new Error(`Invalid JSON cookie export: ${cookiesFile}; ${reason}; expected a JSON object containing a cookies array`);
+      throw startupValidationError(contents.trim() ? "invalid_auth_json" : "empty_auth_json");
     }
     if (!auth || typeof auth !== "object" || Array.isArray(auth)) {
       throw new Error("Cookie export must be a JSON object");
@@ -5815,9 +5815,7 @@ async function ensureChromeSession(options = {}) {
 
   if (!resolvedCdpUrl) {
     if (!processIsLocal) {
-      throw new Error(
-        "CHROME_IS_LOCAL=false requires CHROME_CDP_URL or an upstream published chrome session"
-      );
+      throw startupValidationError("missing_cdp_url");
     }
 
     if (!resolvedBinary) {
