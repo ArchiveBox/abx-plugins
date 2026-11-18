@@ -20,7 +20,8 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlsplit
 
 import psutil
@@ -340,10 +341,14 @@ def _ensure_server_context(settings: dict) -> None:
     if not settings.get("context_command"):
         return
     catalog_provider = settings.get("plugin_catalog")
-    catalog = catalog_provider() if callable(catalog_provider) else ()
+    catalog = (
+        cast("Callable[[], Iterable[str]]", catalog_provider)()
+        if callable(catalog_provider)
+        else ()
+    )
     # Names are catalog data, not prompt text or executable plugin contents.
     names = sorted(
-        {name for name in catalog if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name)}
+        {name for name in catalog if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name)},
     )
     context = (
         Path(__file__)

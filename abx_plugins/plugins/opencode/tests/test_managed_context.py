@@ -1,35 +1,18 @@
 import json
-from functools import partial
-
-from abx_dl.catalog import PluginCatalog
 from abx_plugins.plugins.opencode import runtime
 
 
 def test_managed_context_catalog_refresh_preserves_editable_skill(tmp_path):
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    # Real declarative plugin packages, without executable hooks or providers.
-    for name in (
-        "custom_export",
-        "custom-export",
-        "ytdlp",
-        "liteparse",
-        "bad\nname",
-        "{bad}",
-    ):
-        plugin = plugins / name
-        plugin.mkdir()
-        (plugin / "config.json").write_text(json.dumps({"x-runtimes": ["archivebox"]}))
-    other = plugins / "other_runtime"
-    other.mkdir()
-    (other / "config.json").write_text(json.dumps({"x-runtimes": ["abx-dl"]}))
+    # The host owns discovery and runtime filtering. This plugin consumes only
+    # the callable's iterable name contract, not the higher-level abx-dl package.
+    catalog: dict[str, None] = dict.fromkeys(
+        ("custom_export", "custom-export", "ytdlp", "liteparse", "bad\nname", "{bad}"),
+    )
     settings = runtime._settings({}, tmp_path / "collection")
     settings.update(
         context_command=["archivebox", "plugin", "opencode", "context"],
         archivebox_admin_url="http://localhost/admin",
-        plugin_catalog=partial(
-            PluginCatalog.discover, plugins_dir=plugins, runtime="archivebox"
-        ),
+        plugin_catalog=catalog.keys,
     )
     runtime._ensure_project_files(settings)
     skill = settings["opencode_dir"] / "SKILL.md"
@@ -46,19 +29,15 @@ def test_managed_context_catalog_refresh_preserves_editable_skill(tmp_path):
     )
     assert "bad\nname" not in context.read_text()
     assert "{bad}" not in context.read_text()
-    assert "other_runtime" not in context.read_text()
-    assert str(plugins) not in context.read_text()
     config = json.loads(
-        runtime.process_environment(settings, {})["OPENCODE_CONFIG_CONTENT"]
+        runtime.process_environment(settings, {})["OPENCODE_CONFIG_CONTENT"],
     )
     assert str(context) in config["instructions"]
     assert str(skill) in config["instructions"]
 
     skill.write_text("Administrator-authored instructions\n")
     context.write_text("stale managed prompt")
-    new_plugin = plugins / "new_processor"
-    new_plugin.mkdir()
-    (new_plugin / "config.json").write_text("{}")
+    catalog["new_processor"] = None
     # Landing on an existing session refreshes the managed prompt, without a
     # provider call, server launch or replacement of the editable instructions.
     runtime.agent_context(settings, session_id="ses_existing")
@@ -71,8 +50,6 @@ def test_managed_context_catalog_refresh_preserves_editable_skill(tmp_path):
 
 
 def test_managed_context_without_catalog_or_with_empty_catalog(tmp_path):
-    plugins = tmp_path / "empty_plugins"
-    plugins.mkdir()
     settings = runtime._settings({}, tmp_path / "collection")
     settings["context_command"] = ["archivebox", "plugin", "opencode", "context"]
     # Older hosts do not provide a catalog callback. Keep their normal context,
@@ -83,7 +60,7 @@ def test_managed_context_without_catalog_or_with_empty_catalog(tmp_path):
     assert "archivebox plugin opencode context" in before
     assert "Available plugins" not in before
     assert "{available_plugins}" not in before
-    settings["plugin_catalog"] = partial(PluginCatalog.discover, plugins_dir=plugins)
+    settings["plugin_catalog"] = {}.keys
     runtime._ensure_server_context(settings)
     assert path.read_text() == before
 
