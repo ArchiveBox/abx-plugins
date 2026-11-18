@@ -3641,6 +3641,12 @@ def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
     # for http.server's Last-Modified response. The real static-file handler
     # still evaluates If-Modified-Since and serves the file/304 itself.
     server_script = """
+import faulthandler
+import signal
+
+# Preserve the child stack if startup stalls and the parent terminates it.
+faulthandler.register(signal.SIGTERM, all_threads=True, chain=True)
+
 import http.server
 import functools
 import sys
@@ -3670,7 +3676,9 @@ http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.
         assert select.select([server.stdout], [], [], 10)[0], (
             "HTTP server did not start"
         )
-        announcement = server.stdout.readline()
+        # Avoid TextIO read-ahead hiding child stderr from communicate().
+        announcement = os.read(server.stdout.fileno(), 4096).decode()
+        assert " port " in announcement, announcement
         port = int(announcement.split(" port ", 1)[1].split(" ", 1)[0])
         iframe_url = f"http://127.0.0.1:{port}/"
         with urlopen(iframe_url, timeout=5) as response:
@@ -3747,10 +3755,18 @@ http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.
                 chrome_dir.parent / "title" / "title.txt"
             ).read_text().strip() == "Main document ready"
     finally:
-        os.killpg(server.pid, signal.SIGCONT)
-        os.killpg(server.pid, signal.SIGTERM)
+        failure = sys.exception()
+        if server.poll() is None:
+            try:
+                os.killpg(server.pid, signal.SIGCONT)
+                os.killpg(server.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
         server_output, _ = server.communicate(timeout=10)
-        assert '"GET /article/ HTTP/1.1" 304' in server_output, server_output
+        if failure is not None:
+            failure.add_note(f"HTTP server exit={server.returncode}:\n{server_output}")
+        else:
+            assert '"GET /article/ HTTP/1.1" 304' in server_output, server_output
 
 
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
