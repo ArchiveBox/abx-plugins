@@ -59,7 +59,7 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                     cookie.get("name") == "wt_tandc"
                     for cookie in browser.contexts[0].cookies()
                 )
-            assert_media_kit_export(tmp_path, chrome, env)
+            first_export_evidence = assert_media_kit_export(tmp_path, chrome, env)
             with sync_playwright() as playwright:
                 browser = playwright.chromium.connect_over_cdp(
                     (chrome / "cdp_url.txt").read_text().strip(),
@@ -113,7 +113,8 @@ def test_public_media_kit_zip(tmp_path, ensure_chrome_test_prereqs, terms_accept
                         {"isDefaultIdentity": False, "hideTerms": True},
                     ], (
                         "The first export must establish genuine transfer consent "
-                        f"unless WeTransfer explicitly disables its terms gate: {terms_decision}"
+                        f"unless WeTransfer explicitly disables its terms gate: {terms_decision}; "
+                        f"export evidence (counts only): {first_export_evidence}"
                     )
                 page.reload(wait_until="domcontentloaded")
                 page.get_by_role(
@@ -214,6 +215,111 @@ def assert_media_kit_export(tmp_path, chrome, env):
                 base64.b64encode(jpeg).decode(),
             )
             assert decoded_size == list(expected_size), filename
+    return summarize_transfer_observations(
+        (tmp_path / "wetransfer-page-observations.log").read_text(),
+    )
+
+
+def summarize_transfer_observations(observations):
+    """Allowlist counts only; never include provider content or identifiers."""
+    summary = {
+        "records": 0,
+        "invalid_records": 0,
+        "trusted_agree_clicks": 0,
+        "trusted_download_clicks": 0,
+        "terms_states": 0,
+        "download_states": 0,
+        "request_failures": 0,
+        "page_errors": 0,
+    }
+    for line in observations.splitlines():
+        try:
+            record = json.loads(line)
+        except (ValueError, TypeError):
+            summary["invalid_records"] += 1
+            continue
+        if not isinstance(record, dict):
+            summary["invalid_records"] += 1
+            continue
+        summary["records"] += 1
+        phase = record.get("phase")
+        for expected, key in (
+            ("terms", "terms_states"),
+            ("download", "download_states"),
+            ("request_failed", "request_failures"),
+            ("page_error", "page_errors"),
+        ):
+            if phase == expected:
+                summary[key] += 1
+        if (
+            phase == "input"
+            and record.get("type") == "click"
+            and record.get("trusted") is True
+        ):
+            if record.get("text") == "I agree":
+                summary["trusted_agree_clicks"] += 1
+            elif record.get("text") in ("Download", "Download all"):
+                summary["trusted_download_clicks"] += 1
+    return summary
+
+
+def test_transfer_observation_summary_excludes_content():
+    observations = (
+        "\n".join(
+            json.dumps(record)
+            for record in (
+                {
+                    "phase": "input",
+                    "type": "click",
+                    "trusted": True,
+                    "text": "I agree",
+                    "url": "PRIVATE_URL",
+                    "cookie": "PRIVATE_COOKIE",
+                },
+                {
+                    "phase": "input",
+                    "type": "click",
+                    "trusted": False,
+                    "text": "I agree",
+                },
+                {
+                    "phase": "input",
+                    "type": "pointerdown",
+                    "trusted": True,
+                    "text": "I agree",
+                },
+                {
+                    "phase": "input",
+                    "type": "click",
+                    "trusted": True,
+                    "text": "Download all",
+                },
+                {
+                    "phase": "terms",
+                    "state": {"text": "PRIVATE_CONTENT", "identity": "PRIVATE_ID"},
+                },
+                {"phase": "download"},
+                {"phase": "request_failed", "headers": {"private": "PRIVATE_HEADER"}},
+                {"phase": "page_error", "error": "PRIVATE_ERROR"},
+                ["PRIVATE_ARRAY"],
+            )
+        )
+        + "\nPRIVATE_MALFORMED"
+    )
+    assert summarize_transfer_observations(observations) == {
+        "records": 8,
+        "invalid_records": 2,
+        "trusted_agree_clicks": 1,
+        "trusted_download_clicks": 1,
+        "terms_states": 1,
+        "download_states": 1,
+        "request_failures": 1,
+        "page_errors": 1,
+    }
+    assert summarize_transfer_observations("") == dict.fromkeys(
+        summarize_transfer_observations(observations),
+        0,
+    )
 
 
 def run_observed_hook(tmp_path, chrome, env, url, timeout):
