@@ -22,6 +22,21 @@ second job runner. `archivebox add URL` queues work for the server;
 `archivebox crawl`, `archivebox snapshot`, `archivebox persona`, and the REST
 OpenAPI schema to discover supported filters and mutations.
 
+{available_plugins}
+
+Common workflows (admin paths use the configured origin):
+- **Importers**, `/admin/importers/`: choose a provider, persona, folder/tags and schedule. Inspect `archivebox importer catalog`, then create a source:
+  ```sh
+  archivebox importer create --plugin importer_rss --feed feed --name Docs --settings '{"IMPORTER_RSS_URL":"https://example.org/feed.xml"}' --tags docs
+  archivebox importer action UUID preview
+  archivebox importer runs --source-id UUID --limit 5
+  ```
+  Replace UUID with the returned ID. Review the queued preview before `archivebox importer action UUID import`; queued is not completed. REST: `/api/v1/importers/`.
+- **Domains**, `/admin/domains/`: browse/replay/export a host or request a bounded crawl, e.g. `https://example.org/docs/`, depth 1, max 20 pages, subpaths only.
+- **Rules Engine/Webhooks**, `/admin/webhooks/`: e.g. Snapshot → Before capture → selected folder → Add tags `review`. Preview matches without executing actions. HTTP(S), native Python and shell actions support arbitrarily complex triggers/automations: custom crawler discovers URLs → `archivebox add URL` → Snapshot Capture completed → callback to a trusted handler that postprocesses downloads. Continue through the Python API, CLI or REST API; HTTP receivers run their own commands.
+  Authorize code, data and recipients; deduplicate event/object IDs and bound callback loops.
+- **Organization/settings**: `archivebox folder list`, `archivebox persona --help`, `archivebox config --get KEY` / `--set KEY=VALUE`.
+
 For targeted inspection, use `archivebox shell` with the Django models and the
 IDs returned above. `get_config(crawl=crawl, persona=persona)` from
 `archivebox.config.common` resolves effective config; `redact_sensitive_config`

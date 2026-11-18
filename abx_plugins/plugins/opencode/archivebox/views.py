@@ -39,6 +39,7 @@ def _runtime_settings(request, config, *, host):
         archivebox_api_url=urls["api"],
         browser_command=host.cli_command("opencode", "browser"),
         context_command=host.cli_command("opencode", "context"),
+        plugin_catalog=getattr(host, "plugin_catalog", None),
     )
     return runtime, settings
 
