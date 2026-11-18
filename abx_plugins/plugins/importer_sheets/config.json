@@ -59,10 +59,10 @@
       "description": "The URL must allow CSV export. For a private source, select a synced persona under Advanced."
     },
     {
-      "title": "Preview new rows",
-      "description": "Save, then Preview to check the links. Import all archives new rows; later imports skip rows already imported.",
+      "title": "Dry Run: source rows",
+      "description": "Save, then Dry Run to check the links. Import all archives new rows; later imports skip rows already imported.",
       "image": "setup/preview.jpg",
-      "image_alt": "Seven reading-list links from a real CSV preview, with optional source details collapsed."
+      "image_alt": "Seven reading-list links from a real CSV Dry Run, with optional source details collapsed."
     }
   ],
   "icon": "icons/google.png"
