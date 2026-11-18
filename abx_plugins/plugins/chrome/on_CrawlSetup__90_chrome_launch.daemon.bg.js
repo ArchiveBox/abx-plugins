@@ -28,6 +28,7 @@
 
 const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
+const { startupErrorDiagnostic } = require("./startup_diagnostic.js");
 const fs = require("fs");
 const path = require("path");
 const { ensureNodeModuleResolution, loadConfig } = require("../base/utils.js");
@@ -180,6 +181,7 @@ installShutdownHandler(cleanup);
 
 async function main() {
   let releaseLock = null;
+  let startupPhase = "acquire-lock";
 
   try {
     console.error("waiting for other chrome instances to finish launching...");
@@ -200,6 +202,7 @@ async function main() {
       process.exit(0);
     }
 
+    startupPhase = "prerequisites";
     const prerequisites = getChromeLaunchPrerequisites({
       requireLocalBinary: !cdpUrlOverride && chromeProcessIsLocal,
     });
@@ -210,6 +213,7 @@ async function main() {
         ? `connecting ${CHROME_BINARY} ${cdpUrlOverride}...`
         : `launching ${CHROME_BINARY} ${PERSONA_DIR}...`
     );
+    startupPhase = "ensure-session";
     launchInProgress = true;
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
@@ -221,13 +225,20 @@ async function main() {
       // These callbacks expose private state for cancellation cleanup only.
       // stdout is the daemon protocol's public readiness boundary and must not
       // be emitted until ensureChromeSession finishes extension/cookie setup.
-      onSpawn: (spawnedSession) => recordLaunch(spawnedSession.pid),
-      onCdpReady: (readySession) =>
-        recordCdpSession(readySession, !keepAlive),
+      onSpawn: (spawnedSession) => {
+        startupPhase = "browser-spawned";
+        recordLaunch(spawnedSession.pid);
+      },
+      onCdpReady: (readySession) => {
+        startupPhase = "cdp-ready";
+        recordCdpSession(readySession, !keepAlive);
+      },
     });
     launchInProgress = false;
 
+    startupPhase = "publish-readiness";
     publishReadiness(session, !keepAlive);
+    startupPhase = "export-sweep";
     stopExportSweep = startBrowserExportSweep({ chromeSessionDir: OUTPUT_DIR,
       cdpUrl: chromeCdpUrl, puppeteer });
 
@@ -265,6 +276,7 @@ async function main() {
       await cleanupPromise;
       return;
     }
+    console.error(`ERROR: chrome startup ${JSON.stringify({ phase: startupPhase, ...startupErrorDiagnostic(e) })}`);
     if (chromeCdpUrl || chromePid) {
       try {
         await closeBrowserInChromeSession({
@@ -280,7 +292,6 @@ async function main() {
       releaseLock();
     }
     launchInProgress = false;
-    console.error(`ERROR: ${e.name}: ${e.message}`);
     process.exit(1);
   }
 }
