@@ -25,7 +25,7 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "Uses your globally configured API key; normal provider usage charges apply."
+      "description": "Archive new Kagi results for a search query."
     },
     "brave": {
       "title": "Brave Search Results",
@@ -34,7 +34,7 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "Uses your globally configured API key; normal provider usage charges apply."
+      "description": "Archive new Brave results for a search query."
     },
     "duckduckgo": {
       "title": "DuckDuckGo Search Results",
@@ -43,7 +43,7 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "First public HTML results page; interactive blocks fail explicitly."
+      "description": "Archive new DuckDuckGo results for a search query."
     },
     "exa": {
       "title": "Exa Search Results",
@@ -52,7 +52,7 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "Uses your globally configured API key; normal provider usage charges apply."
+      "description": "Archive new Exa results for a search query."
     }
   },
   "properties": {
