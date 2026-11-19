@@ -15,6 +15,7 @@ Import directly via the package path::
 from __future__ import annotations
 
 import base64
+import errno
 import html
 import json
 import mmap
@@ -23,11 +24,13 @@ from html.parser import HTMLParser
 import os
 import stat
 import sys
+import tempfile
 from urllib.parse import quote, unquote, urldefrag, urljoin, urlparse, urlsplit
 from collections.abc import Mapping, MutableMapping
+from contextlib import ExitStack
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TextIO, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, TextIO, cast
 
 if TYPE_CHECKING:
     import urllib.request
@@ -1733,6 +1736,41 @@ def find_html_source(*, prefer_dom: bool = False) -> str | None:
     return None
 
 
+ARTICLE_HTML_BASE64_STRIP_SIZE = 14_000_000
+
+
+def _article_html_buffer(
+    source_file: BinaryIO,
+    size: int,
+    stack: ExitStack,
+) -> mmap.mmap | bytes:
+    try:
+        return stack.enter_context(
+            mmap.mmap(source_file.fileno(), size, access=mmap.ACCESS_READ),
+        )
+    except OSError as error:
+        if error.errno != errno.ENODEV:
+            raise
+    if size <= ARTICLE_HTML_BASE64_STRIP_SIZE:
+        source = source_file.read(size)
+        if len(source) != size:
+            raise OSError(errno.EIO, "Archived HTML ended before its recorded size")
+        return source
+
+    # A readable FUSE source may not support mmap. Keep large inputs out of
+    # the Python heap by streaming them into a local temporary mapping.
+    spool = stack.enter_context(tempfile.TemporaryFile())
+    remaining = size
+    while remaining:
+        chunk = source_file.read(min(remaining, 1024**2))
+        if not chunk:
+            raise OSError(errno.EIO, "Archived HTML ended before its recorded size")
+        spool.write(chunk)
+        remaining -= len(chunk)
+    spool.flush()
+    return stack.enter_context(mmap.mmap(spool.fileno(), 0, access=mmap.ACCESS_READ))
+
+
 def read_article_html(path: str) -> tuple[str, bool]:
     # Match readability-extractor's data URL policy before UTF-8 decoding:
     # one non-BMP character otherwise widens hundreds of MB of inline payload
@@ -1741,10 +1779,12 @@ def read_article_html(path: str) -> tuple[str, bool]:
     # allocating a second full-file heap buffer, and unmap before Node starts.
     # These are completed saved inputs, never writable browser capture streams.
     with Path(path).open("rb") as source_file:
-        if not os.fstat(source_file.fileno()).st_size:
+        size = os.fstat(source_file.fileno()).st_size
+        if not size:
             return "", False
-        with mmap.mmap(source_file.fileno(), 0, access=mmap.ACCESS_READ) as source:
-            strip_base64 = len(source) > 14_000_000
+        with ExitStack() as stack:
+            source = _article_html_buffer(source_file, size, stack)
+            strip_base64 = len(source) > ARTICLE_HTML_BASE64_STRIP_SIZE
             header = rb"data:[^,\s\"'<>:]*,"
             base64 = rb"data:[^,\s\"'<>:]*;base64,[A-Za-z0-9+/=\s]+"
             # Quoted base64 permits wrapping; generic URLs exclude whitespace so a
