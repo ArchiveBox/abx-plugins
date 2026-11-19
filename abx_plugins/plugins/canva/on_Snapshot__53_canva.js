@@ -20,6 +20,7 @@ const {
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
+const { clickReadyOption } = require("./click_option.js");
 
 class ExportPrerequisiteError extends Error {}
 
@@ -315,8 +316,12 @@ async function main() {
         // Readiness and scrolling above must not be followed by Locator's RAF /
         // IntersectionObserver waits. Keep a trusted click at the native point,
         // which also accounts for controls inside the template iframe.
-        const { x, y } = await element.clickablePoint();
-        await page.mouse.click(x, y);
+        if (role === "option" && frame === page) {
+          await clickReadyOption(page, element, remaining);
+        } else {
+          const { x, y } = await element.clickablePoint();
+          await page.mouse.click(x, y);
+        }
       } catch (error) {
         console.error(
           `Canva export click failed: ${role} ${name}: ${error.stack || error.message}`,
