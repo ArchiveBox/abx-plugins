@@ -183,6 +183,7 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             "enabled",
             "outputs",
             "config_overrides",
+            "source_config_overrides",
             "output_plugin",
             "importer",
         }, recipe_path
@@ -218,6 +219,21 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
                 recipe_path,
                 key,
             )
+        scoped = recipe.get("source_config_overrides", {})
+        assert isinstance(scoped, dict), recipe_path
+        sources = {
+            recipe.get("url"),
+            *(
+                output.get("url", recipe.get("url"))
+                for output in recipe.get("outputs", [])
+            ),
+        }
+        assert scoped.keys() <= sources, recipe_path
+        for values in scoped.values():
+            assert isinstance(values, dict), recipe_path
+            assert values.keys() <= {"CHROME_WAIT_FOR"}, recipe_path
+            for key, value in values.items():
+                assert value in all_properties[key]["enum"], recipe_path
         outputs = recipe.get("outputs", [])
         assert isinstance(outputs, list), recipe_path
         for output in outputs:
