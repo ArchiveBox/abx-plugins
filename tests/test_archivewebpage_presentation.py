@@ -644,3 +644,83 @@ def test_replay_canvas_preserves_recorded_color_scheme(
                 assert requests == ui_requests
         (tmp_path / "ttfb-ms.json").write_text(json.dumps(timings))
         browser.close()
+
+
+@pytest.mark.parametrize("compression", [zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED])
+def test_replay_streams_large_page_member_with_unchanged_fallback(
+    tmp_path,
+    compression,
+):
+    import tracemalloc
+
+    capture = tmp_path / "capture.wacz"
+    initial = b'{"url":"https://example.invalid/first"}\n'
+    ordinary = (
+        b'{"url":"https://example.invalid/another","text":"'
+        + b"ordinary excerpt " * 120
+        + b'"}\n'
+    )
+    with (
+        zipfile.ZipFile(capture, "w", compression=compression) as archive,
+        archive.open("pages/pages.jsonl", "w") as pages,
+    ):
+        pages.write(initial)
+        for _ in range(4096):
+            pages.write(ordinary)
+    tracemalloc.start()
+    try:
+        assert (
+            presentation._first_archived_url(capture, "https://example.invalid/absent")
+            == "https://example.invalid/first"
+        )
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    # The real member holds over 8 MiB but selection only needs a record.
+    assert peak < 2 * 1024 * 1024, peak
+
+
+def test_replay_pages_stream_keeps_latest_tie_and_invalid_utf8_replacement(tmp_path):
+    capture = tmp_path / "capture.wacz"
+    url = "https://example.invalid/article"
+    invalid = b'{"url":"https://example.invalid/article?__wb_method=POST&note=\xff","ts":"2026-11-19T18:00:00Z"}'
+    with zipfile.ZipFile(capture, "w") as archive:
+        archive.writestr(
+            "pages/pages.jsonl",
+            b'\n \r\n{malformed}\n{"format":"json-pages-1.0"}\n'
+            + json.dumps({"url": url, "ts": "2026-11-19T18:00:00Z"}).encode(),
+        )
+        archive.writestr("pages/extraPages.jsonl", b"\r\ninvalid\n" + invalid)
+    actual = presentation.render_replay_html(
+        "capture.wacz",
+        "/capture.wacz",
+        source_path=capture,
+        fallback_url=url,
+    )
+    assert (
+        f'data-url="{html_escape(url + "?__wb_method=POST&note=�", quote=True)}"'
+        in actual
+    )
+
+
+def test_replay_does_not_keep_early_match_from_corrupt_page_member(tmp_path):
+    capture = tmp_path / "capture.wacz"
+    url = "https://example.invalid/article"
+    extra = b'{"url":"https://example.invalid/article?__wb_method=POST&record=new","ts":"2026-11-19T18:01:00Z"}\n'
+    extra += (
+        b'{"url":"https://example.invalid/other","text":"ordinary archived text"}\n'
+        * 240
+    )
+    extra += b'{"url":"https://example.invalid/crc-test-marker"}\n'
+    with zipfile.ZipFile(capture, "w") as archive:
+        archive.writestr(
+            "pages/pages.jsonl",
+            json.dumps({"url": url, "ts": "2026-11-19T18:00:00Z"}),
+        )
+        archive.writestr("pages/extraPages.jsonl", extra)
+    contents = capture.read_bytes()
+    assert contents.count(b"crc-test-marker") == 1
+    capture.write_bytes(contents.replace(b"crc-test-marker", b"crc-test-parsex"))
+    with zipfile.ZipFile(capture) as archive:
+        assert archive.testzip() == "pages/extraPages.jsonl"
+    assert presentation._first_archived_url(capture, url) == url
