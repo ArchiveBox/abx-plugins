@@ -651,6 +651,8 @@ def test_reports_cited_papers_that_could_not_be_downloaded(tmp_path, httpserver)
             **os.environ,
             "PAPERSDL_BINARY": require_papersdl_binary(),
             "PAPERSDL_TIMEOUT": "120",
+            # The synthetic DOI has no arXiv ID. Keep live provider checks separate.
+            "PAPERSDL_ARGS_EXTRA": '["--providers", "arxiv"]',
             "SNAP_DIR": str(tmp_path),
         },
         timeout=180,
