@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Search",
+  "description": "Periodically discover result URLs and add newly seen documents through native importers.",
+  "type": "object",
+  "additionalProperties": false,
+  "category": "importers",
+  "display_order": 35,
+  "output_mimetypes": [],
+  "x-auto-run": false,
+  "required_plugins": [
+    "base"
+  ],
+  "required_binaries": [],
+  "commands": {
+    "import": [
+      "importer.py"
+    ]
+  },
+  "importers": {
+    "kagi": {
+      "title": "Kagi Search Results",
+      "provider": "Search",
+      "auth": "none",
+      "config_fields": [
+        "SEARCH_QUERY"
+      ],
+      "description": "Uses your globally configured API key; normal provider usage charges apply."
+    },
+    "brave": {
+      "title": "Brave Search Results",
+      "provider": "Search",
+      "auth": "none",
+      "config_fields": [
+        "SEARCH_QUERY"
+      ],
+      "description": "Uses your globally configured API key; normal provider usage charges apply."
+    },
+    "duckduckgo": {
+      "title": "DuckDuckGo Search Results",
+      "provider": "Search",
+      "auth": "none",
+      "config_fields": [
+        "SEARCH_QUERY"
+      ],
+      "description": "First public HTML results page; interactive blocks fail explicitly."
+    },
+    "exa": {
+      "title": "Exa Search Results",
+      "provider": "Search",
+      "auth": "none",
+      "config_fields": [
+        "SEARCH_QUERY"
+      ],
+      "description": "Uses your globally configured API key; normal provider usage charges apply."
+    }
+  },
+  "properties": {
+    "SEARCH_QUERY": {
+      "type": "string",
+      "title": "Search query",
+      "default": "",
+      "x-required": true,
+      "maxLength": 600,
+      "description": "Search terms and provider-supported operators. Each schedule rechecks the first result window."
+    },
+    "KAGI_SEARCH_API_KEY": {
+      "type": "string",
+      "title": "Kagi Search API key",
+      "default": "",
+      "format": "password",
+      "x-sensitive": true,
+      "description": "Optional globally stored key; needed only for this provider. https://kagi.com/api/keys"
+    },
+    "BRAVE_SEARCH_API_KEY": {
+      "type": "string",
+      "title": "Brave Search API key",
+      "default": "",
+      "format": "password",
+      "x-sensitive": true,
+      "description": "Optional globally stored key; needed only for this provider. https://api-dashboard.search.brave.com/"
+    },
+    "EXA_SEARCH_API_KEY": {
+      "type": "string",
+      "title": "Exa Search API key",
+      "default": "",
+      "format": "password",
+      "x-sensitive": true,
+      "description": "Optional globally stored key; needed only for this provider. https://dashboard.exa.ai/api-keys"
+    }
+  }
+}
