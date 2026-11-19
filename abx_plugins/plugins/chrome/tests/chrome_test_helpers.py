@@ -634,6 +634,20 @@ def _run_chrome_required_binary_env(
     timeout: int = 300,
 ) -> subprocess.CompletedProcess[str]:
     """Resolve the provider-built env, installing missing dependencies through abxpkg."""
+    # A hosted job can reach this shared browser helper through a transitive
+    # fixture or a manual preflight. Stage only on demand, before abxpkg's
+    # native install timeout starts, without changing the installer itself.
+    if env.get("ABX_CI_STAGE_NOBLE_FONT") == "true":
+        subprocess.run(
+            [
+                "bash",
+                str(CHROME_PLUGIN_DIR.parents[2] / ".github/ci_stage_noble_font.sh"),
+                "--lazy",
+            ],
+            timeout=60,
+            check=True,
+            env=env,
+        )
     payload = env.copy()
     lib_dir = payload.get("ABXPKG_LIB_DIR")
     if lib_dir and payload.get("PATH"):

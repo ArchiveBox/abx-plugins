@@ -479,28 +479,7 @@ jobs:
         id: stage-noble-font
         shell: bash
         run: |
-          set -euo pipefail
-          package=fonts-wqy-zenhei_0.9.45-8_all.deb
-          # Ubuntu's signed noble/universe/binary-amd64/Packages record.
-          checksum=496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
-          archive_dir="$RUNNER_TEMP/noble-font-archive"
-          archive="$archive_dir/$package"
-          mkdir -p "$archive_dir"
-          if [[ ! -f "$archive" ]]; then
-            temp="$(mktemp "$archive_dir/download.XXXXXX")"
-            trap 'rm -f -- "$temp"' EXIT
-            if ! curl --fail --silent --show-error --max-time 45 \
-              "https://mirrors.edge.kernel.org/ubuntu/pool/universe/f/fonts-wqy-zenhei/$package" \
-              --output "$temp"; then
-              echo '::warning::Font archive prefetch unavailable; APT will acquire its own package.'
-              exit 0
-            fi
-            printf '%s  %s\n' "$checksum" "$temp" | sha256sum --check --strict
-            mv "$temp" "$archive"
-          fi
-          printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --strict
-          sudo install -m 0644 "$archive" "/var/cache/apt/archives/$package"
-          echo 'verified=true' >> "$GITHUB_OUTPUT"
+          bash .github/ci_stage_noble_font.sh
 
       - name: Save verified Noble font archive
         if: >-
@@ -574,6 +553,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb xauth
           if [[ "$RUNNER_ENVIRONMENT" == github-hosted ]]; then
+            # The sandbox preflight resolves Chrome before pytest can stage the font.
+            bash .github/ci_stage_noble_font.sh --lazy
             chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python .github/ci_chrome_sandbox.py)"
             sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
             echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
@@ -599,6 +580,7 @@ jobs:
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
+          ABX_CI_STAGE_NOBLE_FONT: ${{ runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && matrix.test.os == 'ubuntu-24.04' }}
           TEST_PATHS: ${{ join(matrix.test.paths, ' ') }}
         run: |
           set -Eeuo pipefail
