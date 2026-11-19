@@ -492,7 +492,7 @@ jobs:
 
       # Download once without skipping the real unpack/setup/--install-deps path.
       - name: Restore exact Chrome vendor archive for response bytes
-        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py'
+        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && (matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' || matrix.test.path == 'abx_plugins/plugins/mobilesize/tests/test_mobilesize.py')
         id: chrome-archive
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -500,7 +500,7 @@ jobs:
           key: chrome-vendor-v1-linux-x64-157.0.8103.38-8cdeb344e9b2cefe59f4aea8d1d93d5d93054c03cde217665c16fc1f62e72a66
 
       - name: Verify and stage exact Chrome vendor archive
-        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py'
+        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && (matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' || matrix.test.path == 'abx_plugins/plugins/mobilesize/tests/test_mobilesize.py')
         shell: bash
         run: |
           set -euo pipefail
@@ -536,7 +536,7 @@ jobs:
 
       # Save before pytest so downstream failures do not discard verified bytes.
       - name: Save verified Chrome vendor archive
-        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' && steps.chrome-archive.outputs.cache-hit != 'true'
+        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && (matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' || matrix.test.path == 'abx_plugins/plugins/mobilesize/tests/test_mobilesize.py') && steps.chrome-archive.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/chrome-vendor-archive
