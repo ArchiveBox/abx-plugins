@@ -462,6 +462,7 @@ jobs:
           matrix.test.os == 'ubuntu-24.04' &&
           (contains(matrix.test.paths, 'abx_plugins/plugins/staticfile/tests/test_staticfile.py') ||
            contains(matrix.test.paths, 'abx_plugins/plugins/drawio/tests/test_drawio.py') ||
+           contains(matrix.test.paths, 'abx_plugins/plugins/chrome/tests/test_chrome.py') ||
            contains(matrix.test.paths, 'abx_plugins/plugins/chrome/tests/test_persona_cookie_sources.py') ||
            contains(matrix.test.paths, 'abx_plugins/plugins/defuddle/tests/test_defuddle.py') ||
            contains(matrix.test.paths, 'abx_plugins/plugins/caddl/tests/test_caddl.py') ||
