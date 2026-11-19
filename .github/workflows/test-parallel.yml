@@ -463,6 +463,7 @@ jobs:
           (contains(matrix.test.paths, 'abx_plugins/plugins/staticfile/tests/test_staticfile.py') ||
            contains(matrix.test.paths, 'abx_plugins/plugins/drawio/tests/test_drawio.py') ||
            contains(matrix.test.paths, 'abx_plugins/plugins/chrome/tests/test_persona_cookie_sources.py') ||
+           contains(matrix.test.paths, 'tests/test_js_node_module_resolution.py') ||
            contains(matrix.test.paths, 'tests/test_archivewebpage_cookie_policy.py'))
         id: noble-font-archive
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
