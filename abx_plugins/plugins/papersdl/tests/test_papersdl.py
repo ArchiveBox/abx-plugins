@@ -557,14 +557,10 @@ def test_real_public_paper_download(paper_id, title):
 
 @pytest.mark.parametrize("requested_suffix", ["", "e"])
 def test_download_checks_pdf_declared_doi(tmp_path, httpserver, requested_suffix):
-    """A real corrigendum cites the original DOI but is a different document."""
-    original_doi = "10.1051/0004-6361/201833910"
+    """A correction cites the original DOI but is a different document."""
+    original_doi = "10.5555/abx-papersdl-original"
     declared_doi = original_doi + "e"
-    with urlopen(
-        "https://archimer.ifremer.fr/doc/00654/76633/88063.pdf",
-        timeout=30,
-    ) as response:
-        pdf_bytes = response.read()
+    pdf_bytes = (Path(__file__).parent / "fixtures/correction.pdf").read_bytes()
     assert pdf_bytes.startswith(b"%PDF-")
     requested_doi = original_doi + requested_suffix
     httpserver.expect_request("/" + requested_doi).respond_with_data(
