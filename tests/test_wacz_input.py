@@ -11,6 +11,7 @@ import zipfile
 import pytest
 from warcio.warcwriter import WARCWriter
 from warcio.statusandheaders import StatusAndHeaders
+from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.base.wacz import extract, Unsupported
 
 
@@ -188,7 +189,10 @@ def test_real_trafilatura_saved_main(tmp_path):
     (snapshot / "archivewebpage").mkdir(parents=True)
     archive = snapshot / "archivewebpage/archivewebpage.wacz"
     shutil.copyfile(root / "tests/fixtures/replay/iframetest.wacz", archive)
-    hook = root / "abx_plugins/plugins/trafilatura/on_Snapshot__66_trafilatura.py"
+    plugin_dir = root / "abx_plugins/plugins/trafilatura"
+    binary = install_required_binary_from_config(plugin_dir, "trafilatura")
+    assert binary and binary.loaded_abspath
+    hook = plugin_dir / "on_Snapshot__66_trafilatura.py"
     result = subprocess.run(
         [sys.executable, str(hook), "--url=http://localhost:20000/"],
         cwd=snapshot,
@@ -196,6 +200,7 @@ def test_real_trafilatura_saved_main(tmp_path):
             **os.environ,
             "SNAP_DIR": str(snapshot),
             "TRAFILATURA_ENABLED": "True",
+            "TRAFILATURA_BINARY": str(binary.loaded_abspath),
             "PYTHONPATH": str(root),
         },
         capture_output=True,
@@ -286,6 +291,20 @@ def test_concatenated_gzip_index(tmp_path):
     assert extract(path, url) == b"correct compressed-index main"
 
 
+@pytest.fixture(scope="module")
+def node_runtime_env():
+    # The WACZ path is normally downstream of a Chrome capture. These tests
+    # start with a saved archive and so must resolve its managed Node separately.
+    chrome = Path(__file__).resolve().parents[1] / "abx_plugins/plugins/chrome"
+    node = install_required_binary_from_config(chrome, "node")
+    assert node and node.loaded_abspath
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join(
+        (str(node.loaded_abspath.parent), env.get("PATH", "")),
+    )
+    return env
+
+
 @pytest.mark.parametrize(
     "plugin,binary_name",
     [
@@ -299,12 +318,15 @@ def test_real_browser_consumers_use_saved_wacz(
     plugin,
     binary_name,
     httpserver,
+    node_runtime_env,
 ):
-    from abx_plugins.plugins.base.testing import install_required_binary_from_config
-
     root = Path(__file__).resolve().parents[1]
     plugin_dir = root / "abx_plugins/plugins" / plugin
-    binary = install_required_binary_from_config(plugin_dir, binary_name)
+    binary = install_required_binary_from_config(
+        plugin_dir,
+        binary_name,
+        env=node_runtime_env,
+    )
     assert binary and binary.abspath
     snapshot = tmp_path / "snapshot"
     (snapshot / "archivewebpage").mkdir(parents=True)
@@ -323,7 +345,7 @@ def test_real_browser_consumers_use_saved_wacz(
         [sys.executable, str(hook), "--url=https://example.test/article"],
         cwd=snapshot,
         env={
-            **os.environ,
+            **node_runtime_env,
             "SNAP_DIR": str(snapshot),
             f"{plugin.upper()}_ENABLED": "True",
             f"{plugin.upper()}_BINARY": str(binary.abspath),
@@ -370,7 +392,7 @@ def test_real_browser_consumers_use_saved_wacz(
                 [sys.executable, str(hook), f"--url={original}"],
                 cwd=snapshot,
                 env={
-                    **os.environ,
+                    **node_runtime_env,
                     "SNAP_DIR": str(snapshot),
                     "MERCURY_ENABLED": "True",
                     "MERCURY_BINARY": str(binary.abspath),
