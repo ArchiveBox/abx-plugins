@@ -230,7 +230,14 @@ def extract_mercury(url: str, config, output_dir: Path) -> tuple[str, str]:
         deadline = time.monotonic() + timeout
         # CLI-specific arguments keep their established behavior; the default
         # API path consumes the best already-captured HTML source when present.
-        html_source_path = find_article_html_source()
+        html_source_path = find_article_html_source(url)
+        # A selected offline WACZ is not permission to refetch a missing or
+        # unsupported main document from the live origin.
+        if (
+            not html_source_path
+            and (Path(config.SNAP_DIR) / "archivewebpage/archivewebpage.wacz").is_file()
+        ):
+            return "noresults", "No supported archived HTML source found"
         source = html_source_path if not (mercury_args or mercury_args_extra) else None
         source_html = read_article_html(html_source_path)[0] if html_source_path else ""
         if source:

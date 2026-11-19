@@ -1888,14 +1888,19 @@ def preserve_article_image_dimensions(content: str, source: str, url: str) -> st
     )
 
 
-def find_article_html_source() -> str | None:
+def find_article_html_source(url: str = "") -> str | None:
     """Find the best HTML source for article/text extraction.
 
     For article extractors, the live DOM is usually a cleaner input than the
     SingleFile artifact because SingleFile can inline large amounts of CSS,
     images, and templated app-shell markup.
     """
-    return find_html_source(prefer_dom=True)
+    source = find_html_source(prefer_dom=True)
+    if source or not url:
+        return source
+    from abx_plugins.plugins.base.wacz import find_wacz_html_source
+
+    return find_wacz_html_source(url)
 
 
 # ---------------------------------------------------------------------------

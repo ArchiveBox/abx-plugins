@@ -448,3 +448,20 @@ the matrix verifies that every discovered test file is assigned exactly once.
 Authenticated jobs retain the protected `provider-capture` environment and
 required runner placement. Documentation checks remain their existing separate
 scheduled/manual workflow.
+
+### Archived WACZ article input
+
+Article/text extractors can reuse `archivewebpage/archivewebpage.wacz` when no
+DOM, SingleFile, or Wget HTML is available. This is offline HTTP response HTML,
+not a reconstructed JavaScript DOM. Selection requires the requested URL's latest
+indexed GET response, follows only recorded HTTP redirects (at most four), and
+never substitutes an incidental page or iframe. Original captures are unchanged.
+
+The bounded reader currently supports `indexes/index.cdx` or concatenated-gzip `index.cdx.gz`, ZIP-stored gzip
+WARC members, and SHA-256 `recordDigest` entries. It checks selected-record digest,
+gzip CRC, WARC integrity, HTTP status and HTML MIME type. Revisit records, encoded HTTP bodies, missing matching responses and unsupported/corrupt captures yield no
+input, without fetching the live site. Limits: 256 MiB archive, 1024 ZIP members,
+8 MiB index, 16 MiB compressed record/individual ZIP metadata read, 32 MiB expanded
+record/decoded HTML, with a cooperative 10-second processing deadline. Extractors
+retain their existing overall timeouts. A consumer-local hidden input file avoids
+races between extractors and does not modify the archived WACZ.

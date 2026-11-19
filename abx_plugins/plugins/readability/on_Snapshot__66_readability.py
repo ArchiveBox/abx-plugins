@@ -316,7 +316,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
     readability_args_extra = config.READABILITY_ARGS_EXTRA
 
     # Find HTML source
-    html_source = find_article_html_source()
+    html_source = find_article_html_source(url)
     if not html_source:
         return "noresults", "No HTML source found"
 
