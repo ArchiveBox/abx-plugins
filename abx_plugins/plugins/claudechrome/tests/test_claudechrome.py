@@ -12,6 +12,7 @@ Tests verify:
 """
 
 import json
+import subprocess
 import tempfile
 
 
@@ -24,6 +25,8 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
     run_hook,
 )
+
+from abx_plugins.plugins.base.utils import load_config
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
@@ -90,6 +93,107 @@ class TestClaudeChromePlugin:
         assert "CLAUDECHROME_TIMEOUT" in config["properties"]
         assert "CLAUDECHROME_MODEL" in config["properties"]
         assert "ANTHROPIC_API_KEY" in config["properties"]
+
+    def test_model_config_retains_explicit_aliases_and_legacy_id(self):
+        path = PLUGIN_DIR / "config.json"
+        assert (
+            load_config(path, environ={}, hydrate_binaries=False).CLAUDECHROME_MODEL
+            == "claude-sonnet-5-5"
+        )
+        for model in ("haiku", "opus", "claude-haiku-4-5-20251001"):
+            config = load_config(
+                path,
+                environ={"CLAUDECHROME_MODEL": model},
+                hydrate_binaries=False,
+            )
+            assert config.CLAUDECHROME_MODEL == model
+
+    def test_computer_use_wire_protocol_and_legacy_pins(self):
+        """Exercise the production JS adapter with the documented wire shapes."""
+        checks = """
+const assert = require("node:assert/strict");
+const wire = require(process.argv[1]);
+const viewport = { width: 1280, height: 720 };
+for (const family of ["sonnet", "opus", "haiku"]) {
+  const model = `claude-${family}-5-5`;
+  assert.equal(wire.modelID(family), model);
+  const protocol = wire.computerProtocol(model, viewport);
+  assert.equal(protocol.beta, undefined);
+  const [tool] = protocol.fields.tools;
+  assert.equal(tool.type, "computer_toolset_20260801");
+  for (const legacyField of ["name", "display_width_px", "display_height_px", "display_number"]) {
+    assert.equal(legacyField in tool, false);
+  }
+  assert.equal(tool.configs.zoom.enabled, false);
+  assert.equal(protocol.fields.tool_choice.disable_parallel_tool_use, true);
+}
+for (const [pins, version] of [
+  [["claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"], "20250124"],
+  [["claude-sonnet-4-6", "claude-opus-4-6", "claude-opus-4-5-20251101"], "20251124"],
+]) {
+  for (const pin of pins) {
+    assert.equal(wire.modelID(pin), pin);
+    const protocol = wire.computerProtocol(pin, viewport);
+    assert.equal(protocol.fields.tools[0].type, `computer_${version}`);
+    assert.equal(protocol.fields.tools[0].display_width_px, viewport.width);
+    assert.equal(protocol.beta, `computer-use-${version.slice(0, 4)}-${version.slice(4, 6)}-${version.slice(6)}`);
+  }
+}
+const use = {
+  type: "tool_use", id: "toolu_click", name: "left_click",
+  toolset_name: "computer", input: { coordinate: [500, 300] },
+};
+const image = { width: 2560, height: 1440 };
+assert.deepEqual(wire.computerAction(use, true, image, viewport), {
+  action: "left_click", coordinate: [250, 150],
+});
+assert.equal(
+  wire.computerAction({
+    ...use, name: "key", input: { text: "Tab", repeat: 4 },
+  }, true, image, viewport).repeat,
+  4
+);
+assert.throws(() => wire.computerAction({
+  ...use, input: { coordinate: [2560, 0] },
+}, true, image, viewport), /outside/);
+assert.throws(() => wire.computerAction({
+  ...use, toolset_name: "browser",
+}, true, image, viewport), /Unsupported/);
+assert.deepEqual(wire.toolResult(use, true, null, "halted"), {
+  type: "tool_result", tool_use_id: "toolu_click", toolset_name: "computer",
+  is_error: true, content: "Not executed: an earlier computer action in this turn failed.",
+});
+const followup = { ...use, id: "toolu_followup", name: "screenshot", input: {} };
+const assistantContent = [{ type: "thinking", thinking: "", signature: "sig" }, use, followup];
+const messages = [{ role: "user", content: "Open details" }];
+wire.appendComputerResults(messages, assistantContent, [
+  wire.toolResult(use, true, "aW1hZ2U="),
+  wire.toolResult(followup, true, null, "one-action"),
+]);
+assert.equal(messages[1].content, assistantContent);
+assert.deepEqual(messages[2].content.map((result) => result.tool_use_id), ["toolu_click", "toolu_followup"]);
+assert.equal(messages[2].content[0].content[0].source.data, "aW1hZ2U=");
+assert.equal(messages[2].content[1].is_error, true);
+assert.equal(
+  wire.toolResult(use, true, null, "browser failure at /private/fixture").content,
+  "The computer action could not be completed."
+);
+const legacy = {
+  type: "tool_use", id: "toolu_legacy", name: "computer",
+  input: { action: "left_click", coordinate: [500, 300] },
+};
+assert.deepEqual(wire.computerAction(legacy, false, null, viewport), legacy.input);
+assert.equal("toolset_name" in wire.toolResult(legacy, false, "AA=="), false);
+assert.deepEqual(wire.screenshotOptions(viewport, 1), {});
+assert.equal(wire.screenshotOptions(viewport, 2).clip.scale, 1568 / 2560);
+"""
+        result = subprocess.run(
+            ["node", "-e", checks, str(PLUGIN_DIR / "computer_use.js")],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
 
     def test_config_has_default_prompt(self):
         """Config should have a sensible default prompt."""

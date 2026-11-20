@@ -21,7 +21,7 @@
  *     CLAUDECHROME_ENABLED: Enable/disable (default: false)
  *     CLAUDECHROME_PROMPT: Prompt for Claude to execute on the page
  *     CLAUDECHROME_TIMEOUT: Timeout in seconds (default: 120)
- *     CLAUDECHROME_MODEL: Claude model to use (default: claude-sonnet-4-5-20250514)
+ *     CLAUDECHROME_MODEL: Claude model to use (default: claude-sonnet-5-5)
  *     CLAUDECHROME_MAX_ACTIONS: Max agentic loop iterations (default: 15)
  *     ANTHROPIC_API_KEY: API key for Anthropic
  */
@@ -81,12 +81,16 @@ const DEFAULT_PROMPT =
 const PLACEHOLDER_SCREENSHOT_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8m0sAAAAASUVORK5CYII=";
 
-// Model name mapping (short names -> full model IDs)
-const MODEL_MAP = {
-  sonnet: "claude-sonnet-4-6",
-  haiku: "claude-haiku-4-5-20251001",
-  opus: "claude-opus-4-6",
-};
+const {
+  appendComputerResults,
+  captureViewportScreenshot,
+  computerAction,
+  computerProtocol,
+  modelID,
+  pngDimensions,
+  screenshotOptions,
+  toolResult,
+} = require("./computer_use.js");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -132,45 +136,17 @@ async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
 /**
  * Take a screenshot of the page via CDP and return as base64 PNG.
  */
-async function takeScreenshot(page, viewport, options = {}) {
+async function takeScreenshot(page, options = {}) {
   const timeoutMs = options.timeoutMs || 30000;
   const attempts = options.attempts || 2;
   let lastError = null;
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
-    const tempOutputPath = path.join(
-      OUTPUT_DIR,
-      `.claudechrome-screenshot-${process.pid}-${attempt}.png`
-    );
     try {
-      try {
-        await Promise.race([
-          page.screenshot({ path: tempOutputPath, fullPage: false }),
-          new Promise((_, reject) => {
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    `Page.captureScreenshot timed out after ${timeoutMs}ms`
-                  )
-                ),
-              timeoutMs
-            );
-          }),
-        ]);
-      } catch (error) {
-        throw error;
-      }
-      return fs.readFileSync(tempOutputPath).toString("base64");
+      return await captureViewportScreenshot(page, options.captureOptions, timeoutMs);
     } catch (error) {
       lastError = error;
-      if (attempt < attempts) {
-        await sleep(500);
-      }
-    } finally {
-      try {
-        fs.unlinkSync(tempOutputPath);
-      } catch (error) {}
+      if (attempt < attempts) await sleep(500);
     }
   }
 
@@ -316,7 +292,11 @@ async function executeAction(page, cdpClient, action, viewport) {
         F12: "F12",
       };
       const mappedKey = keyMap[keyVal] || keyVal;
-      await page.keyboard.press(mappedKey);
+      const repeat = action.repeat ?? 1;
+      if (!Number.isInteger(repeat) || repeat < 1 || repeat > 100) {
+        throw new Error("Key repeat must be an integer from 1 to 100");
+      }
+      for (let i = 0; i < repeat; i++) await page.keyboard.press(mappedKey);
       await sleep(300);
       break;
     }
@@ -381,7 +361,7 @@ async function executeAction(page, cdpClient, action, viewport) {
     }
 
     default:
-      console.error(`[!] Unknown action type: ${actionType}`);
+      throw new Error("Unknown computer action");
   }
 }
 
@@ -426,8 +406,7 @@ function callAnthropicAPI(body, options = {}) {
         `x-api-key: ${apiKey}`,
         "-H",
         "anthropic-version: 2023-06-01",
-        "-H",
-        "anthropic-beta: computer-use-2025-01-24",
+        ...(options.beta ? ["-H", "anthropic-beta: " + options.beta] : []),
         "-d",
         `@${tmpFile}`,
       ],
@@ -459,7 +438,11 @@ function callAnthropicAPI(body, options = {}) {
  * 4. Repeat until Claude returns text-only (no more actions) or max iterations
  */
 async function runComputerUseLoop(page, cdpClient, prompt, options) {
-  const { model, timeout, maxActions, viewport, downloadsDir } = options;
+  const { model, timeout, maxActions, viewport, deviceScaleFactor } = options;
+  const protocol = computerProtocol(model, viewport);
+  const captureOptions = protocol.toolset
+    ? screenshotOptions(viewport, deviceScaleFactor)
+    : undefined;
 
   const conversation = [];
   const startTime = Date.now();
@@ -468,8 +451,10 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
   console.error("[*] Taking initial screenshot...");
   let initialScreenshot = PLACEHOLDER_SCREENSHOT_BASE64;
   let screenshotAvailable = false;
+  let lastScreenshot;
   try {
-    initialScreenshot = await takeScreenshot(page, viewport);
+    initialScreenshot = await takeScreenshot(page, { captureOptions });
+    lastScreenshot = initialScreenshot;
     screenshotAvailable = true;
   } catch (error) {
     console.error(
@@ -599,18 +584,11 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
             "When you have completed the task (or determined it cannot be done), " +
             "respond with only a text message explaining what you did. " +
             "Do NOT use the computer tool once you are done.",
-          tools: [
-            {
-              type: "computer_20250124",
-              name: "computer",
-              display_width_px: viewport.width,
-              display_height_px: viewport.height,
-              display_number: 1,
-            },
-          ],
+          ...protocol.fields,
           messages,
         },
         {
+          beta: protocol.beta,
           maxTimeSeconds: remainingSeconds,
           connectTimeoutSeconds: Math.min(30, remainingSeconds),
         }
@@ -622,80 +600,60 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
       break;
     }
 
-    // Process response content
     const assistantContent = response.content;
-    let hasToolUse = false;
-    let textParts = [];
+    const textParts = assistantContent
+      .filter((block) => block.type === "text")
+      .map((block) => block.text);
+    const actions = assistantContent.filter((block) => block.type === "tool_use");
+    const turnImage = protocol.toolset ? pngDimensions(lastScreenshot) : null;
+    const results = [];
+    let halted = false;
 
-    for (const block of assistantContent) {
-      if (block.type === "text") {
-        textParts.push(block.text);
-      } else if (block.type === "tool_use") {
-        hasToolUse = true;
+    for (const block of actions) {
+      let rejection;
+      if (halted) {
+        rejection = "halted";
+      } else if (results.length) {
+        rejection = "one-action";
+      } else if (actionCount >= maxActions || Date.now() - startTime > timeout * 1000) {
+        rejection = "budget";
+      }
+      if (rejection) {
+        results.push(toolResult(block, protocol.toolset, null, rejection));
+        continue;
+      }
+
+      try {
         actionCount++;
-        const action = block.input;
-        console.error(
-          `[*] Action ${actionCount}: ${
-            action.action || action.type || "unknown"
-          }`
+        const action = computerAction(
+          block,
+          protocol.toolset,
+          turnImage,
+          viewport
         );
-
-        // Execute the action
-        try {
-          await executeAction(
-            page,
-            cdpClient,
-            {
-              type: action.action || action.type,
-              ...action,
-            },
-            viewport
-          );
-        } catch (e) {
-          console.error(`[!] Action failed: ${e.message}`);
-        }
-
-        // Wait for page to settle after action
+        console.error(`[*] Action ${actionCount}: ${action.action || "unknown"}`);
+        await executeAction(page, cdpClient, action, viewport);
         await sleep(1000);
+        lastScreenshot = await takeScreenshot(page, { captureOptions });
 
-        // Take a new screenshot after the action
-        const screenshot = await takeScreenshot(page, viewport);
-
-        // Save intermediate screenshot
         fs.writeFileSync(
           path.join(
             OUTPUT_DIR,
             `screenshot_${String(actionCount).padStart(3, "0")}.png`
           ),
-          Buffer.from(screenshot, "base64")
+          Buffer.from(lastScreenshot, "base64")
         );
-
-        // Add assistant message and tool result to conversation
-        messages.push({ role: "assistant", content: assistantContent });
-        messages.push({
-          role: "user",
-          content: [
-            {
-              type: "tool_result",
-              tool_use_id: block.id,
-              content: [
-                {
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: "image/png",
-                    data: screenshot,
-                  },
-                },
-              ],
-            },
-          ],
-        });
-
-        // Only process the first tool_use per response
-        break;
+        results.push(toolResult(block, protocol.toolset, lastScreenshot));
+      } catch (e) {
+        halted = true;
+        console.error(`[!] Action failed: ${e.message}`);
+        // Browser and filesystem errors may include local paths or page data.
+        results.push(
+          toolResult(block, protocol.toolset, null, "failed")
+        );
       }
     }
+    appendComputerResults(messages, assistantContent, results);
 
     if (textParts.length > 0) {
       const text = textParts.join("\n");
@@ -706,19 +664,15 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
     }
 
     // If no tool use, Claude is done
-    if (!hasToolUse) {
+    if (!actions.length) {
       console.error("[+] Claude finished (no more actions requested)");
       break;
     }
 
-    // If stop_reason is end_turn with no tool use, we're done
-    if (response.stop_reason === "end_turn" && !hasToolUse) {
-      break;
-    }
   }
 
   // Take final screenshot
-  const finalScreenshot = await takeScreenshot(page, viewport);
+  const finalScreenshot = await takeScreenshot(page);
   fs.writeFileSync(
     path.join(OUTPUT_DIR, "screenshot_final.png"),
     Buffer.from(finalScreenshot, "base64")
@@ -753,8 +707,8 @@ async function main() {
     getEnvInt("CLAUDECHROME_MAX_ACTIONS", 15);
   const modelInput =
     hookConfig.CLAUDECHROME_MODEL ||
-    getEnv("CLAUDECHROME_MODEL", "claude-sonnet-4-6");
-  const model = MODEL_MAP[modelInput] || modelInput;
+    getEnv("CLAUDECHROME_MODEL", "claude-sonnet-5-5");
+  const model = modelID(modelInput);
 
   let browser = null;
 
@@ -796,7 +750,7 @@ async function main() {
       timeout,
       maxActions,
       viewport,
-      downloadsDir: DOWNLOADS_DIR,
+      deviceScaleFactor: await page.evaluate(() => window.devicePixelRatio || 1),
     });
 
     browser.disconnect();
