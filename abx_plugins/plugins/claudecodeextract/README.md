@@ -20,7 +20,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODEEXTRACT_ENABLED` | bool | `false` | — | Enable AI extraction. |
 | `CLAUDECODEEXTRACT_PROMPT` | string | *(see below)* | — | The prompt sent to Claude. Customize to extract different content. |
 | `CLAUDECODEEXTRACT_TIMEOUT` | int | `120` | `CLAUDECODE_TIMEOUT` | Timeout in seconds. |
-| `CLAUDECODEEXTRACT_MODEL` | string | `claude-sonnet-4-6` | `CLAUDECODE_MODEL` | Claude model to use. |
+| `CLAUDECODEEXTRACT_MODEL` | string | `sonnet` | `CLAUDECODE_MODEL` | Claude model to use. |
 | `CLAUDECODEEXTRACT_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns. |
 
 **Default prompt:**

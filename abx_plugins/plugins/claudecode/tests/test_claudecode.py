@@ -11,6 +11,7 @@ Tests verify:
 7. Claude Code CLI actually runs and responds (integration, requires Claude Code auth)
 """
 
+import inspect
 import json
 import tempfile
 from pathlib import Path
@@ -22,6 +23,7 @@ from abx_plugins.plugins.base.testing import (
 )
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    load_config,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
     build_system_prompt,
@@ -62,6 +64,39 @@ class TestClaudeCodePlugin:
         assert (templates_dir / "icon.html").exists()
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
+
+
+@pytest.mark.parametrize(
+    "plugin",
+    ["claudecode", "claudecodecleanup", "claudecodeextract"],
+)
+def test_claude_code_model_default_and_explicit_overrides(plugin):
+    path = PLUGIN_DIR.parent / plugin / "config.json"
+    key = f"{plugin.upper()}_MODEL"
+
+    def configured_model(environ):
+        config = load_config(path, environ=environ, hydrate_binaries=False)
+        return getattr(config, key)
+
+    assert configured_model({}) == "sonnet"
+    # Do not replace an explicit legacy pin or restrict explicit model IDs.
+    assert (
+        configured_model({"CLAUDECODE_MODEL": "claude-opus-4-6"}) == "claude-opus-4-6"
+    )
+    assert (
+        configured_model(
+            {"CLAUDECODE_MODEL": "claude-opus-4-6", key: "claude-haiku-5-5"},
+        )
+        == "claude-haiku-5-5"
+    )
+    assert (
+        configured_model({key: "claude-haiku-4-5-20251001"})
+        == "claude-haiku-4-5-20251001"
+    )
+
+
+def test_claude_code_helper_defaults_to_sonnet():
+    assert inspect.signature(run_claude_code).parameters["model"].default == "sonnet"
 
 
 class TestClaudeCodeUtils:

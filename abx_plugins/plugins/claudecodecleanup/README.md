@@ -20,7 +20,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODECLEANUP_ENABLED` | bool | `false` | — | Enable AI cleanup. |
 | `CLAUDECODECLEANUP_PROMPT` | string | *(see below)* | — | The prompt defining cleanup behavior. |
 | `CLAUDECODECLEANUP_TIMEOUT` | int | `180` | `CLAUDECODE_TIMEOUT` | Timeout in seconds. |
-| `CLAUDECODECLEANUP_MODEL` | string | `claude-sonnet-4-6` | `CLAUDECODE_MODEL` | Claude model to use. |
+| `CLAUDECODECLEANUP_MODEL` | string | `sonnet` | `CLAUDECODE_MODEL` | Claude model to use. |
 | `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns per invocation. |
 
 **Default prompt:**
@@ -57,7 +57,7 @@ export CLAUDECODECLEANUP_ENABLED=true
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Use a more capable model for complex cleanup decisions
-export CLAUDECODECLEANUP_MODEL=claude-opus-4-6
+export CLAUDECODECLEANUP_MODEL=claude-opus-5-5
 
 # Custom prompt example: aggressive cleanup
 export CLAUDECODECLEANUP_PROMPT="Delete all extractor outputs except singlefile/ and readability/. Remove any files larger than 10MB. Report what was removed in your final response."

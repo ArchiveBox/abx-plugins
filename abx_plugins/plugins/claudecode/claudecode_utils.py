@@ -226,7 +226,7 @@ def run_claude_code(
     system_prompt: str = "",
     timeout: int = 120,
     max_turns: int = 50,
-    model: str = "claude-sonnet-4-6",
+    model: str = "sonnet",
     allowed_tools: list[str] | None = None,
     json_schema: dict[str, object] | None = None,
     isolated: bool = False,
