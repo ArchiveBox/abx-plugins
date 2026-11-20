@@ -601,3 +601,36 @@ def test_plugin_modules_do_not_import_hosts():
                         f"{path.relative_to(REPO_ROOT)}:{node.lineno}: {name}",
                     )
     assert not failures, "\n".join(failures)
+
+
+def test_opencode_provider_schema_reaches_only_declared_hook_consumers() -> None:
+    from abx_plugins.plugins.base.utils import load_config
+
+    provider_keys = {
+        "OPENAI_API_KEY": "synthetic-openai-marker",
+        "ANTHROPIC_API_KEY": "synthetic-anthropic-marker",
+    }
+    schema = PLUGINS_ROOT / "opencode_providers" / "config.json"
+    manifest = json.loads(schema.read_text())
+    assert manifest["hidden"] and manifest["x-auto-run"] is False
+    assert not manifest["required_binaries"] and not list(schema.parent.glob("on_*"))
+    for plugin, expected in (
+        ("browserharness", set(provider_keys)),
+        ("stagehand", set(provider_keys)),
+        ("autosummary", set(provider_keys)),
+        ("autotag", set(provider_keys)),
+        ("importers_browser", set(provider_keys)),
+        ("claudecode", {"ANTHROPIC_API_KEY"}),
+        ("claudechrome", {"ANTHROPIC_API_KEY"}),
+        ("opencode", set()),
+        ("screenshot", set()),
+        ("importer_search", set()),
+    ):
+        config = load_config(
+            PLUGINS_ROOT / plugin / "config.json",
+            environ=provider_keys,
+            hydrate_binaries=False,
+            hydrate_user_agent=False,
+        ).model_dump()
+        assert expected == provider_keys.keys() & config.keys(), plugin
+        assert all(config[key] == provider_keys[key] for key in expected), plugin

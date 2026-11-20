@@ -5,7 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
-    "opencode"
+    "opencode",
+    "opencode_providers"
   ],
   "required_binaries": [],
   "wait_for_background_cleanup": true,
