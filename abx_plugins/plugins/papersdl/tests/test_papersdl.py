@@ -972,17 +972,18 @@ def test_science_brain_sleep_article_discovers_and_downloads_cited_paper(tmp_pat
         and "title='Checking your browser - reCAPTCHA'" in line
         for line in result.stderr.splitlines()
     )
-    if (
-        pmc_captcha
-        and (
-            "error: ClientResponseError: 403, message='Forbidden', "
-            "url='https://europepmc.org/articles/PMC12340670?pdf=render'"
-        )
+    europe_pmc_refusal = (
+        "error: ClientResponseError: 403, message='Forbidden', "
+        "url='https://europepmc.org/articles/PMC12340670?pdf=render'" in result.stderr
+    )
+    europe_pmc_outage = (
+        "pmc discovery failed: ClientResponseError: 503, message='Service Temporarily Unavailable', "
+        "url='https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=DOI:%2210.1016/j.cell.2024.11.027%22&format=json'"
         in result.stderr
-    ):
-        # This fixture's known PMC CAPTCHA path previously returned noresults
-        # after silently swallowing the Europe PMC refusal. It must now expose
-        # that actual transport failure, never claim a successful empty search.
+    )
+    if pmc_captcha and (europe_pmc_refusal or europe_pmc_outage):
+        # Keep provider faults visible: neither a refusal nor a discovery
+        # outage should masquerade as an empty result or a downloaded PDF.
         assert result.returncode == 1, result.stderr
         assert record["status"] == "failed", record
         assert record["output_str"].startswith(
