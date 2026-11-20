@@ -25,7 +25,10 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "Archive new Kagi results for a search query."
+      "description": "Archive new Kagi results for a search query.",
+      "settings_fields": [
+        "KAGI_SEARCH_API_KEY"
+      ]
     },
     "brave": {
       "title": "Brave Search Results",
@@ -34,7 +37,10 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "Archive new Brave results for a search query."
+      "description": "Archive new Brave results for a search query.",
+      "settings_fields": [
+        "BRAVE_SEARCH_API_KEY"
+      ]
     },
     "duckduckgo": {
       "title": "DuckDuckGo Search Results",
@@ -52,7 +58,10 @@
       "config_fields": [
         "SEARCH_QUERY"
       ],
-      "description": "Archive new Exa results for a search query."
+      "description": "Archive new Exa results for a search query.",
+      "settings_fields": [
+        "EXA_SEARCH_API_KEY"
+      ]
     }
   },
   "properties": {
@@ -70,7 +79,8 @@
       "default": "",
       "format": "password",
       "x-sensitive": true,
-      "description": "Optional globally stored key; needed only for this provider. https://kagi.com/api/keys"
+      "description": "Required for this provider. Set it in the selected Persona or use the server default. https://kagi.com/api/keys",
+      "x-scope": "crawl_execution"
     },
     "BRAVE_SEARCH_API_KEY": {
       "type": "string",
@@ -78,7 +88,8 @@
       "default": "",
       "format": "password",
       "x-sensitive": true,
-      "description": "Optional globally stored key; needed only for this provider. https://api-dashboard.search.brave.com/"
+      "description": "Required for this provider. Set it in the selected Persona or use the server default. https://api-dashboard.search.brave.com/",
+      "x-scope": "crawl_execution"
     },
     "EXA_SEARCH_API_KEY": {
       "type": "string",
@@ -86,7 +97,8 @@
       "default": "",
       "format": "password",
       "x-sensitive": true,
-      "description": "Optional globally stored key; needed only for this provider. https://dashboard.exa.ai/api-keys"
+      "description": "Required for this provider. Set it in the selected Persona or use the server default. https://dashboard.exa.ai/api-keys",
+      "x-scope": "crawl_execution"
     }
   }
 }
