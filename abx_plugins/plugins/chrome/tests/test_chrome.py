@@ -4517,7 +4517,10 @@ def test_snapshot_target_loss_preserves_failed_daemon_exit(tmp_path, ending):
         other_target = (other_dir / "target_id.txt").read_text().strip()
         chrome_dir = tmp_path / "owned/chrome"
         chrome_dir.mkdir(parents=True)
-        tab_env = env | {"SNAP_DIR": str(chrome_dir.parent)}
+        tab_env = env | {
+            "SNAP_DIR": str(chrome_dir.parent),
+            "SCREENSHOT_FAILURE_DIR": str(tmp_path / "failure"),
+        }
         daemon = launch_snapshot_tab(
             snapshot_chrome_dir=chrome_dir,
             tab_env=tab_env,
@@ -4536,6 +4539,7 @@ def test_snapshot_target_loss_preserves_failed_daemon_exit(tmp_path, ending):
                 time.sleep(0.05)
             assert len(records) == 1 and records[0]["status"] == "succeeded"
             initial_stdout = stdout_path.read_bytes()
+            observed_after = time.monotonic_ns()
             result = None
             if ending != "cleanup":
                 script = r"""
@@ -4596,6 +4600,23 @@ const utils = require(process.argv[1]);
             daemon.send_signal(signal.SIGTERM)
             daemon.communicate(timeout=10)
             stderr = (chrome_dir / "chrome_tab.stderr.log").read_text()
+            observed_before = time.monotonic_ns()
+            timeline = re.findall(
+                r"^\[timeline\] event=(chrome_target_crash|chrome_target_marker_removed) monotonic_ns=(\d+)$",
+                stderr,
+                re.MULTILINE,
+            )
+            if ending == "crash" and sys.platform == "linux":
+                assert sorted(event for event, _ in timeline) == [
+                    "chrome_target_crash",
+                    "chrome_target_marker_removed",
+                ], stderr
+                assert all(
+                    observed_after <= int(stamp) <= observed_before
+                    for _, stamp in timeline
+                ), stderr
+            else:
+                assert not timeline, stderr
             crash_diagnostics = [
                 line
                 for line in stderr.splitlines()
