@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import errno
+import hashlib
 import html
 import json
 import mmap
@@ -26,7 +27,7 @@ import stat
 import sys
 import tempfile
 from urllib.parse import quote, unquote, urldefrag, urljoin, urlparse, urlsplit
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Iterator, Mapping, MutableMapping
 from contextlib import ExitStack
 from functools import lru_cache
 from pathlib import Path
@@ -1057,26 +1058,94 @@ def _is_automatic_user_agent(value: str) -> bool:
     )
 
 
-def resolve_user_agent(config: Mapping[str, Any]) -> str:
+def _user_agent_metadata_paths(
+    config: Mapping[str, Any],
+    *,
+    user_config: Mapping[str, str] | None,
+    environ: Mapping[str, str],
+) -> Iterator[Path]:
+    for key in ("SNAP_DIR", "CRAWL_DIR"):
+        if config.get(key):
+            yield Path(str(config[key])).expanduser() / "chrome" / "browser.json"
+    candidate = (
+        environ.get("CHROME_BINARY")
+        or (user_config or {}).get(
+            "CHROME_BINARY",
+        )
+        or config.get("CHROME_BINARY")
+    )
+    if (
+        not config.get("ABXPKG_LIB_DIR")
+        or not candidate
+        or not Path(str(candidate)).is_absolute()
+    ):
+        return
+    keys = (
+        "CHROME_BINARY",
+        "CHROME_CDP_URL",
+        "CHROME_IS_LOCAL",
+        "CHROME_HEADLESS",
+        "CHROME_ARGS",
+        "CHROME_ARGS_EXTRA",
+    )
+    schema = _schema_properties(_load_schema(PLUGINS_DIR / "chrome/config.json"))
+    chrome = _resolve_schema_payload(
+        {key: schema[key] for key in keys},
+        resolved_config=config,
+        user_config=user_config,
+        environ=environ,
+    )
+    # Environment booleans are still strings here, before Pydantic validation.
+    # Match JS parsing (both of these Chrome settings default to true).
+    false_values = {"false", "0", "no", "off"}
+    binary_path = Path(chrome["CHROME_BINARY"])
+    if (
+        not binary_path.is_absolute()
+        or chrome["CHROME_CDP_URL"].strip()
+        or str(chrome["CHROME_IS_LOCAL"]).strip().lower() in false_values
+    ):
+        return
+    try:
+        binary = binary_path.resolve(strict=True)
+    except (OSError, ValueError, RuntimeError):
+        return
+    # Match base/utils.js's ordered, compact UTF-8 JSON before hashing.
+    identity = [
+        str(binary),
+        str(chrome["CHROME_HEADLESS"]).strip().lower() not in false_values,
+        chrome["CHROME_ARGS"],
+        chrome["CHROME_ARGS_EXTRA"],
+    ]
+    key = hashlib.sha256(
+        json.dumps(identity, ensure_ascii=False, separators=(",", ":")).encode(),
+    ).hexdigest()
+    yield (
+        Path(str(config["ABXPKG_LIB_DIR"])).expanduser()
+        / f"chrome-user-agent-{key}.json"
+    )
+
+
+def resolve_user_agent(
+    config: Mapping[str, Any],
+    *,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> str:
     """Resolve HTTP identity from saved Chrome state, without launching it.
 
     Snapshot/crawl metadata retains the active persona identity; the shared cache
-    contains only Chrome's native identity. A browserless install stays supported.
+    contains only the matching local launch's native identity. A browserless
+    install stays supported.
     """
     configured = str(config.get("USER_AGENT") or "")
     automatic = _is_automatic_user_agent(configured)
     if not automatic and not re.search(r"(?:Headless)?Chrome/", configured):
         return configured
-    paths = [
-        Path(str(config[key])).expanduser() / "chrome" / "browser.json"
-        for key in ("SNAP_DIR", "CRAWL_DIR")
-        if config.get(key)
-    ]
-    if config.get("ABXPKG_LIB_DIR"):
-        paths.append(
-            Path(str(config["ABXPKG_LIB_DIR"])).expanduser() / "chrome-user-agent.json",
-        )
-    for path in paths:
+    for path in _user_agent_metadata_paths(
+        config,
+        user_config=user_config,
+        environ=config if environ is None else environ,
+    ):
         try:
             metadata = json.loads(path.read_text())
             if not isinstance(metadata, dict):
@@ -1104,9 +1173,19 @@ def resolve_user_agent(config: Mapping[str, Any]) -> str:
     return "" if automatic else configured
 
 
-def _hydrate_user_agent(payload: dict[str, Any], properties: Mapping[str, Any]) -> None:
+def _hydrate_user_agent(
+    payload: dict[str, Any],
+    properties: Mapping[str, Any],
+    *,
+    user_config: Mapping[str, str] | None,
+    environ: Mapping[str, str] | None,
+) -> None:
     original = payload.get("USER_AGENT", "")
-    payload["USER_AGENT"] = resolve_user_agent(payload)
+    payload["USER_AGENT"] = resolve_user_agent(
+        payload,
+        user_config=user_config,
+        environ=os.environ if environ is None else environ,
+    )
     for name, prop in properties.items():
         if prop.get("x-fallback") == "USER_AGENT" and (
             payload.get(name, "") == original
@@ -1151,7 +1230,12 @@ def load_config(
         else None,
     )
     if hydrate_user_agent:
-        _hydrate_user_agent(payload, properties)
+        _hydrate_user_agent(
+            payload,
+            properties,
+            user_config=user_config,
+            environ=environ,
+        )
     model = build_config_model(title, properties)
     return model.model_validate(payload)
 

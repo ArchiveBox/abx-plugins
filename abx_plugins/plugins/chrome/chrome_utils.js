@@ -31,6 +31,7 @@ const {
   writeFileAtomic,
   loadConfig,
   isAutomaticUserAgent,
+  getChromeUserAgentCachePath,
   parseChromiumUserAgentVersion,
   replaceChromeUserAgentVersion,
 } = require("../base/utils.js");
@@ -5408,7 +5409,7 @@ async function holdBaselineEmulation(session, metrics, unemulated, focus) {
   await session.send("Page.enable");
 }
 
-async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir, downloadsDir } = {}) {
+async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir, downloadsDir, userAgentCache } = {}) {
   // This connection belongs to the launch daemon. Keep emulation sessions alive:
   // disconnecting them clears CDP overrides, including for other CDP clients.
   const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
@@ -5430,9 +5431,9 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   }
   const version = await root.send("Browser.getVersion");
   const nativeUserAgent = version.userAgent.replace("HeadlessChrome/", "Chrome/");
-  if (config.ABXPKG_LIB_DIR) {
-    // Never persist a persona/custom identity as the global HTTP default.
-    writeFileAtomic(path.join(config.ABXPKG_LIB_DIR, "chrome-user-agent.json"), JSON.stringify({ userAgent: nativeUserAgent }));
+  if (userAgentCache) {
+    // Write the measured launch identity, not the per-target persona override.
+    writeFileAtomic(userAgentCache, JSON.stringify({ userAgent: nativeUserAgent }));
   }
   // Headless Chromium announces itself in its default UA (not in its hints).
   const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product)
@@ -5942,8 +5943,12 @@ async function ensureChromeSession(options = {}) {
   // Cookie-only callers borrow an existing session: attaching another owner
   // leaks a connection and its later disconnect resets the daemon's download
   // policy. A derived downloadsDir alone must not transfer lifecycle ownership.
+  // Remote and reused sessions can't establish which binary/args launched them.
+  const userAgentCache = launchedNewBrowser && personaConfig && getChromeUserAgentCachePath({
+    ...chromeLaunchOptions, CHROME_BINARY: resolvedBinary,
+  }, personaConfig.ABXPKG_LIB_DIR);
   const personaHydration = personaConfig && (!reusingSession || hydrateReusedSession)
-    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir, downloadsDir })
+    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir, downloadsDir, userAgentCache })
     : null;
   importState.save();
   // Snapshot hooks inherit browser.json; navigation re-applies this identity.

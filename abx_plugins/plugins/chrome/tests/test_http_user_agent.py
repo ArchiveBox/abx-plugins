@@ -1,6 +1,7 @@
 """HTTP hook identities follow actual saved Chrome metadata without live CDP."""
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -14,7 +15,10 @@ from abx_plugins.plugins.base.utils import (
 )
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.favicon.tests.test_favicon import TEST_ICON_BYTES
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
+    resolve_node_with_abxpkg,
+)
 
 PLUGINS = Path(__file__).resolve().parents[2]
 
@@ -170,7 +174,7 @@ def test_native_cache_never_persists_persona_override(tmp_path, httpserver):
     ) as (_process, _pid, chrome, env):
         metadata = json.loads((chrome / "browser.json").read_text())
         assert metadata["userAgentOverride"]["userAgent"] == "ExplicitPersona/1.0"
-        cache = lib / "chrome-user-agent.json"
+        (cache,) = lib.glob("chrome-user-agent-*.json")
         native = json.loads(cache.read_text())["userAgent"]
         assert "Chrome/" in native and "HeadlessChrome/" not in native
         assert "ExplicitPersona" not in native
@@ -191,7 +195,7 @@ def test_native_cache_never_persists_persona_override(tmp_path, httpserver):
     env["SNAP_DIR"] = str(tmp_path / "next-snapshot")
     env["CRAWL_DIR"] = str(tmp_path / "next-crawl")
     assert_loaders(env, tmp_path, [native] * 2)
-    assert resolve_user_agent({"ABXPKG_LIB_DIR": str(lib)}) == native
+    assert resolve_user_agent({"ABXPKG_LIB_DIR": str(lib)}) == ""
     # Reusing the crawl directory must not seed the next browser from the old
     # persona metadata. Frozen historical generated defaults are automatic too.
     legacy = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/0.9.0rc260 (+https://github.com/ArchiveBox/ArchiveBox/)"
@@ -297,3 +301,67 @@ def test_frozen_persona_chrome_version_matches_browser_and_http(tmp_path, httpse
         == "frozen persona source"
     )
     assert resolve_user_agent({"USER_AGENT": frozen}) == frozen
+
+
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+def test_native_cache_is_scoped_to_chrome_launch_args(tmp_path, httpserver):
+    httpserver.expect_request("/").respond_with_data("<h1>Launch identity</h1>")
+    httpserver.expect_request("/favicon.ico").respond_with_data(b"", status=204)
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    previous = {}
+    for index, custom in enumerate(
+        ("ArchiveBox-Capture/1", "ArchiveBox-Capture/2", ""),
+    ):
+        args = json.dumps([f"--user-agent={custom}"] if custom else [])
+        with chrome_session(
+            tmp_path / str(index),
+            test_url=httpserver.url_for("/"),
+            env_overrides={
+                "ABXPKG_LIB_DIR": str(lib),
+                "USER_AGENT": "",
+                "CHROME_USER_AGENT": "",
+                "CHROME_ARGS_EXTRA": args,
+            },
+        ) as (_process, _pid, _chrome, env):
+            requests = [request for request, _ in httpserver.log if request.path == "/"]
+            actual = requests[-1].headers["User-Agent"]
+            if custom:
+                assert actual == custom
+            else:
+                assert "Chrome/" in actual and "ArchiveBox-Capture/" not in actual
+
+        env = {
+            **env,
+            "SNAP_DIR": str(tmp_path / "absent-snap"),
+            "CRAWL_DIR": str(tmp_path / "absent-crawl"),
+        }
+        assert_loaders(env, tmp_path, [actual] * 2)
+        for old_args, old_identity in previous.items():
+            assert_loaders(
+                {**env, "CHROME_ARGS_EXTRA": old_args},
+                tmp_path,
+                [old_identity] * 2,
+            )
+        assert_loaders(
+            {**env, "CHROME_ARGS_EXTRA": '["--user-agent=Unlaunched/1"]'},
+            tmp_path,
+            [""] * 2,
+        )
+        previous[args] = actual
+
+
+def test_unscoped_cache_is_ignored(tmp_path):
+    (tmp_path / "chrome-user-agent.json").write_text(
+        '{"userAgent":"PreviousLaunch/1"}',
+    )
+    env = {
+        **os.environ,
+        "ABXPKG_LIB_DIR": str(tmp_path),
+        "SNAP_DIR": "",
+        "CRAWL_DIR": "",
+        "USER_AGENT": "",
+        "WGET_USER_AGENT": "",
+    }
+    resolve_node_with_abxpkg(env)
+    assert_loaders(env, tmp_path, [""] * 2)
