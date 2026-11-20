@@ -219,3 +219,41 @@ def test_cli_missing_key_cannot_use_source_endpoint(httpserver):
     assert httpserver.log == []
     config = json.loads((Path(__file__).parents[1] / "config.json").read_text())
     assert "SEARCH_API_URL" not in config["properties"]
+
+
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        (
+            401,
+            "Kagi rejected the Search API key (HTTP 401). Check the key in Search plugin settings.",
+        ),
+        (
+            403,
+            "Kagi denied access (HTTP 403). Check whether the key allows this server's IP address.",
+        ),
+    ],
+)
+def test_kagi_auth_error_distinguishes_credentials_and_allowed_ip(
+    httpserver,
+    status,
+    expected,
+):
+    httpserver.expect_request(
+        "/search",
+        method="POST",
+        headers={"Authorization": "Bearer local-protocol-token"},
+    ).respond_with_data(
+        "private-provider-error",
+        status=status,
+        headers={"X-Request-ID": "private-provider-header"},
+    )
+    with pytest.raises(NeedsLogin) as error:
+        fetch_results(
+            "kagi",
+            "ArchiveBox",
+            "local-protocol-token",
+            httpserver.url_for("/search"),
+        )
+    assert str(error.value) == expected
+    httpserver.check_assertions()

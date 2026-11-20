@@ -177,6 +177,14 @@ def fetch_results(feed, query, key, endpoint):
         ) as response:
             content = response.read(4 * 1024 * 1024 + 1)
     except HTTPError as error:
+        if feed == "kagi" and error.code == 401:
+            raise NeedsLogin(
+                "Kagi rejected the Search API key (HTTP 401). Check the key in Search plugin settings.",
+            ) from None
+        if feed == "kagi" and error.code == 403:
+            raise NeedsLogin(
+                "Kagi denied access (HTTP 403). Check whether the key allows this server's IP address.",
+            ) from None
         if error.code in {401, 403} and feed != "duckduckgo":
             raise NeedsLogin(
                 "Search provider denied access; check API key and plan permissions.",
