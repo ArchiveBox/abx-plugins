@@ -8,6 +8,7 @@
     "claudecode"
   ],
   "required_binaries": [],
+  "snapshot_output_group": "metadata",
   "output_mimetypes": [
     "text/plain"
   ],

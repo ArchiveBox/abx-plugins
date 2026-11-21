@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
+  "snapshot_output_group": "metadata",
   "output_mimetypes": [
     "application/vnd.sqlite3"
   ],

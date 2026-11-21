@@ -10,6 +10,7 @@
   ],
   "required_binaries": [],
   "wait_for_background_cleanup": true,
+  "snapshot_output_group": "metadata",
   "output_mimetypes": [
     "application/x-ndjson",
     "application/json"
