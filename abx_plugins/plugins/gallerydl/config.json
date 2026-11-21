@@ -2,6 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "gallery-dl",
   "description": "Download image and media galleries along with metadata sidecars from supported sites.",
+  "performance_impacts": {
+    "error_rate": "0%"
+  },
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,

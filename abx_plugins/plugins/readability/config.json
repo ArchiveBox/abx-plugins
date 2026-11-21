@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Readability",
   "description": "Extract article HTML, text, and metadata using Mozilla Readability.",
+  "performance_impacts": {
+    "runtime": "6.4 s",
+    "output_size": "34 KB",
+    "error_rate": "77%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

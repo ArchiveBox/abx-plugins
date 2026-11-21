@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SingleFile",
   "description": "Save a complete page as a single self-contained HTML file using the SingleFile Chrome extension.",
+  "performance_impacts": {
+    "runtime": "76 s",
+    "output_size": "680 KB",
+    "error_rate": "82%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

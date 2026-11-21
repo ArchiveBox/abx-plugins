@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SSL Certificates",
   "description": "Capture TLS certificate and connection metadata for the loaded page.",
+  "performance_impacts": {
+    "output_size": "14 KB",
+    "error_rate": "3.2%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

@@ -2,6 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "papers-dl",
   "description": "Download academic papers from paper URLs and DOI/arXiv citations linked or mentioned in articles.",
+  "performance_impacts": {
+    "error_rate": "0%"
+  },
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,

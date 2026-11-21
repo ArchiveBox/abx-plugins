@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PDF",
   "description": "Render the current page to PDF using the shared Chrome session.",
+  "performance_impacts": {
+    "runtime": "2.8 s",
+    "output_size": "730 KB",
+    "error_rate": "67%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

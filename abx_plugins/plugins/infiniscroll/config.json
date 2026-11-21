@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Infinite Scroll",
   "description": "Expand infinite-scroll pages and load additional content before downstream capture plugins run.",
+  "performance_impacts": {
+    "runtime": "14 s",
+    "error_rate": "13%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

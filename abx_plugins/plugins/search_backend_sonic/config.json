@@ -5,6 +5,9 @@
   "search_fallback": true,
   "title": "Sonic Search",
   "description": "Index archived snapshot content into a Sonic search backend.",
+  "performance_impacts": {
+    "daemons": "1"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],

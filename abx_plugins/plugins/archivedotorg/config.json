@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Archive.org",
   "description": "Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.",
+  "performance_impacts": {
+    "output_size": "87 B",
+    "error_rate": "0%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],

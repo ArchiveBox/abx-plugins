@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Title",
   "description": "Capture the title from sharing metadata or the rendered page.",
+  "performance_impacts": {
+    "runtime": "1.7 s",
+    "output_size": "50 B",
+    "error_rate": "68%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

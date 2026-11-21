@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "LiteParse",
   "description": "Extract text and metadata from PDFs and images using LiteParse, and native Office/CSV/RTF text using sharepoint-to-text. Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.",
+  "performance_impacts": {
+    "runtime": "7.7 s",
+    "error_rate": "0%"
+  },
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,

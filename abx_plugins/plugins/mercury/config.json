@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Mercury",
   "description": "Extract article HTML, text, and metadata using the maintained Mercury parser.",
+  "performance_impacts": {
+    "runtime": "12 s",
+    "output_size": "24 KB",
+    "error_rate": "9.2%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

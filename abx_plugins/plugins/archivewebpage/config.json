@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ArchiveWeb.page",
   "description": "Record a high-fidelity WACZ web archive of the page using the Webrecorder ArchiveWeb.page Chrome extension.",
+  "performance_impacts": {
+    "runtime": "9.6 s",
+    "error_rate": "3.2%"
+  },
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
