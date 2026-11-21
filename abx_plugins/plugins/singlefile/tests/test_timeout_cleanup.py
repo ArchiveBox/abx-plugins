@@ -26,23 +26,23 @@ from abx_plugins.plugins.singlefile.tests.test_singlefile import (
 )
 def test_singlefile_timeline_requires_gallery_failure_capture(tmp_path, directory):
     check = r"""
-import runpy, sys, threading, time
+import threading, time
+from abx_plugins.plugins.singlefile.helper_process import TIMELINE_ENABLED, emit_timeline
 
-scope = runpy.run_path(sys.argv[1])
-if scope["TIMELINE_ENABLED"]:
-    scope["emit_timeline"]("singlefile_wrapper_begin", time.monotonic_ns())
+if TIMELINE_ENABLED:
+    emit_timeline("singlefile_wrapper_begin", time.monotonic_ns())
     # Wait here only to observe the diagnostic; production never joins it.
     for thread in threading.enumerate():
         if thread.name == "singlefile-timeline":
             thread.join(timeout=2)
             assert not thread.is_alive()
 """
-    env = {**os.environ, "SNAP_DIR": str(tmp_path)}
+    env = dict(os.environ)
     env.pop("SCREENSHOT_FAILURE_DIR", None)
     if directory is not None:
         env["SCREENSHOT_FAILURE_DIR"] = directory
     result = subprocess.run(
-        [sys.executable, "-c", check, str(SNAPSHOT_HOOK)],
+        [sys.executable, "-c", check],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -62,23 +62,23 @@ if scope["TIMELINE_ENABLED"]:
         assert not lines
 
 
-@pytest.mark.parametrize("stderr_state", ["closed", "full-pipe"])
+@pytest.mark.parametrize("stderr_state", ["open", "closed", "full-pipe"])
 def test_singlefile_timeline_never_blocks_owned_helper_cleanup(tmp_path, stderr_state):
     # Run in a separate process so a closed or saturated OS stderr descriptor
     # cannot affect pytest. The child is a real process held open by stdin,
     # not a simulated extension or browser.
     check = r"""
-import os, runpy, signal, subprocess, sys, threading, time
+import os, signal, subprocess, sys, threading, time
+from abx_plugins.plugins.singlefile.helper_process import emit_timeline, wait_for_singlefile_helper
 
-hook, mode = sys.argv[1:]
-scope = runpy.run_path(hook)
+mode = sys.argv[1]
 with subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.buffer.read()"],
                       stdin=subprocess.PIPE, stdout=subprocess.PIPE) as helper:
     reader = threading.Thread(target=helper.stdout.read, daemon=True)
     reader.start()
     if mode == "closed":
         os.close(2)
-    else:
+    elif mode == "full-pipe":
         rfd, wfd = os.pipe()
         os.set_blocking(wfd, False)
         try:
@@ -91,9 +91,9 @@ with subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.buffer.read(
         os.close(wfd)
     # Exercise the same writer even on non-Linux, where the hook deliberately
     # does not add cross-runtime timeline events.
-    scope["emit_timeline"]("singlefile_wrapper_begin", time.monotonic_ns())
+    emit_timeline("singlefile_wrapper_begin", time.monotonic_ns())
     try:
-        scope["wait_for_singlefile_helper"](helper, reader, time.monotonic(), 0)
+        wait_for_singlefile_helper(helper, reader, time.monotonic(), 0)
     except subprocess.TimeoutExpired as error:
         assert error.timeout == 0
     else:
@@ -107,14 +107,20 @@ with subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.buffer.read(
         raise AssertionError("the helper was not reaped")
     if mode == "full-pipe":
         assert any(t.name == "singlefile-timeline" and t.daemon for t in threading.enumerate())
+    elif mode == "open":
+        # With a healthy sink, observe the actual writer rather than requiring
+        # best-effort stderr delivery at immediate production process exit.
+        for thread in threading.enumerate():
+            if thread.name == "singlefile-timeline":
+                thread.join(timeout=2)
+                assert not thread.is_alive()
     print("timeout preserved; helper killed and reaped", flush=True)
 """
     result = subprocess.run(
-        [sys.executable, "-c", check, str(SNAPSHOT_HOOK), stderr_state],
+        [sys.executable, "-c", check, stderr_state],
         cwd=tmp_path,
         env={
             **os.environ,
-            "SNAP_DIR": str(tmp_path),
             "SCREENSHOT_FAILURE_DIR": str(tmp_path / "failure"),
         },
         capture_output=True,
@@ -123,6 +129,24 @@ with subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.buffer.read(
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout.strip() == "timeout preserved; helper killed and reaped"
+    assert not (tmp_path / "failure").exists()
+    assert str(tmp_path / "failure") not in result.stderr
+    if stderr_state == "open":
+        timeline = re.findall(
+            r"^\[timeline\] event=(singlefile_wrapper_\w+) monotonic_ns=(\d+)$",
+            result.stderr,
+            re.MULTILINE,
+        )
+        stamps = {event: int(stamp) for event, stamp in timeline}
+        expected = {"singlefile_wrapper_begin"}
+        if sys.platform == "linux":
+            expected.add("singlefile_wrapper_timeout")
+        assert len(timeline) == len(expected) and set(stamps) == expected, result.stderr
+        if sys.platform == "linux":
+            assert (
+                stamps["singlefile_wrapper_begin"]
+                <= stamps["singlefile_wrapper_timeout"]
+            )
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")

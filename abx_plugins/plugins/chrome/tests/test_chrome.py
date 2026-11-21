@@ -4517,9 +4517,10 @@ def test_snapshot_target_loss_preserves_failed_daemon_exit(tmp_path, ending):
         other_target = (other_dir / "target_id.txt").read_text().strip()
         chrome_dir = tmp_path / "owned/chrome"
         chrome_dir.mkdir(parents=True)
+        failure_dir = tmp_path / "failure"
         tab_env = env | {
             "SNAP_DIR": str(chrome_dir.parent),
-            "SCREENSHOT_FAILURE_DIR": str(tmp_path / "failure"),
+            "SCREENSHOT_FAILURE_DIR": str(failure_dir),
         }
         daemon = launch_snapshot_tab(
             snapshot_chrome_dir=chrome_dir,
@@ -4611,12 +4612,18 @@ const utils = require(process.argv[1]);
                     "chrome_target_crash",
                     "chrome_target_marker_removed",
                 ], stderr
+                # These markers are sampled by separate CDP callbacks. Retain
+                # the daemon's observed order without assuming Chrome delivers
+                # Target.targetCrashed before the page error on every session.
+                stamps = [int(stamp) for _, stamp in timeline]
+                assert stamps == sorted(stamps), stderr
                 assert all(
-                    observed_after <= int(stamp) <= observed_before
-                    for _, stamp in timeline
+                    observed_after <= stamp <= observed_before for stamp in stamps
                 ), stderr
             else:
                 assert not timeline, stderr
+            assert not failure_dir.exists()
+            assert str(failure_dir) not in stderr
             crash_diagnostics = [
                 line
                 for line in stderr.splitlines()
