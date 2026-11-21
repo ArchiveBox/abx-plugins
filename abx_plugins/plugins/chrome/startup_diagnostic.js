@@ -4,6 +4,7 @@ const codes = new Set(["ECONNREFUSED", "ECONNRESET", "ECONNABORTED", "ETIMEDOUT"
 const syscalls = new Set(["connect", "read", "write", "getaddrinfo", "open", "spawn"]);
 
 const validationMessages = Object.freeze({
+  cdp_connect_timeout: "CDP setup connection timed out",
   missing_cdp_url: "CHROME_IS_LOCAL=false requires CHROME_CDP_URL or an upstream published chrome session",
   missing_auth_file: "Cookies file not found",
   empty_auth_json: "Invalid JSON cookie export: file is empty",

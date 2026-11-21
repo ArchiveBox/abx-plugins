@@ -9,6 +9,7 @@ import pytest
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_LAUNCH_HOOK,
+    CHROME_UTILS,
     get_test_env,
     setup_test_env,
 )
@@ -57,6 +58,64 @@ def test_unavailable_cdp_reports_safe_error_before_cleanup(tmp_path):
     assert str(port) not in lines[0]
     assert not (chrome_dir / "browser.json").exists()
     assert not (chrome_dir / ".launch.lock").exists()
+
+
+def test_silent_cdp_handshake_respects_setup_budget(tmp_path):
+    env = get_test_env()
+    script = """
+const net = require("node:net");
+const path = require("node:path");
+const chrome = require(process.argv[1]);
+const { startupErrorDiagnostic } = require(path.join(path.dirname(process.argv[1]), "startup_diagnostic.js"));
+const outputDir = process.argv[2];
+const peers = new Set();
+let handshake = "";
+// Accept the real Puppeteer TCP connection without replying to its WebSocket
+// Upgrade. A refused socket does not exercise the hanging-handshake path.
+const server = net.createServer((peer) => {
+  peers.add(peer);
+  peer.on("data", (chunk) => { handshake += chunk.toString("utf8"); });
+});
+server.listen(0, "127.0.0.1", async () => {
+  try {
+    await chrome.ensureChromeSession({
+      outputDir, downloadsDir: path.join(outputDir, "downloads"),
+      CHROME_IS_LOCAL: false,
+      CHROME_CDP_URL: `ws://127.0.0.1:${server.address().port}/private-fixture-marker`,
+      timeoutMs: 500,
+    });
+    process.exitCode = 2;
+  } catch (error) {
+    console.log(JSON.stringify({
+      upgraded: /upgrade: websocket/i.test(handshake),
+      diagnostic: startupErrorDiagnostic(error),
+    }));
+  } finally {
+    for (const peer of peers) peer.destroy();
+    server.close();
+  }
+});
+"""
+    result = subprocess.run(
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(tmp_path)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "private-fixture-marker" not in result.stdout
+    assert json.loads(result.stdout) == {
+        "upgraded": True,
+        "diagnostic": {
+            "errorClass": "Error",
+            "code": "unknown",
+            "syscall": "unknown",
+            "reason": "cdp_connect_timeout",
+            "message": "CDP setup connection timed out",
+        },
+    }
+    assert not (tmp_path / "browser.json").exists()
 
 
 @pytest.mark.parametrize(

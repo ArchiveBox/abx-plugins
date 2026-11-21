@@ -2975,7 +2975,7 @@ async function withTimeout(
         timeoutHandle = setTimeout(
           () => {
             timedOut = true;
-            reject(new Error(timeoutMessage));
+            reject(timeoutMessage instanceof Error ? timeoutMessage : new Error(timeoutMessage));
           },
           timeoutMs
         );
@@ -5887,9 +5887,17 @@ async function ensureChromeSession(options = {}) {
       if (downloadsDir) {
         await fs.promises.mkdir(downloadsDir, { recursive: true });
       }
-      browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
-        defaultViewport: null,
-      });
+      // The page-ready deadline starts after attaching. A silent WebSocket
+      // peer must not keep startup waiting indefinitely before that point.
+      browser = await withTimeout(
+        () => connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
+          defaultViewport: null,
+          protocolTimeout: timeoutMs,
+        }),
+        timeoutMs,
+        startupValidationError("cdp_connect_timeout"),
+        (lateBrowser) => lateBrowser.disconnect(),
+      );
 
       if (!reusingSession) await waitForBrowserPageReady({
         browser,
