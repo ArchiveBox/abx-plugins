@@ -435,3 +435,198 @@ def test_opencode_server_rejects_unauthenticated_local_pages(live_opencode):
     assert isinstance(json.loads(body), list)
     password_file = live_opencode["opencode_dir"] / "server_password"
     assert password_file.stat().st_mode & 0o777 == 0o600
+
+
+def test_large_ordinary_proxy_response_keeps_backpressure(live_opencode, httpserver):
+    """Exercise the real socket transport alongside the real stock local server."""
+    import asyncio
+    import hashlib
+    import threading
+    import tracemalloc
+    from collections.abc import AsyncIterator
+
+    from werkzeug.wrappers import Response
+
+    from abx_plugins.plugins.opencode import runtime
+
+    block = b"data from a normal OpenCode response\n" * 1500
+    copies = 512
+    expected_size = len(block) * copies
+    completed = threading.Event()
+    returned = threading.Event()
+    writer_closed = threading.Event()
+    active = 0
+
+    def download(_request):
+        def chunks():
+            try:
+                for index in range(copies):
+                    # Don't send most of the body until the caller is already
+                    # consuming it; an eager proxy can't return this response.
+                    if index == 4 and not returned.wait(10):
+                        raise AssertionError(
+                            "proxy did not expose the response before consuming its body",
+                        )
+                    yield block
+                completed.set()
+            finally:
+                writer_closed.set()
+
+        return Response(
+            chunks(),
+            content_type="application/octet-stream",
+            headers={"Content-Length": str(expected_size)},
+        )
+
+    httpserver.expect_request("/file/content").respond_with_handler(download)
+    local = {
+        **live_opencode,
+        "origin": httpserver.url_for("/").rstrip("/"),
+        "timeout": 5,
+    }
+
+    async def exercise():
+        nonlocal active
+        release = []
+        tracemalloc.start()
+        try:
+            status, headers, body = await runtime.proxy_async(
+                local,
+                "GET",
+                "file/content",
+                (),
+                {},
+                b"",
+                own=release.append,
+            )
+            assert status == 200 and len(release) == 1
+            assert headers["Content-Length"] == str(expected_size)
+            assert not completed.is_set()
+            before_body, header_peak = tracemalloc.get_traced_memory()
+            assert header_peak < expected_size // 2, header_peak
+            tracemalloc.reset_peak()
+            returned.set()
+            digest = hashlib.sha256()
+            assert isinstance(body, AsyncIterator)
+            async for chunk in body:
+                assert len(chunk) <= 64 * 1024
+                digest.update(chunk)
+                active += len(chunk)
+            _, peak = tracemalloc.get_traced_memory()
+            assert peak - before_body < expected_size // 2, (peak, before_body)
+            print(
+                f"proxy fixture: {expected_size=} {header_peak=} body_allocation={peak - before_body}",
+            )
+            expected_digest = hashlib.sha256()
+            for _ in range(copies):
+                expected_digest.update(block)
+            assert (
+                digest.digest() == expected_digest.digest() and active == expected_size
+            )
+        finally:
+            returned.set()
+            tracemalloc.stop()
+            if release:
+                await release[0]()
+
+    asyncio.run(exercise())
+    assert completed.wait(2) and writer_closed.wait(2)
+
+
+def test_proxy_preserves_range_and_packed_wire_body(live_opencode, httpserver):
+    import gzip
+
+    from abx_plugins.plugins.opencode import runtime
+
+    packed = gzip.compress(b"archivebox synthetic data\n")
+    httpserver.expect_request(
+        "/file",
+        headers={"Range": "bytes=2-13"},
+    ).respond_with_data(
+        packed[2:14],
+        status=206,
+        headers={
+            "Content-Type": "application/octet-stream",
+            "Content-Encoding": "gzip",
+            "Content-Range": f"bytes 2-13/{len(packed)}",
+        },
+    )
+    local = {**live_opencode, "origin": httpserver.url_for("/").rstrip("/")}
+    status, headers, body = runtime.proxy(
+        local,
+        "GET",
+        "file",
+        (),
+        {"Range": "bytes=2-13"},
+        b"",
+    )
+    assert status == 206
+    assert headers["Content-Range"] == f"bytes 2-13/{len(packed)}"
+    assert headers["Content-Encoding"] == "gzip"
+    assert headers["Content-Length"] == "12"
+    assert isinstance(body, runtime.ProxyBody)
+    assert b"".join(body) == packed[2:14]
+    assert body.closed
+
+
+def test_proxy_redirect_does_not_follow_or_log_query(live_opencode, httpserver, caplog):
+    import asyncio
+    import logging
+
+    from abx_plugins.plugins.opencode import runtime
+
+    httpserver.expect_request(
+        "/redirect",
+        query_string={"q": "private-proxy-marker"},
+    ).respond_with_data(
+        b"",
+        status=302,
+        headers={"Location": "/target"},
+    )
+    local = {**live_opencode, "origin": httpserver.url_for("/").rstrip("/")}
+    args = (local, "GET", "redirect", (("q", "private-proxy-marker"),), {}, b"")
+
+    async def exchange():
+        release = []
+        try:
+            return await runtime.proxy_async(*args, own=release.append)
+        finally:
+            assert len(release) == 1
+            await release[0]()
+
+    # The fixture server logs its own access line; the host must not.
+    with (
+        caplog.at_level(logging.INFO, logger="httpx"),
+        caplog.at_level(logging.WARNING, logger="werkzeug"),
+    ):
+        for result in (
+            runtime.proxy(*args, allow_stream=False),
+            asyncio.run(exchange()),
+        ):
+            status, headers, body = result
+            assert status == 302 and body == b""
+            assert headers["Location"] == "/admin/agent/opencode/target"
+    assert "private-proxy-marker" not in caplog.text
+
+
+def test_old_asgi_host_caps_upstream_buffer(live_opencode, httpserver):
+    from werkzeug.wrappers import Response
+
+    from abx_plugins.plugins.opencode import runtime
+
+    block = b"ordinary data block" * 2048
+    complete = []
+
+    def download(_request):
+        def content():
+            for _ in range(1024):
+                yield block
+            complete.append(True)
+
+        return Response(content(), content_type="application/octet-stream")
+
+    httpserver.expect_request("/download").respond_with_handler(download)
+    local = {**live_opencode, "origin": httpserver.url_for("/").rstrip("/")}
+    with pytest.raises(RuntimeError, match="exceeded the buffering limit"):
+        runtime.proxy(local, "GET", "download", (), {}, b"", allow_stream=False)
+    assert not complete
