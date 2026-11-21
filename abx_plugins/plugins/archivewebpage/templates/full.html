@@ -197,7 +197,11 @@
                 message.className = 'replay-error';
                 message.setAttribute('role', 'alert');
                 const title = document.createElement('h1');
-                title.textContent = 'You must view this snapshot in a browser.';
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                title.textContent = isIOS
+                    ? 'This WACZ file can only be viewed in Safari on iOS'
+                    : 'You must view this snapshot in a browser.';
                 const openBrowser = document.createElement('a');
                 openBrowser.className = 'replay-open-browser';
                 openBrowser.href = window.location.href;
