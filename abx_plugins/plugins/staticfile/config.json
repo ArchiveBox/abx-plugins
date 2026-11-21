@@ -9,6 +9,7 @@
     "chrome"
   ],
   "required_binaries": [],
+  "snapshot_output_group": "html",
   "output_mimetypes": [
     "application/pdf",
     "application/epub+zip",

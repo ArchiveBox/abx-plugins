@@ -8,6 +8,7 @@
     "chrome"
   ],
   "required_binaries": [],
+  "snapshot_output_group": "images",
   "output_mimetypes": [
     "image/jpeg"
   ],
