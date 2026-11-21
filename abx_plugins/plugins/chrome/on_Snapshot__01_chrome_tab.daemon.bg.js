@@ -25,6 +25,7 @@ const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShu
 
 const fs = require("fs");
 const path = require("path");
+const TIMELINE_ENABLED = process.platform === "linux" && path.isAbsolute(process.env.SCREENSHOT_FAILURE_DIR || "");
 const {
   ensureNodeModuleResolution,
   parseArgs,
@@ -154,6 +155,9 @@ function cleanupFiles(fileNames, reason) {
     try {
       fs.unlinkSync(filePath);
       removed += 1;
+      if (TIMELINE_ENABLED && fileName === "target_id.txt" && reason === "renderer crashed") {
+        console.error(`[timeline] event=chrome_target_marker_removed monotonic_ns=${process.hrtime.bigint()}`);
+      }
     } catch (error) {}
   }
   if (removed > 0 && reason) {
@@ -256,6 +260,11 @@ async function startTargetMonitor() {
     if (!Number.isSafeInteger(event.errorCode)) return;
     const status = ["normal", "abnormal", "killed", "crashed", "oom", "launch-failed", "integrity-failure", "still-running"].includes(event.status)
       ? event.status : "unknown";
+    // Linux libuv and Python expose the same host CLOCK_MONOTONIC. Other
+    // platforms need not share an origin across these different runtimes.
+    if (TIMELINE_ENABLED) {
+      console.error(`[timeline] event=chrome_target_crash monotonic_ns=${process.hrtime.bigint()}`);
+    }
     console.error(`[chrome] target_crash status=${status} error_code=${event.errorCode}`);
   };
   getBrowserConnection(monitorBrowser).on("Target.targetCrashed", monitorCrashListener);
