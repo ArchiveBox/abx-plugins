@@ -54,3 +54,59 @@ def test_gallery_cards_include_screenshots_without_a_plugin_allowlist(
                 f'data-screenshot-src="https://archivebox.io/screenshots/{image}"'
                 in card
             ), plugin_dir.name
+
+
+def test_marketplace_uses_first_manifest_commit_and_follows_renames(
+    tmp_path: Path,
+) -> None:
+    import os
+    import runpy
+
+    plugin_added_times = runpy.run_path("docs/generate.py")["plugin_added_times"]
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    plugins = repo / "plugins"
+
+    def git(*args: str, day: int = 1) -> None:
+        date = f"2025-01-{day:02}T00:00:00+00:00"
+        subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_DATE": date,
+                "GIT_COMMITTER_DATE": date,
+                "GIT_AUTHOR_NAME": "Fixture",
+                "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+                "GIT_COMMITTER_NAME": "Fixture",
+                "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+            },
+        )
+
+    def add(name: str, day: int) -> Path:
+        manifest = plugins / name / "config.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(json.dumps({"title": name}))
+        git("add", ".")
+        git("commit", "-m", f"Add {name}", day=day)
+        return manifest
+
+    git("init")
+    legacy = add("legacy", 1)
+    fresh = add("fresh", 2)
+    git("mv", str(legacy.parent), str(plugins / "renamed"))
+    git("commit", "-m", "Rename legacy", day=3)
+    fresh.write_text(json.dumps({"title": "Updated"}))
+    git("commit", "-am", "Update fresh", day=4)
+    assert plugin_added_times(repo, plugins) == {
+        "legacy": 1735689600,
+        "renamed": 1735689600,
+        "fresh": 1735776000,
+    }
+
+    git("clone", "--depth=1", repo.as_uri(), str(tmp_path / "shallow"))
+    shallow = tmp_path / "shallow"
+    assert plugin_added_times(shallow, shallow / "plugins") == {}
+    assert plugin_added_times(tmp_path, tmp_path / "plugins") == {}

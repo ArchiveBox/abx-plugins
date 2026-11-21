@@ -386,17 +386,59 @@ def highest_hook_order_for_phase(hooks: list[dict[str, Any]], phase: str) -> int
     return max(orders)
 
 
-def plugin_sort_metadata(
-    hooks: list[dict[str, Any]],
-) -> tuple[int, int | float, str, int | None]:
-    snapshot_order = highest_hook_order_for_phase(hooks, "Snapshot")
-    crawl_order = highest_hook_order_for_phase(hooks, "Crawl")
+def plugin_added_times(repo_root: Path, plugins_dir: Path) -> dict[str, int]:
+    """Read first catalog appearances from the published branch history."""
+    try:
+        # A shallow boundary looks like an initial addition for every tracked
+        # file. Don't mislabel old plugins with that commit's date.
+        if (
+            subprocess.check_output(
+                ["git", "rev-parse", "--is-shallow-repository"],
+                cwd=repo_root,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+            != "false"
+        ):
+            return {}
+        scope = plugins_dir.relative_to(repo_root).as_posix()
+        log = subprocess.check_output(
+            [
+                "git",
+                "log",
+                "--first-parent",
+                "--diff-merges=first-parent",
+                "--topo-order",
+                "--reverse",
+                "--diff-filter=AR",
+                "--find-renames",
+                "--format=@%ct",
+                "--name-status",
+                "-z",
+                "--",
+                f":(glob){scope}/*/config.json",
+            ],
+            cwd=repo_root,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return {}
 
-    if snapshot_order is not None:
-        return (0, snapshot_order, "Snapshot", snapshot_order)
-    if crawl_order is not None:
-        return (1, crawl_order, "Crawl", crawl_order)
-    return (3, float("inf"), "", None)
+    added: dict[str, int] = {}
+    timestamp = 0
+    tokens = iter(log.split("\0"))
+    for token in tokens:
+        status = token.strip()
+        if status.startswith("@"):
+            timestamp = int(status[1:])
+        elif status == "A":
+            added.setdefault(next(tokens), timestamp)
+        elif status.startswith("R"):
+            previous, current = next(tokens), next(tokens)
+            added.setdefault(current, added.get(previous, timestamp))
+
+    return {Path(path).parent.name: stamp for path, stamp in added.items()}
 
 
 def template_badges(plugin_dir: Path) -> list[str]:
@@ -417,7 +459,9 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     commands = build_commands(plugin_dir.name, hooks, config_fields)
     phases = plugin_phases(hooks)
     primary_language = dominant_language(hooks)
-    sort_group, sort_order, sort_phase, display_order = plugin_sort_metadata(hooks)
+    display_order = highest_hook_order_for_phase(hooks, "Snapshot")
+    if display_order is None:
+        display_order = highest_hook_order_for_phase(hooks, "Crawl")
     template_labels = template_badges(plugin_dir)
     display_title = str(config_schema.get("title") or plugin_dir.name)
     description = str(config_schema.get("description") or "").strip()
@@ -442,8 +486,6 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         search_parts.append(description)
     if primary_language:
         search_parts.append(primary_language)
-    if sort_phase:
-        search_parts.append(sort_phase)
     search_parts.extend(template_labels)
     search_parts.extend(required_plugins)
     search_parts.extend(required_binary_names)
@@ -488,8 +530,6 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         "required_binary_summaries": required_binary_summaries,
         "output_mimetypes": output_mimetypes,
         "display_order": display_order,
-        "sort_group": sort_group,
-        "sort_order": sort_order,
         "search_text": " ".join(search_parts).lower(),
     }
 
@@ -500,11 +540,13 @@ def collect_plugins() -> list[dict[str, Any]]:
         if not plugin_dir.is_dir() or plugin_dir.name in EXCLUDED_PLUGIN_DIRS:
             continue
         plugins.append(build_plugin(plugin_dir))
+    added = plugin_added_times(REPO_ROOT, PLUGINS_DIR)
     plugins.sort(
         key=lambda plugin: (
-            plugin["sort_group"],
-            plugin["sort_order"],
-            plugin["name"].lower(),
+            plugin["name"] not in added,
+            -added.get(plugin["name"], 0),
+            plugin["name"].casefold(),
+            plugin["name"],
         ),
     )
     return plugins
