@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tarfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
 PATCHES = Path(__file__).resolve().parent
@@ -35,6 +36,31 @@ SOURCES = {
         "tlsnotary-tlsn-extension-d446234",
     ),
 }
+
+
+BETA1_SOURCES = {
+    "tlsn": (
+        "tlsnotary/tlsn",
+        "40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "162bfea805e009c3b38ec0834859682af0924de3c3e79992e8a81e4a0a49b790",
+        "tlsnotary-tlsn-40a0695",
+    ),
+    "extension": SOURCES["extension"],
+}
+
+
+def write_zip(output: Path, source: Path) -> None:
+    """Keep the portable ZIP independent of source tree timestamps and ownership."""
+    with zipfile.ZipFile(output, "w") as archive:
+        for file in sorted(source.rglob("*")):
+            if not file.is_file():
+                continue
+            entry = zipfile.ZipInfo(file.relative_to(source).as_posix())
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.create_system = 3
+            entry.external_attr = 0o100644 << 16
+            with file.open("rb") as payload, archive.open(entry, "w") as target:
+                shutil.copyfileobj(payload, target)
 
 
 def run(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
@@ -69,14 +95,27 @@ def main() -> None:
         choices=("both", "verifier", "extension"),
         default="both",
     )
+    parser.add_argument("--profile", choices=("legacy", "beta1"), default="legacy")
+    parser.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Verify and patch source without compiling",
+    )
     parser.add_argument("--wasm-toolchain", default="nightly-2026-10-12")
     args = parser.parse_args()
+    beta1 = args.profile == "beta1"
+    sources = BETA1_SOURCES if beta1 else SOURCES
+    patches = (
+        {"extension": "extension-beta1.patch"}
+        if beta1
+        else {name: name + ".patch" for name in sources}
+    )
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     source = output / "src"
     source.mkdir(exist_ok=True)
     dirs = {}
-    for name, (repo, revision, digest, directory) in SOURCES.items():
+    for name, (repo, revision, digest, directory) in sources.items():
         archive = output / (name + ".tar.gz")
         if not archive.exists():
             request = urllib.request.Request(
@@ -97,21 +136,29 @@ def main() -> None:
             )
         with tarfile.open(archive) as bundle:
             bundle.extractall(source, filter="data")
-        run(
-            [
-                "patch",
-                "--batch",
-                "--fuzz=0",
-                "-p1",
-                "-i",
-                str(PATCHES / (name + ".patch")),
-            ],
-            destination,
-        )
+        if name in patches:
+            run(
+                [
+                    "patch",
+                    "--batch",
+                    "--fuzz=0",
+                    "-p1",
+                    "-i",
+                    str(PATCHES / patches[name]),
+                ],
+                destination,
+            )
         dirs[name] = destination
 
-    # WASM and native verifier use the same protocol revision and MPZ patch.
-    # Shipping one side alone can fail after expensive preprocessing has begun.
+    if args.prepare_only:
+        print(
+            json.dumps(
+                {"output": str(output), "profile": args.profile, "source": str(source)}
+            )
+        )
+        return
+
+    # Both peers must reference the same protocol source; do not upgrade either independently.
     tlsn = dirs["tlsn"]
     extension = dirs["extension"]
     if args.component in ("both", "verifier"):
@@ -145,12 +192,10 @@ def main() -> None:
         # Crawl setup verifies this marker and its bundles before using the
         # source-built localProof export; it must not patch minified code twice.
         marker = {
-            "sources": {name: values[1] for name, values in SOURCES.items()},
+            "sources": {name: values[1] for name, values in sources.items()},
             "patches": {
-                name: hashlib.sha256(
-                    (PATCHES / (name + ".patch")).read_bytes(),
-                ).hexdigest()
-                for name in SOURCES
+                name: hashlib.sha256((PATCHES / patch).read_bytes()).hexdigest()
+                for name, patch in patches.items()
             },
             "bundles": {
                 name: hashlib.sha256((built / name).read_bytes()).hexdigest()
@@ -164,7 +209,10 @@ def main() -> None:
         (built / "archivebox-build.json").write_text(
             json.dumps(marker, indent=2) + "\n",
         )
-        shutil.make_archive(str(output / "extension"), "zip", built)
+        if beta1:
+            write_zip(output / "tlsnotary-beta1-extension.zip", built)
+        else:
+            shutil.make_archive(str(output / "extension"), "zip", built)
     print(json.dumps({"output": str(output), "component": args.component}))
 
 

@@ -33,3 +33,24 @@ and [TLSN #1197](https://github.com/tlsnotary/tlsn/pull/1197). MPZ is pinned to 
 revision compatible with this TLSN release; the patch backports the submitted
 changes. Performance measurements are not a security audit or a production
 concurrency guarantee.
+
+## TLSN beta.1 matched release candidate
+
+Build beta.1 from the same checked upstream source for both peers, without the
+legacy MPZ, prover-wakeup, or WASM binary patches. The extension source patch
+retains the local proof export, window placement, injected channel adapters, and
+verifier transcript adapter. The lockfiles are part of this patch.
+
+```sh
+uv run --no-project python abx_plugins/plugins/tlsnotary/vendor/build.py "$out" \
+  --profile beta1 --component extension
+docker buildx build --platform linux/amd64 \
+  -f abx_plugins/plugins/tlsnotary/vendor/beta1-verifier.Dockerfile "$out/src"
+```
+
+The browser build produces `$out/tlsnotary-beta1-extension.zip` and an unpacked
+`$out/extension/` with the bundle checksum manifest. The ZIP uses stable entry
+metadata for identical inputs. For a separate verifier build job, use a fresh
+`$out` and `--profile beta1 --prepare-only` to stage the same verified source
+context without a WASM compiler. Use the existing gateway and its proof/resource
+policies; don't pair these outputs with the official alpha.15 artifacts.
