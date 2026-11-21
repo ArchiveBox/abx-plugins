@@ -5,6 +5,10 @@
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "2.6 s",
+    "error_rate": "0%"
+  },
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [

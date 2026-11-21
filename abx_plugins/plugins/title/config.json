@@ -4,6 +4,11 @@
   "description": "Capture the title from sharing metadata or the rendered page.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "1.7 s",
+    "output_size": "50 B",
+    "error_rate": "68%"
+  },
   "required_plugins": [
     "chrome"
   ],

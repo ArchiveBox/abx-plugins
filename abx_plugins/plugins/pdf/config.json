@@ -4,6 +4,11 @@
   "description": "Render the current page to PDF using the shared Chrome session.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "2.8 s",
+    "output_size": "730 KB",
+    "error_rate": "67%"
+  },
   "required_plugins": [
     "chrome"
   ],

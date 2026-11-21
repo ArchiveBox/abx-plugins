@@ -4,6 +4,11 @@
   "description": "Extract article HTML, text, and metadata using the maintained Mercury parser.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "12 s",
+    "output_size": "24 KB",
+    "error_rate": "9.2%"
+  },
   "required_plugins": [
     "dom"
   ],

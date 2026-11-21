@@ -4,6 +4,9 @@
   "description": "Provide a shared namespace for media-related plugin outputs and helpers.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "16%"
+  },
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [],

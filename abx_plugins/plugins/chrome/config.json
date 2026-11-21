@@ -5,6 +5,9 @@
   "description": "Needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself).",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "6.2%"
+  },
   "required_plugins": [],
   "commands": {
     "browser-profile": [

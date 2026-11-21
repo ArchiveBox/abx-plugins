@@ -5,6 +5,10 @@
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "17 KB",
+    "error_rate": "58%"
+  },
   "required_plugins": ["chrome"],
   "x-chrome-extension-load": "on-demand",
   "required_binaries": [

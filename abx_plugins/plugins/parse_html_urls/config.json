@@ -4,6 +4,11 @@
   "description": "Parse HTML documents and emit discovered links as JSONL snapshot records.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "3.8 s",
+    "output_size": "16 KB",
+    "error_rate": "0%"
+  },
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [

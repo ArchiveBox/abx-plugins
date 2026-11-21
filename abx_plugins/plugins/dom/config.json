@@ -4,6 +4,11 @@
   "description": "Save the fully rendered DOM HTML from the live page.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "1.5 s",
+    "output_size": "190 KB",
+    "error_rate": "67%"
+  },
   "required_plugins": [
     "chrome"
   ],

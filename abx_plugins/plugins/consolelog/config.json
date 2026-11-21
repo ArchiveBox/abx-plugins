@@ -4,6 +4,10 @@
   "description": "Capture browser console messages emitted while the page loads.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "8.6 KB",
+    "error_rate": "0%"
+  },
   "required_plugins": [
     "chrome"
   ],

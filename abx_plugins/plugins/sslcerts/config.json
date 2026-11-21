@@ -4,6 +4,10 @@
   "description": "Capture TLS certificate and connection metadata for the loaded page.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "14 KB",
+    "error_rate": "3.2%"
+  },
   "required_plugins": [
     "chrome"
   ],

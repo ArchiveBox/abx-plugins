@@ -4,6 +4,11 @@
   "description": "Capture the browser accessibility tree for the archived page.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "2.2 s",
+    "output_size": "120 KB",
+    "error_rate": "6.7%"
+  },
   "required_plugins": [
     "chrome"
   ],

@@ -7,6 +7,9 @@
   "description": "Index archived snapshot content into a Sonic search backend.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "daemons": "1"
+  },
   "required_plugins": [],
   "required_binaries": [
     {
