@@ -153,8 +153,8 @@ def main() -> None:
     if args.prepare_only:
         print(
             json.dumps(
-                {"output": str(output), "profile": args.profile, "source": str(source)}
-            )
+                {"output": str(output), "profile": args.profile, "source": str(source)},
+            ),
         )
         return
 
