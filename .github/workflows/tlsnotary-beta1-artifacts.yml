@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/tlsnotary-beta1-artifacts.yml
       - abx_plugins/plugins/tlsnotary/vendor/build.py
+      - abx_plugins/plugins/tlsnotary/vendor/release_notices.py
+      - abx_plugins/plugins/tlsnotary/vendor/release_notice_pins.json
       - abx_plugins/plugins/tlsnotary/vendor/extension-beta1.patch
       - abx_plugins/plugins/tlsnotary/vendor/beta1-verifier.Dockerfile
 
@@ -17,6 +19,8 @@ jobs:
     name: Browser extension
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      TLSNOTARY_EXTENSION_BUILD_DIR: /tmp/archivebox-tlsnotary-extension-build
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -28,27 +32,28 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          rustup toolchain install nightly-2026-10-12 --profile minimal --component rust-src --target wasm32-unknown-unknown
+          rustup toolchain install nightly-2026-10-12 --profile minimal --component rust-src --component rust-docs --target wasm32-unknown-unknown
           archive=wasm-pack-v0.14.0-x86_64-unknown-linux-musl.tar.gz
           cd "$RUNNER_TEMP"
           curl --fail --silent --show-error --location -o "$archive" "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.14.0/$archive"
           echo "278a8d668085821f4d1a637bd864f1713f872b0ae3a118c77562a308c0abfe8d  $archive" | sha256sum --check --strict
           tar -xzf "$archive"
           echo "$RUNNER_TEMP/${archive%.tar.gz}" >> "$GITHUB_PATH"
-      - name: Build pinned browser extension
+      - name: Build pinned browser release candidate
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 abx_plugins/plugins/tlsnotary/vendor/build.py "$RUNNER_TEMP/beta1-build" --profile beta1 --component extension
-          cd "$RUNNER_TEMP/beta1-build"
+          test ! -e "$TLSNOTARY_EXTENSION_BUILD_DIR"
+          python3 abx_plugins/plugins/tlsnotary/vendor/build.py "$TLSNOTARY_EXTENSION_BUILD_DIR" --profile beta1 --component extension --release-candidate
+          cd "$TLSNOTARY_EXTENSION_BUILD_DIR"
           unzip -tq tlsnotary-beta1-extension.zip
           sha256sum tlsnotary-beta1-extension.zip > TLSNOTARY-EXTENSION-SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: tlsnotary-beta1-extension-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/beta1-build/tlsnotary-beta1-extension.zip
-            ${{ runner.temp }}/beta1-build/TLSNOTARY-EXTENSION-SHA256SUMS
+            ${{ env.TLSNOTARY_EXTENSION_BUILD_DIR }}/tlsnotary-beta1-extension.zip
+            ${{ env.TLSNOTARY_EXTENSION_BUILD_DIR }}/TLSNOTARY-EXTENSION-SHA256SUMS
           if-no-files-found: error
           compression-level: 0
 
@@ -146,6 +151,10 @@ jobs:
           (cd "$verifier" && sha256sum --check --strict TLSNOTARY-VERIFIER-SHA256SUMS)
           mkdir "$extension/unpacked"
           unzip -q "$extension/tlsnotary-beta1-extension.zip" -d "$extension/unpacked"
+          jq -e '.version == "0.1.1" and .manifest_version == 3' "$extension/unpacked/manifest.json" >/dev/null
+          test -s "$extension/unpacked/THIRD_PARTY_NOTICES.txt"
+          jq -e '.components[] | select(.package == "npm:webextension-polyfill@0.12.0" and .spdx == "MPL-2.0" and .corresponding_source)' \
+            "$extension/unpacked/licenses/components.json" >/dev/null
           jq -e '.sources.tlsn == "40a069565a2eaecbb5e691dbc634be20e8498daf" and .sources.extension == "d44623434d04ad00d7b1f8da9712cbc10cd0e99c"' \
             "$extension/unpacked/archivebox-build.json" >/dev/null
 

@@ -54,3 +54,14 @@ metadata for identical inputs. For a separate verifier build job, use a fresh
 `$out` and `--profile beta1 --prepare-only` to stage the same verified source
 context without a WASM compiler. Use the existing gateway and its proof/resource
 policies; don't pair these outputs with the official alpha.15 artifacts.
+
+The existing hosted beta.1 build and strict proof also qualify a release
+candidate: pass `--release-candidate` with the beta.1 extension-only mode,
+using the fresh fixed output path `/tmp/archivebox-tlsnotary-extension-build`
+and the pinned nightly's Rust documentation component. This stamps browser
+version 0.1.1, derives notices from emitted Webpack chunks and the locked
+WebAssembly dependency graph, and checks the browser manifest and local
+build paths. The workflow retains the existing ZIP/checksum artifact names
+and uses those exact bytes in the strict signed receipt/body witness.
+This is a test artifact, not a published release. The legacy and beta.1
+command-line builds without this option and the stock client pin are unchanged.

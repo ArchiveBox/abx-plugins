@@ -1291,3 +1291,18 @@
 @@ -5494 +5271 @@
 - "heck 0.5.0",
 + "heck",
+
+diff --git a/packages/extension/utils/build.js b/packages/extension/utils/build.js
+--- a/packages/extension/utils/build.js
++++ b/packages/extension/utils/build.js
+@@ -43,0 +44,10 @@
++  const noticeStats = process.env.ARCHIVEBOX_TLSNOTARY_LICENSE_STATS;
++  if (noticeStats) {
++    fs.writeFileSync(noticeStats, JSON.stringify(stats.toJson({
++      all: false, chunks: true, chunkModules: true, nestedModules: true,
++      dependentModules: true, orphanModules: true,
++      chunkModulesSpace: Number.MAX_SAFE_INTEGER,
++      nestedModulesSpace: Number.MAX_SAFE_INTEGER,
++    })));
++  }
++
