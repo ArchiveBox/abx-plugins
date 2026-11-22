@@ -21,25 +21,25 @@ def test_unavailable_cdp_reports_safe_error_before_cleanup(tmp_path):
     env = setup_test_env(tmp_path)
     chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
     chrome_dir.mkdir(parents=True, exist_ok=True)
-    # Reserve an actual local port without listening: no other process can claim
-    # it while the real WebSocket connection fails without a peer.
+    # Release the ephemeral port before connecting. A bound non-listening
+    # socket can silently drop SYN packets on macOS rather than refuse them.
     with socket.socket() as unavailable:
         unavailable.bind(("127.0.0.1", 0))
         port = unavailable.getsockname()[1]
-        env.update(
-            {
-                "CHROME_CDP_URL": f"ws://127.0.0.1:{port}/private-fixture-marker",
-                "CHROME_IS_LOCAL": "false",
-            },
-        )
-        result = subprocess.run(
-            [str(CHROME_LAUNCH_HOOK), "--crawl-id=diagnostic-fixture"],
-            cwd=chrome_dir,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+    env.update(
+        {
+            "CHROME_CDP_URL": f"ws://127.0.0.1:{port}/private-fixture-marker",
+            "CHROME_IS_LOCAL": "false",
+        },
+    )
+    result = subprocess.run(
+        [str(CHROME_LAUNCH_HOOK), "--crawl-id=diagnostic-fixture"],
+        cwd=chrome_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert result.returncode == 1
     assert not result.stdout.strip()
     prefix = "ERROR: chrome startup "
