@@ -1,0 +1,21 @@
+.github/workflows/test-providers.yml
+  s_10bc94d001be49::t_6df5cc458d2c5c 3-4,261,265-267,287-288
+tests/test_ci_provider_routing.py
+  s_10bc94d001be49::t_066ab38c8816d2 172-175,177,179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "81ce179b686b841a548230c89c48af005052c251",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
