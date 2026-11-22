@@ -9,6 +9,7 @@ from pathlib import Path
 from asgiref.sync import sync_to_async
 
 from django.contrib import messages
+from django.core.handlers.asgi import ASGIRequest
 from django.shortcuts import redirect
 from django.http import HttpResponseNotAllowed
 from django.contrib.auth.views import redirect_to_login
@@ -39,11 +40,12 @@ def _runtime_settings(request, config, *, host):
         archivebox_api_url=urls["api"],
         browser_command=host.cli_command("opencode", "browser"),
         context_command=host.cli_command("opencode", "context"),
+        plugin_catalog=getattr(host, "plugin_catalog", None),
     )
     return runtime, settings
 
 
-def _dispatch(request, path=None, browser_action=None, *, host):
+def _dispatch(request, path=None, browser_action=None, *, host, prepare_proxy=False):
     try:
         # Middleware already merged server defaults and live Machine overrides.
         # Re-resolving every extractor's config here stalls the UI request burst.
@@ -90,7 +92,7 @@ def _dispatch(request, path=None, browser_action=None, *, host):
             request.headers,
         ):
             return HttpResponseForbidden("Cross-origin agent requests are blocked.")
-        status, headers, body = runtime.proxy(
+        args = (
             settings,
             request.method,
             path,
@@ -100,24 +102,34 @@ def _dispatch(request, path=None, browser_action=None, *, host):
             request.headers,
             request.body,
         )
-        response_type = (
-            HttpResponse if isinstance(body, bytes) else StreamingHttpResponse
+        if prepare_proxy:
+            return runtime, args
+        return _proxy_response(
+            *runtime.proxy(*args, allow_stream=not isinstance(request, ASGIRequest)),
         )
-        response = response_type(body, status=status, headers=headers)
-        setattr(response, "xframe_options_exempt", True)
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
-        response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
-        return response
     except Http404:
         raise
     except Exception:
-        # Optional-service boundary, including imports and template rendering.
-        _LOGGER.exception("Optional AI service failed")
-        return HttpResponse(
-            "AI service unavailable. See server logs.",
-            status=503,
-            content_type="text/plain",
-        )
+        return _ai_unavailable()
+
+
+def _ai_unavailable():
+    # Optional-service boundary, including imports and template rendering.
+    _LOGGER.exception("Optional AI service failed")
+    return HttpResponse(
+        "AI service unavailable. See server logs.",
+        status=503,
+        content_type="text/plain",
+    )
+
+
+def _proxy_response(status, headers, body):
+    response_type = HttpResponse if isinstance(body, bytes) else StreamingHttpResponse
+    response = response_type(body, status=status, headers=headers)
+    setattr(response, "xframe_options_exempt", True)
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+    return response
 
 
 def agent_view(request, *, host):
@@ -129,8 +141,27 @@ def agent_browser_view(request, action, *, host):
 
 
 @csrf_exempt
-def opencode_proxy_view(request, path=None, *, host):
-    return _dispatch(request, path=path or "", host=host)
+async def opencode_proxy_view(request, path=None, *, host):
+    own = getattr(request, "scope", {}).get("archivebox.own_response_stream")
+    if not callable(own):
+        # Core may not have the optional lifetime hook yet. No open upstream
+        # body can escape its synchronous ASGI view in that configuration.
+        return await sync_to_async(_dispatch)(request, path=path or "", host=host)
+    prepared = await sync_to_async(_dispatch)(
+        request,
+        path=path or "",
+        host=host,
+        prepare_proxy=True,
+    )
+    if isinstance(prepared, HttpResponse):
+        return prepared
+    runtime, args = prepared
+    try:
+        return _proxy_response(*await runtime.proxy_async(*args, own=own))
+    except Http404:
+        raise
+    except Exception:
+        return _ai_unavailable()
 
 
 @csrf_exempt

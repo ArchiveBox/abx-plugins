@@ -20,12 +20,14 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlsplit
 
 import psutil
 
 if TYPE_CHECKING:
+    import httpx
     import requests
 
 from abx_plugins.plugins.base.agents import agent_skills
@@ -52,7 +54,9 @@ _COLLECTION_IGNORE = (
 )
 
 _TEXT_CONTENT_TYPES = (
-    "text/",
+    "text/html",
+    "text/css",
+    "text/javascript",
     "application/javascript",
     "application/x-javascript",
 )
@@ -79,6 +83,11 @@ You are running inside an ArchiveBox collection directory.
 - ArchiveBox REST API URL: {archivebox_api_url}
 - Prefer the `archivebox` CLI for authenticated changes, e.g. `archivebox add`, `archivebox schedule`, `archivebox update`, and `archivebox shell`.
 - Run ArchiveBox CLI commands from the ArchiveBox collection directory above.
+- Keep scripts in the webhook's Python/shell action field when practical so admins can edit them in the UI; avoid ad-hoc script files.
+1. Inspect config, the plugin catalog and UI/API for existing or near matches: OCR, media/subtitles/transcripts, 3D/CAD, PDFs/papers, Git/forums. Prefer an existing extension, library or CLI over custom internals.
+2. Compose native features or Rules Engine webhooks/hooks/Python/shell before writing custom code; stay within authorized scope.
+3. Write custom code last, or when directly requested: copy a comparable built-in into `custom_plugins/<name>/`, use existing discovery/config registration, `config.json`, templates, helpers, tests and browser access. Preserve signal handling, stdout JSONL/stderr diagnostics and hook naming. Explain WHY complex code is needed. Declare dependencies with the existing `#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3` header.
+- When present, read the managed `opencode/server_context.md` instructions for current Importers, Domains, Rules Engine, and settings workflows; keep this editable skill for collection-specific guidance.
 - You can add custom plugins in `{archivebox_data_dir}/custom_plugins/<name>/` for new extraction, preparation, or cleanup steps during archiving.
 - Follow existing plugin conventions, test on one snapshot, and restart the ArchiveBox server via Supervisor to load the changes.
 - This collection can contain millions of snapshots and OpenCode's own state. Never recursively scan, glob, grep, index, or run Git over the collection or its subdirectories. Use the ArchiveBox database/CLI/API to find snapshot IDs and paths, then read only the specific files needed.
@@ -328,13 +337,47 @@ def _ensure_project_files(settings: dict) -> None:
             .replace("{browser_command}", shlex.join(settings["browser_command"]))
             .replace("{python}", shlex.quote(sys.executable)),
         )
-    if settings.get("context_command"):
-        (settings["opencode_dir"] / "server_context.md").write_text(
-            Path(__file__)
-            .with_name("server_context.md")
-            .read_text()
-            .replace("{context_command}", shlex.join(settings["context_command"])),
+    _ensure_server_context(settings)
+
+
+def _ensure_server_context(settings: dict) -> None:
+    if not settings.get("context_command"):
+        return
+    catalog_provider = settings.get("plugin_catalog")
+    catalog = (
+        cast("Callable[[], Iterable[str]]", catalog_provider)()
+        if callable(catalog_provider)
+        else ()
+    )
+    # Names are catalog data, not prompt text or executable plugin contents.
+    names = sorted(
+        {name for name in catalog if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name)},
+    )
+    context = (
+        Path(__file__)
+        .with_name("server_context.md")
+        .read_text()
+        .replace("{context_command}", shlex.join(settings["context_command"]))
+        .replace(
+            "{available_plugins}\n",
+            "Available plugins (not necessarily enabled for this crawl): "
+            + ", ".join(names)
+            + "\nReuse these plugins before building substitutes; inspect configuration before use.\n"
+            if names
+            else "",
         )
+    )
+    path = settings["opencode_dir"] / "server_context.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists() or path.read_text() != context:
+        # Concurrent Agent landings must never expose a truncated prompt.
+        temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+        try:
+            with temporary.open("x") as output:
+                output.write(context)
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def _ensure_default_session(settings: dict) -> str:
@@ -398,6 +441,7 @@ def start_session(settings: dict, *, title: str, prompt: str) -> str:
     """Start a separate prompted chat using the existing Agent service."""
     import requests
 
+    _ensure_server_context(settings)
     ok, error = _ensure_opencode(settings)
     if not ok:
         raise RuntimeError(error)
@@ -719,7 +763,7 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
     return text.encode("utf-8")
 
 
-def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, str]:
+def _response_headers(upstream: httpx.Response, settings: dict) -> dict[str, str]:
     headers = {}
     for key, value in upstream.headers.items():
         lower = key.lower()
@@ -738,7 +782,7 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
                 value = value.replace(settings["origin"], _PROXY_PREFIX, 1)
             elif value.startswith("/"):
                 value = f"{_PROXY_PREFIX}{value}"
-        headers[key] = value
+        headers[key.title()] = value
     return headers
 
 
@@ -748,6 +792,7 @@ atexit.register(_stop_owned_process)
 def agent_context(settings: dict, session_id: str = "") -> dict:
     if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
         raise ValueError("Invalid agent session ID")
+    _ensure_server_context(settings)
     return {
         "title": "Agent",
         # The authenticated iframe request resolves the default session. Do not
@@ -843,9 +888,60 @@ async def websocket_proxy(settings, path, query, protocols, receive, send):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
-    """Forward a request after the host authenticates it and checks its origin."""
-    import requests
+_PROXY_CHUNK = 64 * 1024
+_MAX_REWRITE_BYTES = 16 * 1024 * 1024
+_MAX_ASSET_CACHE_BYTES = 32 * 1024 * 1024
+_ASSETS_LOCK = threading.Lock()
+
+
+class ProxyBody:
+    """Raw upstream stream explicitly owned by the downstream response."""
+
+    def __init__(self, chunks, upstream, client):
+        self.chunks = chunks
+        self.upstream = upstream
+        self.client = client
+        self.closed = False
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            try:
+                self.upstream.close()
+            finally:
+                self.client.close()
+
+    def __iter__(self):
+        try:
+            yield from self.chunks
+        finally:
+            self.close()
+
+
+def _bounded_proxy_body(chunks, max_bytes):
+    content = bytearray()
+    for chunk in chunks:
+        if len(content) + len(chunk) > max_bytes:
+            raise RuntimeError("OpenCode response exceeded the buffering limit")
+        content.extend(chunk)
+    return bytes(content)
+
+
+def _remember_asset(key, cached):
+    if len(cached[0]) > _MAX_ASSET_CACHE_BYTES:
+        return
+    # Count and byte bounds are shared by all concurrent requests.
+    with _ASSETS_LOCK:
+        while _ASSETS and (
+            len(_ASSETS) >= 8
+            or sum(len(asset[0]) for asset in _ASSETS.values()) + len(cached[0])
+            > _MAX_ASSET_CACHE_BYTES
+        ):
+            _ASSETS.pop(next(iter(_ASSETS)), None)
+        _ASSETS[key] = cached
+
+
+def _prepare_proxy(settings, method, path, params, headers):
 
     forwarded = {
         key: value
@@ -863,7 +959,7 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
                 "X-Accel-Buffering": "no",
             },
             _event_chunks(settings, path, method, params, forwarded),
-        )
+        ), forwarded
 
     # This entry route belongs to the wrapper iframe. Resolve its collection
     # session here so the welcome panel and admin navigation load immediately.
@@ -883,71 +979,242 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
                 "Cache-Control": "no-store",
             },
             b"",
-        )
+        ), forwarded
 
     if path == "global/health" or not _owned_process_ready():
         ok, error = _ensure_opencode(settings)
         if not ok:
             raise RuntimeError(error)
 
-    with requests.request(
+    return None, {
+        **forwarded,
+        "Authorization": _auth_header(settings),
+        "Accept-Encoding": "identity",
+    }
+
+
+def _proxy_request(settings, method, path, params, forwarded, body):
+    import httpx
+
+    # OpenCode owns an OAuth user interaction and its expiry. Keep the old
+    # unbounded *read* wait there, but don't change the connection deadline.
+    human_login = method == "POST" and re.fullmatch(
+        r"provider/[^/]+/oauth/callback",
+        path,
+    )
+    timeout = httpx.Timeout(settings["timeout"])
+    if human_login:
+        timeout.read = None
+    return httpx.Request(
         method,
         _proxy_url(settings, path),
         params=params,
-        data=body if method not in {"GET", "HEAD"} else None,
-        headers={**forwarded, "Authorization": _auth_header(settings)},
-        # OAuth callbacks are long polls: OpenCode waits for the human to
-        # authorize or cancel, and owns that flow's expiry. Keep connection
-        # establishment bounded, but do not turn a pending login into a 503.
-        timeout=(settings["timeout"], None)
-        if method == "POST" and re.fullmatch(r"provider/[^/]+/oauth/callback", path)
-        else settings["timeout"],
-        allow_redirects=False,
-    ) as upstream:
-        content = upstream.content
-        response_headers = _response_headers(upstream, settings)
-        content_type = upstream.headers.get("Content-Type", "")
-        asset = (
-            method == "GET"
-            and path.startswith("assets/")
-            and upstream.status_code == 200
-        )
-        # Content identity handles new builds without a TTL or restart hook.
-        key = (
-            (
-                settings["origin"],
-                content_type,
-                hashlib.sha256(content).digest(),
-            )
-            if asset
-            else None
-        )
+        content=body if method not in {"GET", "HEAD"} else None,
+        headers=forwarded,
+        extensions={"timeout": timeout.as_dict()},
+    )
+
+
+def _body_plan(upstream, settings, method, path):
+    response_headers = _response_headers(upstream, settings)
+    response_headers["Cache-Control"] = "no-store"
+    content_type = upstream.headers.get("Content-Type", "")
+    encoding = upstream.headers.get("Content-Encoding", "identity").lower()
+    length = upstream.headers.get("Content-Length", "")
+    small = length.isdigit() and int(length) <= _PROXY_CHUNK
+    # Do not rewrite parts of an existing encoded/partial representation.
+    rewrite = (
+        upstream.status_code != 206
+        and content_type.split(";", 1)[0].lower() in _TEXT_CONTENT_TYPES
+    )
+    cacheable = (
+        method == "GET"
+        and path.startswith("assets/")
+        and upstream.status_code == 200
+        and encoding == "identity"
+        and (rewrite or small)
+    )
+    max_bytes = (
+        _MAX_REWRITE_BYTES
+        if rewrite
+        else _PROXY_CHUNK
+        if small and encoding == "identity"
+        else None
+    )
+    if not rewrite:
+        if length:
+            response_headers["Content-Length"] = length
+        if encoding != "identity":
+            response_headers["Content-Encoding"] = upstream.headers["Content-Encoding"]
+    elif method != "HEAD" and encoding != "identity":
+        raise RuntimeError("OpenCode sent encoded text that requires rewriting")
+    return response_headers, content_type, rewrite, cacheable, max_bytes
+
+
+def _buffered_proxy_result(
+    settings,
+    headers,
+    status,
+    response_headers,
+    content_type,
+    rewrite,
+    cacheable,
+    content,
+):
+    key = (
+        (settings["origin"], content_type, hashlib.sha256(content).digest())
+        if cacheable
+        else None
+    )
+    with _ASSETS_LOCK:
         cached = _ASSETS.get(key) if key is not None else None
-        if cached is not None:
-            content = cached[0]
-        else:
-            if content_type.startswith(_TEXT_CONTENT_TYPES):
-                content = _rewrite_text(content, settings["origin"])
-            if key is not None:
-                # Upstream's ETag describes different bytes after rewriting.
-                cached = content, f'"{hashlib.sha256(content).hexdigest()}"'
-                # Keep only outputs, not a second copy of each multi-MB input.
-                if len(_ASSETS) >= 8:
-                    _ASSETS.pop(next(iter(_ASSETS), key), None)
-                _ASSETS[key] = cached
-        response_headers["Cache-Control"] = "no-store"
-        if cached is not None:
-            # Hashed build assets contain no session data. Cache only privately;
-            # API responses and the HTML entrypoint must always remain fresh.
-            response_headers["Cache-Control"] = "private, max-age=3600"
-            response_headers["ETag"] = cached[1]
-            validators = {
-                tag.strip().removeprefix("W/")
-                for tag in headers.get("If-None-Match", "").split(",")
-            }
-            if cached[1] in validators or "*" in validators:
-                return 304, response_headers, b""
-        return upstream.status_code, response_headers, content
+    if cached is not None:
+        content = cached[0]
+    else:
+        if rewrite:
+            content = _rewrite_text(content, settings["origin"])
+        if key is not None:
+            cached = content, f'"{hashlib.sha256(content).hexdigest()}"'
+            _remember_asset(key, cached)
+    if cached is not None:
+        response_headers["Cache-Control"] = "private, max-age=3600"
+        response_headers["ETag"] = cached[1]
+        validators = {
+            tag.strip().removeprefix("W/")
+            for tag in headers.get("If-None-Match", "").split(",")
+        }
+        if cached[1] in validators or "*" in validators:
+            response_headers.pop("Content-Length", None)
+            return 304, response_headers, b""
+    return status, response_headers, content
+
+
+def proxy(
+    settings: dict,
+    method: str,
+    path: str,
+    params,
+    headers,
+    body: bytes,
+    *,
+    allow_stream=True,
+):
+    """WSGI transport, or bounded fallback for older Core ASGI hosts."""
+    import httpx
+
+    immediate, forwarded = _prepare_proxy(settings, method, path, params, headers)
+    if immediate is not None:
+        return immediate
+    # Use the public transport to retain streaming without HTTPX Client's
+    # request-URL INFO log. This is a configured OpenCode origin, no redirects.
+    client = httpx.HTTPTransport()
+    upstream = None
+    transferred = False
+    try:
+        upstream = client.handle_request(
+            _proxy_request(settings, method, path, params, forwarded, body),
+        )
+        response_headers, content_type, rewrite, cacheable, max_bytes = _body_plan(
+            upstream,
+            settings,
+            method,
+            path,
+        )
+        if method == "HEAD":
+            return upstream.status_code, response_headers, b""
+        chunks = upstream.iter_raw(chunk_size=_PROXY_CHUNK)
+        if max_bytes is None and allow_stream:
+            transferred = True
+            return (
+                upstream.status_code,
+                response_headers,
+                ProxyBody(chunks, upstream, client),
+            )
+        content = _bounded_proxy_body(chunks, max_bytes or _MAX_REWRITE_BYTES)
+        return _buffered_proxy_result(
+            settings,
+            headers,
+            upstream.status_code,
+            response_headers,
+            content_type,
+            rewrite,
+            cacheable,
+            content,
+        )
+    finally:
+        if not transferred:
+            try:
+                if upstream is not None:
+                    upstream.close()
+            finally:
+                client.close()
+
+
+async def proxy_async(settings, method, path, params, headers, body, *, own):
+    """Native ASGI transport; Core owns the connection through the last send."""
+    import httpx
+
+    immediate, forwarded = await asyncio.to_thread(
+        _prepare_proxy,
+        settings,
+        method,
+        path,
+        params,
+        headers,
+    )
+    if immediate is not None:
+        return immediate
+    client = httpx.AsyncHTTPTransport()
+
+    upstream = None
+    closed = False
+
+    async def close():
+        nonlocal closed
+        if not closed:
+            closed = True
+            try:
+                if upstream is not None:
+                    await upstream.aclose()
+            finally:
+                await client.aclose()
+
+    # Register before starting any I/O, so a pre-header disconnect has the
+    # same cleanup path as a never-iterated or partially sent response.
+    own(close)
+    upstream = await client.handle_async_request(
+        _proxy_request(settings, method, path, params, forwarded, body),
+    )
+    response_headers, content_type, rewrite, cacheable, max_bytes = _body_plan(
+        upstream,
+        settings,
+        method,
+        path,
+    )
+    if method == "HEAD":
+        return upstream.status_code, response_headers, b""
+    if max_bytes is None:
+        return (
+            upstream.status_code,
+            response_headers,
+            upstream.aiter_raw(chunk_size=_PROXY_CHUNK),
+        )
+    content = bytearray()
+    async for chunk in upstream.aiter_raw(chunk_size=_PROXY_CHUNK):
+        if len(content) + len(chunk) > max_bytes:
+            raise RuntimeError("OpenCode response exceeded the buffering limit")
+        content.extend(chunk)
+    return await asyncio.to_thread(
+        _buffered_proxy_result,
+        settings,
+        headers,
+        upstream.status_code,
+        response_headers,
+        content_type,
+        rewrite,
+        cacheable,
+        bytes(content),
+    )
 
 
 def _configure_gallery(model, config, data_dir):

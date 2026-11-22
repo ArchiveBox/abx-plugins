@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MEGA",
-  "description": "Request MEGA file/folder downloads through Chrome (live capture remains unverified).",
+  "description": "Request MEGA file/folder downloads through Chrome.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

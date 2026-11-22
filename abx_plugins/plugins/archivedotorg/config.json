@@ -4,6 +4,10 @@
   "description": "Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "87 B",
+    "error_rate": "0%"
+  },
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [

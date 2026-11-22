@@ -22,6 +22,7 @@
       }
     }
   ],
+  "snapshot_output_group": "metadata",
   "output_mimetypes": [
     "application/json",
     "image/png"
@@ -49,8 +50,8 @@
     },
     "CLAUDECHROME_MODEL": {
       "type": "string",
-      "default": "claude-sonnet-4-6",
-      "description": "Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). Availability depends on your plan."
+      "default": "claude-sonnet-5-5",
+      "description": "Anthropic model for browser computer use (sonnet, opus, haiku, or a supported Opus, Sonnet or Haiku model ID)."
     },
     "CLAUDECHROME_MAX_ACTIONS": {
       "type": "integer",

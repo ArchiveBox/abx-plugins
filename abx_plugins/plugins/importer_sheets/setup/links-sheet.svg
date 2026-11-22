@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="440" viewBox="0 0 1060 440">
+  <defs>
+    <linearGradient id="toolbar" x2="0" y2="1"><stop stop-color="#f2f6fc"/><stop offset="1" stop-color="#edf2f9"/></linearGradient>
+    <g id="row">
+      <path d="M0 0h1060" stroke="#e0e3e7"/>
+    </g>
+  </defs>
+  <rect width="1060" height="440" fill="#fff"/>
+  <g font-family="Arial, sans-serif" fill="#202124">
+    <path d="M21 13h22l11 11v32H21a3 3 0 0 1-3-3V16a3 3 0 0 1 3-3Z" fill="#0f9d58"/>
+    <path d="M43 13v11h11" fill="#8ad8ae"/>
+    <path d="M25 31h21v16H25Zm0 5h21m-21 5h21m-11-10v16" fill="none" stroke="#fff" stroke-width="1.3"/>
+    <text x="66" y="30" font-size="22">Links to archive</text>
+    <path d="m242 22 2.2 4.4 4.9.7-3.5 3.5.8 4.9-4.4-2.3-4.4 2.3.8-4.9-3.5-3.5 4.9-.7Z" fill="none" stroke="#5f6368" stroke-width="1.2"/>
+    <text y="53" font-size="14" fill="#3c4043">
+      <tspan x="66">File</tspan><tspan x="102">Edit</tspan><tspan x="141">View</tspan><tspan x="186">Insert</tspan><tspan x="238">Format</tspan><tspan x="300">Data</tspan><tspan x="343">Tools</tspan><tspan x="394">Extensions</tspan><tspan x="480">Help</tspan>
+    </text>
+    <rect x="921" y="16" width="86" height="36" rx="18" fill="#c2e7ff"/>
+    <text x="964" y="39" text-anchor="middle" font-size="14" font-weight="bold" fill="#001d35">Share</text>
+    <circle cx="1032" cy="34" r="17" fill="#167c80"/>
+    <text x="1032" y="40" text-anchor="middle" font-size="15" fill="#fff">M</text>
+    <rect x="8" y="63" width="1044" height="39" rx="18" fill="url(#toolbar)"/>
+    <g fill="none" stroke="#444746" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="28" cy="81" r="4"/><path d="m31 84 4 4M53 80h12a4 4 0 0 1 0 8m-12-8 4-4m-4 4 4 4M90 80H79a4 4 0 0 0 0 8m11-8-4-4m4 4-4 4"/>
+      <path d="M107 80h17v7h-4m-9 0h-4Zm4 5h9v6h-9Zm0-6v-5h9v5M166 79l4 4 4-4M198 75v15M276 82h9m17-7h17v14h-17Z"/>
+    </g>
+    <text x="134" y="87" font-size="13">100%</text><text x="215" y="87" font-size="13">Arial</text>
+    <text x="306" y="86" font-size="11">11</text>
+    <text x="338" y="87" font-size="14" font-weight="bold">B</text>
+    <text x="361" y="87" font-size="14" font-style="italic">I</text>
+    <text x="382" y="87" font-size="14" text-decoration="underline">A</text>
+    <path d="M0 132h1060M79 105v26" stroke="#dadce0"/>
+    <text x="14" y="123" font-size="13">A1</text>
+    <path d="m59 115 5 4 5-4" fill="none" stroke="#5f6368" stroke-width="1.4"/>
+    <text x="92" y="124" fill="#6f7478" font-size="15" font-style="italic">ƒx</text>
+    <text x="126" y="124" font-size="15">URL</text>
+    <path d="M0 132h1060v25H0Z" fill="#f8f9fa"/>
+    <path d="M43 132h421v25H43Z" fill="#d3e3fd"/>
+    <path d="M0 157h43v238H0Z" fill="#f8f9fa"/>
+    <path d="M0 157h43v34H0Z" fill="#d3e3fd"/>
+    <path d="M43 157h1017v34H43Z" fill="#eff6f1"/>
+    <g fill="#444746" font-size="13" text-anchor="middle">
+      <text x="254" y="149">A</text><text x="547" y="149">B</text><text x="712" y="149">C</text><text x="925" y="149">D</text>
+      <text x="21" y="179">1</text><text x="21" y="213">2</text><text x="21" y="247">3</text><text x="21" y="281">4</text><text x="21" y="315">5</text><text x="21" y="349">6</text><text x="21" y="383">7</text>
+    </g>
+    <path d="M43 132v263M464 132v263M631 132v263M798 132v263" stroke="#dadce0"/>
+    <use href="#row" y="157"/><use href="#row" y="191"/><use href="#row" y="225"/><use href="#row" y="259"/><use href="#row" y="293"/><use href="#row" y="327"/><use href="#row" y="361"/>
+    <rect x="43" y="157" width="421" height="34" fill="none" stroke="#1a73e8" stroke-width="2"/>
+    <circle cx="464" cy="191" r="4" fill="#1a73e8" stroke="#fff" stroke-width="1"/>
+    <g font-size="16" font-weight="bold">
+      <text x="55" y="180">URL</text><text x="477" y="180">Date</text><text x="644" y="180">Reported by</text><text x="810" y="180">Title</text>
+    </g>
+    <g font-size="15">
+      <g fill="#1155cc" text-decoration="underline">
+        <text x="55" y="214">https://www.sfmta.com/travel-updates</text>
+        <text x="55" y="248">https://www.bart.gov/schedules/advisories</text>
+        <text x="55" y="282">https://www.oaklandca.gov/topics/bicycling</text>
+        <text x="55" y="316">https://511.org/transit/service-alerts</text>
+        <text x="55" y="350">https://www.sfmta.com/routes/49-van-nessmission</text>
+      </g>
+      <text x="477" y="214">Nov 10, 2026</text><text x="477" y="248">Nov 11, 2026</text><text x="477" y="282">Nov 12, 2026</text><text x="477" y="316">Nov 14, 2026</text><text x="477" y="350">Nov 16, 2026</text>
+      <text x="644" y="214">Maya Chen</text><text x="644" y="248">Jordan Patel</text><text x="644" y="282">Nina Brooks</text><text x="644" y="316">Alex Rivera</text><text x="644" y="350">Maya Chen</text>
+      <text x="810" y="214">Muni travel updates</text><text x="810" y="248">BART service advisories</text><text x="810" y="282">Oakland bike routes</text><text x="810" y="316">Bay Area transit alerts</text><text x="810" y="350">49 Van Ness route</text>
+    </g>
+    <path d="M0 395h1060v45H0Z" fill="#f7f9fc"/>
+    <path d="M0 395h1060" stroke="#dadce0"/>
+    <path d="M22 412v12m-6-6h12m20-4h12m-12 4h12m-12 4h12" stroke="#5f6368" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M83 396h137v43H83Z" fill="#e9f1ff"/>
+    <text x="100" y="423" fill="#185abc" font-size="14" font-weight="bold">Incoming links</text>
+    <path d="m195 417 5 4 5-4" fill="none" stroke="#185abc" stroke-width="1.4"/>
+  </g>
+</svg>

@@ -1,10 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TLSNotary",
-  "description": "Opt-in private TLSNotary browser-extension capture. Adds MPC computation, bandwidth and seconds or minutes to archiving. The public verifier sees destination hostname, sizes and timing, plus a fixed HTTP protocol marker, but receives no URL path/query, cookies or page content. A compact signed receipt authenticates the separately replayed main response saved by this plugin; other archive outputs are not automatically certified.",
+  "description": "Save a web response with a TLSNotary receipt so others can verify which website served it.",
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "17 KB",
+    "error_rate": "58%"
+  },
   "required_plugins": ["chrome"],
   "x-chrome-extension-load": "on-demand",
   "required_binaries": [

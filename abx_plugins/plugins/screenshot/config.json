@@ -4,6 +4,11 @@
   "description": "Capture a PNG screenshot of the rendered page.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "3.1 s",
+    "output_size": "440 KB",
+    "error_rate": "66%"
+  },
   "required_plugins": [
     "chrome"
   ],

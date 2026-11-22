@@ -8,6 +8,7 @@
     "claudecode"
   ],
   "required_binaries": [],
+  "snapshot_output_group": "metadata",
   "output_mimetypes": [
     "text/plain"
   ],
@@ -34,9 +35,9 @@
     },
     "CLAUDECODECLEANUP_MODEL": {
       "type": "string",
-      "default": "claude-sonnet-4-6",
+      "default": "sonnet",
       "x-fallback": "CLAUDECODE_MODEL",
-      "description": "Claude model to use for cleanup (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)"
+      "description": "Claude model to use for cleanup (e.g. sonnet, opus, haiku, or a full model ID such as claude-sonnet-5-5)"
     },
     "CLAUDECODECLEANUP_MAX_TURNS": {
       "type": "integer",

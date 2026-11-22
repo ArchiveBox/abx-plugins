@@ -225,33 +225,43 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
         with zipfile.ZipFile(wacz_path) as zf:
             for name in ("pages/pages.jsonl", "pages/extraPages.jsonl"):
                 try:
-                    raw = zf.read(name).decode("utf-8", errors="replace")
+                    member = zf.open(name)
                 except KeyError:
                     continue
-                # JSONL records end at LF; Unicode separators can occur inside
-                # recorded page text and must not split an otherwise valid row.
-                for line in raw.split("\n"):
-                    line = line.strip()
-                    if not line or not line.startswith("{"):
-                        continue
-                    try:
-                        record = json.loads(line)
-                    except ValueError:
-                        continue
-                    if record.get("format") == "json-pages-1.0":
-                        continue  # header row, not a real page entry
-                    url = record.get("url")
-                    if url:
-                        request_url = _page_request_url(url)
-                        if request_url in preferred_urls:
-                            ts = str(record.get("ts") or "")
-                            if (
-                                request_url not in latest
-                                or ts >= latest[request_url][0]
-                            ):
-                                latest[request_url] = (ts, url)
-                        if not first_url:
-                            first_url = url
+                member_first = ""
+                member_latest = {}
+                # Stream bytes so only LF splits records, never Unicode separators in page text.
+                with member:
+                    for raw_line in member:
+                        line = raw_line.decode("utf-8", errors="replace").strip()
+                        if not line or not line.startswith("{"):
+                            continue
+                        try:
+                            record = json.loads(line)
+                        except ValueError:
+                            continue
+                        if record.get("format") == "json-pages-1.0":
+                            continue  # header row, not a real page entry
+                        url = record.get("url")
+                        if url:
+                            request_url = _page_request_url(url)
+                            if request_url in preferred_urls:
+                                ts = str(record.get("ts") or "")
+                                if (
+                                    request_url not in member_latest
+                                    or ts >= member_latest[request_url][0]
+                                ):
+                                    member_latest[request_url] = (ts, url)
+                            if not member_first:
+                                member_first = url
+                # Match ZipFile.read(): do not use any row until the whole member passes CRC.
+                first_url = first_url or member_first
+                for request_url, candidate in member_latest.items():
+                    if (
+                        request_url not in latest
+                        or candidate[0] >= latest[request_url][0]
+                    ):
+                        latest[request_url] = candidate
     except (zipfile.BadZipFile, OSError):
         pass
     return next((latest[url][1] for url in preferred_urls if url in latest), first_url)

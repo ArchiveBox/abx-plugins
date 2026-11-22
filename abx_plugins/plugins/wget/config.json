@@ -4,6 +4,10 @@
   "description": "Archive pages and their requisites with wget, optionally writing WARC captures.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "810 KB",
+    "error_rate": "10%"
+  },
   "required_plugins": [],
   "required_binaries": [
     {

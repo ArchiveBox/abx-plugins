@@ -1,0 +1,1308 @@
+--- a/packages/extension/package.json
++++ b/packages/extension/package.json
+@@ -38 +38 @@
+-    "tlsn-wasm": "0.1.0-alpha.15",
++    "tlsn-wasm": "file:../../../tlsnotary-tlsn-40a0695/crates/wasm/pkg",
+--- a/packages/extension/src/background/ConfirmationManager.ts
++++ b/packages/extension/src/background/ConfirmationManager.ts
+@@ -106,2 +105,0 @@
+-        left,
+-        top,
+--- a/packages/extension/src/entries/Background/index.ts
++++ b/packages/extension/src/entries/Background/index.ts
+@@ -378,2 +377,0 @@
+-          left,
+-          top,
+--- a/packages/extension/src/offscreen/ProveManager/worker.ts
++++ b/packages/extension/src/offscreen/ProveManager/worker.ts
+@@ -106,0 +107 @@
++  unread(data: Uint8Array): void;
+@@ -130,0 +132 @@
++        unread(data: Uint8Array): void { readQueue.unshift(data.slice()); },
+@@ -262,0 +265 @@
++    unread(data: Uint8Array): void { relayInbox.unshift(data.slice()); },
+--- a/packages/extension/src/offscreen/SessionManager.ts
++++ b/packages/extension/src/offscreen/SessionManager.ts
+@@ -364,3 +363,0 @@
+-          if (commit) {
+-            logger.debug('reveal openings', openings);
+-          }
+@@ -378 +375,10 @@
+-          return response;
++          // The local archiver verifies openings against the saved HTTP bytes.
++          // Keep these private fields out of the remote verifier's sessionData.
++          return {
++            ...response,
++            localProof: {
++              openings,
++              commit,
++              recv: Array.from(proveManager.getRecvBytes(proverId)),
++            },
++          };
+--- a/servers/verifier/Cargo.toml
++++ b/servers/verifier/Cargo.toml
+@@ -8 +8 @@
+-tlsn = { git = "https://github.com/tlsnotary/tlsn.git", tag = "v0.1.0-alpha.15", features = ["mozilla-certs"] }
++tlsn = { path = "../../../tlsnotary-tlsn-40a0695/crates/tlsn", features = ["mozilla-certs"] }
+--- a/servers/verifier/src/main.rs
++++ b/servers/verifier/src/main.rs
+@@ -1018 +1018 @@
+-        Ok(Ok((server_name, transcript, transcript_commitments))) => {
++        Ok(Ok((server_name, transcript, transcript_commitments, sent_bytes, recv_bytes))) => {
+@@ -1022,2 +1021,0 @@
+-            let sent_bytes = transcript.sent_unsafe().to_vec();
+-            let recv_bytes = transcript.received_unsafe().to_vec();
+--- a/servers/verifier/src/verifier.rs
++++ b/servers/verifier/src/verifier.rs
+@@ -29 +29 @@
+-) -> Result<(DnsName, PartialTranscript, Vec<TranscriptCommitment>), eyre::ErrReport> {
++) -> Result<(DnsName, PartialTranscript, Vec<TranscriptCommitment>, Vec<u8>, Vec<u8>), eyre::ErrReport> {
+@@ -162,2 +162,2 @@
+-    let sent = transcript.sent_unsafe().to_vec();
+-    let received = transcript.received_unsafe().to_vec();
++    let sent = transcript.sent_unsafe(transcript.len_sent())?;
++    let received = transcript.received_unsafe(transcript.len_received())?;
+@@ -183 +183 @@
+-    Ok((dns_name, transcript, transcript_commitments))
++    Ok((dns_name, transcript, transcript_commitments, sent, received))
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -33,0 +34,5 @@
++    },
++    "../tlsnotary-tlsn-40a0695/crates/wasm/pkg": {
++      "name": "tlsn-wasm",
++      "version": "0.1.0-beta.1",
++      "license": "MIT OR Apache-2.0"
+@@ -21409 +21414 @@
+-      "resolved": "packages/tlsn-wasm-pkg",
++      "resolved": "../tlsnotary-tlsn-40a0695/crates/wasm/pkg",
+@@ -23631 +23636 @@
+-        "tlsn-wasm": "0.1.0-alpha.15",
++        "tlsn-wasm": "file:../../../tlsnotary-tlsn-40a0695/crates/wasm/pkg",
+@@ -23746,4 +23750,0 @@
+-    "packages/extension/node_modules/tlsn-wasm": {
+-      "version": "0.1.0-alpha.15",
+-      "license": "MIT OR Apache-2.0"
+-    },
+@@ -24278,5 +24278,0 @@
+-    "packages/tlsn-wasm-pkg": {
+-      "name": "tlsn-wasm",
+-      "version": "0.1.0-alpha.16-pre",
+-      "license": "MIT OR Apache-2.0"
+-    },
+--- a/servers/Cargo.lock
++++ b/servers/Cargo.lock
+@@ -63,12 +62,0 @@
+-name = "ahash"
+-version = "0.8.12"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
+-dependencies = [
+- "cfg-if",
+- "once_cell",
+- "version_check",
+- "zerocopy",
+-]
+-
+-[[package]]
+@@ -103,117 +90,0 @@
+-
+-[[package]]
+-name = "ark-ec"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "defd9a439d56ac24968cca0571f598a61bc8c55f71d50a89cda591cb750670ba"
+-dependencies = [
+- "ark-ff",
+- "ark-poly",
+- "ark-serialize",
+- "ark-std",
+- "derivative",
+- "hashbrown 0.13.2",
+- "itertools",
+- "num-traits",
+- "zeroize",
+-]
+-
+-[[package]]
+-name = "ark-ff"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ec847af850f44ad29048935519032c33da8aa03340876d351dfab5660d2966ba"
+-dependencies = [
+- "ark-ff-asm",
+- "ark-ff-macros",
+- "ark-serialize",
+- "ark-std",
+- "derivative",
+- "digest",
+- "itertools",
+- "num-bigint",
+- "num-traits",
+- "paste",
+- "rustc_version",
+- "zeroize",
+-]
+-
+-[[package]]
+-name = "ark-ff-asm"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3ed4aa4fe255d0bc6d79373f7e31d2ea147bcf486cba1be5ba7ea85abdb92348"
+-dependencies = [
+- "quote",
+- "syn 1.0.109",
+-]
+-
+-[[package]]
+-name = "ark-ff-macros"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "7abe79b0e4288889c4574159ab790824d0033b9fdcb2a112a3182fac2e514565"
+-dependencies = [
+- "num-bigint",
+- "num-traits",
+- "proc-macro2",
+- "quote",
+- "syn 1.0.109",
+-]
+-
+-[[package]]
+-name = "ark-poly"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d320bfc44ee185d899ccbadfa8bc31aab923ce1558716e1997a1e74057fe86bf"
+-dependencies = [
+- "ark-ff",
+- "ark-serialize",
+- "ark-std",
+- "derivative",
+- "hashbrown 0.13.2",
+-]
+-
+-[[package]]
+-name = "ark-secp256r1"
+-version = "0.4.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3975a01b0a6e3eae0f72ec7ca8598a6620fc72fa5981f6f5cca33b7cd788f633"
+-dependencies = [
+- "ark-ec",
+- "ark-ff",
+- "ark-std",
+-]
+-
+-[[package]]
+-name = "ark-serialize"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "adb7b85a02b83d2f22f89bd5cac66c9c89474240cb6207cb1efc16d098e822a5"
+-dependencies = [
+- "ark-serialize-derive",
+- "ark-std",
+- "digest",
+- "num-bigint",
+-]
+-
+-[[package]]
+-name = "ark-serialize-derive"
+-version = "0.4.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ae3281bc6d0fd7e549af32b52511e1302185bd688fd3359fa36423346ff682ea"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 1.0.109",
+-]
+-
+-[[package]]
+-name = "ark-std"
+-version = "0.4.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
+-dependencies = [
+- "num-traits",
+- "rand 0.8.6",
+-]
+@@ -506,0 +378,9 @@
++name = "bcs"
++version = "0.2.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3f031388db1c98dd600369df49a355e96925faf251f0aa341f238a87e9a88f1c"
++dependencies = [
++ "serde_core",
++]
++
++[[package]]
+@@ -568,0 +449,9 @@
++name = "block-buffer"
++version = "0.12.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
++dependencies = [
++ "hybrid-array",
++]
++
++[[package]]
+@@ -575,13 +464,167 @@
+-name = "bytemuck"
+-version = "1.25.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
+-dependencies = [
+- "bytemuck_derive",
+-]
+-
+-[[package]]
+-name = "bytemuck_derive"
+-version = "1.10.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
++name = "byteorder"
++version = "1.5.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
++
++[[package]]
++name = "bytes"
++version = "1.11.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
++
++[[package]]
++name = "bytesize"
++version = "1.3.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "2e93abca9e28e0a1b9877922aacb20576e05d4679ffa78c3d6dc22a26a216659"
++
++[[package]]
++name = "cc"
++version = "1.2.62"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a1dce859f0832a7d088c4f1119888ab94ef4b5d6795d1ce05afb7fe159d79f98"
++dependencies = [
++ "find-msvc-tools",
++ "shlex",
++]
++
++[[package]]
++name = "cfg-if"
++version = "1.0.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
++
++[[package]]
++name = "chacha20"
++version = "0.10.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "65c35e4b699c7e15ccbe7ee35c005e4fc0a278d22238a2857e6ce2dadeda1b06"
++dependencies = [
++ "cfg-if",
++ "cpufeatures 0.3.0",
++ "rand_core 0.10.1",
++]
++
++[[package]]
++name = "chrono"
++version = "0.4.44"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
++dependencies = [
++ "iana-time-zone",
++ "js-sys",
++ "num-traits",
++ "serde",
++ "wasm-bindgen",
++ "windows-link",
++]
++
++[[package]]
++name = "ciborium"
++version = "0.2.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "42e69ffd6f0917f5c029256a24d0161db17cea3997d185db0d35926308770f0e"
++dependencies = [
++ "ciborium-io",
++ "ciborium-ll",
++ "serde",
++]
++
++[[package]]
++name = "ciborium-io"
++version = "0.2.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "05afea1e0a06c9be33d539b876f1ce3692f4afea2cb41f740e7743225ed1c757"
++
++[[package]]
++name = "ciborium-ll"
++version = "0.2.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "57663b653d948a338bfb3eeba9bb2fd5fcfaecb9e199e87e1eda4d9e8b240fd9"
++dependencies = [
++ "ciborium-io",
++ "half",
++]
++
++[[package]]
++name = "cipher"
++version = "0.3.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7ee52072ec15386f770805afd189a01c8841be8696bed250fa2f13c4c0d6dfb7"
++dependencies = [
++ "generic-array",
++]
++
++[[package]]
++name = "cipher"
++version = "0.4.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
++dependencies = [
++ "crypto-common 0.1.7",
++ "inout 0.1.4",
++]
++
++[[package]]
++name = "cipher"
++version = "0.5.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e34d8227fe1ba289043aeb13792056ff80fd6de1a9f49137a5f499de8e8c78ea"
++dependencies = [
++ "crypto-common 0.2.1",
++ "inout 0.2.2",
++]
++
++[[package]]
++name = "clmul"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
++dependencies = [
++ "cfg-if",
++ "cpufeatures 0.3.0",
++ "zerocopy",
++]
++
++[[package]]
++name = "cmov"
++version = "0.5.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
++
++[[package]]
++name = "console_error_panic_hook"
++version = "0.1.7"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
++dependencies = [
++ "cfg-if",
++ "wasm-bindgen",
++]
++
++[[package]]
++name = "const-oid"
++version = "0.9.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
++
++[[package]]
++name = "const-oid"
++version = "0.10.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
++
++[[package]]
++name = "const-serialize"
++version = "0.6.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "08259976d62c715c4826cb4a3d64a3a9e5c5f68f964ff6087319857f569f93a6"
++dependencies = [
++ "const-serialize-macro",
++ "serde",
++]
++
++[[package]]
++name = "const-serialize-macro"
++version = "0.6.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "04382d0d9df7434af6b1b49ea1a026ef39df1b0738b1cc373368cf175354f6eb"
+@@ -595,157 +637,0 @@
+-name = "byteorder"
+-version = "1.5.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+-
+-[[package]]
+-name = "bytes"
+-version = "1.11.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+-
+-[[package]]
+-name = "bytesize"
+-version = "1.3.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2e93abca9e28e0a1b9877922aacb20576e05d4679ffa78c3d6dc22a26a216659"
+-
+-[[package]]
+-name = "cc"
+-version = "1.2.62"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a1dce859f0832a7d088c4f1119888ab94ef4b5d6795d1ce05afb7fe159d79f98"
+-dependencies = [
+- "find-msvc-tools",
+- "shlex",
+-]
+-
+-[[package]]
+-name = "cfg-if"
+-version = "1.0.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+-
+-[[package]]
+-name = "chrono"
+-version = "0.4.44"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
+-dependencies = [
+- "iana-time-zone",
+- "js-sys",
+- "num-traits",
+- "serde",
+- "wasm-bindgen",
+- "windows-link",
+-]
+-
+-[[package]]
+-name = "ciborium"
+-version = "0.2.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "42e69ffd6f0917f5c029256a24d0161db17cea3997d185db0d35926308770f0e"
+-dependencies = [
+- "ciborium-io",
+- "ciborium-ll",
+- "serde",
+-]
+-
+-[[package]]
+-name = "ciborium-io"
+-version = "0.2.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "05afea1e0a06c9be33d539b876f1ce3692f4afea2cb41f740e7743225ed1c757"
+-
+-[[package]]
+-name = "ciborium-ll"
+-version = "0.2.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "57663b653d948a338bfb3eeba9bb2fd5fcfaecb9e199e87e1eda4d9e8b240fd9"
+-dependencies = [
+- "ciborium-io",
+- "half",
+-]
+-
+-[[package]]
+-name = "cipher"
+-version = "0.3.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "7ee52072ec15386f770805afd189a01c8841be8696bed250fa2f13c4c0d6dfb7"
+-dependencies = [
+- "generic-array",
+-]
+-
+-[[package]]
+-name = "cipher"
+-version = "0.4.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
+-dependencies = [
+- "crypto-common 0.1.7",
+- "inout 0.1.4",
+-]
+-
+-[[package]]
+-name = "cipher"
+-version = "0.5.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "e34d8227fe1ba289043aeb13792056ff80fd6de1a9f49137a5f499de8e8c78ea"
+-dependencies = [
+- "crypto-common 0.2.1",
+- "inout 0.2.2",
+-]
+-
+-[[package]]
+-name = "clmul"
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
+-dependencies = [
+- "bytemuck",
+- "cfg-if",
+- "cpufeatures 0.2.17",
+-]
+-
+-[[package]]
+-name = "console_error_panic_hook"
+-version = "0.1.7"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+-dependencies = [
+- "cfg-if",
+- "wasm-bindgen",
+-]
+-
+-[[package]]
+-name = "const-oid"
+-version = "0.9.6"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
+-
+-[[package]]
+-name = "const-oid"
+-version = "0.10.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
+-
+-[[package]]
+-name = "const-serialize"
+-version = "0.6.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "08259976d62c715c4826cb4a3d64a3a9e5c5f68f964ff6087319857f569f93a6"
+-dependencies = [
+- "const-serialize-macro",
+- "serde",
+-]
+-
+-[[package]]
+-name = "const-serialize-macro"
+-version = "0.6.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "04382d0d9df7434af6b1b49ea1a026ef39df1b0738b1cc373368cf175354f6eb"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 2.0.117",
+-]
+-
+-[[package]]
+@@ -846,9 +731,0 @@
+-]
+-
+-[[package]]
+-name = "crossbeam-channel"
+-version = "0.5.15"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+-dependencies = [
+- "crossbeam-utils",
+@@ -900,0 +778,13 @@
++name = "crypto-bigint"
++version = "0.7.11"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "914c195c4d7fbc5ed7f88d14cbf85914d5c664967658d43404b263913a477e82"
++dependencies = [
++ "cpubits",
++ "ctutils",
++ "hybrid-array",
++ "num-traits",
++ "rand_core 0.10.1",
++]
++
++[[package]]
+@@ -916,0 +807 @@
++ "rand_core 0.10.1",
+@@ -937,0 +829,9 @@
++name = "ctutils"
++version = "0.4.8"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "261af4dc7a06ea8a527a8717d8cbba3417530d6ea14e1edb3de6b67806be474f"
++dependencies = [
++ "cmov",
++]
++
++[[package]]
+@@ -939,3 +839,3 @@
+-version = "4.1.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
++version = "5.0.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b5eed333089e2e1c1ac8c6c0398e5e2497b4c9926ca6d0365ed1e099afa5bc23"
+@@ -944 +844 @@
+- "cpufeatures 0.2.17",
++ "cpufeatures 0.3.0",
+@@ -945,0 +846 @@
++ "digest 0.11.3",
+@@ -947 +848 @@
+- "rand_core 0.6.4",
++ "rand_core 0.10.1",
+@@ -1119,20 +1019,0 @@
+-name = "derivative"
+-version = "2.2.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+-dependencies = [
+- "proc-macro2",
+- "quote",
+- "syn 1.0.109",
+-]
+-
+-[[package]]
+-name = "derive_builder"
+-version = "0.11.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d07adf7be193b71cc36b193d0f5fe60b918a3a9db4dad0449f57bcfd519704a3"
+-dependencies = [
+- "derive_builder_macro 0.11.2",
+-]
+-
+-[[package]]
+@@ -1158,3 +1039,3 @@
+-version = "0.11.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "1f91d4cfa921f1c05904dc3c57b4a32c38aed3340cce209f3a6fd1478babafc4"
++version = "0.12.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
+@@ -1170,12 +1050,0 @@
+-version = "0.12.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
+-dependencies = [
+- "darling 0.14.4",
+- "proc-macro2",
+- "quote",
+- "syn 1.0.109",
+-]
+-
+-[[package]]
+-name = "derive_builder_core"
+@@ -1194,10 +1062,0 @@
+-version = "0.11.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8f0314b72bed045f3a68671b3c86328386762c93f82d98c65c3cb5e5f573dd68"
+-dependencies = [
+- "derive_builder_core 0.11.2",
+- "syn 1.0.109",
+-]
+-
+-[[package]]
+-name = "derive_builder_macro"
+@@ -1234 +1093 @@
+- "block-buffer",
++ "block-buffer 0.10.4",
+@@ -1237,0 +1097,10 @@
++]
++
++[[package]]
++name = "digest"
++version = "0.11.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
++dependencies = [
++ "block-buffer 0.12.1",
++ "crypto-common 0.2.1",
+@@ -1610 +1479 @@
+- "digest",
++ "digest 0.10.7",
+@@ -1631,2 +1500,2 @@
+- "crypto-bigint",
+- "digest",
++ "crypto-bigint 0.5.5",
++ "digest 0.10.7",
+@@ -1656,12 +1524,0 @@
+-name = "enum-try-as-inner"
+-version = "0.1.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0c448fc2753338b04aa344ead5a6bdda26f2df2dcd85b65c86dd15b16819369e"
+-dependencies = [
+- "heck 0.4.1",
+- "proc-macro2",
+- "quote",
+- "syn 2.0.117",
+-]
+-
+-[[package]]
+@@ -1741,3 +1598,3 @@
+-version = "0.2.9"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
++version = "0.3.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
+@@ -1761,0 +1619,6 @@
++
++[[package]]
++name = "foldhash"
++version = "0.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+@@ -1855 +1718 @@
+-source = "git+https://github.com/tlsnotary/tlsn-utils?rev=64722f7#64722f7de999cbd41c0cab7312dade306d50ea5f"
++source = "git+https://github.com/tlsnotary/tlsn-utils?rev=3e4c31e9e40f514f0fe534daa3189d00e12c7a17#3e4c31e9e40f514f0fe534daa3189d00e12c7a17"
+@@ -1943,0 +1807 @@
++ "rand_core 0.10.1",
+@@ -2057,9 +1920,0 @@
+-version = "0.13.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
+-dependencies = [
+- "ahash",
+-]
+-
+-[[package]]
+-name = "hashbrown"
+@@ -2069,4 +1923,0 @@
+-dependencies = [
+- "ahash",
+- "allocator-api2",
+-]
+@@ -2080 +1931 @@
+- "foldhash",
++ "foldhash 0.1.5",
+@@ -2088,6 +1939,5 @@
+-
+-[[package]]
+-name = "heck"
+-version = "0.4.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
++dependencies = [
++ "allocator-api2",
++ "equivalent",
++ "foldhash 0.2.0",
++]
+@@ -2116 +1966 @@
+- "digest",
++ "digest 0.10.7",
+@@ -2445,9 +2294,0 @@
+-name = "itertools"
+-version = "0.10.5"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+-dependencies = [
+- "either",
+-]
+-
+-[[package]]
+@@ -2651,4 +2492,4 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
+-dependencies = [
+- "thiserror 1.0.69",
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
++dependencies = [
++ "thiserror 2.0.18",
+@@ -2692,2 +2533,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2701,2 +2542,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2707 +2548 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -2711 +2552 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2716,2 +2557,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2725,13 +2565,0 @@
+-name = "mpz-cointoss"
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
+-dependencies = [
+- "futures",
+- "mpz-cointoss-core",
+- "mpz-common",
+- "mpz-core",
+- "serio",
+- "thiserror 1.0.69",
+-]
+-
+-[[package]]
+@@ -2739,2 +2567,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2745 +2573 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2750,2 +2578,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2756,2 +2583,0 @@
+- "cfg-if",
+- "crossbeam-channel",
+@@ -2765 +2591 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2772,2 +2598,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2776 +2602 @@
+- "bcs",
++ "bcs 0.2.2",
+@@ -2779 +2604,0 @@
+- "bytemuck",
+@@ -2787,4 +2612,2 @@
+- "rand 0.9.4",
+- "rand_chacha 0.9.0",
+- "rand_core 0.6.4",
+- "rand_core 0.9.5",
++ "rand 0.10.4",
++ "rand_core 0.10.1",
+@@ -2793 +2616,2 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
++ "zerocopy",
+@@ -2798,6 +2622,5 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
+-dependencies = [
+- "ark-ff",
+- "ark-secp256r1",
+- "ark-serialize",
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
++dependencies = [
++ "cpufeatures 0.3.0",
++ "crypto-bigint 0.7.11",
+@@ -2807 +2629,0 @@
+- "num-bigint",
+@@ -2809,4 +2631,4 @@
+- "rand 0.8.6",
+- "rand 0.9.4",
+- "serde",
+- "thiserror 1.0.69",
++ "rand 0.10.4",
++ "rayon",
++ "serde",
++ "thiserror 2.0.18",
+@@ -2819,2 +2641,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2823 +2645 @@
+- "derive_builder 0.11.2",
++ "derive_builder 0.20.2",
+@@ -2825 +2647 @@
+- "hashbrown 0.14.5",
++ "hashbrown 0.17.1",
+@@ -2834 +2656 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -2838 +2660 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2845,2 +2667,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2853 +2675 @@
+- "derive_builder 0.11.2",
++ "derive_builder 0.20.2",
+@@ -2860 +2681,0 @@
+- "mpz-vm-core",
+@@ -2863,3 +2684,3 @@
+- "rand 0.9.4",
+- "rand_chacha 0.9.0",
+- "rand_core 0.9.5",
++ "rand 0.10.4",
++ "rand_chacha 0.10.0",
++ "rand_core 0.10.1",
+@@ -2870 +2691 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2876,2 +2697,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2884 +2705 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2889,2 +2710,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2901 +2722 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2906,2 +2727,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2913 +2734 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -2916 +2737 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2921,2 +2742,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2932 +2753 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -2934 +2755 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2939,2 +2760,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2943 +2763,0 @@
+- "itybity 0.3.3",
+@@ -2948,3 +2768,3 @@
+- "rand 0.9.4",
+- "serde",
+- "thiserror 1.0.69",
++ "rand 0.10.4",
++ "serde",
++ "thiserror 2.0.18",
+@@ -2955,2 +2775,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2960 +2779,0 @@
+- "enum-try-as-inner",
+@@ -2963 +2781,0 @@
+- "mpz-cointoss",
+@@ -2968,3 +2786,3 @@
+- "rand 0.9.4",
+- "rand_chacha 0.9.0",
+- "rand_core 0.9.5",
++ "rand 0.10.4",
++ "rand_chacha 0.10.0",
++ "rand_core 0.10.1",
+@@ -2972 +2790 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -2978,2 +2796,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -2983 +2800,0 @@
+- "bytemuck",
+@@ -2987 +2803,0 @@
+- "ctr 0.9.2",
+@@ -2989,2 +2805 @@
+- "derive_builder 0.11.2",
+- "enum-try-as-inner",
++ "derive_builder 0.20.2",
+@@ -2993,0 +2809 @@
++ "mpz-cointoss-core",
+@@ -2995,0 +2812 @@
++ "mpz-fields",
+@@ -2997,3 +2814,3 @@
+- "rand 0.9.4",
+- "rand_chacha 0.9.0",
+- "rand_core 0.9.5",
++ "rand 0.10.4",
++ "rand_chacha 0.10.0",
++ "rand_core 0.10.1",
+@@ -3002 +2819 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -3009,2 +2826,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -3018 +2835 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -3020 +2837 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -3025,2 +2842,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -3032,3 +2849,3 @@
+- "rand 0.9.4",
+- "serde",
+- "thiserror 1.0.69",
++ "rand 0.10.4",
++ "serde",
++ "thiserror 2.0.18",
+@@ -3039,2 +2856,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -3047 +2864 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -3052,2 +2869,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -3057 +2874 @@
+- "derive_builder 0.11.2",
++ "derive_builder 0.20.2",
+@@ -3065 +2882 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -3070,2 +2887,2 @@
+-version = "0.1.0-alpha.6"
+-source = "git+https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619490c3155a589fc6a3be83b0976de19dc"
++version = "0.1.0-beta.1"
++source = "git+https://github.com/tlsnotary/mpz2?rev=23e2cc08ed11ae86d71f72fb968f1273d70c9e88#23e2cc08ed11ae86d71f72fb968f1273d70c9e88"
+@@ -3079,2 +2896 @@
+- "mpz-vm-core",
+- "rand_chacha 0.9.0",
++ "rand_chacha 0.10.0",
+@@ -3084 +2900 @@
+- "thiserror 1.0.69",
++ "thiserror 2.0.18",
+@@ -3150,10 +2965,0 @@
+-name = "num-bigint"
+-version = "0.4.6"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+-dependencies = [
+- "num-integer",
+- "num-traits",
+-]
+-
+-[[package]]
+@@ -3164,9 +2969,0 @@
+-
+-[[package]]
+-name = "num-integer"
+-version = "0.1.46"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
+-dependencies = [
+- "num-traits",
+-]
+@@ -3275,6 +3071,0 @@
+-name = "paste"
+-version = "1.0.15"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+-
+-[[package]]
+@@ -3349,3 +3140,3 @@
+-version = "0.3.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
++version = "0.4.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+@@ -3522,0 +3314,11 @@
++name = "rand"
++version = "0.10.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8f6fa277c67e6ea590466f04c3fe82cb509f0864fe470643e5570de9514a9b11"
++dependencies = [
++ "chacha20",
++ "getrandom 0.4.2",
++ "rand_core 0.10.1",
++]
++
++[[package]]
+@@ -3524,4 +3326,5 @@
+-version = "0.1.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0372da64e922a0b6979b115eb60d3c4ca7b2ef2b7565f039e3c6ee13bf6d5d38"
+-dependencies = [
++version = "0.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a7ba8dcd6404c86011f79817ca671b05982c794d56320f5a1cce1358dd4c984d"
++dependencies = [
++ "rand_core 0.10.1",
+@@ -3529 +3331,0 @@
+- "rand_core 0.9.5",
+@@ -3552,0 +3355,10 @@
++name = "rand_chacha"
++version = "0.10.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3e6af7f3e25ded52c41df4e0b1af2d047e45896c2f3281792ed68a1c243daedb"
++dependencies = [
++ "ppv-lite86",
++ "rand_core 0.10.1",
++]
++
++[[package]]
+@@ -3568,0 +3381,6 @@
++
++[[package]]
++name = "rand_core"
++version = "0.10.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
+@@ -3923,3 +3741,3 @@
+-version = "0.1.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "38636132857f68ec3d5f3eb121166d2af33cb55174c4d5ff645db6165cbef0fd"
++version = "0.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "94a16b99c5ea4fe3daccd14853ad260ec00ea043b2708d1fd1da3106dcd8d9df"
+@@ -4098 +3916 @@
+- "digest",
++ "digest 0.10.7",
+@@ -4109 +3927 @@
+- "digest",
++ "digest 0.10.7",
+@@ -4133 +3951 @@
+- "digest",
++ "digest 0.10.7",
+@@ -4455,2 +4273 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
++version = "0.1.0-beta.1"
+@@ -4478 +4295 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -4494 +4310,0 @@
+- "tlsn-tls-client",
+@@ -4504,4 +4320,3 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
+-dependencies = [
+- "bcs",
++version = "0.1.0-beta.1"
++dependencies = [
++ "bcs 0.1.6",
+@@ -4512 +4327 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -4522,2 +4337 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
++version = "0.1.0-beta.1"
+@@ -4535,2 +4349 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
++version = "0.1.0-beta.1"
+@@ -4543,3 +4356,3 @@
+- "rand 0.9.4",
+- "rand_chacha 0.9.0",
+- "rand_core 0.9.5",
++ "rand 0.10.4",
++ "rand_chacha 0.10.0",
++ "rand_core 0.10.1",
+@@ -4564,2 +4377 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
++version = "0.1.0-beta.1"
+@@ -4581,2 +4393 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
++version = "0.1.0-beta.1"
+@@ -4595,2 +4406 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
++version = "0.1.0-beta.1"
+@@ -4608 +4418 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -4618,4 +4428,2 @@
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
+-dependencies = [
+- "aes 0.8.4",
++version = "0.1.0-beta.1"
++dependencies = [
+@@ -4624 +4431,0 @@
+- "ctr 0.9.2",
+@@ -4626 +4432,0 @@
+- "enum-try-as-inner",
+@@ -4628 +4433,0 @@
+- "ghash 0.5.1",
+@@ -4637 +4441,0 @@
+- "opaque-debug",
+@@ -4640 +4444,2 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
++ "ring",
+@@ -4648 +4452,0 @@
+- "tlsn-tls-client",
+@@ -4658 +4462 @@
+-source = "git+https://github.com/tlsnotary/tlsn-utils?rev=64722f7#64722f7de999cbd41c0cab7312dade306d50ea5f"
++source = "git+https://github.com/tlsnotary/tlsn-utils?rev=e2f31e6a30bc5d1641ed6407fb1a38a595e523ce#e2f31e6a30bc5d1641ed6407fb1a38a595e523ce"
+@@ -4666 +4470 @@
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -4672,7 +4476,3 @@
+-name = "tlsn-tls-client"
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
+-dependencies = [
+- "aes-gcm",
+- "async-trait",
+- "digest",
++name = "tlsn-tls-core"
++version = "0.1.0-beta.1"
++dependencies = [
+@@ -4681,24 +4481 @@
+- "log",
+- "mpz-common",
+- "p256",
+- "rand 0.9.4",
+- "rand06-compat",
+- "ring",
+- "rustls-pki-types",
+- "rustls-webpki",
+- "sct",
+- "sha2",
+- "thiserror 1.0.69",
+- "tlsn-core",
+- "tlsn-tls-core",
+- "web-time 0.2.4",
+-]
+-
+-[[package]]
+-name = "tlsn-tls-core"
+-version = "0.1.0-alpha.15"
+-source = "git+https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b53e06648c1b2ad3689b367b8c923fdec"
+-dependencies = [
+- "futures",
+- "hmac",
+- "rand 0.9.4",
++ "rand 0.10.4",
+@@ -5483 +5260 @@
+- "heck 0.5.0",
++ "heck",
+@@ -5494 +5271 @@
+- "heck 0.5.0",
++ "heck",
+
+diff --git a/packages/extension/utils/build.js b/packages/extension/utils/build.js
+--- a/packages/extension/utils/build.js
++++ b/packages/extension/utils/build.js
+@@ -43,0 +44,10 @@
++  const noticeStats = process.env.ARCHIVEBOX_TLSNOTARY_LICENSE_STATS;
++  if (noticeStats) {
++    fs.writeFileSync(noticeStats, JSON.stringify(stats.toJson({
++      all: false, chunks: true, chunkModules: true, nestedModules: true,
++      dependentModules: true, orphanModules: true,
++      chunkModulesSpace: Number.MAX_SAFE_INTEGER,
++      nestedModulesSpace: Number.MAX_SAFE_INTEGER,
++    })));
++  }
++

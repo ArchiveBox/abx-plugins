@@ -17,7 +17,7 @@ Environment variables:
     CLAUDECODEEXTRACT_ENABLED: Enable AI extraction (default: false)
     CLAUDECODEEXTRACT_PROMPT: Custom prompt for extraction
     CLAUDECODEEXTRACT_TIMEOUT: Timeout in seconds (default: 120)
-    CLAUDECODEEXTRACT_MODEL: Claude model to use (default: claude-sonnet-4-6)
+    CLAUDECODEEXTRACT_MODEL: Claude model to use (default: inherits CLAUDECODE_MODEL, which defaults to sonnet)
     CLAUDECODEEXTRACT_MAX_TURNS: Max agentic turns (default: 50)
     ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: Claude Code auth
 """

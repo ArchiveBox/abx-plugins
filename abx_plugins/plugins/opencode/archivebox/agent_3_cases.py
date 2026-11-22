@@ -279,6 +279,8 @@ def test_opencode_proxy_sse_delivers_first_event_immediately(
     live_opencode,
     path,
 ):
+    from collections.abc import AsyncGenerator
+
     from abx_plugins.plugins.opencode import runtime
 
     # The real /event endpoint emits heartbeats indefinitely. A bounded
@@ -292,7 +294,7 @@ def test_opencode_proxy_sse_delivers_first_event_immediately(
         b"",
     )
     assert status == 200
-    assert not isinstance(body, bytes)
+    assert isinstance(body, AsyncGenerator)
     assert headers["Content-Type"] == "text/event-stream"
     asyncio.run(body.aclose())
     response = admin_client.get(

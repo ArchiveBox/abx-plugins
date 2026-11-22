@@ -1,3 +1,4 @@
+# ci-environment: provider-public
 """Export actual public Keynote, Pages and Numbers documents."""
 
 import hashlib

@@ -4,6 +4,10 @@
   "description": "Fetch and save the site favicon or touch icon.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "2.8 KB",
+    "error_rate": "0%"
+  },
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [

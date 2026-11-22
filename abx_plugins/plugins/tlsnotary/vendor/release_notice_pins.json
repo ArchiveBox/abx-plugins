@@ -1,0 +1,29 @@
+{
+  "rust:tsify-macros@0.5.8": {
+    "repo": "madonoharu/tsify",
+    "revision": "c16d520b784080809c20d004149cbbeb1d117dfc",
+    "files": {
+      "LICENSE_APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+      "LICENSE_MIT": "23b988ff99c59aba4e37e7709d3d2102096203bb83a077cbc1aad04dd7a77244"
+    }
+  },
+  "rust:web-spawn@0.3.1": {
+    "repo": "tlsnotary/tlsn-utils",
+    "revision": "6582ce7d3a6c656294d5cb2282cf88e0c19d5ed6",
+    "files": {
+      "LICENSE-APACHE": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+      "LICENSE-MIT": "8cbe1e7c6d38a54048bde0f0aa24660eab973f001031df3fdb612223719489f9"
+    }
+  },
+  "rust:wasm-tracing@0.1.0": {
+    "repo": "dsgallups/wasm-tracing",
+    "revision": "8e20e550b828ac8a39616982879adcf1e52f1e55",
+    "code_revision": "a37fcb0c516d04022c7c7ff19e31bafb2f434ae6",
+    "archive_sha256": "6a803aa26a82c9ae061024a9b692b1429b6a66cf6059b298a7bd3fa2fe5a0fcf",
+    "attribution": "Daniel Gallups; maintained fork of https://github.com/old-storyai/tracing-wasm. The exact code release lacks standalone notices; the later upstream revision supplies only the declared MIT and Apache-2.0 texts.",
+    "files": {
+      "LICENSE-APACHE": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "LICENSE-MIT": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+    }
+  }
+}

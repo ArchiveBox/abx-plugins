@@ -1,16 +1,17 @@
 {
-  "url": "https://www.thingiverse.com/thing:763622/files",
-  "wait_for_text": "3DBenchy.stl",
+  "url": "https://threejs.org/examples/webgl_loader_stl.html",
+  "wait_for_text": "slotted_disk.stl",
   "outputs": [
     {
       "name": "Model preview (STL)",
-      "path": "files/3DBenchy.stl?preview=1&raw=1",
+      "path": "files/slotted_disk.stl?preview=1&raw=1",
       "model": true
     },
     {
       "name": "Model preview (3MF)",
-      "path": "files/3DBenchy.3mf?preview=1&raw=1",
-      "model": true
+      "path": "files/cube_gears.3mf?preview=1&raw=1",
+      "model": true,
+      "url": "https://threejs.org/examples/webgl_loader_3mf.html"
     },
     {
       "name": "Model preview (GLB)",
@@ -18,5 +19,10 @@
       "path": "files/NeilArmstrong.glb?preview=1&raw=1",
       "model": true
     }
-  ]
+  ],
+  "source_config_overrides": {
+    "https://threejs.org/examples/webgl_loader_3mf.html": {
+      "CHROME_WAIT_FOR": "networkidle0"
+    }
+  }
 }

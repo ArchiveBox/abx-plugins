@@ -182,7 +182,9 @@ async function navigateMainDocument(session, page, url, timeout, mainFrameId, re
   // Page.navigate returns its loader ID. That ID excludes the previous document.
   session.send(reloadLoaderId ? "Page.reload" : "Page.navigate", reloadLoaderId ? { loaderId: reloadLoaderId } : { url }).then((result) => {
     if (result.errorText || result.isDownload) {
-      rejectReady(new Error(result.errorText || "net::ERR_ABORTED"));
+      const error = new Error(result.errorText || "net::ERR_ABORTED");
+      if (typeof result.isDownload === "boolean") error.isDownload = result.isDownload;
+      rejectReady(error);
       return;
     }
     navigation = result;
@@ -414,6 +416,7 @@ async function navigate(url) {
     return {
       success: false,
       error: `${e.name}: ${e.message}`,
+      isDownload: e.isDownload,
       pageUrl,
       status: observedResponse?.status || null,
       contentType: observedResponse?.contentType || null,
@@ -474,7 +477,11 @@ async function main() {
 
   const endTs = new Date();
 
-  if (error) console.error(`ERROR: ${error}`);
+  if (error) {
+    const download = result.isDownload === true ? "yes" : result.isDownload === false ? "no" : "unknown";
+    const detail = /\bnet::ERR_ABORTED\b/.test(error) ? ` (isDownload=${download})` : "";
+    console.error(`ERROR: ${error}${detail}`);
+  }
 
   // Output clean JSONL (no RESULT_JSON= prefix)
   emitArchiveResultRecord(status, output || error || "");

@@ -1,3 +1,4 @@
+# ci-environment: provider-api
 """Real OpenCode task completion across model turns."""
 
 from concurrent.futures import ThreadPoolExecutor

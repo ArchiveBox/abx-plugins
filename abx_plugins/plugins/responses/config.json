@@ -4,6 +4,10 @@
   "description": "Capture HTTP response metadata for requests made during page load.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "output_size": "2.5 MB",
+    "error_rate": "0%"
+  },
   "required_plugins": [
     "chrome"
   ],

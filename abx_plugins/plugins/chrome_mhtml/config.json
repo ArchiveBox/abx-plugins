@@ -4,6 +4,11 @@
   "description": "Save a browser-generated MHTML snapshot of the rendered page.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "2.5 s",
+    "output_size": "960 KB",
+    "error_rate": "6.7%"
+  },
   "required_plugins": [
     "chrome"
   ],

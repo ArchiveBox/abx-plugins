@@ -4,10 +4,17 @@
   "description": "Extract article HTML, text, and metadata using Mozilla Readability.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "6.4 s",
+    "output_size": "34 KB",
+    "error_rate": "77%"
+  },
   "required_plugins": [
-    "dom",
-    "responses"
+    "dom"
   ],
+  "required_plugin_fallbacks": {
+    "dom": "archivewebpage"
+  },
   "wait_for_background_cleanup": true,
   "required_binaries": [
     {

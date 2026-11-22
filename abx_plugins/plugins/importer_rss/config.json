@@ -58,8 +58,8 @@
       "description": "Open the RSS or Atom feed for the site you follow. Paste its URL here."
     },
     {
-      "title": "Preview the latest articles",
-      "description": "Save the importer, then choose Preview to check article titles and links."
+      "title": "Dry Run: latest articles",
+      "description": "Save the importer, then choose Dry Run to check article titles and links."
     },
     {
       "title": "Import and keep it updated",

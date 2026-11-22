@@ -32,6 +32,13 @@ for an explicit selection. Always select `ARCHIVEBOX_BROWSER_TARGET_ID` in the
 client when set. Never guess which concurrent crawl the user means.
 Choose exactly one selector (`--persona`, `--snapshot`, `--crawl`, `--browser`,
 or `--current`); add `--target` to select its tab. Do not combine selectors.
+For a named persona, `--list` makes it easy to find its current tabs; use
+`--persona "Socials Only" --target TARGET_ID` with the same command prefix to
+select the intended tab explicitly. In browser-harness, `list_tabs()` and
+`page_info()` show the current targets and page; select the exported target ID
+with `switch_tab(os.environ['ARCHIVEBOX_BROWSER_TARGET_ID'])` before acting.
+A tab's URL can change without its ID changing; if the selected target has
+closed, list again rather than reuse its stale ID or silently choose another tab.
 
 Pause affected crawls before editing the base persona:
 `printf '%s\n' '{"id":"CRAWL_UUID"}' | archivebox crawl update --status=paused`.

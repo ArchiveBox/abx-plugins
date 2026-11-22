@@ -77,8 +77,8 @@
     },
     "CLAUDECODE_MODEL": {
       "type": "string",
-      "default": "claude-sonnet-4-6",
-      "description": "Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)"
+      "default": "sonnet",
+      "description": "Claude model to use (e.g. sonnet, opus, haiku, or a full model ID such as claude-sonnet-5-5)"
     },
     "CLAUDECODE_MAX_TURNS": {
       "type": "integer",

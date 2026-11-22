@@ -4,6 +4,9 @@
   "description": "Automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "0%"
+  },
   "required_plugins": [
     "chrome"
   ],

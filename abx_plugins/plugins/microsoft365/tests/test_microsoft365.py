@@ -1,3 +1,4 @@
+# ci-environment: provider-public
 """Capture the original of a real Office web-viewed CPUC Word document."""
 
 import hashlib

@@ -6,7 +6,9 @@ from pathlib import Path
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
-URL = "https://miro.com/app/board/uXjVK4c-_uU=/"
+# Public iOS roadmap linked from https://github.com/viacheslavbilyi/iOS-Roadmap.
+# Use a board that renders for a guest, not a link that redirects to sign-in.
+URL = "https://miro.com/app/board/uXjVMPVvQ1U=/"
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_miro.js"
 
 

@@ -5,10 +5,14 @@
   "description": "Download static-file responses when a URL resolves to a non-HTML asset (e.g. direct PDF, image, mp4, etc. URLs).",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "3.3%"
+  },
   "required_plugins": [
     "chrome"
   ],
   "required_binaries": [],
+  "snapshot_output_group": "html",
   "output_mimetypes": [
     "application/pdf",
     "application/epub+zip",

@@ -560,14 +560,10 @@ def test_real_public_paper_download(paper_id, title):
 
 @pytest.mark.parametrize("requested_suffix", ["", "e"])
 def test_download_checks_pdf_declared_doi(tmp_path, httpserver, requested_suffix):
-    """A real corrigendum cites the original DOI but is a different document."""
-    original_doi = "10.1051/0004-6361/201833910"
+    """A correction cites the original DOI but is a different document."""
+    original_doi = "10.5555/abx-papersdl-original"
     declared_doi = original_doi + "e"
-    with urlopen(
-        "https://archimer.ifremer.fr/doc/00654/76633/88063.pdf",
-        timeout=30,
-    ) as response:
-        pdf_bytes = response.read()
+    pdf_bytes = (Path(__file__).parent / "fixtures/correction.pdf").read_bytes()
     assert pdf_bytes.startswith(b"%PDF-")
     requested_doi = original_doi + requested_suffix
     httpserver.expect_request("/" + requested_doi).respond_with_data(
@@ -654,6 +650,8 @@ def test_reports_cited_papers_that_could_not_be_downloaded(tmp_path, httpserver)
             **os.environ,
             "PAPERSDL_BINARY": require_papersdl_binary(),
             "PAPERSDL_TIMEOUT": "120",
+            # The synthetic DOI has no arXiv ID. Keep live provider checks separate.
+            "PAPERSDL_ARGS_EXTRA": '["--providers", "arxiv"]',
             "SNAP_DIR": str(tmp_path),
         },
         timeout=180,
@@ -843,9 +841,6 @@ if __name__ == "__main__":
 @pytest.mark.parametrize(
     ("identifier", "provider"),
     [
-        ("10.1126/sciadv.1602552", "pmc"),
-        ("10.1038/sj.bjp.0705942", "pmc"),
-        ("10.1016/j.cell.2024.11.027", "pmc"),
         ("10.21105/joss.01112", "unpaywall"),
         ("10.1086/322460", "unpaywall"),
         ("10.1086/322460", "pmc,unpaywall"),
@@ -881,16 +876,6 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
     pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
     # These exact external refusals are expected only when every selected
     # provider finished without a PDF. A successful fallback stays succeeded.
-    pmc_captcha = provider == "pmc" and any(
-        line.startswith(
-            (
-                "PMC PDF page is not a supported automatic proof ",
-                "No publisher PDF metadata ",
-            ),
-        )
-        and "title='Checking your browser - reCAPTCHA'" in line
-        for line in result.stderr.splitlines()
-    )
     biorxiv_rate_limit = provider == "biorxiv" and (
         f"error: ClientResponseError: 429, message='Too Many Requests', url='{url}'"
         in result.stderr
@@ -906,18 +891,6 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
         assert not pdfs, pdfs
         return
     assert result.returncode == 0, result.stderr
-    if record["status"] == "noresults" and pmc_captcha:
-        assert record == {
-            "type": "ArchiveResult",
-            "status": "noresults",
-            "output_str": f"Found 1 paper, none downloadable: {url if provider == 'biorxiv' else identifier}",
-        }
-        assert not pdfs, pdfs
-        assert "Traceback (most recent call last)" not in result.stderr
-        print(
-            f"Expected provider refusal with no PDF: {provider} {identifier}\n{result.stderr}",
-        )
-        return
     assert record["status"] == "succeeded", (record, result.stderr)
     if provider == "pmc,unpaywall":
         assert "matching providers: ['pmc']" in result.stderr
@@ -926,13 +899,6 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
     assert record["output_str"] == f"papersdl/{pdfs[0].name}"
     assert pdfs[0].read_bytes().startswith(b"%PDF-")
     assert pdfs[0].stat().st_size > 10_000
-    if identifier == "10.1038/sj.bjp.0705942":
-        assert pdfs[0].name == (
-            "Intravenous anaesthetics inhibit nicotinic acetylcholine "
-            "receptor‐mediated currents and Ca2+ transients in rat "
-            "intracardiac ganglion neurons.pdf"
-        )
-
     if identifier == "10.1086/322460":
         assert pdfs[0].name == (
             "Timescale Stretch Parameterization of Type Ia "
@@ -940,11 +906,11 @@ def test_vendored_doi_provider_downloads_pdf(tmp_path, identifier, provider):
         )
 
 
-def test_science_brain_sleep_article_discovers_and_downloads_cited_paper(tmp_path):
-    """Regression for the real Science news article's primary Cell citation."""
-    import json
+def test_science_brain_sleep_article_discovers_primary_citation(tmp_path):
+    """Keep the exact real archived news markup and assert its primary DOI."""
     import shutil
 
+    doi = "10.1016/j.cell.2024.11.027"
     (tmp_path / "dom").mkdir()
     shutil.copyfile(
         PLUGIN_DIR / "tests/fixtures/science-brain-sleep-citation.html",
@@ -961,59 +927,91 @@ def test_science_brain_sleep_article_discovers_and_downloads_cited_paper(tmp_pat
             **os.environ,
             "SNAP_DIR": str(tmp_path),
             "PAPERSDL_BINARY": require_papersdl_binary(),
-            "PAPERSDL_ARGS": json.dumps(["-v", "fetch"]),
-            "PAPERSDL_UNPAYWALL_EMAIL": "unpaywall-papersdl@archivebox.io",
+            "PAPERSDL_ARGS_EXTRA": '["--providers", "arxiv"]',
         },
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=60,
     )
-    assert "Downloading paper: 10.1016/j.cell.2024.11.027" in result.stderr
-    record = parse_jsonl_output(result.stdout)
-    assert record is not None, result.stdout
-    pdfs = list((tmp_path / "papersdl").glob("*.pdf"))
-    pmc_captcha = any(
-        line.startswith("PMC PDF page is not a supported automatic proof ")
-        and "title='Checking your browser - reCAPTCHA'" in line
-        for line in result.stderr.splitlines()
+    # The article's actual DOI has no arXiv ID. Validate discovery independently
+    # of the live manuscript mirrors, which may not have an accessible PDF.
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"Downloading paper: {doi}" in result.stderr
+    assert parse_jsonl_output(result.stdout) == {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": f"Found 1 paper, none downloadable: {doi}",
+    }
+    assert not list((tmp_path / "papersdl").glob("*.pdf"))
+
+
+def test_discovered_publisher_pdf_outage_is_not_an_empty_search(tmp_path, httpserver):
+    """Exercise real publisher discovery and download without external outages."""
+    doi = "10.5555/abx-papersdl-unavailable"
+    httpserver.expect_ordered_request(f"/{doi}").respond_with_data(
+        '<html><head><meta name="citation_pdf_url" content="/paper.pdf"></head></html>',
+        content_type="text/html",
     )
-    if (
-        pmc_captcha
-        and (
-            "error: ClientResponseError: 403, message='Forbidden', "
-            "url='https://europepmc.org/articles/PMC12340670?pdf=render'"
-        )
+    httpserver.expect_ordered_request("/paper.pdf").respond_with_data(
+        "Service unavailable",
+        status=503,
+    )
+    result = subprocess.run(
+        [
+            require_papersdl_binary(),
+            "fetch",
+            httpserver.url_for(f"/{doi}"),
+            "--providers",
+            "publisher",
+            "--output",
+            str(tmp_path),
+        ],
+        env={**os.environ, "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches")},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    httpserver.check_assertions()
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert (
+        "No PDF downloaded; 1 provider request(s) failed (ClientResponseError)"
         in result.stderr
-    ):
-        # This fixture's known PMC CAPTCHA path previously returned noresults
-        # after silently swallowing the Europe PMC refusal. It must now expose
-        # that actual transport failure, never claim a successful empty search.
-        assert result.returncode == 1, result.stderr
-        assert record["status"] == "failed", record
-        assert record["output_str"].startswith(
-            "10.1016/j.cell.2024.11.027: papers-dl error:",
-        ), record
-        assert (
-            "No PDF downloaded; 1 provider request(s) failed (ClientResponseError)"
-            in record["output_str"]
-        ), record
-        assert not pdfs, pdfs
-        return
-    assert result.returncode == 0, result.stderr
-    if record["status"] == "noresults" and pmc_captcha:
-        assert record == {
-            "type": "ArchiveResult",
-            "status": "noresults",
-            "output_str": "Found 1 paper, none downloadable: 10.1016/j.cell.2024.11.027",
-        }
-        assert not pdfs, pdfs
-        assert "Traceback (most recent call last)" not in result.stderr
-        print(
-            f"Expected PMC CAPTCHA after all providers found no PDF:\n{result.stderr}",
-        )
-        return
-    assert record["status"] == "succeeded", (record, result.stderr)
-    assert len(pdfs) == 1, result.stderr
-    assert record["output_str"] == f"papersdl/{pdfs[0].name}"
-    assert pdfs[0].read_bytes().startswith(b"%PDF-")
-    assert pdfs[0].stat().st_size > 100_000
+    )
+    assert "No papers found" not in result.stdout
+    assert not list(tmp_path.glob("*.pdf"))
+
+
+def test_pmc_public_dataset_downloads_supported_doi(tmp_path):
+    """Download a real published DOI PDF from NLM's public Article Datasets."""
+    doi = "10.1126/sciadv.1602552"
+    pmcid = "PMC5375639.1"
+    dataset = "https://pmc-oa-opendata.s3.amazonaws.com/"
+    # Match the DOI against NLM metadata and require the exact published PMC
+    # version, not a browser-only manuscript or a third-party DOI search.
+    with urlopen(f"{dataset}metadata/{pmcid}.json", timeout=15) as response:
+        metadata = json.load(response)
+    assert metadata["doi"] == doi and not metadata["is_manuscript"]
+    assert metadata["pdf_url"].startswith(f"s3://pmc-oa-opendata/{pmcid}/{pmcid}.pdf?")
+    result = subprocess.run(
+        [
+            require_papersdl_binary(),
+            "fetch",
+            pmcid,
+            "--providers",
+            "pmc",
+            "--output",
+            str(tmp_path),
+        ],
+        env={**os.environ, "PYTHONPATH": str(PLUGIN_DIR / "papers-dl-patches")},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (
+        f"Successfully downloaded paper from {dataset}{pmcid}/{pmcid}.pdf"
+        in result.stdout
+    )
+    files = list(tmp_path.glob("*.pdf"))
+    assert len(files) == 1 and files[0].read_bytes().startswith(b"%PDF-")
+    assert files[0].stat().st_size > 100_000

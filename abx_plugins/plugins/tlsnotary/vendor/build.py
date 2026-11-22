@@ -8,13 +8,17 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
 PATCHES = Path(__file__).resolve().parent
+RELEASE_BUILD_ROOT = Path("/tmp/archivebox-tlsnotary-extension-build")
 SOURCES = {
     "mpz": (
         "tlsnotary/mpz2",
@@ -37,6 +41,31 @@ SOURCES = {
 }
 
 
+BETA1_SOURCES = {
+    "tlsn": (
+        "tlsnotary/tlsn",
+        "40a069565a2eaecbb5e691dbc634be20e8498daf",
+        "162bfea805e009c3b38ec0834859682af0924de3c3e79992e8a81e4a0a49b790",
+        "tlsnotary-tlsn-40a0695",
+    ),
+    "extension": SOURCES["extension"],
+}
+
+
+def write_zip(output: Path, source: Path) -> None:
+    """Keep the portable ZIP independent of source tree timestamps and ownership."""
+    with zipfile.ZipFile(output, "w") as archive:
+        for file in sorted(source.rglob("*")):
+            if not file.is_file():
+                continue
+            entry = zipfile.ZipInfo(file.relative_to(source).as_posix())
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.create_system = 3
+            entry.external_attr = 0o100644 << 16
+            with file.open("rb") as payload, archive.open(entry, "w") as target:
+                shutil.copyfileobj(payload, target)
+
+
 def run(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
     subprocess.run(args, cwd=cwd, env=env, check=True)
 
@@ -57,6 +86,54 @@ def toolchain_env(name: str) -> dict[str, str]:
     }
 
 
+def stage_release_version(extension: Path):
+    package_path = extension / "packages/extension/package.json"
+    manifest_path = extension / "packages/extension/src/manifest.json"
+    package = json.loads(package_path.read_text())
+    manifest = json.loads(manifest_path.read_text())
+    package["version"] = manifest["version"] = "0.1.1"
+    manifest["version_name"] = "ArchiveBox TLSNotary 0.1.0-beta.1"
+    package_path.write_text(json.dumps(package, indent=2) + "\n")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+
+
+def validate_release_payload(built: Path, checkout: Path):
+    manifest = json.loads((built / "manifest.json").read_text())
+    if (
+        manifest.get("version") != "0.1.1"
+        or manifest.get("manifest_version") != 3
+        or {"key", "update_url", "externally_connectable"} & manifest.keys()
+    ):
+        raise ValueError("Unexpected release candidate browser manifest")
+    for path in built.rglob("*"):
+        if path.is_symlink() or (
+            path.is_file()
+            and (
+                path.name in {".npmrc", ".env", "id_rsa"}
+                or path.suffix in {".pem", ".p12", ".har", ".log", ".map"}
+            )
+        ):
+            raise ValueError(
+                "Unexpected development material in browser release candidate",
+            )
+        if path.suffix == ".js":
+            data = path.read_bytes()
+            # Webpack embeds QuickJS's module URL; its source must be here, not
+            # a developer profile or caller-selected checkout path.
+            for url in re.findall(rb'file://[^"\\\s]{15,512}', data):
+                if not url.startswith(("file://" + checkout.as_posix() + "/").encode()):
+                    raise ValueError(
+                        "Unexpected absolute file URL in browser release candidate",
+                    )
+            if re.search(
+                rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]{60,}",
+                data,
+            ):
+                raise ValueError(
+                    "Unexpected private material marker in browser release candidate",
+                )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -69,14 +146,37 @@ def main() -> None:
         choices=("both", "verifier", "extension"),
         default="both",
     )
+    parser.add_argument("--profile", choices=("legacy", "beta1"), default="legacy")
+    parser.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Verify and patch source without compiling",
+    )
     parser.add_argument("--wasm-toolchain", default="nightly-2026-10-12")
+    parser.add_argument("--release-candidate", action="store_true")
     args = parser.parse_args()
+    if args.release_candidate and (
+        args.profile != "beta1"
+        or args.component != "extension"
+        or args.prepare_only
+        or args.output.resolve() != RELEASE_BUILD_ROOT.resolve()
+    ):
+        parser.error(
+            "Release candidates require beta1 extension builds in the canonical build root",
+        )
+    beta1 = args.profile == "beta1"
+    sources = BETA1_SOURCES if beta1 else SOURCES
+    patches = (
+        {"extension": "extension-beta1.patch"}
+        if beta1
+        else {name: name + ".patch" for name in sources}
+    )
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     source = output / "src"
     source.mkdir(exist_ok=True)
     dirs = {}
-    for name, (repo, revision, digest, directory) in SOURCES.items():
+    for name, (repo, revision, digest, directory) in sources.items():
         archive = output / (name + ".tar.gz")
         if not archive.exists():
             request = urllib.request.Request(
@@ -97,21 +197,29 @@ def main() -> None:
             )
         with tarfile.open(archive) as bundle:
             bundle.extractall(source, filter="data")
-        run(
-            [
-                "patch",
-                "--batch",
-                "--fuzz=0",
-                "-p1",
-                "-i",
-                str(PATCHES / (name + ".patch")),
-            ],
-            destination,
-        )
+        if name in patches:
+            run(
+                [
+                    "patch",
+                    "--batch",
+                    "--fuzz=0",
+                    "-p1",
+                    "-i",
+                    str(PATCHES / patches[name]),
+                ],
+                destination,
+            )
         dirs[name] = destination
 
-    # WASM and native verifier use the same protocol revision and MPZ patch.
-    # Shipping one side alone can fail after expensive preprocessing has begun.
+    if args.prepare_only:
+        print(
+            json.dumps(
+                {"output": str(output), "profile": args.profile, "source": str(source)},
+            ),
+        )
+        return
+
+    # Both peers must reference the same protocol source; do not upgrade either independently.
     tlsn = dirs["tlsn"]
     extension = dirs["extension"]
     if args.component in ("both", "verifier"):
@@ -138,19 +246,39 @@ def main() -> None:
         env["CARGO_TARGET_DIR"] = str(output / "target-wasm")
         run(["sh", "build.sh"], tlsn / "crates/wasm", env)
         run(["npm", "ci"], extension)
+        webpack_stats = output / "extension-license-stats.json"
+        webpack_env = None
+        if args.release_candidate:
+            stage_release_version(extension)
+            webpack_env = {
+                **os.environ,
+                "ARCHIVEBOX_TLSNOTARY_LICENSE_STATS": str(webpack_stats),
+            }
         run(["npm", "run", "build:deps"], extension)
-        run(["npm", "run", "build:extension"], extension)
+        run(["npm", "run", "build:extension"], extension, webpack_env)
         built = output / "extension"
         shutil.copytree(extension / "packages/extension/build", built)
+        if args.release_candidate:
+            # The stock CLI also runs this file directly from a source checkout.
+            sys.path.insert(0, str(PATCHES.parents[3]))
+            from abx_plugins.plugins.tlsnotary.vendor.release_notices import generate
+
+            generate(
+                extension,
+                tlsn,
+                built,
+                webpack_stats,
+                env,
+                output / "notice-cache",
+            )
+            validate_release_payload(built, extension)
         # Crawl setup verifies this marker and its bundles before using the
         # source-built localProof export; it must not patch minified code twice.
         marker = {
-            "sources": {name: values[1] for name, values in SOURCES.items()},
+            "sources": {name: values[1] for name, values in sources.items()},
             "patches": {
-                name: hashlib.sha256(
-                    (PATCHES / (name + ".patch")).read_bytes(),
-                ).hexdigest()
-                for name in SOURCES
+                name: hashlib.sha256((PATCHES / patch).read_bytes()).hexdigest()
+                for name, patch in patches.items()
             },
             "bundles": {
                 name: hashlib.sha256((built / name).read_bytes()).hexdigest()
@@ -164,7 +292,10 @@ def main() -> None:
         (built / "archivebox-build.json").write_text(
             json.dumps(marker, indent=2) + "\n",
         )
-        shutil.make_archive(str(output / "extension"), "zip", built)
+        if beta1:
+            write_zip(output / "tlsnotary-beta1-extension.zip", built)
+        else:
+            shutil.make_archive(str(output / "extension"), "zip", built)
     print(json.dumps({"output": str(output), "component": args.component}))
 
 

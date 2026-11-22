@@ -109,6 +109,30 @@ def require_opendataloader_hybrid_binary() -> str:
     return _opendataloader_hybrid_binary_path
 
 
+def prefetch_hybrid_models(binary: str) -> None:
+    """Stage the provider's cold Hub downloads outside the backend readiness check."""
+    # Use the same Docling installation and default Hub cache as the server.
+    subprocess.run(
+        [
+            str(Path(binary).resolve().with_name("python")),
+            "-c",
+            """
+from docling.datamodel.pipeline_options import LayoutObjectDetectionOptions
+from docling.models.stages.table_structure.table_structure_model import (
+    TableStructureModel,
+)
+from docling.models.utils.hf_model_download import download_hf_model
+
+layout = LayoutObjectDetectionOptions().model_spec
+download_hf_model(repo_id=layout.repo_id, revision=layout.revision, progress=True)
+TableStructureModel.download_models(progress=True)
+""",
+        ],
+        check=True,
+        timeout=180,
+    )
+
+
 @contextmanager
 def running_hybrid_server(binary: str):
     """Run the real OCR backend and gate on Uvicorn's startup event."""
@@ -869,6 +893,7 @@ def test_force_ocr_adds_hybrid_flag():
     binary_path = require_opendataloader_binary()
     hybrid_binary = require_opendataloader_hybrid_binary()
     java_binary = require_java_binary()
+    prefetch_hybrid_models(hybrid_binary)
     pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:

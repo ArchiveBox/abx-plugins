@@ -61,6 +61,7 @@ def verifier(tmp_path, request):
             timeout=10,
         ),
     ).decode()
+    verifier_image = os.environ.get("TLSNOTARY_TEST_VERIFIER_IMAGE")
     empty_env = tmp_path / "compose.env"
     empty_env.touch()
     # Production disables Docker logs for private captures. These tests use
@@ -83,6 +84,8 @@ def verifier(tmp_path, request):
                                 },
                             }
                             if name == "gateway"
+                            else {"image": verifier_image, "pull_policy": "never"}
+                            if verifier_image
                             else {}
                         ),
                     }

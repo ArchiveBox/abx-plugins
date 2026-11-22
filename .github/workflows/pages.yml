@@ -31,6 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.ref || env.DEFAULT_BRANCH }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Record website source revision
         id: source

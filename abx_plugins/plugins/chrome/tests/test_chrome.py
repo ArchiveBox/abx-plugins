@@ -3004,10 +3004,28 @@ def test_missing_or_invalid_auth_export_fails_launch(tmp_path, contents):
     assert "ERROR:" in result.stderr
     assert "session started" not in result.stdout
     assert not (chrome_dir / "cdp_url.txt").exists()
+    prefix = "ERROR: chrome startup "
+    diagnostic = json.loads(
+        next(
+            line.removeprefix(prefix)
+            for line in result.stderr.splitlines()
+            if line.startswith(prefix)
+        ),
+    )
+    expected_reason = (
+        "missing_auth_file"
+        if contents is None
+        else "invalid_auth_json"
+        if contents
+        else "empty_auth_json"
+    )
+    assert diagnostic["reason"] == expected_reason
+    assert str(auth_file) not in json.dumps(diagnostic)
+    assert "not JSON" not in json.dumps(diagnostic)
     if contents is None:
-        assert f"Cookies file not found: {auth_file}" in result.stderr
+        assert "Cookies file not found" in result.stderr
     else:
-        assert f"Invalid JSON cookie export: {auth_file}" in result.stderr
+        assert "Invalid JSON cookie export" in result.stderr
 
 
 def test_cookies_imported_on_launch():
@@ -3641,23 +3659,33 @@ def test_navigation_domcontentloaded_does_not_wait_for_unfinished_iframe(
     # for http.server's Last-Modified response. The real static-file handler
     # still evaluates If-Modified-Since and serves the file/304 itself.
     server_script = """
+import faulthandler
+import signal
+
+# Preserve the child stack if startup stalls and the parent terminates it.
+faulthandler.register(signal.SIGTERM, all_threads=True, chain=True)
+
 import http.server
+import socketserver
 import functools
 import sys
+
+class LoopbackHTTPServer(http.server.ThreadingHTTPServer):
+    def server_bind(self):
+        # Numeric loopback needs no reverse DNS before the readiness banner.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 class RevalidatedFiles(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
 
-http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.argv[1]), port=0, bind='127.0.0.1')
+http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.argv[1]), ServerClass=LoopbackHTTPServer, port=0, bind='127.0.0.1')
 """
     server = subprocess.Popen(
         [
-            "uv",
-            "run",
-            "--no-project",
-            "python",
+            sys.executable,
             "-u",
             "-c",
             server_script,
@@ -3673,7 +3701,9 @@ http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.
         assert select.select([server.stdout], [], [], 10)[0], (
             "HTTP server did not start"
         )
-        announcement = server.stdout.readline()
+        # Avoid TextIO read-ahead hiding child stderr from communicate().
+        announcement = os.read(server.stdout.fileno(), 4096).decode()
+        assert " port " in announcement, announcement
         port = int(announcement.split(" port ", 1)[1].split(" ", 1)[0])
         iframe_url = f"http://127.0.0.1:{port}/"
         with urlopen(iframe_url, timeout=5) as response:
@@ -3750,10 +3780,18 @@ http.server.test(HandlerClass=functools.partial(RevalidatedFiles, directory=sys.
                 chrome_dir.parent / "title" / "title.txt"
             ).read_text().strip() == "Main document ready"
     finally:
-        os.killpg(server.pid, signal.SIGCONT)
-        os.killpg(server.pid, signal.SIGTERM)
+        failure = sys.exception()
+        if server.poll() is None:
+            try:
+                os.killpg(server.pid, signal.SIGCONT)
+                os.killpg(server.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
         server_output, _ = server.communicate(timeout=10)
-        assert '"GET /article/ HTTP/1.1" 304' in server_output, server_output
+        if failure is not None:
+            failure.add_note(f"HTTP server exit={server.returncode}:\n{server_output}")
+        else:
+            assert '"GET /article/ HTTP/1.1" 304' in server_output, server_output
 
 
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
@@ -3969,12 +4007,14 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
-def test_tab_cleanup_on_sigterm(chrome_test_url):
+def test_tab_cleanup_on_sigterm(chrome_test_url, tmp_path):
     """Integration test: Tab cleanup when receiving SIGTERM."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / "crawl"
+    tmpdir = tmp_path
+    crawl_dir = Path(tmpdir) / "crawl"
+    chrome_dir = crawl_dir / "chrome"
+    chrome_launch_process = None
+    try:
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
         launch_env = _isolated_test_env(
@@ -4011,9 +4051,12 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
 
         # Send SIGTERM to tab process
         tab_process.send_signal(signal.SIGTERM)
-        stdout, stderr = tab_process.communicate(timeout=10)
+        tab_process.communicate(timeout=10)
 
-        assert tab_process.returncode == 0, f"Tab process should exit cleanly: {stderr}"
+        assert tab_process.returncode == 0, (
+            "Tab process should exit cleanly: "
+            + (snapshot_chrome_dir / "chrome_tab.stderr.log").read_text()
+        )
         _assert_snapshot_page_state_cleared(snapshot_chrome_dir)
         assert (snapshot_chrome_dir / "cdp_url.txt").exists(), (
             "tab cleanup must leave the browser CDP marker for crawl-level browser ownership"
@@ -4025,8 +4068,9 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         except OSError:
             raise AssertionError("Chrome should still be running after tab cleanup")
 
-        # Cleanup
-        _cleanup_launch_process(chrome_launch_process, chrome_dir)
+    finally:
+        if chrome_launch_process is not None:
+            _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
 @pytest.mark.parametrize("wait_until", ["domcontentloaded", "load"])

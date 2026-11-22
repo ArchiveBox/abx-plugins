@@ -4,6 +4,9 @@
   "description": "Install the I Still Don't Care About Cookies extension to dismiss cookie banners during archiving.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "0%"
+  },
   "required_plugins": [
     "chrome"
   ],

@@ -4,10 +4,14 @@
   "description": "Stream low-resolution Chrome screencast JPEG frames for the admin live progress UI.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "0%"
+  },
   "required_plugins": [
     "chrome"
   ],
   "required_binaries": [],
+  "snapshot_output_group": "images",
   "output_mimetypes": [
     "image/jpeg"
   ],

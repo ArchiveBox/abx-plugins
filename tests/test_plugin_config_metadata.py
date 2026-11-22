@@ -183,6 +183,7 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             "enabled",
             "outputs",
             "config_overrides",
+            "source_config_overrides",
             "output_plugin",
             "importer",
         }, recipe_path
@@ -218,6 +219,21 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
                 recipe_path,
                 key,
             )
+        scoped = recipe.get("source_config_overrides", {})
+        assert isinstance(scoped, dict), recipe_path
+        sources = {
+            recipe.get("url"),
+            *(
+                output.get("url", recipe.get("url"))
+                for output in recipe.get("outputs", [])
+            ),
+        }
+        assert scoped.keys() <= sources, recipe_path
+        for values in scoped.values():
+            assert isinstance(values, dict), recipe_path
+            assert values.keys() <= {"CHROME_WAIT_FOR"}, recipe_path
+            for key, value in values.items():
+                assert value in all_properties[key]["enum"], recipe_path
         outputs = recipe.get("outputs", [])
         assert isinstance(outputs, list), recipe_path
         for output in outputs:
@@ -585,3 +601,36 @@ def test_plugin_modules_do_not_import_hosts():
                         f"{path.relative_to(REPO_ROOT)}:{node.lineno}: {name}",
                     )
     assert not failures, "\n".join(failures)
+
+
+def test_opencode_provider_schema_reaches_only_declared_hook_consumers() -> None:
+    from abx_plugins.plugins.base.utils import load_config
+
+    provider_keys = {
+        "OPENAI_API_KEY": "synthetic-openai-marker",
+        "ANTHROPIC_API_KEY": "synthetic-anthropic-marker",
+    }
+    schema = PLUGINS_ROOT / "opencode_providers" / "config.json"
+    manifest = json.loads(schema.read_text())
+    assert manifest["hidden"] and manifest["x-auto-run"] is False
+    assert not manifest["required_binaries"] and not list(schema.parent.glob("on_*"))
+    for plugin, expected in (
+        ("browserharness", set(provider_keys)),
+        ("stagehand", set(provider_keys)),
+        ("autosummary", set(provider_keys)),
+        ("autotag", set(provider_keys)),
+        ("importers_browser", set(provider_keys)),
+        ("claudecode", {"ANTHROPIC_API_KEY"}),
+        ("claudechrome", {"ANTHROPIC_API_KEY"}),
+        ("opencode", set()),
+        ("screenshot", set()),
+        ("importer_search", set()),
+    ):
+        config = load_config(
+            PLUGINS_ROOT / plugin / "config.json",
+            environ=provider_keys,
+            hydrate_binaries=False,
+            hydrate_user_agent=False,
+        ).model_dump()
+        assert expected == provider_keys.keys() & config.keys(), plugin
+        assert all(config[key] == provider_keys[key] for key in expected), plugin

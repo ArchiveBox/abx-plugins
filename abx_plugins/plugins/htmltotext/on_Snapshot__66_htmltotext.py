@@ -17,6 +17,7 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    find_html_source,
     has_staticfile_output,
     is_non_html_document,
     load_config,
@@ -87,37 +88,6 @@ def html_to_text(html: str) -> str:
         return text.strip()
 
 
-def find_html_source() -> str | None:
-    """Find HTML content from other extractors in the snapshot directory."""
-    # Hooks run in snapshot_dir, sibling extractor outputs are in subdirectories
-    search_patterns = [
-        "singlefile/singlefile.html",
-        "*_singlefile/singlefile.html",
-        "singlefile/*.html",
-        "*_singlefile/*.html",
-        "dom/output.html",
-        "*_dom/output.html",
-        "dom/*.html",
-        "*_dom/*.html",
-        "wget/**/*.html",
-        "*_wget/**/*.html",
-        "wget/**/*.htm",
-        "*_wget/**/*.htm",
-    ]
-
-    for base in (Path.cwd(), Path.cwd().parent):
-        for pattern in search_patterns:
-            matches = list(base.glob(pattern))
-            for match in matches:
-                if match.is_file() and match.stat().st_size > 0:
-                    try:
-                        return match.read_text(errors="ignore")
-                    except Exception:
-                        continue
-
-    return None
-
-
 def extract_htmltotext(url: str) -> tuple[str, str]:
     """
     Extract plain text from HTML sources.
@@ -130,7 +100,12 @@ def extract_htmltotext(url: str) -> tuple[str, str]:
         return "noresults", "Browser document is not HTML"
 
     # Find HTML source from other extractors
-    html_content = find_html_source()
+    source = find_html_source()
+    if not source:
+        from abx_plugins.plugins.base.wacz import find_wacz_html_source
+
+        source = find_wacz_html_source(url)
+    html_content = Path(source).read_text(errors="ignore") if source else None
     if not html_content:
         return "noresults", "No HTML source found"
 

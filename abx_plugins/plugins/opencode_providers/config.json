@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenCode Provider Keys",
+  "description": "Provider credentials for capture and importer tools. The OpenCode Agent service has separate settings.",
+  "type": "object",
+  "hidden": true,
+  "x-auto-run": false,
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": [],
+  "additionalProperties": false,
+  "properties": {
+    "OPENAI_API_KEY": {
+      "type": "string",
+      "default": "",
+      "x-sensitive": true,
+      "x-scope": "crawl_execution",
+      "description": "OpenAI API key for capture plugins that use OpenCode or Stagehand. Leave blank to keep the current value."
+    },
+    "ANTHROPIC_API_KEY": {
+      "type": "string",
+      "default": "",
+      "x-sensitive": true,
+      "x-scope": "crawl_execution",
+      "description": "Anthropic API key for capture plugins that use OpenCode, Stagehand or Claude."
+    }
+  }
+}

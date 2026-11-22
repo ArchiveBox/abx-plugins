@@ -5,10 +5,12 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
-    "opencode"
+    "opencode",
+    "opencode_providers"
   ],
   "required_binaries": [],
   "wait_for_background_cleanup": true,
+  "snapshot_output_group": "article_text",
   "output_mimetypes": [
     "text/markdown",
     "application/json"

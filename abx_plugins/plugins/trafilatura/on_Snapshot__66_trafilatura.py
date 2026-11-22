@@ -138,7 +138,7 @@ def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
 
     config = load_config()
     timeout = config.TRAFILATURA_TIMEOUT
-    html_source = find_article_html_source()
+    html_source = find_article_html_source(url)
     if not html_source:
         return "noresults", "No HTML source found"
 

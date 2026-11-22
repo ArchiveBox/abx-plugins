@@ -431,3 +431,37 @@ Hooks emit plain JSONL records to stdout. The current hook families and records 
 `abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.
 
 <img width="391" height="149" alt="Screenshot 2026-09-20 at 6 17 27 AM" src="https://github.com/user-attachments/assets/bcd4f84e-09db-4f8a-9913-164823be0b79" /><img width="389" height="456" alt="Screenshot 2026-09-20 at 6 17 44 AM" src="https://github.com/user-attachments/assets/4bb945b7-2496-4d8d-b51a-9841fd700eee" />
+
+## CI provider acceptance
+
+`Parallel Tests` remains the required release/cascade gate. Live authenticated
+Canva, Figma, Miro and Substack acceptance runs independently in `Live Provider
+Tests`, scheduled every eight hours or started manually on `main`. Missing or
+expired sessions and failed exports fail that workflow normally; they do not
+turn into passing tests or block deterministic release checks.
+
+Public iWork (Keynote, Pages and Numbers) acceptance also runs in that workflow,
+in a separate hosted job with no provider credentials. Other public and local
+plugin tests remain in `Parallel Tests`. Test files declare `ci-environment:
+provider-capture` or `ci-environment: provider-public` in their first five lines;
+the matrix verifies that every discovered test file is assigned exactly once.
+Authenticated jobs retain the protected `provider-capture` environment and
+required runner placement. Documentation checks remain their existing separate
+scheduled/manual workflow.
+
+### Archived WACZ article input
+
+Article/text extractors can reuse `archivewebpage/archivewebpage.wacz` when no
+DOM, SingleFile, or Wget HTML is available. This is offline HTTP response HTML,
+not a reconstructed JavaScript DOM. Selection requires the requested URL's latest
+indexed GET response, follows only recorded HTTP redirects (at most four), and
+never substitutes an incidental page or iframe. Original captures are unchanged.
+
+The bounded reader currently supports `indexes/index.cdx` or concatenated-gzip `index.cdx.gz`, ZIP-stored gzip
+WARC members, and SHA-256 `recordDigest` entries. It checks selected-record digest,
+gzip CRC, WARC integrity, HTTP status and HTML MIME type. Revisit records, encoded HTTP bodies, missing matching responses and unsupported/corrupt captures yield no
+input, without fetching the live site. Limits: 256 MiB archive, 1024 ZIP members,
+8 MiB index, 16 MiB compressed record/individual ZIP metadata read, 32 MiB expanded
+record/decoded HTML, with a cooperative 10-second processing deadline. Extractors
+retain their existing overall timeouts. A consumer-local hidden input file avoids
+races between extractors and does not modify the archived WACZ.

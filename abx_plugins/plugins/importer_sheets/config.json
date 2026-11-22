@@ -49,17 +49,20 @@
   "importers_setup": [
     {
       "title": "Add links to a URL column",
-      "description": "Use a sheet or CSV with a column named URL. A Title column is optional. Change the column name under Advanced if needed."
+      "description": "Use a sheet or CSV with a column named URL. A Title column is optional. Change the column name under Advanced if needed.",
+      "image": "setup/links-sheet.svg",
+      "image_alt": "Google Sheets showing URLs, dates, reporters, and titles.",
+      "image_inline": true
     },
     {
       "title": "Paste the sheet or CSV link",
       "description": "The URL must allow CSV export. For a private source, select a synced persona under Advanced."
     },
     {
-      "title": "Preview new rows",
-      "description": "Save, then Preview to check the links. Import all archives new rows; later imports skip rows already imported.",
+      "title": "Dry Run: source rows",
+      "description": "Save, then Dry Run to check the links. Import all archives new rows; later imports skip rows already imported.",
       "image": "setup/preview.jpg",
-      "image_alt": "Seven reading-list links from a real CSV preview, with optional source details collapsed."
+      "image_alt": "Seven reading-list links from a real CSV Dry Run, with optional source details collapsed."
     }
   ],
   "icon": "icons/google.png"

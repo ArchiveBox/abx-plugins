@@ -1,0 +1,177 @@
+name: Build TLSNotary beta.1 pair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tlsnotary-beta1-artifacts.yml
+      - abx_plugins/plugins/tlsnotary/vendor/build.py
+      - abx_plugins/plugins/tlsnotary/vendor/release_notices.py
+      - abx_plugins/plugins/tlsnotary/vendor/release_notice_pins.json
+      - abx_plugins/plugins/tlsnotary/vendor/extension-beta1.patch
+      - abx_plugins/plugins/tlsnotary/vendor/beta1-verifier.Dockerfile
+
+permissions:
+  contents: read
+
+jobs:
+  extension:
+    name: Browser extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TLSNOTARY_EXTENSION_BUILD_DIR: /tmp/archivebox-tlsnotary-extension-build
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26.5.0'
+      - name: Install exact WASM build tools
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rustup toolchain install nightly-2026-10-12 --profile minimal --component rust-src --component rust-docs --target wasm32-unknown-unknown
+          archive=wasm-pack-v0.14.0-x86_64-unknown-linux-musl.tar.gz
+          cd "$RUNNER_TEMP"
+          curl --fail --silent --show-error --location -o "$archive" "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.14.0/$archive"
+          echo "278a8d668085821f4d1a637bd864f1713f872b0ae3a118c77562a308c0abfe8d  $archive" | sha256sum --check --strict
+          tar -xzf "$archive"
+          echo "$RUNNER_TEMP/${archive%.tar.gz}" >> "$GITHUB_PATH"
+      - name: Build pinned browser release candidate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test ! -e "$TLSNOTARY_EXTENSION_BUILD_DIR"
+          python3 abx_plugins/plugins/tlsnotary/vendor/build.py "$TLSNOTARY_EXTENSION_BUILD_DIR" --profile beta1 --component extension --release-candidate
+          cd "$TLSNOTARY_EXTENSION_BUILD_DIR"
+          unzip -tq tlsnotary-beta1-extension.zip
+          sha256sum tlsnotary-beta1-extension.zip > TLSNOTARY-EXTENSION-SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tlsnotary-beta1-extension-${{ github.sha }}
+          path: |
+            ${{ env.TLSNOTARY_EXTENSION_BUILD_DIR }}/tlsnotary-beta1-extension.zip
+            ${{ env.TLSNOTARY_EXTENSION_BUILD_DIR }}/TLSNOTARY-EXTENSION-SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0
+
+  verifier:
+    name: Linux amd64 verifier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          version: v0.35.0
+      - name: Build matched verifier image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          vendor=abx_plugins/plugins/tlsnotary/vendor
+          dir="$RUNNER_TEMP/beta1-build"
+          python3 "$vendor/build.py" "$dir" --profile beta1 --prepare-only
+          image="tlsnotary-verifier:beta1-$GITHUB_SHA"
+          docker buildx build --load --platform linux/amd64 --tag "$image" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --file "$vendor/beta1-verifier.Dockerfile" "$dir/src"
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = linux/amd64
+          printf "webhooks: {}\n" > "$dir/smoke-config.yaml"
+          verifier="$(docker run -d --network none --mount "type=bind,src=$dir/smoke-config.yaml,dst=/app/config.yaml,readonly" "$image")"
+          trap 'docker rm -f "$verifier" >/dev/null' EXIT
+          for _ in {1..20}; do
+            if docker logs "$verifier" 2>&1 | grep -Fq 'Server listening on'; then
+              break
+            fi
+            sleep 1
+          done
+          docker logs "$verifier" 2>&1 | grep -F 'Server listening on'
+          test "$(docker inspect --format '{{.State.Running}}' "$verifier")" = true
+          cd "$dir"
+          docker image inspect --format '{{.Id}}' "$image" > TLSNOTARY-VERIFIER-IMAGE-ID
+          docker save "$image" | gzip -n > tlsnotary-beta1-verifier-linux-amd64.tar.gz
+          sha256sum tlsnotary-beta1-verifier-linux-amd64.tar.gz > TLSNOTARY-VERIFIER-SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tlsnotary-beta1-verifier-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/beta1-build/tlsnotary-beta1-verifier-linux-amd64.tar.gz
+            ${{ runner.temp }}/beta1-build/TLSNOTARY-VERIFIER-SHA256SUMS
+            ${{ runner.temp }}/beta1-build/TLSNOTARY-VERIFIER-IMAGE-ID
+          if-no-files-found: error
+          compression-level: 0
+
+  matched-proof:
+    name: Real browser proof with the matched beta.1 pair
+    runs-on: ubuntu-24.04
+    needs: [extension, verifier]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Use the standard Ubuntu archive on hosted Linux
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
+        run: |
+          # Prefer the public archive over the remaining cloud-local mirror.
+          # The Azure mirror can trickle bytes indefinitely without triggering
+          # APT's stall timeout: https://github.com/actions/runner-images/issues/14823
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
+            sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
+          fi
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: tlsnotary-beta1-extension-${{ github.sha }}
+          path: ${{ runner.temp }}/matched-extension
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: tlsnotary-beta1-verifier-${{ github.sha }}
+          path: ${{ runner.temp }}/matched-verifier
+      - name: Verify and load same-run artifacts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          extension="$RUNNER_TEMP/matched-extension"
+          verifier="$RUNNER_TEMP/matched-verifier"
+          (cd "$extension" && sha256sum --check --strict TLSNOTARY-EXTENSION-SHA256SUMS)
+          (cd "$verifier" && sha256sum --check --strict TLSNOTARY-VERIFIER-SHA256SUMS)
+          mkdir "$extension/unpacked"
+          unzip -q "$extension/tlsnotary-beta1-extension.zip" -d "$extension/unpacked"
+          jq -e '.version == "0.1.1" and .manifest_version == 3' "$extension/unpacked/manifest.json" >/dev/null
+          test -s "$extension/unpacked/THIRD_PARTY_NOTICES.txt"
+          jq -e '.components[] | select(.package == "npm:webextension-polyfill@0.12.0" and .spdx == "MPL-2.0" and .corresponding_source)' \
+            "$extension/unpacked/licenses/components.json" >/dev/null
+          jq -e '.sources.tlsn == "40a069565a2eaecbb5e691dbc634be20e8498daf" and .sources.extension == "d44623434d04ad00d7b1f8da9712cbc10cd0e99c"' \
+            "$extension/unpacked/archivebox-build.json" >/dev/null
+
+          docker load --input "$verifier/tlsnotary-beta1-verifier-linux-amd64.tar.gz"
+          image="tlsnotary-verifier:beta1-$GITHUB_SHA"
+          test "$(docker image inspect --format '{{.Id}}' "$image")" = "$(cat "$verifier/TLSNOTARY-VERIFIER-IMAGE-ID")"
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = linux/amd64
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$GITHUB_SHA"
+          {
+            echo "TLSNOTARY_EXTENSION_DIR=$extension/unpacked"
+            echo "TLSNOTARY_TEST_VERIFIER_IMAGE=$image"
+          } >> "$GITHUB_ENV"
+      - name: Require a real signed receipt for a public fixture
+        env:
+          CHROME_HEADLESS: 'True'
+          ABX_CI_STAGE_NOBLE_FONT: 'true'
+        run: |
+          uv sync --locked --dev --no-sources --no-cache
+          uv run --no-sync --no-sources pytest -vs \
+            abx_plugins/plugins/tlsnotary/tests/test_navigation_headers.py::test_real_proof_does_not_inherit_active_archivewebpage_recorder

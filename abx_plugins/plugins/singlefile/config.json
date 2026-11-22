@@ -4,6 +4,11 @@
   "description": "Save a complete page as a single self-contained HTML file using the SingleFile Chrome extension.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "76 s",
+    "output_size": "680 KB",
+    "error_rate": "82%"
+  },
   "required_plugins": [
     "chrome"
   ],

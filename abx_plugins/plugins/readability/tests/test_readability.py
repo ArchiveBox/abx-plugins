@@ -162,8 +162,10 @@ def test_verify_deps_with_abxpkg():
 def test_direct_hook_resolves_dependencies_and_extracts_article():
     """Run the installed hook exactly as a user-facing executable.
 
-    WHY: ``required_plugins`` orders producers such as DOM and Responses, while
-    the hook shebang tells abxpkg which binaries this process needs.  Launching
+    WHY: ``required_plugins`` selects DOM as the default HTML producer;
+    Responses is only an optional archived-image source. The cleanup barrier
+    settles enabled background producers before extraction. The hook shebang
+    tells abxpkg which binaries this process needs. Launching
     the real hook with no READABILITY_BINARY override proves abxpkg resolves and
     exports readability-extractor from the hook's own config.
     """
@@ -638,3 +640,37 @@ def test_large_inline_fallback_does_not_duplicate_payload_across_hook_processes(
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_dom_input_succeeds_with_responses_disabled(tmp_path):
+    """Readability needs HTML, not an enabled network response recorder."""
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert config["required_plugins"] == ["dom"]
+    assert config["wait_for_background_cleanup"] is True
+    binary = require_readability_binary()
+    source = create_example_html(tmp_path)
+    dom = tmp_path / "dom"
+    dom.mkdir()
+    source.rename(dom / "output.html")
+    source.parent.rmdir()
+    result = subprocess.run(
+        [str(READABILITY_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={
+            **os.environ,
+            "SNAP_DIR": str(tmp_path),
+            "READABILITY_BINARY": binary,
+            "RESPONSES_ENABLED": "false",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    record = parse_jsonl_output(result.stdout)
+    assert record and record["status"] == "succeeded"
+    assert (
+        "example domain"
+        in (tmp_path / "readability" / "content.txt").read_text().lower()
+    )
+    assert not (tmp_path / "responses").exists()

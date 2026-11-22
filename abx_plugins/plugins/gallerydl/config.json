@@ -5,6 +5,9 @@
   "screenshot": "screenshot.json",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "error_rate": "0%"
+  },
   "required_plugins": [],
   "required_binaries": [
     {

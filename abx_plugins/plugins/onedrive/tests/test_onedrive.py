@@ -1,3 +1,4 @@
+# ci-environment: provider-public
 """Capture a genuine public OneDrive church bulletin through real Chrome."""
 
 import hashlib

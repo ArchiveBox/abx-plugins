@@ -4,6 +4,11 @@
   "description": "Convert archived HTML from other extractors into plain text for indexing and analysis.",
   "type": "object",
   "additionalProperties": false,
+  "performance_impacts": {
+    "runtime": "1.5 s",
+    "output_size": "11 KB",
+    "error_rate": "78%"
+  },
   "required_plugins": [],
   "wait_for_background_cleanup": true,
   "required_binaries": [],

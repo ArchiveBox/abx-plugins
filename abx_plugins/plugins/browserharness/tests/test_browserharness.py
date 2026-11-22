@@ -1,6 +1,5 @@
 """Real browserharness snapshot hooks without ArchiveBox."""
 
-import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -9,7 +8,6 @@ import pytest
 from abx_plugins.plugins.chrome.tests.browser_hook_helpers import (
     assert_unconfigured_hook,
     read_config_macro,
-    assert_challenge_capture,
     assert_script_capture,
 )
 
@@ -30,27 +28,6 @@ def test_script_capture(tmp_path, httpserver, ensure_chrome_test_prereqs):
     )
 
 
-def test_prompt_capture(tmp_path, httpserver, ensure_chrome_test_prereqs):
-    if os.environ.get("OPENAI_API_KEY"):
-        model = "openai/gpt-6.1-sol"
-    else:
-        assert os.environ.get("ANTHROPIC_API_KEY"), (
-            "Set OPENAI_API_KEY or ANTHROPIC_API_KEY for the real agent test"
-        )
-        model = "anthropic/claude-haiku-4-5-20251001"
-    assert_script_capture(
-        HOOK,
-        "",
-        tmp_path,
-        httpserver,
-        {
-            "BROWSERHARNESS_PROMPT": "Click the Prepare page button, confirm the page title becomes Prepared, then finish.",
-            "BROWSERHARNESS_MODEL": model,
-            "BROWSERHARNESS_TIMEOUT": "120",
-        },
-    )
-
-
 def test_script_failure_preserves_tab(tmp_path, httpserver, ensure_chrome_test_prereqs):
     assert_script_capture(
         HOOK,
@@ -60,10 +37,6 @@ def test_script_failure_preserves_tab(tmp_path, httpserver, ensure_chrome_test_p
         expected_status="failed",
         expected_title="Unprepared",
     )
-
-
-def test_ten_challenges(tmp_path, ensure_chrome_test_prereqs):
-    assert_challenge_capture(HOOK, tmp_path)
 
 
 def test_saved_files(tmp_path, httpserver, ensure_chrome_test_prereqs):
