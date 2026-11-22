@@ -306,31 +306,50 @@ async function configure2Captcha() {
         if (result.success) {
           console.log(`Configured via ${result.method}`);
 
-          // Verify the extension's persisted configuration after its login and
-          // Config.set APIs have both completed.
-          const verifyConfig = await configPage.evaluate(() => {
-            return new Promise((resolve) => {
-              if (typeof chrome === "undefined" || !chrome.storage) {
-                resolve(null);
-                return;
-              }
-              chrome.storage.local.get("config", (data) => {
-                resolve((data && data.config) || null);
-              });
+          // Read settings through the same native options page, before its
+          // connection is closed. Check the actual stored key as well, since
+          // Config.getAll() may supply defaults. Never send the key or the
+          // unfiltered configuration back over CDP.
+          const observed = await configPage.evaluate(async (expectedKey) => {
+            const stored = await new Promise((resolve) => {
+              if (typeof chrome === "undefined" || !chrome.storage) return resolve(null);
+              chrome.storage.local.get("config", (data) => resolve(data?.config || null));
             });
-          });
+            if (!stored) return null;
+            let settings;
+            try {
+              settings = await Config.getAll();
+            } catch {
+              // Do not propagate an extension error that might contain config.
+              return null;
+            }
+            if (!settings) return null;
+            const apiKeySet = (stored.apiKey || stored.api_key) === expectedKey &&
+              (settings.apiKey === expectedKey || settings.api_key === expectedKey);
+            return {
+              apiKeySet,
+              isPluginEnabled: settings.isPluginEnabled === true,
+              repeatOnErrorTimes: Number.isInteger(settings.repeatOnErrorTimes) ? settings.repeatOnErrorTimes : null,
+              repeatOnErrorDelay: Number.isInteger(settings.repeatOnErrorDelay) ? settings.repeatOnErrorDelay : null,
+              autoSubmitForms: settings.autoSubmitForms === true,
+              autoSolveEnabled: settings.autoSolveRecaptchaV2 === true &&
+                settings.autoSolveRecaptchaV3 === true && settings.autoSolveTurnstile === true,
+              autoSolveRecaptchaV2: settings.autoSolveRecaptchaV2 === true,
+              autoSolveRecaptchaV3: settings.autoSolveRecaptchaV3 === true,
+              autoSolveTurnstile: settings.autoSolveTurnstile === true,
+              enabledForRecaptchaV2: settings.enabledForRecaptchaV2 === true,
+              recaptchaV2Type: settings.recaptchaV2Type === "token" ? "token" : null,
+            };
+          }, config.apiKey);
 
-          if (!verifyConfig) {
+          if (!observed) {
             return {
               success: false,
-              error: "Could not verify config - chrome.storage.local empty after set",
+              error: "Could not verify config - extension configuration unavailable after set",
             };
           }
-
-          // Check that API key was actually set
-          const actualApiKey = verifyConfig.apiKey || verifyConfig.api_key;
-          if (!actualApiKey || actualApiKey !== config.apiKey) {
-            console.error(`[!] Config verification FAILED - API key mismatch`);
+          if (!observed.apiKeySet) {
+            console.error("[!] Config verification FAILED - API key mismatch");
             return {
               success: false,
               error: "Config verification failed - API key not set correctly",
@@ -347,14 +366,7 @@ async function configure2Captcha() {
                 method: result.method,
                 extensionId: extensionId,
                 verified: true,
-                config: {
-                  apiKeySet: !!config.apiKey,
-                  isPluginEnabled: config.isPluginEnabled,
-                  repeatOnErrorTimes: config.repeatOnErrorTimes,
-                  repeatOnErrorDelay: config.repeatOnErrorDelay,
-                  autoSubmitForms: config.autoSubmitForms,
-                  autoSolveEnabled: true,
-                },
+                config: observed,
               },
               null,
               2

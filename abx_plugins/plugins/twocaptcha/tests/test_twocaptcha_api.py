@@ -16,7 +16,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 )
 from abx_plugins.plugins.twocaptcha.tests.test_twocaptcha import (
     CHROME_STARTUP_TIMEOUT_SECONDS,
-    CHROME_UTILS_JS,
     CONFIG_SCRIPT,
     NAVIGATE_HOOK,
     SNAPSHOT_HOOK,
@@ -82,7 +81,7 @@ class TestTwoCaptcha(_TwoCaptchaRuntime):
             crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
-            process, cdp_url = launch_chrome(
+            process, _ = launch_chrome(
                 env,
                 chrome_dir,
                 crawl_id,
@@ -105,71 +104,17 @@ class TestTwoCaptcha(_TwoCaptchaRuntime):
                 assert result.returncode == 0, f"Config failed: {result.stderr}"
                 assert (chrome_dir / ".twocaptcha_configured").exists()
 
-                # Verify config via options.html and Config.getAll()
-                # Get the runtime extension ID from the config marker
+                # The actual options-page Config.getAll() readback is part of
+                # the configuration hook and is recorded before its CDP client
+                # disconnects. The marker includes only safe observed values.
                 config_marker = json.loads(
                     (chrome_dir / ".twocaptcha_configured").read_text(),
                 )
                 assert config_marker["method"] == "popup_login", config_marker
                 assert config_marker["verified"] is True, config_marker
-                ext_id = config_marker["extensionId"]
-                script = f"""
-const chromeUtils = require('{CHROME_UTILS_JS}');
-(async () => {{
-    const puppeteer = chromeUtils.resolvePuppeteerModule();
-    const cfg = await chromeUtils.withConnectedBrowser(
-        {{
-            puppeteer,
-            browserWSEndpoint: '{cdp_url}',
-            connectOptions: {{ protocolTimeout: 180000 }},
-        }},
-        async (browser) => {{
-            // Load options.html and use Config.getAll() to verify
-            const optionsUrl = 'chrome-extension://{ext_id}/options/options.html';
-            const page = await browser.newPage();
-            console.error('[*] Loading options page:', optionsUrl);
-
-            // Navigate - catch error but continue since page may still load
-            try {{
-                await page.goto(optionsUrl, {{ waitUntil: 'networkidle0', timeout: 10000 }});
-            }} catch (e) {{
-                console.error('[*] Navigation threw error (may still work):', e.message);
-            }}
-
-            console.error('[*] Current URL:', page.url());
-
-            // Wait for Config object to be available
-            await page.waitForFunction(() => typeof Config !== 'undefined', {{ timeout: 5000 }});
-
-            // Call Config.getAll() - the extension's own API (returns a Promise)
-            const cfg = await page.evaluate(async () => await Config.getAll());
-            console.error('[*] Config.getAll() returned:', JSON.stringify(cfg));
-
-            await page.close();
-            return cfg;
-        }},
-    );
-    console.log(JSON.stringify(cfg));
-}})();
-"""
-                r = subprocess.run(
-                    [env["NODE_BINARY"], "-e", script],
-                    env=env,
-                    timeout=30,
-                    capture_output=True,
-                    text=True,
-                )
-                print(r.stderr)
-                assert r.returncode == 0, f"Verify failed: {r.stderr}"
-
-                cfg = json.loads(r.stdout.strip().split("\n")[-1])
-                print(f"[*] Config from extension: {json.dumps(cfg, indent=2)}")
-
-                # Verify all the fields we care about
-                assert (
-                    cfg.get("apiKey") == self.api_key
-                    or cfg.get("api_key") == self.api_key
-                ), f"API key not set: {cfg}"
+                assert config_marker["extensionId"]
+                cfg = config_marker["config"]
+                assert cfg.get("apiKeySet") is True, "API key readback mismatch"
                 assert cfg.get("isPluginEnabled"), f"Plugin not enabled: {cfg}"
                 assert cfg.get("repeatOnErrorTimes") == 5, f"Retry count wrong: {cfg}"
                 assert cfg.get("repeatOnErrorDelay") == 10, f"Retry delay wrong: {cfg}"
