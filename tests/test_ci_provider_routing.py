@@ -20,11 +20,16 @@ AUTHENTICATED = {
     )
 }
 PUBLIC = {
+    "abx_plugins/plugins/archiveimport/tests/test_archiveimport_public.py",
+    "abx_plugins/plugins/calendar/tests/test_calendar_public.py",
     "abx_plugins/plugins/iwork/tests/test_iwork.py",
     "abx_plugins/plugins/microsoft365/tests/test_microsoft365.py",
     "abx_plugins/plugins/onedrive/tests/test_onedrive.py",
 }
+CAPTCHA_API = "abx_plugins/plugins/twocaptcha/tests/test_twocaptcha_api.py"
+PAID_CAPTCHA = "abx_plugins/plugins/twocaptcha/tests/test_twocaptcha_paid.py"
 API = {
+    CAPTCHA_API,
     "abx_plugins/plugins/claudechrome/tests/test_claudechrome_api.py",
     "abx_plugins/plugins/browserharness/tests/test_browserharness_api.py",
     "abx_plugins/plugins/stagehand/tests/test_stagehand_api.py",
@@ -32,11 +37,25 @@ API = {
 }
 
 
-@pytest.mark.parametrize("platform", ["linux", "macos"])
-def test_live_provider_partition_preserves_coverage(platform):
+@pytest.mark.parametrize(
+    ("platform", "event", "opt_in", "paid"),
+    [
+        ("linux", "push", "true", False),
+        ("linux", "pull_request", "true", False),
+        ("macos", "schedule", "true", False),
+        ("linux", "workflow_dispatch", "false", False),
+        ("linux", "workflow_dispatch", "true", True),
+    ],
+)
+def test_live_provider_partition_preserves_coverage(platform, event, opt_in, paid):
     result = subprocess.run(
         [sys.executable, str(ROOT / ".github/ci_test_matrix.py")],
-        env={**os.environ, "CI_TEST_PLATFORM": platform},
+        env={
+            **os.environ,
+            "CI_TEST_PLATFORM": platform,
+            "CI_TEST_EVENT": event,
+            "CI_RUN_PAID_CAPTCHA": opt_in,
+        },
         capture_output=True,
         text=True,
         check=True,
@@ -49,7 +68,13 @@ def test_live_provider_partition_preserves_coverage(platform):
         key: [path for item in items for path in item["paths"]]
         for key, items in matrices.items()
     }
-    assert set(paths["provider-matrix"]) == AUTHENTICATED
+    assert set(paths["provider-matrix"]) == (
+        AUTHENTICATED | ({PAID_CAPTCHA} if paid else set())
+    )
+    assert {
+        item["path"] for item in matrices["provider-matrix"] if item["paid_captcha"]
+    } == ({PAID_CAPTCHA} if paid else set())
+    assert PAID_CAPTCHA not in paths["test-matrix"]
     assert set(paths["public-provider-matrix"]) == PUBLIC | API
     assert {
         item["path"] for item in matrices["public-provider-matrix"] if item["api"]
@@ -67,13 +92,14 @@ def test_live_provider_partition_preserves_coverage(platform):
             for folder in (ROOT / "tests", ROOT / "abx_plugins/plugins")
             for path in folder.rglob("test_*.py")
         }
-        assert set(assigned) == discovered
+        assert set(assigned) == (discovered if paid else discovered - {PAID_CAPTCHA})
         # Public/no-login and local cookie lifecycle tests are not reclassified.
         for path in (
             "abx_plugins/plugins/claudechrome/tests/test_claudechrome.py",
             "abx_plugins/plugins/browserharness/tests/test_browserharness.py",
             "abx_plugins/plugins/stagehand/tests/test_stagehand.py",
             "tests/test_provider_noresults.py",
+            "abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py",
             "abx_plugins/plugins/canva/tests/test_canva.py",
             "abx_plugins/plugins/figma/tests/test_figma.py",
             "abx_plugins/plugins/miro/tests/test_miro.py",
@@ -88,6 +114,8 @@ def test_live_workflow_is_independent_and_restricted():
     live = (ROOT / ".github/workflows/test-providers.yml").read_text()
     release = (ROOT / ".github/workflows/release.yml").read_text()
     assert "  provider-capture:" not in required
+    assert "TWOCAPTCHA_API_KEY" not in required
+    assert "CI_RUN_PAID_CAPTCHA" not in required
     assert "workflows: [Parallel Tests]" in release
     assert "test-providers.yml" not in release
     triggers = live.split("on:\n", 1)[1].split("\npermissions:", 1)[0]
@@ -102,6 +130,23 @@ def test_live_workflow_is_independent_and_restricted():
     assert "Missing provider-capture authentication secret" in live
     assert "Missing provider-capture Substack cookies" in live
     assert live.count("ref: ${{ github.sha }}") == 3
+    assert "default: false" in triggers.split("run_paid_captcha:", 1)[1]
+    guard = (
+        "github.event_name == 'workflow_dispatch' && inputs.run_paid_captcha == true"
+    )
+    assert guard in live.split("- id: matrix", 1)[1].split("\n  provider-capture:")[0]
+    protected = live.split("  provider-capture:\n", 1)[1].split(
+        "\n  public-providers:",
+    )[0]
+    assert "environment: provider-capture" in protected
+    before_paid, paid_step = protected.split(
+        "      - name: Run explicitly approved paid 2Captcha solve\n",
+        1,
+    )
+    assert "TWOCAPTCHA_API_KEY" not in before_paid
+    assert f"if: matrix.test.paid_captcha && {guard}" in paid_step
+    assert "TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}" in paid_step
+    assert "if: failure() && !matrix.test.paid_captcha" in paid_step
     public = live.split("  public-providers:\n", 1)[1]
     assert "    environment:" not in public
     assert 'AUTH_STORAGE_FILE: ""' in public and 'COOKIES_FILE: ""' in public
@@ -116,7 +161,14 @@ def test_live_workflow_is_independent_and_restricted():
     )
     assert "secrets." not in before_test + after_test
     for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
-        assert f"{key}: ${{{{ matrix.test.api && secrets.{key} || '' }}}}" in test_step
+        assert (
+            f"{key}: ${{{{ matrix.test.api && !contains(matrix.test.path, '/twocaptcha/') && secrets.{key} || '' }}}}"
+            in test_step
+        )
+    assert (
+        "matrix.test.api && contains(matrix.test.path, '/twocaptcha/') && secrets.TWOCAPTCHA_API_KEY"
+        in test_step
+    )
     assert "if: failure() && !matrix.test.api" in after_test
     api_results = after_test.split("      - name: Save failed API test results\n", 1)[1]
     api_results = api_results.split("      - name:", 1)[0]

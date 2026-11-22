@@ -140,6 +140,8 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
             *PLUGINS_ROOT.rglob("test_*.py"),
             *(REPO_ROOT / "tests").rglob("test_*.py"),
         }
+        if "# ci-environment: provider-paid-manual"
+        not in path.read_text().splitlines()[:5]
     )
     assignments = [
         (path, item["os"], item["python"]) for item in matrix for path in item["paths"]

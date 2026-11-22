@@ -26,6 +26,7 @@ class TestMatrixItem(TypedDict):
     ugnas: bool
     workers: int
     api: NotRequired[bool]
+    paid_captcha: NotRequired[bool]
 
 
 def discover_tests() -> list[Path]:
@@ -43,6 +44,10 @@ if __name__ == "__main__":
     platform = os.environ.get("CI_TEST_PLATFORM", "linux")
     if platform not in {"linux", "macos"}:
         raise SystemExit("CI_TEST_PLATFORM must be linux or macos")
+    run_paid_captcha = (
+        os.environ.get("CI_TEST_EVENT") == "workflow_dispatch"
+        and os.environ.get("CI_RUN_PAID_CAPTCHA") == "true"
+    )
     expected_tests: list[Path] = []
     targets = cycle(SUPPORTED_CELLS)
     test_matrix: list[TestMatrixItem] = []
@@ -73,6 +78,7 @@ if __name__ == "__main__":
         "provider-capture",
         "provider-public",
         "provider-api",
+        "provider-paid-manual",
     }:
         raise SystemExit("Unknown ci-environment requirement")
     if any(
@@ -88,6 +94,9 @@ if __name__ == "__main__":
     short_tests: dict[tuple[str, str, bool], list[str]] = {}
 
     for test_path in all_tests:
+        paid_captcha = environments.get(str(test_path)) == "provider-paid-manual"
+        if paid_captcha and not run_paid_captcha:
+            continue
         os_name, python_version = next(targets)
         if str(test_path) in environments:
             expected_tests.append(test_path)
@@ -105,6 +114,7 @@ if __name__ == "__main__":
                     "ugnas": runner_requirements.get(str(test_path)) == "ugnas",
                     "workers": 0,
                     "api": environments[str(test_path)] == "provider-api",
+                    "paid_captcha": paid_captcha,
                 },
             )
             continue

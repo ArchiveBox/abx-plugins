@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '47 4,12,20 * * *'
   workflow_dispatch:
+    inputs:
+      run_paid_captcha:
+        description: Run a real, potentially billed 2Captcha solve
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,6 +41,9 @@ jobs:
           version: "0.13.5"
           enable-cache: false
       - id: matrix
+        env:
+          CI_TEST_EVENT: ${{ github.event_name }}
+          CI_RUN_PAID_CAPTCHA: ${{ github.event_name == 'workflow_dispatch' && inputs.run_paid_captcha == true }}
         run: uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
 
   provider-capture:
@@ -96,7 +104,7 @@ jobs:
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
-        if: "!contains(matrix.test.path, '/ytdlp/')"
+        if: "!matrix.test.paid_captcha && !contains(matrix.test.path, '/ytdlp/')"
         env:
           # Refresh each provider independently without replacing other sessions.
           PROVIDER_AUTH_STORAGE_JSON: ${{ contains(matrix.test.path, '/figma/') && secrets.FIGMA_AUTH_STORAGE_JSON || contains(matrix.test.path, '/canva/') && secrets.CANVA_AUTH_STORAGE_JSON || secrets.PROVIDER_AUTH_STORAGE_JSON }}
@@ -129,6 +137,7 @@ jobs:
             echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
           } >> "$GITHUB_ENV"
       - name: Run real authenticated provider acceptance
+        if: "!matrix.test.paid_captcha"
         env:
           TEST_PATH: ${{ matrix.test.path }}
           CHROME_HEADLESS: "false"
@@ -140,8 +149,22 @@ jobs:
             --basetemp="$RUNNER_TEMP/provider-pytest" \
             --junitxml="$RUNNER_TEMP/provider-pytest/results.xml" \
             -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+      - name: Run explicitly approved paid 2Captcha solve
+        if: matrix.test.paid_captcha && github.event_name == 'workflow_dispatch' && inputs.run_paid_captcha == true
+        env:
+          TEST_PATH: ${{ matrix.test.path }}
+          TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
+          CHROME_HEADLESS: "false"
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/provider-runtime
+          PERSONAS_DIR: ${{ runner.temp }}/provider-personas
+        run: |
+          set -Eeuo pipefail
+          test -f "$TEST_PATH"
+          xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
+            --basetemp="$RUNNER_TEMP/provider-pytest" \
+            -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
       - name: Save failed public export evidence
-        if: failure()
+        if: failure() && !matrix.test.paid_captcha
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: provider-exports-${{ strategy.job-index }}
@@ -225,9 +248,10 @@ jobs:
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
       - name: Run real hosted provider acceptance
         env:
-          # API credentials belong only to the billed tests, never setup or public fixtures.
-          OPENAI_API_KEY: ${{ matrix.test.api && secrets.OPENAI_API_KEY || '' }}
-          ANTHROPIC_API_KEY: ${{ matrix.test.api && secrets.ANTHROPIC_API_KEY || '' }}
+          # Supply only the relevant credential inside its external API test step.
+          OPENAI_API_KEY: ${{ matrix.test.api && !contains(matrix.test.path, '/twocaptcha/') && secrets.OPENAI_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ matrix.test.api && !contains(matrix.test.path, '/twocaptcha/') && secrets.ANTHROPIC_API_KEY || '' }}
+          TWOCAPTCHA_API_KEY: ${{ matrix.test.api && contains(matrix.test.path, '/twocaptcha/') && secrets.TWOCAPTCHA_API_KEY || '' }}
           TEST_PATH: ${{ matrix.test.path }}
           CHROME_HEADLESS: "false"
         run: |
@@ -257,7 +281,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Save failed API test results
-        if: failure() && matrix.test.api
+        if: failure() && matrix.test.api && !contains(matrix.test.path, '/twocaptcha/')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: api-provider-results-${{ strategy.job-index }}
