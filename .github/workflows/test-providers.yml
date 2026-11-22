@@ -1,6 +1,7 @@
 name: Live Provider Tests
 
-# External sessions and provider availability remain real failing checks, but
+# External sessions and provider availability remain real checks (exhausted
+# paid API credits produce warnings through the shared classifier), but
 # are independent of Parallel Tests and its release/cascade success gate.
 on:
   schedule:
@@ -257,10 +258,13 @@ jobs:
         run: |
           set -Eeuo pipefail
           test -f "$TEST_PATH"
+          pytest_status=0
           xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
             --basetemp="$RUNNER_TEMP/provider-pytest" \
             --junitxml="$RUNNER_TEMP/provider-pytest/results.xml" \
-            -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+            -o cache_dir="$RUNNER_TEMP/provider-pytest-cache" || pytest_status=$?
+          uv run --no-project python .github/ci_test_status.py \
+            "$RUNNER_TEMP/provider-pytest/results.xml" "$pytest_status"
       - name: Save failed public export evidence
         if: failure() && !matrix.test.api
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -280,8 +284,8 @@ jobs:
             ${{ runner.temp }}/provider-pytest/**/exported-sticky-ocr.txt
           if-no-files-found: ignore
           retention-days: 14
-      - name: Save failed API test results
-        if: failure() && matrix.test.api && !contains(matrix.test.path, '/twocaptcha/')
+      - name: Save API test results
+        if: always() && matrix.test.api && !contains(matrix.test.path, '/twocaptcha/')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: api-provider-results-${{ strategy.job-index }}

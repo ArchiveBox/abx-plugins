@@ -169,10 +169,14 @@ def test_live_workflow_is_independent_and_restricted():
         "matrix.test.api && contains(matrix.test.path, '/twocaptcha/') && secrets.TWOCAPTCHA_API_KEY"
         in test_step
     )
+    assert "pytest_status=0" in test_step
+    assert "|| pytest_status=$?" in test_step
+    assert "uv run --no-project python .github/ci_test_status.py" in test_step
+    assert '"$RUNNER_TEMP/provider-pytest/results.xml" "$pytest_status"' in test_step
     assert "if: failure() && !matrix.test.api" in after_test
-    api_results = after_test.split("      - name: Save failed API test results\n", 1)[1]
+    api_results = after_test.split("      - name: Save API test results\n", 1)[1]
     api_results = api_results.split("      - name:", 1)[0]
-    assert "if: failure() && matrix.test.api" in api_results
+    assert "if: always() && matrix.test.api" in api_results
     assert "path: ${{ runner.temp }}/provider-pytest/results.xml\n" in api_results
     assert "**" not in api_results
 
