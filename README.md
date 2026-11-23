@@ -88,6 +88,7 @@ not import or require `archivebox` or `abx-dl`.
 | `search_order`, `search_fallback`, `search_scan` | Integer priority (default `1000`), fallback eligibility, filesystem-scan flag (both default `false`). |
 | `presentation_module` | Importable module providing the presentation functions below. |
 | `app_module` | Importable `app.py` providing optional native application functions below; import must not require Django setup. |
+| `eventbus_module` | Optional process integration module exposing `get_eventbus_middlewares(config)`; imported only when the plugin's enable flag is true. |
 | `agent_tools` | `{scope, binaries, environment?}`; `environment` is `module:function(endpoint, binaries) -> dict[str, str]`. |
 | `agent_skills` | Section name → relative Markdown file, selected by `agent_tools.scope`. |
 
@@ -121,6 +122,25 @@ Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 label. The host installs it at startup; models, migrations, management commands,
 and `ready()` use standard Django behavior. Register signals and logging filters
 there. App registration is independent of hook enable flags.
+ArchiveBox exposes its resolved process configuration through Django's
+`settings.CONFIG`; apps can pass `settings.CONFIG.model_dump(mode="json")` to
+`load_config(global_config=...)` in `ready()` without importing ArchiveBox.
+Apps must check their own enable flag
+before loading optional dependencies or registering external integrations.
+The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
+opt-in Django error reporting and logging; it is disabled and has no DSN by default.
+
+An `AppConfig` can implement `render_page_head(request, config)` to return safe
+rendered HTML for the host UI's document head. `config` contains the current
+resolved machine settings. Check the enable flag before returning any markup.
+ArchiveBox calls this hook from its admin and public UI base templates; archived
+documents are not modified. Use Django templates and `json_script` for settings.
+
+For process integrations, `eventbus_module.get_eventbus_middlewares(config)`
+returns native EventBus middleware instances. The host resolves the plugin schema
+and checks its enable flag **before importing the module**. These integrations
+are independent of capture plugin selection (`--plugins`). Optional monitoring
+dependencies belong in `required_binaries`, not mandatory host dependencies.
 
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
