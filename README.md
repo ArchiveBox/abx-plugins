@@ -121,13 +121,6 @@ Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 label. The host installs it at startup; models, migrations, management commands,
 and `ready()` use standard Django behavior. Register signals and logging filters
 there. App registration is independent of hook enable flags.
-Hosts expose resolved process configuration as the plain Django setting
-`ABX_PLUGIN_CONFIG`; apps can pass it to `load_config(global_config=...)` in
-`ready()` without importing the host. Apps must check their own enable flag
-before loading optional dependencies or registering external integrations.
-The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
-opt-in Django error reporting and logging; it is disabled and has no DSN by default.
-
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
 options (`label`, `icon`, `color`, `section`, `blocking`);
