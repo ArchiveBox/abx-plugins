@@ -10,6 +10,34 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).parent
 METADATA_DOMAINS = frozenset({"w3.org", "schema.org", "ogp.me", "w.org"})
+ASSET_HOSTS = frozenset(
+    {
+        "ajax.googleapis.com",
+        "cdn.jsdelivr.net",
+        "cdnjs.cloudflare.com",
+        "code.jquery.com",
+        "fonts.googleapis.com",
+        "fonts.gstatic.com",
+        "maxcdn.bootstrapcdn.com",
+        "oss.maxcdn.com",
+        "stackpath.bootstrapcdn.com",
+        "unpkg.com",
+    },
+)
+ASSET_SUFFIXES = (".css", ".js", ".mjs", ".woff", ".woff2", ".ttf", ".eot")
+BOILERPLATE_PATHS = {
+    "gmpg.org": {"/xfn/1", "/xfn/11"},
+    "getbootstrap.com": {""},
+    "disqus.com": {
+        "",
+        "/privacy-policy",
+        "/data-sharing-settings",
+        "/home",
+        "/home/notifications",
+    },
+    "docs.disqus.com": {"/help/83", "/kb/terms-and-policies"},
+    "help.disqus.com": {"/customer/portal/articles/466260-terms-of-service"},
+}
 CC_REFERENCE = re.compile(
     r"^/(?:licenses/[^/]+|publicdomain/(?:zero|mark))/\d+(?:\.\d+)+(?:/|$)",
 )
@@ -20,14 +48,21 @@ def is_boilerplate_url(url):
         return False
     try:
         parts = urlsplit(url)
-        hostname = (parts.hostname or "").rstrip(".")
+        hostname = (parts.hostname or "").rstrip(".").removeprefix("www.")
     except ValueError:
         return False
-    if hostname in {"gmpg.org", "www.gmpg.org"}:
-        return parts.path.rstrip("/") in {"/xfn/1", "/xfn/11"}
-    if hostname in {"creativecommons.org", "www.creativecommons.org"}:
-        return parts.path.rstrip("/") == "/ns" or bool(CC_REFERENCE.match(parts.path))
-    return hostname == "i.creativecommons.org" and parts.path.startswith("/l/")
+    path = parts.path.rstrip("/")
+    if hostname in ASSET_HOSTS or path.lower().endswith(ASSET_SUFFIXES):
+        return True
+    if path in BOILERPLATE_PATHS.get(hostname, ()):
+        return True
+    if hostname == "creativecommons.org":
+        return path == "/ns" or bool(CC_REFERENCE.match(path))
+    if hostname == "i.creativecommons.org":
+        return path.startswith("/l/")
+    if hostname == "disqus.com" or hostname.endswith(".disqus.com"):
+        return path == "/embed" or path.startswith("/embed/")
+    return hostname == "disquscdn.com" or hostname.endswith(".disquscdn.com")
 
 
 def get_urlpatterns(host):
@@ -108,7 +143,7 @@ def view(request, *, host, data=False, asset=None):
     if len(request.META.get("QUERY_STRING", "")) > 4096:
         return JsonResponse({}, status=400)
     key = (
-        "collection-graph:v2:"
+        "collection-graph:v3:"
         + sha256(
             f"{config['DATA_DIR']}:{batch}:{request.GET.urlencode()}".encode(),
         ).hexdigest()

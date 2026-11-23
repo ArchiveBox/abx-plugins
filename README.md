@@ -138,11 +138,15 @@ are omitted from the canvas when there are more than 200, but remain searchable.
 W3C, Schema.org, Open Graph and WordPress metadata domains are excluded from nodes and edges.
 XFN profile URLs and Creative Commons license deeds, legal code and badges are
 also excluded from graph relationships. Other pages on those sites remain eligible.
+The graph skips script, stylesheet, and font assets, along with shared CDN
+endpoints, Bootstrap homepage references, and Disqus widget links.
 Nodes use recorded favicons, logarithmic snapshot counts and
 PageRank; only the configured domain budget is drawn. The 3D view lays out
-communities and their members in depth. Dragging a node pulls nearby linked
-nodes and keeps the adjusted positions for the session. Domain selection lazily
-loads capture details. Neither loading nor layout requires new backend workers,
+communities and their members in depth. Dragging a node pulls on springs along
+its links. Nearby nodes sway and settle into new positions for the session.
+Incoming and outgoing links use distinct colors and the same springs. Wheel
+zoom follows the cursor. Hide removes a node and its links until reload.
+Domain selection lazily loads capture details. Neither loading nor layout requires new backend workers,
 models, indexes or hooks.
 `bandwidth` registers `/admin/bandwidth/` and samples network I/O while the
 dashboard polls. It associates runner hook processes and their descendants with

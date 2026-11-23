@@ -4,6 +4,7 @@ import {
   CanvasTexture,
   TextureLoader,
   SRGBColorSpace,
+  Vector3,
 } from "./vendor/three.core.js";
 const root = document.getElementById("networkgraph-ui");
 const $ = (id) => root.querySelector(`#${id}`);
@@ -13,6 +14,7 @@ const nodes = new Map(),
   links = new Map(),
   pages = new Map(),
   queued = new Set(),
+  hiddenNodes = new Set(),
   adjacency = new Map();
 let queue = [],
   catalogCursor = "",
@@ -169,17 +171,15 @@ function requestLayout() {
   if (layoutBusy || drag) return;
   layoutBusy = true;
   layoutDirty = false;
+  const activeLinks = graphLinks();
   worker.postMessage({
-    nodes: drawableNodes()
+    nodes: drawableNodes(activeLinks)
       .slice(0, maxNodes)
       .map((n) => ({
         id: n.id,
         count: n.count || 0,
-        fx: n.fx,
-        fy: n.fy,
-        fz: n.fz,
       })),
-    links: [...links.values()].map((l) => ({
+    links: activeLinks.map((l) => ({
       source: end(l.source),
       target: end(l.target),
       value: l.value,
@@ -189,6 +189,8 @@ function requestLayout() {
 }
 const end = (value) => value.id || value;
 const focused = () => hovered || selected;
+const incomingColor = "#a22d66";
+const outgoingColor = "#087764";
 const incident = (l) =>
   !focused() ||
   end(l.source) === focused().id ||
@@ -227,13 +229,19 @@ const graph = new window.ForceGraph3D($("graph"), {
   .linkColor((l) =>
     !incident(l)
       ? "#cbd7e3"
-      : end(l.target) === focused()?.id
-      ? "#ac316d"
-      : color(end(l.source))
+      : !focused()
+      ? color(end(l.source))
+      : end(l.target) === focused().id
+      ? incomingColor
+      : outgoingColor
   )
   .linkDirectionalArrowLength((l) => (focused() && incident(l) ? 5 : 0))
   .linkDirectionalArrowRelPos(0.85)
-  .linkCurvature(0)
+  .linkCurvature((l) =>
+    focused() && incident(l) && links.has(`${end(l.target)}\0${end(l.source)}`)
+      ? 0.14
+      : 0
+  )
   .linkDirectionalParticles((l) =>
     !reduced && focused() && incident(l) ? 2 : 0
   )
@@ -276,64 +284,147 @@ graph.d3Force("center", null);
 graph.d3Force("link", null);
 graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.5));
 graph.controls().enableRotate = false;
+graph.controls().zoomToCursor = true;
+
+function springWeight(a, b) {
+  const value =
+    (links.get(`${a}\0${b}`)?.value || 0) +
+    (links.get(`${b}\0${a}`)?.value || 0);
+  return Math.min(1.4, 0.55 + Math.log2(value + 1) * 0.16);
+}
 
 function linkedNeighbors(n) {
   return [...(adjacency.get(n.id) || [])]
-    .filter((id) => visibleIds.has(id) && nodes.get(id).fx == null)
-    .map((id) => {
-      const value =
-        (links.get(`${n.id}\0${id}`)?.value || 0) +
-        (links.get(`${id}\0${n.id}`)?.value || 0);
-      const peer = nodes.get(id);
-      const sameCommunity = n.community && n.community === peer.community;
-      const weight = Math.min(0.68, 0.3 + Math.log2(value + 1) * 0.08);
-      return { peer, weight: weight * (sameCommunity ? 1 : 0.55) };
-    })
+    .filter((id) => visibleIds.has(id))
+    .map((id) => ({ peer: nodes.get(id), weight: springWeight(n.id, id) }))
     .sort((a, b) => b.weight - a.weight);
 }
 
+const nodePosition = (n) =>
+  new Vector3(n.x, n.y, dimensionality === 3 ? n.z : 0);
+const springOffset = new Vector3();
+const springStep = 1000 / 60;
+
 function dragNode(n, delta) {
-  if (!drag) {
-    const neighbors = new Map();
-    const adjacent = linkedNeighbors(n).slice(0, 64);
-    for (const { peer, weight } of adjacent)
-      neighbors.set(peer, { x: peer.x, y: peer.y, z: peer.z, weight });
-    // Carry movement into the nearest part of the community, with a weaker pull.
-    for (const { peer, weight } of adjacent.slice(0, 8)) {
-      if (!n.community || peer.community !== n.community) continue;
-      for (const next of linkedNeighbors(peer).slice(0, 8)) {
-        const neighbor = next.peer;
-        if (
-          neighbor === n ||
-          neighbor.community !== n.community ||
-          neighbors.has(neighbor)
-        )
-          continue;
-        neighbors.set(neighbor, {
-          x: neighbor.x,
-          y: neighbor.y,
-          z: neighbor.z,
-          weight: weight * next.weight * 0.5,
-        });
-      }
-    }
-    drag = {
-      origin: { x: n.x - delta.x, y: n.y - delta.y, z: n.z - delta.z },
-      neighbors,
+  if (drag?.node === n && drag.remaining === null) return;
+  if (drag) finishDrag();
+  const bodies = new Map();
+  const springs = [];
+  const add = (node, anchor, depth) => {
+    const body = {
+      node,
+      anchor,
+      position: anchor.clone(),
+      velocity: new Vector3(),
+      force: new Vector3(),
+      depth,
+      weight: 0,
     };
-    rearranged = true;
+    bodies.set(node, body);
+    return body;
+  };
+  const anchor = nodePosition(n);
+  anchor.x -= delta.x;
+  anchor.y -= delta.y;
+  if (dimensionality === 3) anchor.z -= delta.z;
+  const grabbed = add(n, anchor, 0);
+  const direct = linkedNeighbors(n).map(({ peer }) =>
+    add(peer, nodePosition(peer), 1)
+  );
+  // Give every direct link a spring. Limit exploration beyond that first hop.
+  const frontier = direct.filter(({ node }) => node.fx == null).slice(0, 32);
+  const limit = bodies.size + 120;
+  for (const { node, depth } of frontier) {
+    if (bodies.size >= limit) break;
+    if (depth >= 4 || node.fx != null) continue;
+    for (const { peer } of linkedNeighbors(node).slice(0, 8)) {
+      if (bodies.has(peer)) continue;
+      frontier.push(add(peer, nodePosition(peer), depth + 1));
+      if (bodies.size >= limit) break;
+    }
   }
-  for (const [peer, start] of drag.neighbors) {
-    peer.x = start.x + (n.x - drag.origin.x) * start.weight;
-    peer.y = start.y + (n.y - drag.origin.y) * start.weight;
-    if (dimensionality === 3)
-      peer.z = start.z + (n.z - drag.origin.z) * start.weight;
+  for (const a of bodies.values()) {
+    for (const id of adjacency.get(a.node.id) || []) {
+      if (a.node.id >= id) continue;
+      const b = bodies.get(nodes.get(id));
+      if (!b) continue;
+      const weight = springWeight(a.node.id, id);
+      a.weight += weight;
+      b.weight += weight;
+      springs.push({ a, b, weight, length: a.anchor.distanceTo(b.anchor) });
+    }
+  }
+  drag = {
+    node: n,
+    grabbed,
+    bodies,
+    springs,
+    remaining: null,
+    time: performance.now(),
+    elapsed: 0,
+  };
+  rearranged = true;
+}
+
+function tickSprings() {
+  const held = drag.remaining === null;
+  for (const body of drag.bodies.values()) {
+    const { node, position, anchor, force } = body;
+    position.set(node.x, node.y, dimensionality === 3 ? node.z : 0);
+    // A light tether limits drift. On release, bias the grabbed node toward its new position.
+    force
+      .copy(anchor)
+      .sub(position)
+      .multiplyScalar(body === drag.grabbed ? 0.21 : 0.009);
+  }
+  for (const { a, b, length, weight } of drag.springs) {
+    springOffset.copy(b.position).sub(a.position);
+    const distance = springOffset.length();
+    if (distance < 0.0001) continue;
+    const pull = ((distance - length) / distance) * weight * 0.27;
+    a.force.addScaledVector(springOffset, pull / Math.max(1, a.weight));
+    b.force.addScaledVector(springOffset, -pull / Math.max(1, b.weight));
+  }
+  let fastest = 0;
+  for (const { node, position, velocity, force } of drag.bodies.values()) {
+    if (node.fx != null || (held && node === drag.node)) continue;
+    velocity.add(force).multiplyScalar(reduced ? 0.84 : 0.91);
+    position.add(velocity);
+    node.x = position.x;
+    node.y = position.y;
+    node.z = position.z;
+    fastest = Math.max(fastest, velocity.lengthSq());
+  }
+  if (
+    !held &&
+    (--drag.remaining === 0 ||
+      (drag.remaining < (reduced ? 28 : 100) && fastest < 0.01))
+  )
+    finishDrag();
+}
+
+function advanceDrag(time) {
+  drag.elapsed += Math.min(time - drag.time, 3 * springStep);
+  drag.time = time;
+  while (drag && drag.elapsed >= springStep) {
+    drag.elapsed -= springStep;
+    tickSprings();
   }
 }
 
 function dropNode(n) {
-  if (!drag) return;
-  for (const peer of [n, ...drag.neighbors.keys()]) {
+  if (drag?.node !== n) return;
+  drag.grabbed.anchor.copy(nodePosition(n));
+  drag.remaining = reduced ? 45 : 120;
+}
+
+function finishDrag() {
+  for (const { node: peer, anchor } of drag.bodies.values()) {
+    if (
+      peer !== drag.node &&
+      (peer.fx != null || nodePosition(peer).distanceToSquared(anchor) < 0.01)
+    )
+      continue;
     peer.placement = {
       x: peer.x,
       y: peer.y,
@@ -346,7 +437,12 @@ function dropNode(n) {
 }
 
 function enqueue(n, priority = false) {
-  if (queued.has(n.id) || queue.length >= maxNodes || pages.get(n.id) === null)
+  if (
+    hiddenNodes.has(n.id) ||
+    queued.has(n.id) ||
+    queue.length >= maxNodes ||
+    pages.get(n.id) === null
+  )
     return;
   queued.add(n.id);
   priority ? queue.unshift(n) : queue.push(n);
@@ -402,17 +498,27 @@ function paint() {
     .nodeColor(graph.nodeColor())
     .linkColor(graph.linkColor())
     .linkWidth(graph.linkWidth())
+    .linkCurvature(graph.linkCurvature())
     .linkDirectionalParticles(graph.linkDirectionalParticles());
 }
-function drawableNodes() {
+function graphLinks() {
+  const all = [...links.values()];
+  if (!hiddenNodes.size) return all;
+  return all.filter(
+    (l) => !hiddenNodes.has(end(l.source)) && !hiddenNodes.has(end(l.target))
+  );
+}
+function drawableNodes(activeLinks) {
   const connected = new Set();
-  for (const link of links.values()) {
+  for (const link of activeLinks) {
     connected.add(end(link.source));
     connected.add(end(link.target));
   }
-  const hideIsolates = nodes.size - connected.size > 200;
+  const hideIsolates = nodes.size - hiddenNodes.size - connected.size > 200;
   return [...nodes.values()].filter(
-    (n) => !hideIsolates || connected.has(n.id) || n === selected
+    (n) =>
+      !hiddenNodes.has(n.id) &&
+      (!hideIsolates || connected.has(n.id) || n === selected)
   );
 }
 function layout() {
@@ -421,13 +527,14 @@ function layout() {
     return;
   }
   layoutDeferred = false;
-  const ranked = drawableNodes().sort(
+  const activeLinks = graphLinks();
+  const ranked = drawableNodes(activeLinks).sort(
     (a, b) => (b.rank || 0) - (a.rank || 0) || (b.count || 0) - (a.count || 0)
   );
   visible = ranked.slice(0, maxNodes);
   if (selected && !visible.includes(selected)) visible.push(selected);
   visibleIds = new Set(visible.map((n) => n.id));
-  visibleLinks = [...links.values()]
+  visibleLinks = activeLinks
     .filter(
       (l) => visibleIds.has(end(l.source)) && visibleIds.has(end(l.target))
     )
@@ -442,7 +549,7 @@ function layout() {
     n.outgoing = 0;
     adjacency.set(n.id, new Set());
   }
-  for (const l of links.values()) {
+  for (const l of activeLinks) {
     const a = end(l.source),
       b = end(l.target);
     nodes.get(a).outgoing++;
@@ -460,9 +567,9 @@ function layout() {
   root.dataset.complete = String(catalogDone);
   root.dataset.linksComplete = String(linksDone);
   root.dataset.rendered = String(visible.length);
-  $(
-    "node-count"
-  ).textContent = `${visible.length.toLocaleString()} / ${nodes.size.toLocaleString()}`;
+  $("node-count").textContent = `${visible.length.toLocaleString()} / ${(
+    nodes.size - hiddenNodes.size
+  ).toLocaleString()}`;
   $("link-count").textContent = number.format(visibleLinks.length);
   $("snapshot-count").textContent = sampled.toLocaleString();
   labelNodes = visible.slice(0, 20).map((n) => {
@@ -474,7 +581,7 @@ function layout() {
     return { n, el };
   });
   for (const group of communityLabels
-    .filter((g) => g.id && g.count > 2)
+    .filter((g) => g.id && !hiddenNodes.has(g.id) && g.count > 2)
     .sort((a, b) => b.count - a.count)
     .slice(0, 25)) {
     const el = document.createElement("button");
@@ -491,6 +598,11 @@ function layout() {
     });
   }
   $("labels").replaceChildren(...labelNodes.map((l) => l.el));
+  positionLabels();
+  if (paused)
+    requestAnimationFrame(() => {
+      if (paused) graph.resumeAnimation().pauseAnimation();
+    });
   const bars = [...ranked]
       .sort((a, b) => (b.count || 0) - (a.count || 0))
       .slice(0, 64),
@@ -527,7 +639,7 @@ function layout() {
 function renderList() {
   const term = $("search").value.trim().toLowerCase();
   const list = [...nodes.values()]
-    .filter((n) => !term || n.id.includes(term))
+    .filter((n) => !hiddenNodes.has(n.id) && (!term || n.id.includes(term)))
     .sort((a, b) => (b.count || 0) - (a.count || 0))
     .slice(0, 100);
   $("domains").replaceChildren(
@@ -584,9 +696,8 @@ function details() {
   $("snapshots").href = `../core/snapshot/?domain=${encodeURIComponent(
     n.scope || "*." + n.id
   )}`;
-  $("pin").classList.toggle("active", n.fx != null);
   $("expand").disabled = pages.get(n.id) === null;
-  const neighborhood = [...links.values()]
+  const neighborhood = graphLinks()
     .filter((l) => end(l.source) === n.id || end(l.target) === n.id)
     .sort((a, b) => b.value - a.value)
     .slice(0, 12);
@@ -596,7 +707,7 @@ function details() {
       const incoming = end(l.target) === n.id;
       const target = nodes.get(incoming ? end(l.source) : end(l.target));
       b.textContent = `${incoming ? "↙" : "↗"} ${target.id} · ${l.value}`;
-      b.style.color = incoming ? "#a22d66" : "#087764";
+      b.style.color = incoming ? incomingColor : outgoingColor;
       b.onclick = () => select(target);
       return b;
     })
@@ -624,6 +735,7 @@ function details() {
   );
 }
 function select(n) {
+  if (hiddenNodes.has(n.id)) return;
   selected = n;
   hovered = null;
   if (!visible.includes(n)) layout();
@@ -703,6 +815,7 @@ async function step() {
   }
 }
 function togglePause() {
+  if (drag) finishDrag();
   paused = !paused;
   $("play").textContent = paused ? "▶" : "Ⅱ";
   $("play").ariaLabel = paused ? "Resume" : "Pause";
@@ -713,16 +826,12 @@ $("play").onclick = togglePause;
 $("fit").onclick = () =>
   graph.zoomToFit(reduced ? 0 : 700, 80, (n) => Boolean(n.community));
 $("dimensions").onclick = () => {
+  if (drag) finishDrag();
   dimensionality = dimensionality === 3 ? 2 : 3;
   const spatial = dimensionality === 3;
   const target = graph.controls().target.clone();
   const distance = graph.camera().position.distanceTo(target);
   if (!spatial) target.z = 0;
-  for (const n of visible) {
-    if (n.fx == null) continue;
-    if (!spatial) n.pinnedDepth = n.fz;
-    n.fz = spatial ? n.pinnedDepth ?? 0 : 0;
-  }
   graph.controls().enableRotate = spatial;
   graph.cameraPosition(
     {
@@ -748,8 +857,13 @@ $("search").oninput = renderList;
 $("search").onkeydown = (e) => {
   if (e.key !== "Enter") return;
   const value = $("search").value.trim().toLowerCase();
-  let n =
-    nodes.get(value) || [...nodes.values()].find((n) => n.id.includes(value));
+  const exact = nodes.get(value);
+  const n =
+    exact && !hiddenNodes.has(value)
+      ? exact
+      : [...nodes.values()].find(
+          (n) => !hiddenNodes.has(n.id) && n.id.includes(value)
+        );
   if (n) select(n);
 };
 $("close").onclick = () => {
@@ -759,14 +873,17 @@ $("close").onclick = () => {
   renderList();
 };
 $("expand").onclick = () => selected && enqueue(selected, true);
-$("pin").onclick = () => {
+$("hide").onclick = () => {
   if (!selected) return;
-  const pinned = selected.fx != null;
-  delete selected.pinnedDepth;
-  for (const axis of ["x", "y", "z"])
-    selected[`f${axis}`] = pinned ? undefined : selected[axis];
+  if (drag) finishDrag();
+  hiddenNodes.add(selected.id);
+  queue = queue.filter((n) => n !== selected);
+  queued.delete(selected.id);
+  selected = hovered = null;
+  $("selection").hidden = true;
+  rearranged = true;
+  layout();
   requestLayout();
-  details();
 };
 function resize() {
   graph
@@ -781,7 +898,9 @@ document.addEventListener("visibilitychange", () => {
 });
 function frame(t) {
   requestAnimationFrame(frame);
-  if (document.hidden || paused || t - lastFrame < 40) return;
+  if (document.hidden || paused) return;
+  if (drag?.time < t) advanceDrag(t);
+  if (t - lastFrame < 40) return;
   lastFrame = t;
   if (dimensionality === 3 && orbit && !drag) {
     const target = graph.controls().target;
@@ -797,7 +916,7 @@ function frame(t) {
     );
   }
   for (const n of visible) {
-    if (!n.target || n.fx != null || drag?.neighbors.has(n)) continue;
+    if (!n.target || n.fx != null || drag?.bodies.has(n)) continue;
     for (const axis of ["x", "y", "z"]) {
       const position =
         axis === "z" && dimensionality === 2
@@ -806,6 +925,9 @@ function frame(t) {
       n[axis] += (position - n[axis]) * (reduced ? 1 : 0.16);
     }
   }
+  positionLabels();
+}
+function positionLabels() {
   for (const { n, el } of labelNodes) {
     const p = graph.graph2ScreenCoords(n.x || 0, n.y || 0, n.z || 0);
     const isNear =
