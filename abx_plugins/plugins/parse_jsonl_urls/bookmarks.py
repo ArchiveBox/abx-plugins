@@ -102,7 +102,12 @@ def json_object_to_entry(link: dict) -> dict | None:
 def iter_json_records(content: str):
     """Accept a JSON document or one bookmark object per JSONL line."""
     if bookmark_input_format(content) == "csv":
-        yield from csv.DictReader(io.StringIO(content.lstrip("\ufeff")))
+        text = content.lstrip("\ufeff")
+        try:
+            dialect = csv.Sniffer().sniff(text[:8192], delimiters=",;\t")
+        except csv.Error:
+            dialect = csv.excel
+        yield from csv.DictReader(io.StringIO(text), dialect=dialect)
         return
     try:
         document = json.loads(content)
