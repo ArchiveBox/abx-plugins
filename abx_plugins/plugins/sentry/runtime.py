@@ -21,7 +21,7 @@ _provider = None
 _sentry = None
 
 
-def initialize(config, *, django=False):
+def initialize(config):
     global _provider, _sentry
     if not config.SENTRY_ENABLED:
         return None
@@ -35,7 +35,7 @@ def initialize(config, *, django=False):
         except BinaryLoadError as error:
             raise RuntimeError(
                 "Sentry SDK is not installed. Run `SENTRY_ENABLED=false "
-                "archivebox install sentry` (or `abx-dl install sentry`), "
+                "archivebox install sentry`, "
                 "then enable Sentry and restart.",
             ) from error
         # Provider-owned paths avoid coupling to the managed venv layout.
@@ -55,9 +55,8 @@ def initialize(config, *, django=False):
                 sentry_logs_level=level,
             ),
         ]
-        if django:
-            integration = import_module("sentry_sdk.integrations.django")
-            integrations.append(integration.DjangoIntegration())
+        integration = import_module("sentry_sdk.integrations.django")
+        integrations.append(integration.DjangoIntegration())
         sentry.init(
             dsn=config.SENTRY_DSN.strip(),
             environment=config.SENTRY_ENVIRONMENT,
@@ -110,16 +109,6 @@ def initialize(config, *, django=False):
             getattr(instrumentation, name)().instrument(**options)
         _sentry = sentry
 
-    if django:
         instrumentation = import_module("opentelemetry.instrumentation.django")
         instrumentation.DjangoInstrumentor().instrument(tracer_provider=_provider)
     return _provider
-
-
-def get_eventbus_middlewares(config):
-    provider = initialize(config)
-    if provider is None:
-        return []
-    from abxbus.middlewares import OtelTracingMiddleware
-
-    return [OtelTracingMiddleware(tracer=provider.get_tracer("abxbus"))]

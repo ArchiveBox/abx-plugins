@@ -88,7 +88,6 @@ not import or require `archivebox` or `abx-dl`.
 | `search_order`, `search_fallback`, `search_scan` | Integer priority (default `1000`), fallback eligibility, filesystem-scan flag (both default `false`). |
 | `presentation_module` | Importable module providing the presentation functions below. |
 | `app_module` | Importable `app.py` providing optional native application functions below; import must not require Django setup. |
-| `eventbus_module` | Optional process integration module exposing `get_eventbus_middlewares(config)`; imported only when the plugin's enable flag is true. |
 | `agent_tools` | `{scope, binaries, environment?}`; `environment` is `module:function(endpoint, binaries) -> dict[str, str]`. |
 | `agent_skills` | Section name → relative Markdown file, selected by `agent_tools.scope`. |
 
@@ -136,11 +135,11 @@ resolved machine settings. Check the enable flag before returning any markup.
 ArchiveBox calls this hook from its admin and public UI base templates; archived
 documents are not modified. Use Django templates and `json_script` for settings.
 
-For process integrations, `eventbus_module.get_eventbus_middlewares(config)`
-returns native EventBus middleware instances. The host resolves the plugin schema
-and checks its enable flag **before importing the module**. These integrations
-are independent of capture plugin selection (`--plugins`). Optional monitoring
-dependencies belong in `required_binaries`, not mandatory host dependencies.
+An `app.py` can expose `register_eventbus(bus, config)`. ArchiveBox calls it once
+for each new bus before processing events. Every application plugin receives the
+bus and resolved configuration; the plugin decides whether to register handlers,
+services or native middleware. Check enable flags before importing optional
+integrations. Standalone abx-dl does not call application hooks.
 
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
