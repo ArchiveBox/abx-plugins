@@ -121,6 +121,8 @@ Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 label. The host installs it at startup; models, migrations, management commands,
 and `ready()` use standard Django behavior. Register signals and logging filters
 there. App registration is independent of hook enable flags.
+
+
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
 options (`label`, `icon`, `color`, `section`, `blocking`);
