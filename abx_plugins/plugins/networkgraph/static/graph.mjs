@@ -286,18 +286,35 @@ graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.5));
 graph.controls().enableRotate = false;
 graph.controls().zoomToCursor = true;
 
-function springWeight(a, b) {
-  const value =
+function linkAffinity(a, b) {
+  const references =
     (links.get(`${a}\0${b}`)?.value || 0) +
     (links.get(`${b}\0${a}`)?.value || 0);
-  return Math.min(1.4, 0.55 + Math.log2(value + 1) * 0.16);
+  const repeated = Math.min(1, Math.log2(references) / 5);
+  const alternatives = Math.min(adjacency.get(a).size, adjacency.get(b).size);
+  // A leaf belongs to its only neighbor. Between hubs, repeated links matter more.
+  return Math.max(0.93 / alternatives ** 0.85, 0.12 + 0.87 * repeated ** 1.4);
 }
 
-function linkedNeighbors(n) {
-  return [...(adjacency.get(n.id) || [])]
-    .filter((id) => visibleIds.has(id))
-    .map((id) => ({ peer: nodes.get(id), weight: springWeight(n.id, id) }))
-    .sort((a, b) => b.weight - a.weight);
+function dragInfluence(rootId) {
+  const influence = new Map([[rootId, 1]]);
+  let wave = new Map(influence);
+  while (wave.size) {
+    const next = new Map();
+    for (const [id, strength] of wave) {
+      const transmitted = strength * (id === rootId ? 1 : 0.82);
+      for (const peer of adjacency.get(id) || []) {
+        if (!visibleIds.has(peer)) continue;
+        const received = transmitted * linkAffinity(id, peer);
+        // Stop following a branch only when its remaining influence is negligible.
+        if (received <= (influence.get(peer) ?? 0.008)) continue;
+        influence.set(peer, received);
+        next.set(peer, received);
+      }
+    }
+    wave = next;
+  }
+  return influence;
 }
 
 const nodePosition = (n) =>
@@ -310,48 +327,39 @@ function dragNode(n, delta) {
   if (drag) finishDrag();
   const bodies = new Map();
   const springs = [];
-  const add = (node, anchor, depth) => {
+  const add = (node, origin, influence) => {
     const body = {
       node,
-      anchor,
-      position: anchor.clone(),
+      origin,
+      position: origin.clone(),
       velocity: new Vector3(),
       force: new Vector3(),
-      depth,
+      tether: 0.18 * (1 - influence) ** 2,
       weight: 0,
     };
     bodies.set(node, body);
     return body;
   };
-  const anchor = nodePosition(n);
-  anchor.x -= delta.x;
-  anchor.y -= delta.y;
-  if (dimensionality === 3) anchor.z -= delta.z;
-  const grabbed = add(n, anchor, 0);
-  const direct = linkedNeighbors(n).map(({ peer }) =>
-    add(peer, nodePosition(peer), 1)
-  );
-  // Give every direct link a spring. Limit exploration beyond that first hop.
-  const frontier = direct.filter(({ node }) => node.fx == null).slice(0, 32);
-  const limit = bodies.size + 120;
-  for (const { node, depth } of frontier) {
-    if (bodies.size >= limit) break;
-    if (depth >= 4 || node.fx != null) continue;
-    for (const { peer } of linkedNeighbors(node).slice(0, 8)) {
-      if (bodies.has(peer)) continue;
-      frontier.push(add(peer, nodePosition(peer), depth + 1));
-      if (bodies.size >= limit) break;
-    }
+  const origin = nodePosition(n);
+  origin.x -= delta.x;
+  origin.y -= delta.y;
+  if (dimensionality === 3) origin.z -= delta.z;
+  const grabbed = add(n, origin, 1);
+  for (const [id, influence] of dragInfluence(n.id)) {
+    if (id === n.id) continue;
+    const peer = nodes.get(id);
+    add(peer, nodePosition(peer), influence);
   }
   for (const a of bodies.values()) {
     for (const id of adjacency.get(a.node.id) || []) {
       if (a.node.id >= id) continue;
       const b = bodies.get(nodes.get(id));
       if (!b) continue;
-      const weight = springWeight(a.node.id, id);
+      const weight = linkAffinity(a.node.id, id) ** 1.7;
       a.weight += weight;
       b.weight += weight;
-      springs.push({ a, b, weight, length: a.anchor.distanceTo(b.anchor) });
+      const offset = new Vector3().subVectors(b.origin, a.origin);
+      springs.push({ a, b, weight, offset, length: offset.length() });
     }
   }
   drag = {
@@ -359,6 +367,7 @@ function dragNode(n, delta) {
     grabbed,
     bodies,
     springs,
+    dropTarget: null,
     remaining: null,
     time: performance.now(),
     elapsed: 0,
@@ -367,25 +376,28 @@ function dragNode(n, delta) {
 }
 
 function tickSprings() {
-  const held = drag.remaining === null;
+  const held = drag.dropTarget === null;
   for (const body of drag.bodies.values()) {
-    const { node, position, anchor, force } = body;
+    const { node, position, origin, tether, force } = body;
     position.set(node.x, node.y, dimensionality === 3 ? node.z : 0);
-    // A light tether limits drift. On release, bias the grabbed node toward its new position.
-    force
-      .copy(anchor)
-      .sub(position)
-      .multiplyScalar(body === drag.grabbed ? 0.21 : 0.009);
+    // Weakly connected sites stay near their own groups while strong ties travel with the hub.
+    force.subVectors(origin, position).multiplyScalar(tether);
   }
-  for (const { a, b, length, weight } of drag.springs) {
-    springOffset.copy(b.position).sub(a.position);
+  if (!held) {
+    const { position, force } = drag.grabbed;
+    force.subVectors(drag.dropTarget, position).multiplyScalar(0.32);
+  }
+  for (const { a, b, offset, length, weight } of drag.springs) {
+    springOffset.subVectors(b.position, a.position);
     const distance = springOffset.length();
-    if (distance < 0.0001) continue;
-    const pull = ((distance - length) / distance) * weight * 0.27;
-    a.force.addScaledVector(springOffset, pull / Math.max(1, a.weight));
-    b.force.addScaledVector(springOffset, -pull / Math.max(1, b.weight));
+    const radial =
+      distance > 0.0001 ? (0.16 * (distance - length)) / distance : 0;
+    // Restore the local offset as well as the length, so peers fan back out around a moved hub.
+    springOffset.multiplyScalar(radial + 0.16).addScaledVector(offset, -0.16);
+    a.force.addScaledVector(springOffset, weight / Math.max(1, a.weight));
+    b.force.addScaledVector(springOffset, -weight / Math.max(1, b.weight));
   }
-  let fastest = 0;
+  let motion = 0;
   for (const { node, position, velocity, force } of drag.bodies.values()) {
     if (node.fx != null || (held && node === drag.node)) continue;
     velocity.add(force).multiplyScalar(reduced ? 0.84 : 0.91);
@@ -393,14 +405,9 @@ function tickSprings() {
     node.x = position.x;
     node.y = position.y;
     node.z = position.z;
-    fastest = Math.max(fastest, velocity.lengthSq());
+    motion = Math.max(motion, velocity.lengthSq(), force.lengthSq());
   }
-  if (
-    !held &&
-    (--drag.remaining === 0 ||
-      (drag.remaining < (reduced ? 28 : 100) && fastest < 0.01))
-  )
-    finishDrag();
+  if (!held && (--drag.remaining === 0 || motion < 0.01)) finishDrag();
 }
 
 function advanceDrag(time) {
@@ -414,15 +421,15 @@ function advanceDrag(time) {
 
 function dropNode(n) {
   if (drag?.node !== n) return;
-  drag.grabbed.anchor.copy(nodePosition(n));
-  drag.remaining = reduced ? 45 : 120;
+  drag.dropTarget = nodePosition(n);
+  drag.remaining = reduced ? 75 : 150;
 }
 
 function finishDrag() {
-  for (const { node: peer, anchor } of drag.bodies.values()) {
+  for (const { node: peer, origin } of drag.bodies.values()) {
     if (
       peer !== drag.node &&
-      (peer.fx != null || nodePosition(peer).distanceToSquared(anchor) < 0.01)
+      (peer.fx != null || nodePosition(peer).distanceToSquared(origin) < 0.01)
     )
       continue;
     peer.placement = {
