@@ -3,6 +3,7 @@
     {% if output_path %}
         <img src="{{ output_path }}"
              alt="Favicon"
+             onerror="this.parentElement.remove()"
              style="width: 28px; height: 28px; max-width: 28px; max-height: 28px; object-fit: contain;"
              loading="lazy"
              decoding="async"
