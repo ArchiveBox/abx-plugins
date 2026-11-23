@@ -5,6 +5,7 @@ from pathlib import Path
 from django.apps import AppConfig as DjangoAppConfig
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.deprecation import MiddlewareMixin
 from abx_plugins.plugins.base.utils import load_config
 
 
@@ -74,6 +75,10 @@ class AppConfig(DjangoAppConfig):
 
         try:
             initialize(config)
+            settings.MIDDLEWARE = [
+                *settings.MIDDLEWARE,
+                "abx_plugins.plugins.sentry.app.RequestAttributesMiddleware",
+            ]
             self._shutdown = shutdown
         except (ValueError, RuntimeError) as error:
             raise ImproperlyConfigured(str(error)) from error
@@ -102,3 +107,52 @@ def register_eventbus(bus, config):
     assert provider is not None
     bus.middlewares.append(OtelTracingMiddleware(tracer=provider.get_tracer("abxbus")))
     register_hook_reporting(bus, resolved)
+
+
+def wrap_asgi(application, config):
+    """Own request tracing through response delivery, including cancellation."""
+    resolved = load_config(
+        CONFIG_PATH,
+        global_config=config,
+        environ={},
+        hydrate_binaries=False,
+        hydrate_user_agent=False,
+    )
+    if not resolved.SENTRY_ENABLED:
+        return application
+    from .runtime import initialize
+    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+
+    return OpenTelemetryMiddleware(
+        application,
+        tracer_provider=initialize(resolved),
+        # Resolved Django routes replace this low-cardinality initial name.
+        default_span_details=lambda scope: (scope.get("method", scope["type"]), {}),
+        # The server span covers transport waits without a child per body chunk.
+        exclude_spans=["receive", "send"],
+    )
+
+
+class RequestAttributesMiddleware(MiddlewareMixin):
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        from opentelemetry.trace import get_current_span
+
+        span = get_current_span()
+        if span.is_recording() and request.resolver_match is not None:
+            route = request.resolver_match.route
+            span.set_attribute("http.route", route)
+            span.update_name(f"{request.method} {route}")
+
+    def process_response(self, request, response):
+        from opentelemetry.trace import get_current_span
+        from sentry_sdk import get_client
+
+        span = get_current_span()
+        if span.is_recording() and get_client().options["send_default_pii"]:
+            user = getattr(request, "user", None)
+            if user is not None and user.is_authenticated:
+                span.set_attribute("user.id", str(user.pk))
+                span.set_attribute("user.name", user.get_username())
+                if getattr(user, "email", None):
+                    span.set_attribute("user.email", user.email)
+        return response

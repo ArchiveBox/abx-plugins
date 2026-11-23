@@ -41,6 +41,9 @@ absent from add/persona settings and cannot be overridden or frozen on a crawl.
   Spans use Sentry's native OTLP ingestion with SQL statements and database
   attributes intact. Request and event context supplies query parents; queries
   outside those operations remain visible so background work can be diagnosed.
+  One native ASGI server span covers body reads, Django execution and response
+  delivery, including access logs and cancellation. Django middleware adds the
+  resolved route and optional authenticated user without opening another span.
   Every span includes its process and parent PID, command name, release,
   environment and thread; supervised workers also include their Supervisor
   process name, distinguishing HTTP workers from crawl runners and watchdogs.
@@ -77,6 +80,11 @@ explicit opt-in. Its `render_page_head(request, config)` hook renders browser se
 using the current machine configuration and Django's safe JSON serialization.
 The plugin imports neither ArchiveBox nor abx-dl.
 
+`app.wrap_asgi(application, config)` returns the unchanged application when
+disabled, otherwise the native OpenTelemetry ASGI middleware. Its context is
+entered and exited in the same async request lifetime, including disconnects;
+no separate Django tracing context is kept on a request awaiting cleanup.
+
 ArchiveBox calls `app.register_eventbus(bus, config)` before dispatch on its crawl,
 binary-resolution and install buses. The plugin
 checks its own enable flag before importing its runtime and attaching the native
@@ -88,6 +96,6 @@ Standalone abx-dl never calls this hook or initializes Sentry.
 Child extractors do not initialize their own SDK; their process and handler spans
 are recorded by ArchiveBox's bus.
 
-See the upstream [OpenTelemetry Django instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html),
+See the upstream [OpenTelemetry ASGI instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html),
 [Sentry metrics](https://docs.sentry.io/platforms/python/metrics/) and
 [browser bundles](https://docs.sentry.io/platforms/javascript/install/loader/#cdn).

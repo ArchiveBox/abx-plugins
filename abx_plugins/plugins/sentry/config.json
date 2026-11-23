@@ -26,7 +26,7 @@
             "sentry-sdk[opentelemetry-otlp]==2.75.0",
             "opentelemetry-sdk==1.45.2",
             "opentelemetry-exporter-otlp-proto-http==1.45.2",
-            "opentelemetry-instrumentation-django[asgi]==0.66b2",
+            "opentelemetry-instrumentation-asgi==0.66b2",
             "opentelemetry-instrumentation-sqlite3==0.66b2",
             "opentelemetry-instrumentation-requests==0.66b2",
             "opentelemetry-instrumentation-urllib3==0.66b2"

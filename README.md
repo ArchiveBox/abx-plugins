@@ -179,6 +179,7 @@ background services, models, or migrations. Both stop polling in hidden tabs.
 | `get_cli_commands(host)` | Native Click commands mounted at `archivebox plugin <plugin> <command>`. |
 | `get_services(host, config)` | Service dictionaries described below. |
 | `register_eventbus(bus, config)` | `None`; register handlers, services or middleware on the supplied native `abxbus.EventBus`. |
+| `wrap_asgi(application, config)` | ASGI callable; wrap the complete host application, or return it unchanged when disabled. |
 | `read_snapshot_inventory(snapshot_dir, *, verify=False)` | `None` when absent, otherwise `{path: {size, hash, is_dir}}`; invalid inventories raise `ValueError`. |
 
 `app.py` may export `AppConfig`, a native Django `AppConfig` subclass with a unique
@@ -216,6 +217,16 @@ owns enable checks** and must check before importing optional dependencies.
 Use `load_config(..., global_config=config, environ={})` to preserve host-resolved
 settings. Registration errors fail the operation; the host owns bus teardown.
 Process-wide initialization must tolerate multiple bus registrations.
+
+An `app_module` may export synchronous `wrap_asgi(application, config)`. ArchiveBox
+calls it once per HTTP worker after Django setup, with resolved machine/collection
+configuration. Wrappers compose in catalog order (first plugin outermost), around
+HTTP and WebSocket dispatch, including request-body reads, response streaming and
+disconnect cleanup. A wrapper must preserve the ASGI protocol and propagate
+exceptions/cancellation, with cleanup in `finally`. Plugins own enable checks;
+disabled plugins return the original callable before importing optional runtime
+dependencies. Registration errors fail startup. This hook does not wrap individual
+views or create a second Django middleware stack.
 
 ArchiveBox's `services.runner.create_bus(config=..., **bus_options)` registers
 apps immediately; crawl runners defer registration until their config is loaded.

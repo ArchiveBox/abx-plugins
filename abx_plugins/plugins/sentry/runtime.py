@@ -283,19 +283,4 @@ def initialize(config):
                 )
             getattr(instrumentation, name)().instrument(**options)
         _sentry = sentry
-
-        def response_hook(span, request, response):
-            if config.SENTRY_SEND_DEFAULT_PII:
-                user = getattr(request, "user", None)
-                if user is not None and user.is_authenticated:
-                    span.set_attribute("user.id", str(user.pk))
-                    span.set_attribute("user.name", user.get_username())
-                    if getattr(user, "email", None):
-                        span.set_attribute("user.email", user.email)
-
-        instrumentation = import_module("opentelemetry.instrumentation.django")
-        instrumentation.DjangoInstrumentor().instrument(
-            tracer_provider=_provider,
-            response_hook=response_hook,
-        )
     return _provider
