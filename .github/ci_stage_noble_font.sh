@@ -15,6 +15,12 @@ checksum=496969d65dc5664a3291e678d5cbef6815dc308ee5bf37b656c00af2cb490410
 archive_dir="$RUNNER_TEMP/noble-font-archive"
 archive="$archive_dir/$package"
 mkdir -p "$archive_dir"
+# The workflow prefetch owns network acquisition. Concurrent test workers only
+# restore its verified bytes after APT cache cleanup; retrying a failed fetch
+# here serializes network timeouts before the native installer can even start.
+if [[ "${1:-}" == --lazy && ! -f "$archive" ]]; then
+  exit 0
+fi
 exec 9>"$RUNNER_TEMP/noble-font-stage.lock"
 flock 9
 if [[ "${1:-}" == --lazy ]] &&
