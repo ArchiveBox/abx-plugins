@@ -17,7 +17,15 @@ from typing import Any
 import json
 import os
 import sqlite3
+from contextlib import closing
 
+from abx_plugins.plugins.base.search_candidates import (
+    Candidate,
+    Evidence,
+    SearchBudget,
+    SearchTerm,
+    id_spellings,
+)
 from abx_plugins.plugins.base.search_command import run_search_command
 
 
@@ -128,6 +136,134 @@ def search(
         conn.close()
 
 
+def _document_ids(conn, snapshot_id, has_lookup):
+    identities = id_spellings(snapshot_id)
+    slots = ",".join("?" for _ in identities)
+    if has_lookup:
+        return conn.execute(
+            f"SELECT document_rowid FROM search_index_lookup WHERE snapshot_id IN ({slots}) LIMIT 65",
+            identities,
+        )
+    # Older indexes lack the identity B-tree. Restrict the search to the
+    # existing FTS postings and verify stored IDs; never backfill on a read.
+    words = " OR ".join(
+        'snapshot_id:"' + key.replace('"', '""') + '"' for key in identities
+    )
+    return conn.execute(
+        f"SELECT rowid FROM search_index WHERE search_index MATCH ? AND snapshot_id IN ({slots}) LIMIT 65",
+        (words, *identities),
+    )
+
+
+def _match_literals(conn, doc, terms, evidence, budget):
+    pending = [term for term in terms if term.key not in evidence.matches]
+    if not pending:
+        return True
+    # The existing FTS5 schema also indexes snapshot_id, URL and title. Read
+    # each available column as a bounded blob; NULL fields have no bytes.
+    columns = ("c3", "c0", "c1", "c2")
+    present = conn.execute(
+        "SELECT c3 IS NOT NULL,c0 IS NOT NULL,c1 IS NOT NULL,c2 IS NOT NULL "
+        "FROM search_index_content WHERE id=?",
+        (doc,),
+    ).fetchone()
+    if not present:
+        return False
+    complete = True
+    remaining = budget.per_file
+    for column, exists in zip(columns, present, strict=True):
+        if not exists:
+            continue
+        if not budget.remaining():
+            raise TimeoutError
+        with conn.blobopen("search_index_content", column, doc, readonly=True) as blob:
+            count = min(len(blob), budget.bytes, remaining)
+            text = blob.read(count).decode("utf-8", "surrogateescape")
+            complete &= count == len(blob)
+        remaining -= count
+        budget.bytes -= count
+        for term in pending:
+            if not budget.remaining():
+                raise TimeoutError
+            if term.pattern.search(text):
+                evidence.matches[term.key] = True
+        pending = [term for term in pending if term.key not in evidence.matches]
+        if not pending:
+            break
+    return complete
+
+
+def search_candidates(
+    candidates: list[Candidate],
+    terms: list[SearchTerm],
+    budget: SearchBudget,
+):
+    path = get_db_path()
+    if not path.is_file():
+        return
+    indexed = [
+        term for term in terms if term.mode == "word" and not term.case_sensitive
+    ]
+    literals = [term for term in terms if term.mode != "deep" and term not in indexed]
+    try:
+        connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0)
+    except sqlite3.OperationalError:
+        return
+    with closing(connection) as conn:
+        conn.set_progress_handler(lambda: int(not budget.remaining()), 1000)
+        try:
+            has_lookup = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='search_index_lookup'",
+            ).fetchone()
+        except sqlite3.OperationalError:
+            # A locked or unavailable schema cannot establish any predicates.
+            return
+        for candidate in candidates:
+            if not budget.remaining():
+                return
+            evidence = Evidence(candidate.id)
+            try:
+                docs = [row[0] for row in _document_ids(conn, candidate.id, has_lookup)]
+                covered = bool(docs) and len(docs) <= 64
+                complete_text = covered
+                for doc in docs[:64]:
+                    if not budget.remaining():
+                        raise TimeoutError
+                    for term in indexed:
+                        if not budget.remaining():
+                            raise TimeoutError
+                        # An operand is one quoted FTS phrase, never FTS syntax.
+                        expression = '"' + term.value.replace('"', '""') + '"'
+                        hit = conn.execute(
+                            "SELECT bm25(search_index) FROM search_index WHERE rowid=? AND search_index MATCH ?",
+                            (doc, expression),
+                        ).fetchone()
+                        if hit:
+                            evidence.matches[term.key] = True
+                            evidence.scores[term.key] = max(
+                                evidence.scores.get(term.key, 0),
+                                -hit[0],
+                            )
+                    complete_text &= _match_literals(
+                        conn,
+                        doc,
+                        literals,
+                        evidence,
+                        budget,
+                    )
+                if covered:
+                    for term in indexed:
+                        evidence.matches.setdefault(term.key, False)
+                if complete_text:
+                    for term in literals:
+                        evidence.matches.setdefault(term.key, False)
+            except (sqlite3.OperationalError, TimeoutError):
+                # Preserve any positives already established. An unavailable
+                # document leaves this candidate unknown; others may be readable.
+                pass
+            yield evidence
+
+
 def flush(
     snapshot_ids: Iterable[str],
     *,
@@ -152,4 +288,6 @@ def flush(
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_search_command(search, flush))
+    raise SystemExit(
+        run_search_command(search, flush, search_candidates=search_candidates),
+    )

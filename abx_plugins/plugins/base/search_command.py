@@ -6,11 +6,15 @@ import argparse
 import sys
 from collections.abc import Callable, Iterable, Sequence
 
+from abx_plugins.plugins.base.search_candidates import CandidateSearch, run_candidates
+
 
 def run_search_command(
     search: Callable[[str, str], Iterable[str]],
     flush: Callable[[Iterable[str]], None],
     argv: Sequence[str] | None = None,
+    *,
+    search_candidates: CandidateSearch | None = None,
 ) -> int:
     parser = argparse.ArgumentParser(description="Run a plugin search command")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -19,7 +23,11 @@ def run_search_command(
     search_parser.add_argument("--search-mode", default="contents")
     flush_parser = subparsers.add_parser("flush")
     flush_parser.add_argument("snapshot_ids", nargs="*")
+    if search_candidates is not None:
+        subparsers.add_parser("search_candidates")
     args = parser.parse_args(argv)
+    if args.command == "search_candidates" and search_candidates is not None:
+        return run_candidates(search_candidates)
 
     if args.command == "search":
         for snapshot_id in search(args.query, args.search_mode):

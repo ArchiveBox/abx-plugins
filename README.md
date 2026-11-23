@@ -84,6 +84,7 @@ not import or require `archivebox` or `abx-dl`.
 | `snapshot_live_preview_route` | Registered Django URL name accepting `snapshot_id`. |
 | `replay_assets` | Format → relative asset paths; an export uses one provider's complete bundle. |
 | `replay_document_patterns` | MIME type → snapshot-relative path globs handled by `rewrite_replay_document`. |
+| `outlinks_path` | Plugin-relative JSONL file of recorded outbound HTTP(S) URLs. Each record has a string `url`. |
 | `search_order`, `search_fallback`, `search_scan` | Integer priority (default `1000`), fallback eligibility, filesystem-scan flag (both default `false`). |
 | `presentation_module` | Importable module providing the presentation functions below. |
 | `app_module` | Importable `app.py` providing optional native application functions below; import must not require Django setup. |
@@ -140,6 +141,44 @@ Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
 Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
 Templates and `template_context` receive the existing context, including Django
 models and `request` when supplied by the view.
+
+### Candidate-scoped search
+
+A search provider registers `search` and `flush` in `config.json > commands`.
+It can also register `"search_candidates": ["search.py", "search_candidates"]`
+to evaluate content predicates against an authorized page of snapshot IDs.
+Disk-scanning hosts should send an absolute `archive_root` alongside `candidates`
+and lexical candidate paths beneath that directory. The scanner opens each path
+component relative to the trusted root and rejects symlinks and parent references.
+
+Input is one JSON object on stdin. A provider flushes at most one JSON object per
+candidate to stdout, in the order evidence becomes available. It may omit
+unresolved candidates. Each operand in a request must have a unique key.
+
+```json
+{"candidates":[{"id":"snap-1","path":"/archive/snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}
+```
+
+```json
+{"id":"snap-1","matches":{"t0":true},"scores":{},"usage":{"entries":2,"files":1,"bytes":320}}
+```
+
+- `word` requests the provider's term search. `literal` requests a contiguous
+  substring. `deep` requests a literal in archived files from a `search_scan`
+  provider. Each operand determines its own case mode. An uppercase letter in
+  its value requires matching case. Only original text can establish such a
+  match when a provider's token index discards case.
+- `matches` contains confirmed booleans keyed by the request's opaque term
+  keys. Omit a key or candidate when it is unsupported, unindexed, unreadable,
+  capped or otherwise unresolved. A negative requires complete evidence.
+  Optional `scores` rank confirmed matches, with larger finite values first.
+- Hosts supply candidate IDs and trusted absolute snapshot directories.
+  Indexed providers can omit use of paths. Each page admits up to 64 candidates
+  and 128 terms. Limits apply across the page. The shared command caps work at
+  8 seconds, 96 file attempts, 512 directory entries, 4 MiB of source bytes
+  and 512 KiB per file. `usage` gives the increment for each emitted row so
+  callers can charge subsequent pages against one query budget. Hosts also
+  enforce a subprocess timeout for blocked filesystem or network reads.
 
 ### Configuration field templates
 
