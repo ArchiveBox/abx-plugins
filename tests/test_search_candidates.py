@@ -2,12 +2,16 @@
 
 import json
 import os
-import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from abx_plugins.plugins.base.testing import (
+    get_hydrated_required_binaries,
+    install_required_binary_from_config,
+)
 
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
 
@@ -18,6 +22,15 @@ def run_candidates(plugin, tmp_path, candidates, terms, *, archive_root=None, **
     request = {"terms": terms, "candidates": candidates, "limits": limits}
     if archive_root:
         request["archive_root"] = str(archive_root)
+    env = {**os.environ, "DATA_DIR": str(tmp_path)}
+    if plugin == "search_backend_ripgrep":
+        # A cold runner may need apt to install rg. Keep provisioning outside
+        # the search deadline, just as a configured ArchiveBox host does.
+        directory = PLUGINS / plugin
+        (binary,) = get_hydrated_required_binaries(directory)
+        installed = install_required_binary_from_config(directory, binary["name"])
+        assert installed.loaded_abspath
+        env["RIPGREP_BINARY"] = str(installed.loaded_abspath)
     proc = subprocess.run(
         [str(PLUGINS / plugin / script), *args],
         input=json.dumps(request) + "\n",
@@ -25,11 +38,7 @@ def run_candidates(plugin, tmp_path, candidates, terms, *, archive_root=None, **
         capture_output=True,
         check=True,
         timeout=12,
-        env={
-            **os.environ,
-            "DATA_DIR": str(tmp_path),
-            "RIPGREP_BINARY": shutil.which("rg") or "rg",
-        },
+        env=env,
     )
     return {row["id"]: row for row in map(json.loads, proc.stdout.splitlines())}
 
@@ -73,6 +82,13 @@ def test_ripgrep_scans_only_supplied_snapshots_and_respects_literal_case_and_cap
     assert rows["one"]["usage"]["bytes"] == (root / "article.txt").stat().st_size
     assert rows["missing"]["matches"] == {}
     assert rows["empty"]["matches"] == {}
+    single = run_candidates(
+        "search_backend_ripgrep",
+        tmp_path,
+        candidates[:1],
+        [term("x", "alpha:beta", "deep")],
+    )
+    assert single["one"]["matches"] == {"x": True}
     short = run_candidates(
         "search_backend_ripgrep",
         tmp_path,
@@ -99,7 +115,7 @@ def test_sqlite_preserves_unknowns_original_text_and_existing_rank(
             "CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id,url,title,content,tokenize='porter unicode61')",
         )
         db.execute(
-            "INSERT INTO search_index VALUES (?, '', '', 'Searching archives. Solar panel [1]')",
+            "INSERT INTO search_index VALUES (?, 'https://example.org/Mixed:Path', 'OnlyInTitle', 'Searching archives. Solar panel [1]')",
             (uid,),
         )
         if has_lookup:
@@ -108,6 +124,10 @@ def test_sqlite_preserves_unknowns_original_text_and_existing_rank(
     terms = [
         term("word", "search", "word"),
         term("exact", "Solar panel"),
+        term("id", uid[:12]),
+        term("url", "/Mixed:Path"),
+        term("title", "OnlyInTitle"),
+        term("title_word", "onlyintitle", "word"),
         term("wrong", "sOLAR", "word"),
         term("lower", "solar panel [1]"),
         term("deep", "Solar", "deep"),
@@ -121,6 +141,10 @@ def test_sqlite_preserves_unknowns_original_text_and_existing_rank(
     assert rows[dashed]["matches"] == {
         "word": True,
         "exact": True,
+        "id": True,
+        "url": True,
+        "title": True,
+        "title_word": True,
         "wrong": False,
         "lower": True,
     }
@@ -174,3 +198,62 @@ def test_ripgrep_candidates_are_descendants_of_the_supplied_archive_root(tmp_pat
     for i in range(1, len(paths)):
         assert rows[str(i)]["matches"] == {}
         assert rows[str(i)]["usage"]["bytes"] == 0
+
+
+@pytest.mark.parametrize("archive_root", ["relative/archive", "/archive/../other"])
+def test_invalid_archive_root_is_rejected(tmp_path, archive_root):
+    with pytest.raises(subprocess.CalledProcessError, match="non-zero") as err:
+        run_candidates(
+            "search_backend_sqlite",
+            tmp_path,
+            [],
+            [],
+            archive_root=archive_root,
+        )
+    assert "absolute archive root without parent references" in err.value.stderr
+
+
+def test_conflicting_operand_keys_are_rejected(tmp_path):
+    with pytest.raises(subprocess.CalledProcessError) as err:
+        run_candidates(
+            "search_backend_sqlite",
+            tmp_path,
+            [{"id": "one"}],
+            [term("x", "first"), term("x", "different")],
+        )
+    assert "unique operand keys" in err.value.stderr
+
+
+def test_locked_sqlite_index_leaves_candidates_unknown(tmp_path):
+    with sqlite3.connect(tmp_path / "search.sqlite3") as db:
+        db.execute("CREATE TABLE existing_fixture (id INTEGER)")
+        db.execute("BEGIN EXCLUSIVE")
+        rows = run_candidates(
+            "search_backend_sqlite",
+            tmp_path,
+            [{"id": "one"}],
+            [term("x", "word")],
+        )
+        assert not rows.get("one", {}).get("matches")
+
+
+def test_unreadable_sqlite_document_does_not_hide_later_candidates(tmp_path):
+    from abx_plugins.plugins.search_backend_sqlite.search import ensure_snapshot_lookup
+
+    with sqlite3.connect(tmp_path / "search.sqlite3") as db:
+        db.execute(
+            "CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id,url,title,content)",
+        )
+        # FTS accepts integer storage; SQLite cannot open this field as a BLOB.
+        # Keep its valid posting and still inspect the next candidate.
+        db.execute("INSERT INTO search_index VALUES ('old', '', 'indexedword', 123)")
+        db.execute("INSERT INTO search_index VALUES ('next', '', '', 'a:phrase')")
+        ensure_snapshot_lookup(db)
+    rows = run_candidates(
+        "search_backend_sqlite",
+        tmp_path,
+        [{"id": "old"}, {"id": "next"}],
+        [term("posting", "indexedword", "word"), term("literal", "a:phrase")],
+    )
+    assert rows["old"]["matches"] == {"posting": True}
+    assert rows["next"]["matches"] == {"posting": False, "literal": True}

@@ -50,16 +50,27 @@ def search(
         config.SEARCH_BACKEND_SONIC_PORT,
         config.SEARCH_BACKEND_SONIC_PASSWORD,
     )
+    protocol = import_module("sonic.client")
     if timeout is not None:
-        client.timeout = timeout
-    with client:
-        results = client.query(
-            config.SEARCH_BACKEND_SONIC_COLLECTION,
-            config.SEARCH_BACKEND_SONIC_BUCKET,
-            query,
-            limit=100,
+        # sonic-client opens sockets through its pool. Assigning a timeout to
+        # SearchClient itself leaves new connections at the 60-second default.
+        client.pool = protocol.ConnectionPool(
+            host=client.host,
+            port=client.port,
+            password=config.SEARCH_BACKEND_SONIC_PASSWORD,
+            channel=client.channel,
+            timeout=timeout,
         )
-        return results
+    try:
+        with client:
+            return client.query(
+                config.SEARCH_BACKEND_SONIC_COLLECTION,
+                config.SEARCH_BACKEND_SONIC_BUCKET,
+                query,
+                limit=100,
+            )
+    except (protocol.SonicServerError, protocol.ChannelError) as err:
+        raise RuntimeError("Sonic could not complete the search") from err
 
 
 def search_candidates(
@@ -81,9 +92,13 @@ def search_candidates(
             break
         if term.mode != "word" or term.case_sensitive:
             continue
-        for rank, found in enumerate(
-            search(term.value, timeout=max(0.001, budget.remaining())),
-        ):
+        try:
+            results = search(term.value, timeout=max(0.001, budget.remaining()))
+        except (OSError, RuntimeError, ValueError):
+            # Keep positives from earlier terms when the service disconnects
+            # or rejects an operand. The remaining predicates are unknown.
+            break
+        for rank, found in enumerate(results):
             candidate_id = aliases.get(found)
             if candidate_id is not None:
                 rows[candidate_id].matches[term.key] = True

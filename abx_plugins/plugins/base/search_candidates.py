@@ -109,6 +109,8 @@ def run_candidates(search: CandidateSearch) -> int:
         for term in terms
     ):
         raise ValueError("Invalid search operand")
+    if len({term.key for term in terms}) != len(terms):
+        raise ValueError("Expected unique operand keys")
     limits = data.get("limits", {})
 
     def limit(name: str, maximum: int) -> int:

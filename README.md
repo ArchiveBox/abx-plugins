@@ -149,9 +149,11 @@ It can also register `"search_candidates": ["search.py", "search_candidates"]`
 to evaluate content predicates against an authorized page of snapshot IDs.
 Disk-scanning hosts should send an absolute `archive_root` alongside `candidates`
 and lexical candidate paths beneath that directory. The scanner opens each path
-component relative to the trusted root and rejects symlinks and parent references. Input
-is one JSON object on stdin. Output is one flushed JSON object per candidate on
-stdout. A provider can return rows in the order they become available.
+component relative to the trusted root and rejects symlinks and parent references.
+
+Input is one JSON object on stdin. A provider flushes at most one JSON object per
+candidate to stdout, in the order evidence becomes available. It may omit
+unresolved candidates. Each operand in a request must have a unique key.
 
 ```json
 {"candidates":[{"id":"snap-1","path":"/archive/snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}

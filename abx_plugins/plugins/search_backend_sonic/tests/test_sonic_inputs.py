@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shlex
 import socket
+import signal
 import subprocess
 import sys
 import time
@@ -312,6 +313,25 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert record["snapshot_id"] == "reflection-only"
             assert record["trace_id"] == ["keep", 3]
             assert search("metatitleuniqueneedle", environ=env) == ["explicit-sonic-id"]
+            outside = tmp_path / ".scope-test"
+            (outside / "article").mkdir(parents=True)
+            (outside / "article/text.txt").write_text("metatitleuniqueneedle")
+            added = subprocess.run(
+                [
+                    str(hook),
+                    "--url=https://other.example/",
+                    "--snapshot-id=outside-scope",
+                ],
+                cwd=outside,
+                env={**env, "SNAP_DIR": str(outside)},
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30,
+            )
+            assert json.loads(added.stdout.splitlines()[-1])["status"] == "succeeded"
+            ranked = search("metatitleuniqueneedle", environ=env)
+            assert set(ranked) == {"explicit-sonic-id", "outside-scope"}
             # The same registered CLI used by hosts only confirms IDs it was
             # asked about. A case-sensitive word cannot be proved by Sonic.
             candidate_request = {
@@ -332,22 +352,39 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             command = json.loads(hook.with_name("config.json").read_text())["commands"][
                 "search_candidates"
             ]
-            scoped = subprocess.run(
-                [str(hook.with_name(command[0])), *command[1:]],
-                input=json.dumps(candidate_request),
-                capture_output=True,
-                text=True,
-                env=env,
-                check=True,
-                timeout=10,
-            )
+
+            def scoped_result(payload):
+                return subprocess.run(
+                    [str(hook.with_name(command[0])), *command[1:]],
+                    input=json.dumps(payload),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    check=True,
+                    timeout=10,
+                )
+
+            scoped = scoped_result(candidate_request)
             matched, missing = map(json.loads, scoped.stdout.splitlines())
             assert (matched["id"], matched["matches"], matched["scores"]) == (
                 "explicit-sonic-id",
                 {"positive": True},
-                {"positive": 1.0},
+                {"positive": 1 / (1 + ranked.index("explicit-sonic-id"))},
             )
             assert (missing["id"], missing["matches"]) == ("unindexed", {})
+            # Stall our temporary daemon. Its TCP socket still accepts a
+            # connection but never sends the Sonic protocol greeting.
+            daemon.send_signal(signal.SIGSTOP)
+            try:
+                stalled = scoped_result(
+                    {**candidate_request, "limits": {"seconds": 0.3}},
+                )
+                assert [
+                    (r["id"], r["matches"])
+                    for r in map(json.loads, stalled.stdout.splitlines())
+                ] == [("explicit-sonic-id", {}), ("unindexed", {})]
+            finally:
+                daemon.send_signal(signal.SIGCONT)
             assert search("afterescapeuniqueneedle", environ=env) == [
                 "explicit-sonic-id",
             ]
