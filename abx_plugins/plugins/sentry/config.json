@@ -17,6 +17,8 @@
       "max_version": "2.75.0",
       "overrides": {
         "uv": {
+          "postinstall_scripts": true,
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/sentry-2.75.0",
           "install_args": [
             "sentry-sdk==2.75.0",
             "opentelemetry-sdk==1.45.2",
@@ -50,6 +52,13 @@
       "type": "string",
       "default": "",
       "description": "Release identifier; empty uses the Sentry SDK's release detection."
+    },
+    "SENTRY_PROFILE_SESSION_SAMPLE_RATE": {
+      "type": "number",
+      "default": 0.0,
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Fraction of server processes collecting continuous CPU profiles while traces are active. Zero disables profiling; restart after changes."
     },
     "SENTRY_SEND_DEFAULT_PII": {
       "type": "boolean",

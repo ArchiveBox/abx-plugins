@@ -14,6 +14,7 @@ def test_sentry_is_unconfigured_and_disabled_by_default():
     assert config.SENTRY_ENABLED is False
     assert config.SENTRY_DSN == ""
     assert config.SENTRY_TRACES_SAMPLE_RATE == 0
+    assert config.SENTRY_PROFILE_SESSION_SAMPLE_RATE == 0
     assert config.SENTRY_SEND_DEFAULT_PII is False
 
 
@@ -27,10 +28,14 @@ def test_dsn_alone_does_not_enable_sentry():
 
 
 @pytest.mark.parametrize("rate", ["-0.1", "1.1"])
-def test_invalid_trace_sampling_is_rejected(rate):
+@pytest.mark.parametrize(
+    "setting",
+    ["SENTRY_TRACES_SAMPLE_RATE", "SENTRY_PROFILE_SESSION_SAMPLE_RATE"],
+)
+def test_invalid_sampling_is_rejected(setting, rate):
     with pytest.raises(ValidationError):
         load_config(
             CONFIG,
-            environ={"SENTRY_TRACES_SAMPLE_RATE": rate},
+            environ={setting: rate},
             hydrate_binaries=False,
         )

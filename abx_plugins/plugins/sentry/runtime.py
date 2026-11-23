@@ -67,6 +67,8 @@ def initialize(config):
             include_local_variables=False,
             max_request_body_size="never",
             traces_sample_rate=config.SENTRY_TRACES_SAMPLE_RATE,
+            profile_session_sample_rate=config.SENTRY_PROFILE_SESSION_SAMPLE_RATE,
+            profile_lifecycle="trace",
             enable_logs=config.SENTRY_ENABLE_LOGS,
             enable_metrics=config.SENTRY_ENABLE_METRICS,
             instrumenter="otel",

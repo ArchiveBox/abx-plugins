@@ -21,6 +21,7 @@ class AppConfig(DjangoAppConfig):
         resolved = load_config(
             CONFIG_PATH,
             global_config=config,
+            environ={},
             hydrate_binaries=False,
             hydrate_user_agent=False,
         )
@@ -51,6 +52,7 @@ class AppConfig(DjangoAppConfig):
             global_config=host_config.model_dump(mode="json")
             if host_config is not None
             else {},
+            environ={},
             hydrate_binaries=False,
             hydrate_user_agent=False,
         )
@@ -69,6 +71,7 @@ def register_eventbus(bus, config):
     resolved = load_config(
         CONFIG_PATH,
         global_config=config,
+        environ={},
         hydrate_binaries=False,
         hydrate_user_agent=False,
     )

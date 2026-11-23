@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, cast
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import psutil
 
@@ -538,7 +538,7 @@ def _unsecured_error(settings: dict) -> str:
 def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str, str]:
     """Shared environment for the Agent server and background OpenCode CLI tasks."""
     workdir = settings["workdir"].resolve()
-    return {
+    env = {
         **os.environ,
         **binary_env,
         "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
@@ -582,6 +582,44 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
         "XDG_STATE_HOME": str(settings["state_home"]),
         "XDG_CACHE_HOME": str(settings["cache_home"]),
     }
+    config = settings["config"]
+    if str(config.get("SENTRY_ENABLED", False)).lower() in {"true", "1"}:
+        # OpenCode owns its native OTel provider and Vercel AI instrumentation.
+        # Route that existing producer directly to Sentry; no second SDK/import.
+        dsn = urlsplit(str(config.get("SENTRY_DSN", "")))
+        project = dsn.path.rstrip("/").rsplit("/", 1)[-1]
+        if (
+            dsn.scheme not in {"http", "https"}
+            or not dsn.hostname
+            or not dsn.username
+            or not project.isdecimal()
+        ):
+            raise ValueError("OpenCode Sentry reporting requires a valid SENTRY_DSN")
+        authority = dsn.netloc.rsplit("@", 1)[-1]
+        prefix = dsn.path.rstrip("/").rsplit("/", 1)[0]
+        env["OTEL_EXPORTER_OTLP_ENDPOINT"] = (
+            f"{dsn.scheme}://{authority}{prefix}/api/{project}/integration/otlp"
+        )
+        env["OTEL_EXPORTER_OTLP_HEADERS"] = (
+            f"x-sentry-auth=sentry sentry_key={dsn.username}"
+        )
+        env["OTEL_TRACES_SAMPLER"] = "parentbased_traceidratio"
+        env["OTEL_TRACES_SAMPLER_ARG"] = str(config.get("SENTRY_TRACES_SAMPLE_RATE", 0))
+        env["OTEL_RESOURCE_ATTRIBUTES"] = ",".join(
+            f"{key}={quote(str(value), safe='')}"
+            for key, value in {
+                "deployment.environment": config.get(
+                    "SENTRY_ENVIRONMENT",
+                    "production",
+                ),
+                "service.version": config.get("SENTRY_RELEASE", ""),
+            }.items()
+            if value
+        )
+        opencode_config = json.loads(env["OPENCODE_CONFIG_CONTENT"])
+        opencode_config["experimental"] = {"openTelemetry": True}
+        env["OPENCODE_CONFIG_CONTENT"] = json.dumps(opencode_config)
+    return env
 
 
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
