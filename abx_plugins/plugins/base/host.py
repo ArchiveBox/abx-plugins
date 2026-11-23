@@ -1,6 +1,7 @@
 """Interfaces supplied by a host to optional plugin web integrations."""
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any, Protocol
 
 
@@ -20,6 +21,15 @@ class Host(Protocol):
     ) -> dict[str, Callable[[str], list[tuple[str, int]]]]: ...
 
     def process_log_tails(self, request: Any, ids: list[str]) -> dict[str, str]: ...
+
+    def process_history_records(
+        self,
+        request: Any,
+        *,
+        before: str | None = None,
+        since: datetime | None = None,
+        limit: int = 128,
+    ) -> dict[str, Any]: ...
 
     def group_domains(self, request: Any, hosts: list[str]) -> dict[str, str]: ...
 

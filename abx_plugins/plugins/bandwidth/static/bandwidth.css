@@ -1,8 +1,27 @@
 #bandwidth-ui {
   color: var(--body-fg, #334155);
   font: 14px/1.4 system-ui, sans-serif;
-  max-width: 1512px;
-  margin-inline: auto;
+  width: 100%;
+}
+#content:has(> #bandwidth-ui) {
+  padding-inline: 8px;
+}
+#bandwidth-ui .range-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+#bandwidth-ui .range-bar a {
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+#bandwidth-ui .range-bar a[aria-current] {
+  border-color: var(--hairline-color, #dbe2ea);
+  background: var(--darkened-bg, #f7f9fc);
+  color: var(--body-fg, #334155);
+  font-weight: 600;
 }
 #bandwidth-ui * {
   box-sizing: border-box;

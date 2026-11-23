@@ -6,16 +6,22 @@ const processes = new Map(),
   plugins = new Map(),
   interfaces = new Map(),
   sites = new Map();
-const historyKey = `archivebox-bandwidth-v2:${root.dataset.monitorKey}`;
-const completed = new Map();
-const renderedReports = new Set();
+let range = root.dataset.range;
+let rangeSeconds = Number(root.dataset.rangeSeconds);
+let rangeLabel = root.dataset.rangeLabel;
+const bucketSeconds = 60;
+const historyKey = `archivebox-bandwidth-v3:${root.dataset.monitorKey}`;
+const columns = { crawls, plugins, interfaces, sites };
+const completed = new Set();
 let savedAt = 0;
-let restoredWork = false;
+let oldest = Date.now() / 1000;
 let cursor = "",
+  historyCursor = root.dataset.historyEnabled === "true" ? "" : null,
+  historyRequest = null,
+  loadedRange = 0,
   previous = null,
   busy = false,
   paused = false,
-  totalBytes = 0,
   totalRate = 0;
 const bytes = (value) => {
   let i = 0;
@@ -42,15 +48,8 @@ function el(tag, text, className) {
 }
 function group(map, id) {
   if (!map.has(id)) {
-    if (map.size >= 128) {
-      const cold = [...map.values()]
-        .filter((g) => !g.active)
-        .sort((a, b) => a.last - b.last)[0];
-      if (cold) map.delete(cold.id);
-    }
     map.set(id, {
       id,
-      bytes: 0,
       disk: 0,
       cpu: 0,
       fg: 0,
@@ -63,6 +62,7 @@ function group(map, id) {
       last: 0,
       seconds: new Map(),
       minutes: new Map(),
+      buckets: new Map(),
       snapshots: new Set(),
       measured: false,
       rate: 0,
@@ -83,12 +83,14 @@ function appendBucket(bucket, amount) {
 function addTraffic(group, now, amount, seconds = 0) {
   group.measured = true;
   if (seconds > 0) group.rate = amount.bytes / seconds;
-  group.bytes += amount.bytes;
   group.peak = Math.max(group.peak, group.rate);
   if (!amount.bytes && !amount.hits && amount.rtt == null) return;
+  oldest = Math.min(oldest, now);
+  const age = Date.now() / 1000 - now;
   for (const [buckets, period] of [
-    [group.seconds, 1],
-    [group.minutes, 60],
+    [group.buckets, bucketSeconds],
+    ...(age < 3600 ? [[group.minutes, 60]] : []),
+    ...(age < 60 ? [[group.seconds, 1]] : []),
   ]) {
     const key = Math.floor(now / period);
     if (!buckets.has(key)) buckets.set(key, emptyBucket());
@@ -98,7 +100,7 @@ function addTraffic(group, now, amount, seconds = 0) {
 function trafficWindows(group, now) {
   const recent = emptyBucket(),
     hour = emptyBucket(),
-    day = emptyBucket();
+    selected = emptyBucket();
   for (const [second, amount] of group.seconds) {
     if (now - second >= 60) group.seconds.delete(second);
     else appendBucket(recent, amount);
@@ -106,109 +108,53 @@ function trafficWindows(group, now) {
   const minute = Math.floor(now / 60);
   for (const [time, amount] of group.minutes) {
     const age = minute - time;
-    if (age >= 1440) group.minutes.delete(time);
-    else {
-      appendBucket(day, amount);
-      if (age < 60) appendBucket(hour, amount);
-    }
+    if (age >= 60) group.minutes.delete(time);
+    else appendBucket(hour, amount);
   }
-  return [recent, hour, day];
+  for (const [time, amount] of group.buckets) {
+    if (!rangeSeconds || (time + 1) * bucketSeconds > now - rangeSeconds)
+      appendBucket(selected, amount);
+  }
+  return [recent, hour, selected];
 }
 function restoreHistory() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(historyKey) || "{}");
-    totalBytes = saved.totalBytes || 0;
-    for (const [id, time] of saved.completed || [])
-      if (Date.now() / 1000 - time < 86400) completed.set(id, time);
-    for (const {
-      id,
-      href,
-      favicon,
-      seconds,
-      minutes,
-      peak,
-      hostnames,
-    } of saved.sites || []) {
-      const site = group(sites, id);
-      Object.assign(site, {
-        href,
-        favicon,
-        seconds: new Map(seconds),
-        minutes: new Map(minutes),
-        hostnames: new Set(hostnames),
-        peak,
-      });
-      site.bytes = trafficWindows(site, Date.now() / 1000)[2].bytes;
-      site.measured = site.minutes.size > 0;
-      if (!site.measured) sites.delete(id);
-    }
-    for (const [key, map] of [
-      ["plugins", plugins],
-      ["crawls", crawls],
-    ]) {
-      for (const { id, label, href, seconds, minutes, peak, last } of saved
-        .work?.[key] || []) {
-        const work = group(map, id);
-        Object.assign(work, {
-          label,
-          href,
+    const now = Date.now() / 1000;
+    oldest = saved.oldest ?? oldest;
+    for (const id of saved.completed || []) completed.add(id);
+    for (const [kind, map] of Object.entries(columns)) {
+      for (const { id, seconds, minutes, buckets, hostnames, ...meta } of saved[kind] || []) {
+        const g = group(map, id);
+        Object.assign(g, meta, {
           seconds: new Map(seconds),
           minutes: new Map(minutes),
-          peak,
-          last,
+          buckets: new Map(buckets),
+          hostnames: new Set(hostnames),
         });
-        work.bytes = trafficWindows(work, Date.now() / 1000)[2].bytes;
-        work.measured = work.minutes.size > 0;
-        if (!work.measured) map.delete(id);
+        trafficWindows(g, now);
+        if (!g.buckets.size) map.delete(id);
       }
     }
-    restoredWork = Boolean(saved.work);
   } catch {
     // The dashboard also works when storage is unavailable.
   }
 }
 function saveHistory() {
   try {
-    const history = [...sites.values()]
-      .filter((s) => s.minutes.size)
-      .map((s) => ({
-        id: s.id,
-        href: s.href,
-        favicon: s.favicon,
-        seconds: [...s.seconds],
-        minutes: [...s.minutes],
-        hostnames: [...(s.hostnames || [])],
-        peak: s.peak,
-      }));
-    const now = Date.now() / 1000;
-    for (const [id, time] of completed)
-      if (now - time >= 86400) completed.delete(id);
-    const work = {};
-    for (const [key, map] of [
-      ["plugins", plugins],
-      ["crawls", crawls],
-    ]) {
-      work[key] = [...map.values()]
-        .filter((g) => g.minutes.size)
-        .map(({ id, label, href, seconds, minutes, peak, last }) => ({
-          id,
-          label,
-          href,
+    const saved = { oldest, completed: [...completed] };
+    for (const [kind, map] of Object.entries(columns)) {
+      saved[kind] = [...map.values()]
+        .filter((g) => g.buckets.size)
+        .map(({ id, label, href, favicon, seconds, minutes, buckets, hostnames, peak, last, local, wan }) => ({
+          id, label, href, favicon, peak, last, local, wan,
           seconds: [...seconds],
           minutes: [...minutes],
-          peak,
-          last,
+          buckets: [...buckets],
+          hostnames: [...(hostnames || [])],
         }));
     }
-    sessionStorage.setItem(
-      historyKey,
-      JSON.stringify({
-        sites: history,
-        work,
-        completed: [...completed],
-        totalBytes,
-      })
-    );
+    sessionStorage.setItem(historyKey, JSON.stringify(saved));
   } catch {
     // Storage limits do not affect live measurements.
   }
@@ -225,8 +171,37 @@ function ifaceFor(flow, process) {
 }
 function workGroups(process) {
   const groups = [group(plugins, process.name)];
-  if (process.crawl) groups.push(group(crawls, process.crawl));
+  if (process.crawl) {
+    const crawl = group(crawls, process.crawl);
+    crawl.label = process.crawl_label;
+    crawl.href = `../crawls/crawl/${process.crawl}/change/`;
+    groups.push(crawl);
+  }
   return groups;
+}
+function ingestDownloads(data, owners) {
+  for (const report of data.downloads || []) {
+    const owner = owners.get(report.process);
+    if (!owner || completed.has(report.process)) continue;
+    completed.add(report.process);
+    const groups = workGroups(owner);
+    if (owner.interface) {
+      const nic = ifaceFor({ interface: owner.interface, local: owner.local_ip }, owner);
+      groups.push(nic);
+    }
+    for (const entry of report.entries) {
+      const site = group(sites, entry.site);
+      site.href ||= entry.site_url;
+      site.favicon ||= data.favicons?.[entry.site];
+      site.hostnames ||= new Set();
+      if (site.hostnames.size < 12) site.hostnames.add(entry.hostname);
+      const amount = { bytes: entry.bytes, hits: entry.hits, rtt: null };
+      for (const g of [site, ...groups]) {
+        g.last = Math.max(g.last, report.time);
+        addTraffic(g, report.time, amount);
+      }
+    }
+  }
 }
 function ingest(data) {
   if (previous && data.time <= previous.time) return;
@@ -255,10 +230,6 @@ function ingest(data) {
       g.fg += fgDelta;
       g.last = Math.max(g.last, p.ended || p.started || now);
       if (p.snapshot && g.snapshots.size < 4096) g.snapshots.add(p.snapshot);
-      if (p.crawl && g === crawls.get(p.crawl)) {
-        g.label = p.crawl_label;
-        g.href = `../crawls/crawl/${p.crawl}/change/`;
-      }
     }
     previousProcesses.set(row.id, { cpu: p.cpu, disk: row.disk || 0, elapsed });
     if (p.status === "running" || now - (p.ended || 0) < 45) {
@@ -306,8 +277,7 @@ function ingest(data) {
   );
   const amounts = new Map();
   const liveRates = new Map();
-  let transferred = 0,
-    liveBytes = 0;
+  let liveBytes = 0;
   for (const flow of data.flows) {
     const owner = owners.get(flow.process);
     if (!owner) continue;
@@ -330,13 +300,14 @@ function ingest(data) {
         !owner.reports_downloads && flow.site && (!old || !old.site) ? 1 : 0,
       rtt: Number.isFinite(flow.rtt) && flow.rtt > 0 ? flow.rtt : null,
     };
-    for (const g of [site, ...workGroups(owner)]) {
+    const related = [site, ...workGroups(owner)];
+    if (nic) related.push(nic);
+    for (const g of related) {
       liveRates.set(g, (liveRates.get(g) || 0) + bytes / delta);
       if (!amounts.has(g)) amounts.set(g, emptyBucket());
       appendBucket(amounts.get(g), amount);
     }
     liveBytes += bytes;
-    transferred += amount.bytes;
   }
   for (const map of [plugins, crawls, sites, interfaces])
     for (const g of map.values()) g.rate = 0;
@@ -345,29 +316,7 @@ function ingest(data) {
     g.rate = rate;
     g.peak = Math.max(g.peak, rate);
   }
-  for (const report of data.downloads || []) {
-    const owner = owners.get(report.process);
-    if (!owner || renderedReports.has(report.process)) continue;
-    renderedReports.add(report.process);
-    const alreadyCounted = completed.has(report.process);
-    completed.set(report.process, report.time);
-    for (const entry of report.entries) {
-      const site = group(sites, entry.site);
-      site.href ||= entry.site_url;
-      site.favicon ||= data.favicons?.[entry.site];
-      site.hostnames ||= new Set();
-      if (site.hostnames.size < 12) site.hostnames.add(entry.hostname);
-      site.last = Math.max(site.last, report.time);
-      const amount = { bytes: entry.bytes, hits: entry.hits, rtt: null };
-      if (!alreadyCounted || !restoredWork)
-        for (const g of workGroups(owner)) addTraffic(g, report.time, amount);
-      if (!alreadyCounted) {
-        addTraffic(site, report.time, amount);
-        transferred += entry.bytes;
-      }
-    }
-  }
-  totalBytes += transferred;
+  ingestDownloads(data, owners);
   totalRate = delta > 0 ? liveBytes / delta : 0;
 
   const counters = new Map(
@@ -377,15 +326,12 @@ function ingest(data) {
     previous?.interfaces.map((counter) => [counter.id, counter])
   );
   for (const g of interfaces.values()) {
-    g.rx = g.tx = 0;
+    g.tx = 0;
     const current = counters.get(g.id);
     const old = previousCounters.get(g.id);
     if (!current || !old || delta <= 0) continue;
-    const rx = Math.max(0, current.rx - old.rx);
     const tx = Math.max(0, current.tx - old.tx);
-    g.rx = rx / delta;
     g.tx = tx / delta;
-    addTraffic(g, now, { ...emptyBucket(), bytes: rx }, delta);
   }
   for (const map of [plugins, crawls, interfaces, sites]) {
     for (const group of map.values()) {
@@ -469,22 +415,24 @@ function sparkline(history) {
   chart.append(bars);
   return chart;
 }
-function dayBins(site, now) {
+function historyBins(g, now) {
   const bins = new Array(96).fill(0);
-  const lastMinute = Math.floor(now / 60);
-  for (const [minute, amount] of site.minutes) {
-    const bin = 95 - Math.floor((lastMinute - minute) / 15);
-    if (bin >= 0 && bin < 96) bins[bin] += amount.bytes;
+  const start = rangeSeconds ? now - rangeSeconds : oldest;
+  const width = Math.max(1, (now - start) / bins.length);
+  for (const [bucket, amount] of g.buckets) {
+    if ((bucket + 1) * bucketSeconds <= start) continue;
+    const bin = Math.min(bins.length - 1, Math.max(0, Math.floor((bucket * bucketSeconds - start) / width)));
+    bins[bin] += amount.bytes;
   }
   return bins;
 }
-function dayChart(bins, maximum) {
+function historyChart(bins, maximum) {
   const panel = el("div", null, "day-chart");
   const plot = svg("svg");
   plot.setAttribute("viewBox", "0 0 96 28");
   plot.setAttribute("preserveAspectRatio", "none");
   plot.setAttribute("role", "img");
-  plot.setAttribute("aria-label", "24-hour download history");
+  plot.setAttribute("aria-label", `Downloads · ${rangeLabel}`);
   if (maximum) {
     const bars = svg("path");
     bars.setAttribute(
@@ -576,7 +524,7 @@ function renderCard(card, g, kind, chartMaximum) {
       metric(
         "sum",
         nic ? "Interface downloads" : "Observed downloads",
-        g.measured ? bytes(g.bytes) : "—"
+        g.measured || g.windows[2].bytes ? bytes(g.windows[2].bytes) : "—"
       )
     );
     traffic.append(metrics);
@@ -584,7 +532,7 @@ function renderCard(card, g, kind, chartMaximum) {
     if (chart) traffic.append(chart);
     card.append(traffic);
   }
-  if (site) card.append(dayChart(g.bins, chartMaximum));
+  if (site) card.append(historyChart(g.bins, chartMaximum));
 
   const details = el("div", null, "detail-strip");
   if (!site && g.peak > 0)
@@ -647,12 +595,13 @@ function renderCard(card, g, kind, chartMaximum) {
     if (!site) windows.append(icon("clock"));
     g.windows.forEach(({ bytes: value, hits }, index) => {
       if (!site && !value && !hits) return;
+      if (range === "1h" && index === 1) return;
       const item = el("span", null, "rate-badge");
-      const label = ["1m", "1h", "24h"][index];
+      const label = ["1m", "1h", range === "all" ? "All time" : range][index];
       item.title = [
         "Downloads in the last minute",
         "Downloads in the last hour",
-        "Downloads in the last 24 hours",
+        rangeLabel,
       ][index];
       item.append(el("b", label));
       if (site || value) item.append(el("strong", bytes(value)));
@@ -682,33 +631,29 @@ function render() {
     for (const g of map.values()) g.windows = trafficWindows(g, now);
     const sort = $(`${id}-sort`)?.value || "bandwidth";
     const weight = (g) =>
-      sort === "cpu" ? g.cpu : sort === "disk" ? g.disk : g.rate;
+      sort === "cpu" ? g.cpu : sort === "disk" ? g.disk : g.windows[2].bytes;
     const groups = [...map.values()]
-      .filter((g) => {
-        if (id === "interfaces") return g.active || now - g.last < 120;
-        if (id === "sites")
-          return g.active || g.windows[2].bytes || g.windows[2].hits;
-        return true;
-      })
+      .filter((g) => g.active || g.windows[2].bytes || g.windows[2].hits || (
+        ["crawls", "plugins"].includes(id) && g.last >= (rangeSeconds ? now - rangeSeconds : 0)
+      ))
       .sort(
         (a, b) =>
           weight(b) - weight(a) ||
-          b.bytes - a.bytes ||
+          b.windows[2].bytes - a.windows[2].bytes ||
           b.disk - a.disk ||
           b.cpu - a.cpu ||
           a.id.localeCompare(b.id)
-      )
-      .slice(0, limit);
+      );
     let chartMaximum = 0;
     if (id === "sites") {
-      for (const site of groups) {
-        site.bins = dayBins(site, now);
+      for (const site of groups.slice(0, limit)) {
+        site.bins = historyBins(site, now);
         chartMaximum = Math.max(chartMaximum, ...site.bins);
       }
     }
     const parent = $(id),
       existing = new Map([...parent.children].map((n) => [n.dataset.key, n]));
-    groups.forEach((g) => {
+    groups.slice(0, limit).forEach((g) => {
       const card = existing.get(g.id) || el("article");
       card.dataset.key = g.id;
       renderCard(card, g, id, chartMaximum);
@@ -717,21 +662,50 @@ function render() {
     });
     for (const card of existing.values()) card.remove();
     $(`${id}-count`).hidden = !groups.length;
-    $(`${id}-count`).textContent = String(
-      id === "interfaces" ? groups.length : map.size
-    );
+    $(`${id}-count`).textContent = String(groups.length);
   }
-  $("total-bytes").textContent = bytes(totalBytes);
+  const observedBytes = [...sites.values()].reduce((sum, g) => sum + g.windows[2].bytes, 0);
+  $("total-bytes").textContent = bytes(observedBytes);
   $("total-rate").textContent = bytes(totalRate) + "/s";
   $("process-count").textContent = String(
     [...processes.values()].filter((p) => p.status === "running").length
   );
 }
+async function loadHistory() {
+  if (historyRequest || historyCursor === null || paused || document.hidden) return;
+  const controller = new AbortController();
+  historyRequest = controller;
+  try {
+    const response = await fetch(`data/?${new URLSearchParams({ history: historyCursor, range })}`, {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+    });
+    if (!response.ok) throw new Error(String(response.status));
+    const data = await response.json();
+    if (historyRequest !== controller) return;
+    const owners = new Map(data.processes.map((process) => [process.id, process]));
+    ingestDownloads(data, owners);
+    historyCursor = data.cursor;
+    if (historyCursor !== null) setTimeout(loadHistory, 0);
+    else {
+      loadedRange = rangeSeconds || Infinity;
+      saveHistory();
+    }
+  } catch (error) {
+    if (!controller.signal.aborted) console.error(error);
+  } finally {
+    if (historyRequest === controller) {
+      historyRequest = null;
+      render();
+    }
+  }
+}
 async function poll() {
   if (paused || document.hidden || busy) return;
+  loadHistory();
   busy = true;
   try {
-    const params = new URLSearchParams(cursor ? { after: cursor } : {});
+    const params = new URLSearchParams({ range });
+    if (cursor) params.set("after", cursor);
     const tracked = [...processes.values()]
       .sort((a, b) => (b.status === "running") - (a.status === "running"))
       .slice(0, 128)
@@ -770,6 +744,38 @@ $("reset").onclick = () => {
 };
 for (const control of root.querySelectorAll("select"))
   control.onchange = render;
+const rangeLinks = [...root.querySelectorAll(".range-bar a")];
+function selectRange(key) {
+  const link = rangeLinks.find((item) => item.dataset.range === key);
+  if (!link || key === range) return;
+  range = key;
+  rangeSeconds = Number(link.dataset.seconds);
+  rangeLabel = link.textContent;
+  root.dataset.range = key;
+  root.dataset.rangeSeconds = link.dataset.seconds;
+  root.dataset.rangeLabel = rangeLabel;
+  for (const item of rangeLinks) item.removeAttribute("aria-current");
+  link.setAttribute("aria-current", "true");
+  historyRequest?.abort();
+  historyRequest = null;
+  historyCursor = root.dataset.historyEnabled === "true" &&
+    (rangeSeconds || Infinity) > loadedRange ? "" : null;
+  render();
+  loadHistory();
+}
+for (const link of rangeLinks) {
+  link.onclick = (event) => {
+    if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    if (link.dataset.range === range) return;
+    history.pushState(null, "", link.href);
+    selectRange(link.dataset.range);
+  };
+}
+window.addEventListener("popstate", () => {
+  selectRange(new URLSearchParams(location.search).get("range") || "24h");
+});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     previous = null;
