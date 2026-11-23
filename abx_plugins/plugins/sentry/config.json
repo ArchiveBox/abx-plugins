@@ -59,7 +59,7 @@
       "default": 0.0,
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Fraction of server processes collecting continuous CPU profiles while traces are active. Zero disables profiling; restart after changes."
+      "description": "Fraction of server processes collecting CPU profiles using the configured lifecycle. Zero disables profiling; restart after changes."
     },
     "SENTRY_PROFILE_LIFECYCLE": {
       "type": "string",

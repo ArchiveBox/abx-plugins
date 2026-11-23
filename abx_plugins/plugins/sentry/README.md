@@ -27,8 +27,8 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
   console logs. Host Python logger thresholds still apply. The existing process
   bus also forwards hook stdout/stderr and completion records, with plugin, hook,
   stream, event and output-directory attributes. Ordinary stderr is INFO;
-  unsuccessful, non-cancelled completions are ERROR. Log files are not replayed
-  or tailed, so Python records and hook output are sent once, at their source.
+  unsuccessful, non-cancelled completions are ERROR. Python records and hook output
+  are sent once, at their source.
 - `SENTRY_TRACES_SAMPLE_RATE=1` records all traces; fractions sample fewer traces
   and the default zero disables tracing. Django requests, SQLite queries,
   requests/urllib3 calls, browser navigation/fetch and native EventBus event/handler
@@ -38,14 +38,13 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
   exported as thousands of separate transactions that can crowd out logs/errors.
 - `SENTRY_ENABLE_METRICS=true` sends span counts and duration distributions, grouped
   by instrumentation scope/status, plus browser page-load counts and DOM-ready times.
-- `SENTRY_PROFILE_SESSION_SAMPLE_RATE=1` enables continuous Python CPU profiling
-  in every server/worker process while sampled traces are active. Fractions sample
-  fewer processes; the default zero disables profiling. Set a nonzero trace rate
-  as well and restart after changes. Uses Sentry's trace lifecycle, including
-  Django requests and native EventBus transactions; it does not profile browser JS.
+- `SENTRY_PROFILE_SESSION_SAMPLE_RATE=1` enables native Python CPU profiling in
+  every server/worker process. Fractions sample fewer processes; the default zero
+  disables profiling. Restart after changes. It does not profile browser JS.
   Set `SENTRY_PROFILE_LIFECYCLE=manual` for continuous process-lifetime coverage,
   including worker computation before the bus exports its completed event tree.
-  The default `trace` mode samples only while spans are active.
+  The default `trace` mode samples only while spans are active and requires a
+  nonzero trace sample rate.
 - `SENTRY_BROWSER_ENABLED=true` allows the browser integration **only when the
   machine's SENTRY_ENABLED is also true**. Its pinned, integrity-checked CDN bundle
   includes errors, tracing, logs and metrics. Session replay is never loaded or enabled.
