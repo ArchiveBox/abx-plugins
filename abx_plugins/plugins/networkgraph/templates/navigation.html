@@ -1,0 +1,3 @@
+{% if user.is_active and user.is_superuser and request.archivebox_config.NETWORKGRAPH_ENABLED %}
+<a href="{% url 'networkgraph-index' %}" class="navbar-item" aria-label="Network Graph" title="Network Graph">◉</a>
+{% endif %}

@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Bandwidth",
+  "description": "Bandwidth",
+  "type": "object",
+  "additionalProperties": false,
+  "app_module": "abx_plugins.plugins.bandwidth.app",
+  "category": "utilities",
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": [],
+  "x-auto-run": false,
+  "properties": {
+    "BANDWIDTH_ENABLED": {
+      "type": "boolean",
+      "default": true
+    },
+    "BANDWIDTH_POLL_MS": {
+      "type": "integer",
+      "default": 2000,
+      "minimum": 1000,
+      "maximum": 10000
+    },
+    "BANDWIDTH_MAX_PROCESSES": {
+      "type": "integer",
+      "default": 128,
+      "minimum": 16,
+      "maximum": 128
+    }
+  }
+}

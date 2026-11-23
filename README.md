@@ -107,6 +107,39 @@ authorized records, request handling, and collection CLI command arguments.
 `host.capture_context(request, *, snapshot_id=None, crawl_id=None)` requires
 exactly one ID and checks access before returning `output_dirs` and `tmp_dir`.
 Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
+Collection UIs can read `host.domain_records(request, cursor=None, limit=16)`,
+`host.snapshot_records(request, domain=..., after=None, limit=16)`,
+`host.resolve_snapshot_urls(request, urls)`, and
+`host.process_records(request, after=None, ids=(), limit=128)`, and
+`host.group_domains(request, hosts)` (up to 512 names, offline public suffix list). These require a collection
+administrator. Domain pages return registered names, scopes, counts, and an opaque
+cursor; snapshot pages return capture IDs, URLs, domains, output directories,
+parent/child domains, and a primary-key cursor. URL resolution accepts at most 256
+targets. Process pages contain current-machine lifecycle rows, crawl/snapshot/plugin
+relationships, recorded interface/local/public IPs, a cursor, and at most 16
+capture directories. Up to 128 tracked IDs refresh completed process metadata.
+The host owns database queries and domain grouping;
+plugins own routes, bounded artifact reads, OS sampling, and rendering.
+
+`networkgraph` registers `/admin/graph/` and uses the vendored Three.js-based
+3d-force-graph 1.80.2 bundle. Its FIFO frontier reads at most 32 captures per
+request, with 64 KiB of saved `parse_dom_outlinks/urls.jsonl` per capture; missing
+or malformed artifacts leave native discovery relationships available. Links
+resolve only to archived URLs. Domain counts use the existing domain index.
+Expansion loads another capture page; only the configured node budget is drawn.
+`bandwidth` registers `/admin/bandwidth/`, samples native interface byte counters
+and process sockets through psutil, and reads up to 64 KiB from each capture's
+saved `responses/index.jsonl` for request pulses. Only related interfaces are
+displayed. The saved response body's file size supplies per-domain byte counts;
+the minute row counts observed responses/bytes in the trailing 60 seconds;
+hour/day projections use that rolling rate. The four ranked columns aggregate
+crawls, the top ten plugins, related interfaces, and registered domains. CPU and
+foreground duration totals exclude background hooks. Recorded ArchiveResult
+sizes supply disk totals. NIC rates remain
+separate from captured-body rates. Saved WAN IPs retain their original timestamp;
+absent latency stays empty. Both views use the normal admin layout.
+Neither plugin has capture hooks,
+background services, models, or migrations. Both stop polling in hidden tabs.
 
 | Function | Return value |
 | --- | --- |

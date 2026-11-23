@@ -1,5 +1,5 @@
-# Preserve the vendored upstream papers-dl source byte-for-byte.
-exclude: ^abx_plugins/plugins/papersdl/papers-dl-patches/
+# Preserve vendored upstream source byte-for-byte.
+exclude: ^abx_plugins/plugins/(papersdl/papers-dl-patches/|networkgraph/static/vendor/)
 
 repos:
   - repo: https://github.com/asottile/yesqa
