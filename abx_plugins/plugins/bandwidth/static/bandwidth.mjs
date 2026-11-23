@@ -499,8 +499,7 @@ function dayChart(bins, maximum, peak, latency) {
     );
     plot.append(bars);
   }
-  const axis = el("div", null, "chart-axis");
-  const summary = el("span", null, "site-summary");
+  const summary = el("div", null, "site-summary");
   if (maximum) summary.append(el("span", `${bytes(maximum / 900)}/s`));
   if (peak > 0)
     summary.append(
@@ -514,8 +513,8 @@ function dayChart(bins, maximum, peak, latency) {
     summary.append(
       chip("pulse", "Minimum observed RTT", `${Math.round(latency) || "<1"} ms`)
     );
-  axis.append(el("span", "−24h"), summary, el("span", "Now"));
-  panel.append(plot, axis);
+  panel.append(plot);
+  if (summary.childElementCount) panel.append(summary);
   return panel;
 }
 function renderCard(card, g, kind, chartMaximum) {

@@ -288,14 +288,6 @@
     0 100% / 100% 50%;
   fill: currentColor;
 }
-#bandwidth-ui .chart-axis {
-  display: flex;
-  justify-content: space-between;
-  gap: 5px;
-  color: var(--body-quiet-color, #64748b);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
 #bandwidth-ui .window-tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -331,9 +323,6 @@
 #bandwidth-ui .sites-card .card-icon {
   padding: 2px;
 }
-#bandwidth-ui .sites-card .chart-axis {
-  line-height: 1.2;
-}
 #bandwidth-ui .sites-card .rate-badge {
   line-height: 1.2;
 }
@@ -349,6 +338,9 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 0 4px;
+  color: var(--body-quiet-color, #64748b);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 #bandwidth-ui .site-summary .metric-chip {
   padding-block: 0;
