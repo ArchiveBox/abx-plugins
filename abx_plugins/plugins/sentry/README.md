@@ -30,6 +30,11 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
   to the same origin. Monitoring export requests are excluded from instrumentation.
 - `SENTRY_ENABLE_METRICS=true` sends span counts and duration distributions, grouped
   by instrumentation scope/status, plus browser page-load counts and DOM-ready times.
+- `SENTRY_PROFILE_SESSION_SAMPLE_RATE=1` enables continuous Python CPU profiling
+  in every server/worker process while sampled traces are active. Fractions sample
+  fewer processes; the default zero disables profiling. Set a nonzero trace rate
+  as well and restart after changes. Uses Sentry's trace lifecycle, including
+  Django requests and native EventBus transactions; it does not profile browser JS.
 - `SENTRY_BROWSER_ENABLED=true` allows the browser integration **only when the
   machine's SENTRY_ENABLED is also true**. Its pinned, integrity-checked CDN bundle
   includes errors, tracing, logs and metrics. Session replay is never loaded or enabled.
@@ -37,7 +42,7 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
   detection; set it to the deployed version/commit for reliable release grouping.
 - PII collection is off by default. Request bodies and frame locals are excluded.
   Messages, SQL statements and URLs may still contain application data; configure
-  project scrubbing as appropriate. CPU profiling is not enabled by this plugin.
+  project scrubbing as appropriate.
 
 ## Host hooks
 
@@ -48,7 +53,8 @@ explicit opt-in. Its `render_page_head(request, config)` hook renders browser se
 using the current machine configuration and Django's safe JSON serialization.
 The plugin imports neither ArchiveBox nor abx-dl.
 
-ArchiveBox calls `app.register_eventbus(bus, config)` for each new bus. The plugin
+ArchiveBox calls `app.register_eventbus(bus, config)` before dispatch on its crawl,
+binary-resolution and install buses. The plugin
 checks its own enable flag before importing its runtime and attaching the native
 `OtelTracingMiddleware`, backed by a private tracer provider and Sentry's native
 span processor. Standalone abx-dl never calls this hook or initializes Sentry.
