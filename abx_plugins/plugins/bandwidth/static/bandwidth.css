@@ -323,6 +323,12 @@
 #bandwidth-ui .sites-card .card-icon {
   padding: 2px;
 }
+#bandwidth-ui .sites-card > header {
+  gap: 4px;
+}
+#bandwidth-ui .sites-card > header > :is(a, strong) {
+  min-width: min(8ch, 25%);
+}
 #bandwidth-ui .sites-card .rate-badge {
   line-height: 1.2;
 }
@@ -332,18 +338,15 @@
   font-size: 15px;
   font-weight: 650;
 }
-#bandwidth-ui .site-summary {
+#bandwidth-ui .site-stats {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 0 4px;
-  color: var(--body-quiet-color, #64748b);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  gap: 2px 3px;
+  min-width: 0;
 }
-#bandwidth-ui .site-summary .metric-chip {
-  padding-block: 0;
+#bandwidth-ui .site-stats .metric-chip {
   white-space: nowrap;
 }
 

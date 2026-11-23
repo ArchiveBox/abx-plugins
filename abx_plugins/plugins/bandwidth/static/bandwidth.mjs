@@ -478,7 +478,7 @@ function dayBins(site, now) {
   }
   return bins;
 }
-function dayChart(bins, maximum, peak, latency) {
+function dayChart(bins, maximum) {
   const panel = el("div", null, "day-chart");
   const plot = svg("svg");
   plot.setAttribute("viewBox", "0 0 96 28");
@@ -499,22 +499,7 @@ function dayChart(bins, maximum, peak, latency) {
     );
     plot.append(bars);
   }
-  const summary = el("div", null, "site-summary");
-  if (maximum) summary.append(el("span", `${bytes(maximum / 900)}/s`));
-  if (peak > 0)
-    summary.append(
-      chip(
-        "peak",
-        "Peak download rate",
-        `${Math.round((peak * 8) / 1e6) || "<1"} Mbps`
-      )
-    );
-  if (latency != null)
-    summary.append(
-      chip("pulse", "Minimum observed RTT", `${Math.round(latency) || "<1"} ms`)
-    );
   panel.append(plot);
-  if (summary.childElementCount) panel.append(summary);
   return panel;
 }
 function renderCard(card, g, kind, chartMaximum) {
@@ -548,13 +533,32 @@ function renderCard(card, g, kind, chartMaximum) {
     header.append(el("span", `${g.active} ${label}`, "status-badge started"));
   } else if (work) header.append(el("span", "Finished", "status-badge sealed"));
   if (site) {
+    const stats = el("div", null, "site-stats");
     const badge = chip(
       "receive",
       "Live download rate",
       g.rate ? `${bytes(g.rate)}/s` : "0B/s"
     );
     badge.classList.add("site-rate");
-    header.append(badge);
+    stats.append(badge);
+    if (g.peak > 0)
+      stats.append(
+        chip(
+          "peak",
+          "Peak download rate",
+          `${Math.round((g.peak * 8) / 1e6) || "<1"} Mbps`
+        )
+      );
+    const latency = g.windows[2].rtt;
+    if (latency != null)
+      stats.append(
+        chip(
+          "pulse",
+          "Minimum observed RTT",
+          `${Math.round(latency) || "<1"} ms`
+        )
+      );
+    header.append(stats);
   }
   card.replaceChildren(header);
 
@@ -580,8 +584,7 @@ function renderCard(card, g, kind, chartMaximum) {
     if (chart) traffic.append(chart);
     card.append(traffic);
   }
-  if (site)
-    card.append(dayChart(g.bins, chartMaximum, g.peak, g.windows[2].rtt));
+  if (site) card.append(dayChart(g.bins, chartMaximum));
 
   const details = el("div", null, "detail-strip");
   if (!site && g.peak > 0)
