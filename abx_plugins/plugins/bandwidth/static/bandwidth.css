@@ -1,328 +1,222 @@
-@scope (#bandwidth-ui) {
-  :scope {
-    color-scheme: dark;
-    display: block;
-    position: relative;
-    height: calc(100vh - 190px);
-    min-height: 570px;
-    border: 1px solid #294452;
-    border-radius: 8px;
-    overflow: hidden;
-    isolation: isolate;
-    background: #060c15;
-    color: #c3d7e4;
-    font: 14px/1.3 ui-monospace, SFMono-Regular, monospace;
-    --cyan: #58f5db;
-    --pink: #ff63b0;
+#bandwidth-ui {
+  color: var(--body-fg, #334155);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+#bandwidth-ui * {
+  box-sizing: border-box;
+}
+#bandwidth-ui .toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--darkened-bg, #f7f9fc);
+  border: 1px solid var(--hairline-color, #dbe2ea);
+  border-radius: 8px;
+}
+#bandwidth-ui button,
+#bandwidth-ui select {
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--hairline-color, #dbe2ea);
+  border-radius: 5px;
+  background: var(--body-bg, #fff);
+  color: inherit;
+  cursor: pointer;
+}
+#bandwidth-ui .total {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 10px;
+  border-left: 1px solid var(--hairline-color, #dbe2ea);
+}
+#bandwidth-ui .total output {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+#bandwidth-ui small {
+  font-size: 13px;
+  color: var(--body-quiet-color, #64748b);
+}
+#bandwidth-ui #clock {
+  margin-left: auto;
+  color: var(--body-quiet-color, #64748b);
+}
+#bandwidth-ui #connection {
+  color: #15966b;
+}
+#bandwidth-ui #connection.error {
+  color: #dc2626;
+}
+#bandwidth-ui #dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+#bandwidth-ui .column {
+  min-width: 0;
+}
+#bandwidth-ui .column > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+#bandwidth-ui .column > header select {
+  font-size: 13px;
+  max-width: 125px;
+}
+#bandwidth-ui .column > header output {
+  display: inline-block;
+  background: var(--darkened-bg, #f1f5f9);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+#bandwidth-ui .cards {
+  display: grid;
+  gap: 8px;
+}
+#bandwidth-ui .bandwidth-card {
+  border: 1px solid var(--hairline-color, #dbe2ea);
+  border-radius: 8px;
+  background: var(--body-bg, #fff);
+  overflow: hidden;
+  box-shadow: 0 1px 3px #00000008;
+}
+#bandwidth-ui .bandwidth-card > header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--darkened-bg, #f7f9fc);
+  border-bottom: 1px solid var(--hairline-color, #dbe2ea);
+}
+#bandwidth-ui .bandwidth-card > header > strong,
+#bandwidth-ui .bandwidth-card > header > a {
+  font-size: 17px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+#bandwidth-ui .rank {
+  font-size: 13px;
+  color: var(--body-quiet-color, #64748b);
+}
+#bandwidth-ui .badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 10px;
+}
+#bandwidth-ui .status-badge {
+  display: inline-block;
+  font: 500 12px/1.4 system-ui, sans-serif;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+#bandwidth-ui .status-badge.started {
+  background: #dbeafe;
+  color: #1e40af;
+}
+#bandwidth-ui .status-badge.sealed {
+  background: #d1fae5;
+  color: #065f46;
+}
+#bandwidth-ui .status-badge.skipped {
+  background: #f1f5f9;
+  color: #475569;
+}
+#bandwidth-ui dl {
+  margin: 0;
+}
+#bandwidth-ui .metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 12px;
+  padding: 8px 10px;
+}
+#bandwidth-ui dt {
+  font-size: 12px;
+  color: var(--body-quiet-color, #64748b);
+}
+#bandwidth-ui dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+#bandwidth-ui .addresses {
+  padding: 7px 10px;
+  display: grid;
+  gap: 3px;
+}
+#bandwidth-ui .addresses .metric {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+#bandwidth-ui .addresses dd {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+#bandwidth-ui .rate-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 4px 10px 8px;
+}
+#bandwidth-ui .rate-badge {
+  display: inline-flex;
+  gap: 5px;
+  align-items: baseline;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--darkened-bg, #f1f5f9);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#bandwidth-ui .rate-badge b {
+  font-size: 12px;
+  color: var(--body-quiet-color, #64748b);
+  font-weight: 500;
+}
+#bandwidth-ui .cards:empty::after {
+  content: "—";
+  text-align: center;
+  padding: 24px;
+  border: 1px dashed var(--hairline-color, #dbe2ea);
+  border-radius: 8px;
+  color: var(--body-quiet-color, #64748b);
+}
+@media (max-width: 1200px) {
+  #bandwidth-ui #dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  * {
-    box-sizing: border-box;
+}
+@media (max-width: 650px) {
+  #bandwidth-ui #dashboard {
+    grid-template-columns: minmax(0, 1fr);
   }
-  button,
-  select,
-  a {
-    font: inherit;
-    color: inherit;
-    text-decoration: none;
-    cursor: pointer;
-  }
-  nav {
-    height: 76px;
-    padding: 10px 18px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid #253849;
-    background: linear-gradient(100deg, #0b1c28, #0a101a);
-    margin: 0;
-  }
-  nav button {
-    border: 1px solid #294452;
-    background: #101d2b;
-    border-radius: 5px;
-    padding: 9px;
-    font-size: 18px;
-  }
-  button:hover,
-  a:hover {
-    color: var(--cyan);
-  }
-  button:focus-visible,
-  a:focus-visible,
-  select:focus-visible {
-    outline: 2px solid var(--cyan);
-  }
-  #connection {
-    font-size: 10px;
-    color: var(--cyan);
-  }
-  #connection.error {
-    color: var(--pink);
-  }
-  .total {
-    display: flex;
-    flex-direction: column;
-    margin-left: 18px;
-    gap: 1px;
-  }
-  .total output {
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: -1px;
-    font-variant-numeric: tabular-nums;
-  }
-  .total small {
-    font-size: 12px;
-    color: #7995a6;
-  }
-  .cyan {
-    color: var(--cyan);
-  }
-  #clock {
-    margin-left: auto;
-    font-size: 12px;
-    color: #68889c;
-  }
-  #dashboard {
-    height: calc(100% - 76px);
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    padding: 0 16px 12px;
-    background-image: linear-gradient(#15304420 1px, transparent 1px),
-      linear-gradient(90deg, #15304420 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
-  .column {
-    min-width: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  .column header {
-    height: 50px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  #bandwidth-ui .toolbar {
     gap: 6px;
-    font-size: 14px;
-    color: #9ab3c7;
-    border-bottom: 1px solid #1d3648;
-    margin-bottom: 10px;
   }
-  .column header output {
-    font-size: 12px;
-    color: #55798f;
-    margin-left: 6px;
-  }
-  .column select {
-    font-size: 12px;
-    background: #0d1c29;
-    color: #86aabd;
-    border: 1px solid #264150;
-    border-radius: 4px;
-    padding: 4px;
-    max-width: 140px;
-  }
-  .cards {
-    overflow: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #284352 transparent;
-    min-height: 0;
-    padding: 0 3px 30px 0;
-  }
-  .card {
-    position: relative;
-    padding: 9px 11px 7px;
-    margin: 0 0 10px;
-    border: 1px solid color-mix(in srgb, var(--color) 45%, #15273a);
-    border-left: 3px solid var(--color);
-    border-radius: 5px;
-    background: linear-gradient(
-      125deg,
-      color-mix(in srgb, var(--color) 9%, #0a1220),
-      #080f1b
-    );
-    box-shadow: 0 6px 20px #0003;
-    transition: opacity 0.7s, box-shadow 0.6s;
-    overflow: hidden;
-  }
-  .card.live {
-    box-shadow: 0 0 22px color-mix(in srgb, var(--color) 10%, transparent);
-  }
-  .card.cold {
-    filter: saturate(0.65);
-  }
-  .card-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    line-height: 1.2;
-  }
-  .card-title b,
-  .card-title a {
-    font-size: 18px;
-    color: var(--color);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .rank {
-    color: #56778d;
-    font-size: 12px;
-  }
-  .live-count {
-    margin-left: auto;
-    color: var(--cyan);
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .stat-strip,
-  .work-stats {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 3px 15px;
-    margin-top: 7px;
-  }
-  .metric {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    min-width: 0;
-    line-height: 1.15;
-  }
-  .metric output {
-    font-size: 18px;
-    color: #e2f2fd;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    order: 1;
-  }
-  .metric small {
-    color: #7d9bb0;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .stat-strip .metric:first-child output {
-    color: var(--cyan);
-    font-size: 18px;
-  }
-  .work-stats {
-    border-top: 1px solid #29405270;
-    padding-top: 6px;
-    margin-top: 6px;
-  }
-  .work-stats output {
-    font-size: 16px;
-  }
-  .peak {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--color);
-    margin: 6px 0 3px;
-  }
-  .rate-table {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    border-top: 1px solid #29405270;
-  }
-  .rate-row {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    font-size: 14px;
-    padding: 2px 0;
-    line-height: 1.2;
-    color: #aec7d9;
-  }
-  .rate-row small {
-    color: #7795aa;
-    font-size: 12px;
-  }
-  .rate-row span:last-child {
-    text-align: left;
-    color: #5fe9d5;
-  }
-  .spark {
-    width: 100%;
-    height: 10px;
-    display: block;
-    margin-top: 4px;
-  }
-  .spark path {
-    fill: none;
-    stroke: var(--color);
-    stroke-width: 1.5;
-    filter: drop-shadow(0 0 2px var(--color));
-  }
-  .addresses {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 18px;
-    margin-top: 6px;
-  }
-  .addresses output {
-    font-size: 14px;
-  }
-  .heat {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: var(--color);
-    transform: scaleX(var(--heat, 0.1));
-    transform-origin: left;
-    transition: transform 1s;
-    box-shadow: 0 0 6px var(--color);
-  }
-  @media (max-width: 1300px) {
-    #dashboard {
-      grid-template-columns: repeat(4, minmax(280px, 1fr));
-      overflow-x: auto;
-      gap: 12px;
-      padding: 0 12px 12px;
-    }
-    .total {
-      margin-left: 8px;
-    }
-    .column select {
-      max-width: 132px;
-    }
-    #clock {
-      display: none;
-    }
-    .stat-strip,
-    .work-stats {
-      gap: 4px 10px;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *:before,
-    *:after {
-      animation: none !important;
-      transition: none !important;
-    }
+  #bandwidth-ui .total {
+    padding: 0 5px;
   }
 }
-#bandwidth-ui .card a {
-  color: var(--color);
-  text-decoration: none;
-}
-#bandwidth-ui .column header {
-  background: transparent;
-}
-#bandwidth-ui .card {
-  background: linear-gradient(
-    125deg,
-    color-mix(in srgb, var(--color) 9%, #0a1220),
-    #080f1b
-  );
+
+#bandwidth-ui [hidden] {
+  display: none !important;
 }

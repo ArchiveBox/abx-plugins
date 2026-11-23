@@ -6,6 +6,22 @@ from typing import Any, Protocol
 class Host(Protocol):
     def group_domains(self, request: Any, hosts: list[str]) -> dict[str, str]: ...
 
+    def outlink_records(
+        self,
+        request: Any,
+        *,
+        after: str | None = None,
+        limit: int = 32,
+    ) -> dict[str, Any]: ...
+
+    def collection_records(
+        self,
+        request: Any,
+        *,
+        after: str | None = None,
+        limit: int = 512,
+    ) -> dict[str, Any]: ...
+
     def domain_records(
         self,
         request: Any,

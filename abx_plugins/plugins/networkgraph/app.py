@@ -52,7 +52,21 @@ def view(request, *, host, data=False, asset=None):
     if not config.get("NETWORKGRAPH_ENABLED", True):
         raise Http404
     if asset is not None:
-        if asset not in {"graph.mjs", "graph.css", "vendor/3d-force-graph.min.js"}:
+        if asset not in {
+            "graph.mjs",
+            "graph.css",
+            "rank.js",
+            "vendor/3d-force-graph.min.js",
+            "vendor/three.core.js",
+            "vendor/graphology.umd.min.js",
+            "vendor/graphology-library.min.js",
+            "vendor/d3-binarytree.min.js",
+            "vendor/d3-quadtree.min.js",
+            "vendor/d3-octree.min.js",
+            "vendor/d3-dispatch.min.js",
+            "vendor/d3-timer.min.js",
+            "vendor/d3-force-3d.min.js",
+        }:
             raise Http404
         return serve(request, asset, document_root=ROOT / "static")
     batch = max(1, min(32, int(config.get("NETWORKGRAPH_BATCH_SIZE", 16))))
@@ -61,7 +75,7 @@ def view(request, *, host, data=False, asset=None):
             **host.admin_context(request),
             "max_nodes": max(
                 100,
-                min(3000, int(config.get("NETWORKGRAPH_MAX_NODES", 1200))),
+                min(20000, int(config.get("NETWORKGRAPH_MAX_NODES", 12000))),
             ),
             "admin_url": host.route_urls(request)["admin"] + "/",
         }
@@ -81,7 +95,15 @@ def view(request, *, host, data=False, asset=None):
     result = cache.get(key)
     if result is None:
         try:
-            if domain := request.GET.get("domain"):
+            if request.GET.get("scan") == "links":
+                result = outlink_page(host, request, request.GET.get("after") or None)
+            elif request.GET.get("scan") == "1":
+                result = collection_page(
+                    host,
+                    request,
+                    request.GET.get("after") or None,
+                )
+            elif domain := request.GET.get("domain"):
                 if len(domain) > 253:
                     raise ValueError
                 after = request.GET.get("after") or None
@@ -171,4 +193,89 @@ def neighbors(host, request, domain, after, batch):
             }
             for record in page["records"]
         ],
+    }
+
+
+def collection_page(host, request, after):
+    page = host.collection_records(request, after=after, limit=512)
+    nodes = {}
+    edges = Counter()
+    for record in page["records"]:
+        domain = record["domain"]
+        if not domain:
+            continue
+        node = nodes.setdefault(
+            domain,
+            {
+                "id": domain,
+                "scope": f"*.{domain}",
+                "count": 0,
+                "size": 0,
+                "favicon": "",
+            },
+        )
+        node["count"] += 1
+        node["size"] += record["size"]
+        if record["favicon"]:
+            node["favicon"] = record["favicon"]
+        parent = record["parent"]
+        if parent and parent != domain:
+            edges[parent, domain] += 1
+    return {
+        "nodes": list(nodes.values()),
+        "links": [
+            {"source": source, "target": target, "value": count}
+            for (source, target), count in edges.items()
+        ],
+        "sampled": len(page["records"]),
+        "cursor": page["cursor"],
+    }
+
+
+def outlink_page(host, request, after):
+    page = host.outlink_records(request, after=after, limit=32)
+    sources = []
+    urls = set()
+    for record in page["records"]:
+        targets = set()
+        root = Path(record["output_dir"])
+        budget = 65536
+        for relative in page["paths"]:
+            if not budget:
+                break
+            try:
+                with (root / relative).open("rb") as stream:
+                    content = stream.read(budget)
+                budget -= len(content)
+                for line in content.splitlines()[:256]:
+                    try:
+                        item = json.loads(line)
+                        url = item.get("url") if isinstance(item, dict) else None
+                        if isinstance(url, str) and len(url) <= 8192:
+                            targets.add(url)
+                    except (ValueError, UnicodeError):
+                        continue
+            except OSError:
+                continue
+        sources.append((record["domain"], targets))
+        urls.update(targets)
+    resolved = {}
+    candidates = sorted(urls)
+    for start in range(0, len(candidates), 256):
+        resolved.update(
+            host.resolve_snapshot_urls(request, candidates[start : start + 256]),
+        )
+    edges = Counter()
+    for source, targets in sources:
+        for target in targets:
+            domain = resolved.get(target)
+            if source and domain and source != domain:
+                edges[source, domain] += 1
+    return {
+        "links": [
+            {"source": source, "target": target, "value": count}
+            for (source, target), count in edges.items()
+        ],
+        "sampled": len(page["records"]),
+        "cursor": page["cursor"],
     }

@@ -107,7 +107,10 @@ authorized records, request handling, and collection CLI command arguments.
 `host.capture_context(request, *, snapshot_id=None, crawl_id=None)` requires
 exactly one ID and checks access before returning `output_dirs` and `tmp_dir`.
 Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
-Collection UIs can read `host.domain_records(request, cursor=None, limit=16)`,
+Collection UIs can stream `host.collection_records(request, after=None, limit=512)`
+(primary-key pages of domain, parent domain, size and archived favicon metadata) and
+`host.outlink_records(request, after=None, limit=32)` (capture directories and registered
+outlink paths), or read `host.domain_records(request, cursor=None, limit=16)`,
 `host.snapshot_records(request, domain=..., after=None, limit=16)`,
 `host.resolve_snapshot_urls(request, urls)`, and
 `host.process_records(request, after=None, ids=(), limit=128)`, and
@@ -122,17 +125,22 @@ The host owns database queries and domain grouping;
 plugins own routes, bounded artifact reads, OS sampling, and rendering.
 
 `networkgraph` registers `/admin/graph/` and uses the vendored Three.js-based
-3d-force-graph 1.80.2 bundle. Its FIFO frontier reads at most 32 captures per
-request, with 64 KiB of saved `parse_dom_outlinks/urls.jsonl` per capture; missing
-or malformed artifacts leave native discovery relationships available. Links
-resolve only to archived URLs. Domain counts use the existing domain index.
-Expansion loads another capture page; only the configured node budget is drawn.
+3d-force-graph 1.80.2 bundle. Metadata streams in 512-row primary-key pages; saved
+outlinks follow in 32-capture pages with a 64 KiB read budget per capture. Targets
+resolve against the existing URL index. Missing or malformed artifacts leave
+discovery relationships available. Weighted PageRank, Louvain link communities,
+and d3 layout run in a browser worker using vendored libraries. Unlinked sites
+remain ungrouped. Nodes use recorded favicons, logarithmic snapshot counts and
+PageRank; only the configured domain budget is drawn. Domain selection lazily
+loads capture details. Neither loading nor layout requires new backend workers,
+models, indexes or hooks.
 `bandwidth` registers `/admin/bandwidth/`, samples native interface byte counters
 and process sockets through psutil, and reads up to 64 KiB from each capture's
-saved `responses/index.jsonl` for request pulses. Only related interfaces are
+saved `responses/index.jsonl` for traffic totals. Only related interfaces are
 displayed. The saved response body's file size supplies per-domain byte counts;
-the minute row counts observed responses/bytes in the trailing 60 seconds;
-hour/day projections use that rolling rate. The four ranked columns aggregate
+the minute badge counts observed responses/bytes in the trailing 60 seconds;
+hour/day projections use that rolling rate. The UI uses plain HTML admin cards
+and badges, updates only after polling, and omits zero-value badges. The four ranked columns aggregate
 crawls, the top ten plugins, related interfaces, and registered domains. CPU and
 foreground duration totals exclude background hooks. Recorded ArchiveResult
 sizes supply disk totals. NIC rates remain

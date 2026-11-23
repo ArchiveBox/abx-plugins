@@ -221,14 +221,6 @@ function ingest(data) {
       g.nicMinute = [...g.nicBuckets.values()].reduce((sum, b) => sum + b, 0);
     }
   }
-  const before = new Map(
-    [
-      ...crawls.values(),
-      ...plugins.values(),
-      ...interfaces.values(),
-      ...domains.values(),
-    ].map((g) => [g, g.bytes])
-  );
   for (const event of data.events) {
     if (seen.has(event.id)) continue;
     seen.set(event.id, now);
@@ -250,162 +242,127 @@ function ingest(data) {
   for (const map of [crawls, plugins, interfaces, domains])
     for (const g of map.values()) {
       const r = rates(g, now);
-      if (previous && delta > 0)
-        g.peak = Math.max(g.peak, (g.bytes - (before.get(g) || 0)) / delta);
+      g.peak = Math.max(
+        g.peak,
+        ...[...g.buckets.values()].map((b) => b.bytes),
+        0
+      );
       g.history.push(map === interfaces ? g.rx + g.tx : r.bytes);
       if (g.history.length > 90) g.history.shift();
     }
-  for (const [id, t] of seen) if (now - t > 180) seen.delete(id);
   while (seen.size > 16384) seen.delete(seen.keys().next().value);
   previous = data;
   cursor = data.cursor || cursor;
+  $("clock").textContent = new Date(data.time * 1000).toLocaleTimeString();
   render();
 }
-function spark(g) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.classList.add("spark");
-  svg.setAttribute("viewBox", "0 0 240 32");
-  svg.setAttribute("preserveAspectRatio", "none");
-  const path = document.createElementNS(svg.namespaceURI, "path"),
-    max = Math.max(1, ...g.history);
-  path.setAttribute(
-    "d",
-    g.history
-      .map(
-        (v, i) =>
-          `${i ? "L" : "M"}${(i * 240) / Math.max(1, g.history.length - 1)},${
-            31 - (v / max) * 28
-          }`
-      )
-      .join(" ")
-  );
-  svg.append(path);
-  return svg;
+function badge(text, status = "skipped") {
+  return el("span", text, `status-badge ${status}`);
 }
 function metric(label, value) {
-  const box = el("div", null, "metric");
-  box.append(el("output", value), el("small", label));
-  return box;
+  const item = el("div", null, "metric");
+  item.append(el("dt", label), el("dd", value));
+  return item;
 }
 function renderCard(card, g, kind, rank, now) {
   const r = rates(g, now),
     work = kind === "plugins" || kind === "crawls",
     nic = kind === "interfaces";
-  card.style.setProperty("--color", color(g.id));
-  card.style.setProperty(
-    "--heat",
-    String(Math.max(0.05, 1 - (now - g.last) / 60))
-  );
-  card.className = `card${g.active ? " live" : ""}${
-    !work && !nic && now - g.last > 60 ? " cold" : ""
-  }`;
-  const title = el("div", null, "card-title");
-  title.append(el("small", String(rank + 1).padStart(2, "0"), "rank"));
+  card.className = "bandwidth-card";
+  const header = el("header");
   const name = el(
-    g.href ? "a" : "b",
+    g.href ? "a" : "strong",
     kind === "crawls"
-      ? `#${short(g.id)}`
+      ? g.label || `Crawl #${short(g.id)}`
       : nic
       ? g.name
-      : kind === "domains" && !g.id.includes(":")
+      : kind === "domains"
       ? `*.${g.id}`
       : g.id
   );
   if (g.href) name.href = g.href;
-  name.title = g.label || g.id;
-  title.append(name);
-  if (work)
-    title.append(
-      el(
-        "span",
-        `▤ ${compact.format(g.snapshots.size)} · ● ${g.active}`,
-        "live-count"
-      )
-    );
-  card.replaceChildren(title);
-  if (nic) {
-    const address = el("div", null, "addresses");
-    for (const [label, value] of [
-      ["Local", g.local],
-      ["WAN", g.wan],
-    ])
-      address.append(metric(label, value || "—"));
-    card.append(address);
-  }
-  if (g.measured || nic) {
-    const stats = el("div", null, "stat-strip");
-    stats.append(
-      metric(nic ? "↓" : "body", bytes(nic ? g.rx : r.bytes) + "/s")
-    );
-    if (nic) stats.append(metric("↑", bytes(g.tx) + "/s"));
-    stats.append(
-      metric(nic ? "Σ NIC" : "Σ body", bytes(nic ? g.nicBytes || 0 : g.bytes)),
-      metric("Σ resp", g.measured ? compact.format(g.requests) : "—")
-    );
-    card.append(stats);
-  }
+  name.title = g.id;
+  header.append(el("span", String(rank + 1), "rank"), name);
+  if (g.active) header.append(badge(`${g.active} running`, "started"));
+  else if (work) header.append(badge("Finished", "sealed"));
+  card.replaceChildren(header);
   if (work) {
-    const stats = el("div", null, "work-stats");
-    stats.append(
-      metric("disk", bytes(g.disk)),
-      metric("CPU fg", g.cpu ? `≥ ${duration(g.cpu)}` : "—")
-    );
-    if (g.active)
-      stats.append(
-        metric(
-          "Ø CPU fg",
-          g.cpuSamples ? `${Math.round(g.cpuLive / g.cpuSamples)}%` : "—"
-        ),
-        metric("Ø RAM", g.ramSamples ? bytes(g.ram / g.ramSamples) : "—")
+    const badges = el("div", null, "badges");
+    if (g.snapshots.size)
+      badges.append(badge(`${g.snapshots.size.toLocaleString()} snapshots`));
+    if (g.active && g.cpuSamples && g.cpuLive > 0)
+      badges.append(
+        badge(`${Math.round(g.cpuLive / g.cpuSamples) || "<1"}% CPU avg`)
       );
-    stats.title = `FG ${duration(g.fg)}`;
-    card.append(stats);
+    if (g.active && g.ramSamples && g.ram > 0)
+      badges.append(badge(`${bytes(g.ram / g.ramSamples)} RAM avg`));
+    card.append(badges);
   }
-  if (g.measured || nic) {
-    const peak = el("div", null, "peak");
-    peak.append(
-      el(
-        "span",
-        `${Math.round(
-          ((nic ? g.nicPeak || 0 : g.peak) * 8) / 1e6
-        ).toLocaleString()} Mb/s peak`
-      )
+  if (nic) {
+    const addresses = el("dl", null, "addresses");
+    addresses.append(
+      metric("Local IP", g.local || "—"),
+      metric("WAN IP", g.wan || "—")
     );
-    if (kind === "domains")
-      peak.append(
-        el("span", g.latency == null ? "RTT —" : `${Math.round(g.latency)} ms`)
+    card.append(addresses);
+  }
+  const metrics = el("dl", null, "metrics");
+  metrics.append(
+    metric(
+      nic ? "↓ Receive" : "Traffic / sec",
+      g.measured || nic ? `${bytes(nic ? g.rx : r.bytes)}/s` : "—"
+    )
+  );
+  if (nic) metrics.append(metric("↑ Send", `${bytes(g.tx)}/s`));
+  metrics.append(
+    metric(
+      nic ? "NIC total" : "Traffic total",
+      g.measured || nic ? bytes(nic ? g.nicBytes || 0 : g.bytes) : "—"
+    )
+  );
+  if (work)
+    metrics.append(
+      metric("Disk", bytes(g.disk)),
+      metric("CPU · foreground", g.cpu ? `≥ ${duration(g.cpu)}` : "—")
+    );
+  card.append(metrics);
+  if (g.measured || nic) {
+    const summary = el("div", null, "badges");
+    if (g.requests)
+      summary.append(
+        badge(`${g.requests.toLocaleString()} responses`, "started")
       );
-    card.append(peak);
-    const table = el("div", null, "rate-table");
-    for (const [unit, seconds] of [
-      ["min", 60],
-      ["hr", 3600],
-      ["day", 86400],
+    const peak = nic ? g.nicPeak || 0 : g.peak;
+    if (peak > 0)
+      summary.append(
+        badge(`${Math.round((peak * 8) / 1e6) || "<1"} Mbps peak`)
+      );
+    if (g.latency != null)
+      summary.append(badge(`${Math.round(g.latency) || "<1"} ms`));
+    card.append(summary);
+    const ratesRow = el("div", null, "rate-badges");
+    for (const [label, seconds] of [
+      ["/min", 60],
+      ["~/hr", 3600],
+      ["~/day", 86400],
     ]) {
-      const row = el("div", null, "rate-row");
-      row.append(
-        el("small", unit),
+      if (!r.requests && !(nic ? g.nicMinute : r.bytes)) continue;
+      const item = el("span", null, "rate-badge");
+      item.append(el("b", label));
+      item.append(
         el(
           "span",
-          g.measured
-            ? `${unit === "min" ? "" : "~"}${compact.format(
-                Math.round(r.requests * seconds)
-              )} resp`
-            : "—"
-        ),
-        el(
-          "span",
-          `${unit === "min" ? "" : "~"}${bytes(
-            (nic ? (g.nicMinute || 0) / 60 : r.bytes) * seconds
-          )}`
+          `${
+            g.measured
+              ? Math.round(r.requests * seconds).toLocaleString() + " resp · "
+              : ""
+          }${bytes((nic ? (g.nicMinute || 0) / 60 : r.bytes) * seconds)}`
         )
       );
-      table.append(row);
+      ratesRow.append(item);
     }
-    card.append(table, spark(g));
+    card.append(ratesRow);
   }
-  if (g.hosts.size) card.title = [...g.hosts].join(" · ");
-  card.append(el("i", null, "heat"));
 }
 
 function render() {
@@ -466,6 +423,7 @@ function render() {
             { duration: 450, easing: "cubic-bezier(.2,.8,.2,1)" }
           );
       }
+    $(`${id}-count`).hidden = !groups.length;
     $(`${id}-count`).textContent = String(
       id === "interfaces" ? groups.length : map.size
     );
@@ -522,10 +480,5 @@ document.addEventListener("visibilitychange", () => {
     poll();
   }
 });
-setInterval(() => {
-  if (document.hidden || paused) return;
-  $("clock").textContent = new Date().toLocaleTimeString();
-  render();
-}, 1000);
 setInterval(poll, Number(root.dataset.pollMs));
 poll();
