@@ -49,18 +49,18 @@ const bytes = (value) => {
   return `${Math.round(value).toLocaleString()} ${units[i]}`;
 };
 const palette = [
-  "#62a9ff",
-  "#f6b768",
-  "#b397fa",
-  "#62d4bc",
-  "#f083a7",
-  "#c5d97c",
-  "#75cbe8",
-  "#ed9979",
+  "#245eaa",
+  "#9a4d0a",
+  "#6749a9",
+  "#087764",
+  "#a33469",
+  "#566b18",
+  "#1c6b84",
+  "#a34025",
 ];
 const color = (id) => {
   const n = nodes.get(id);
-  if (n && !n.community) return "#526679";
+  if (n && !n.community) return "#61758b";
   const name = n?.community || id;
   return palette[
     [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) %
@@ -73,11 +73,11 @@ let iconLoading = 0;
 const fallbackCanvas = document.createElement("canvas");
 fallbackCanvas.width = fallbackCanvas.height = 48;
 const ctx = fallbackCanvas.getContext("2d");
-ctx.fillStyle = "#24374b";
+ctx.fillStyle = "#e6eef6";
 ctx.beginPath();
 ctx.roundRect(0, 0, 48, 48, 10);
 ctx.fill();
-ctx.strokeStyle = "#b6cce1";
+ctx.strokeStyle = "#45617c";
 ctx.lineWidth = 2;
 ctx.beginPath();
 ctx.arc(24, 24, 15, 0, Math.PI * 2);
@@ -193,7 +193,9 @@ const graph = new window.ForceGraph3D($("graph"), {
   controlType: "orbit",
   rendererConfig: { antialias: false, powerPreference: "high-performance" },
 })
-  .backgroundColor("#050912")
+  .backgroundColor(
+    getComputedStyle(root).getPropertyValue("--graph-canvas").trim()
+  )
   .numDimensions(2)
   .showNavInfo(false)
   .nodeThreeObject(nodeIcon)
@@ -203,10 +205,10 @@ const graph = new window.ForceGraph3D($("graph"), {
   .nodeVal((n) => ((n.radius || 3) / 4) ** 3)
   .nodeColor((n) =>
     n === focused()
-      ? "#ffffff"
+      ? "#132338"
       : !focused() || adjacency.get(focused().id)?.has(n.id)
       ? color(n.id)
-      : "#22313d"
+      : "#beccd9"
   )
   .nodeOpacity(0.95)
   .linkOpacity(0.65)
@@ -220,9 +222,9 @@ const graph = new window.ForceGraph3D($("graph"), {
   .linkResolution(3)
   .linkColor((l) =>
     !incident(l)
-      ? "#111d2a"
+      ? "#cbd7e3"
       : end(l.target) === focused()?.id
-      ? "#ff5fa9"
+      ? "#ac316d"
       : color(end(l.source))
   )
   .linkDirectionalArrowLength((l) => (focused() && incident(l) ? 5 : 0))
@@ -512,7 +514,7 @@ function details() {
       const incoming = end(l.target) === n.id;
       const target = nodes.get(incoming ? end(l.source) : end(l.target));
       b.textContent = `${incoming ? "↙" : "↗"} ${target.id} · ${l.value}`;
-      b.style.color = incoming ? "#ff78b6" : "#61f3de";
+      b.style.color = incoming ? "#a22d66" : "#087764";
       b.onclick = () => select(target);
       return b;
     })

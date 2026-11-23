@@ -143,12 +143,17 @@ loads capture details. Neither loading nor layout requires new backend workers,
 models, indexes or hooks.
 `bandwidth` registers `/admin/bandwidth/` and samples network I/O while the
 dashboard polls. It associates runner hook processes and their descendants with
-socket counters from macOS `nettop` or Linux TCP socket diagnostics. Recorded DNS
+socket counters from macOS `nettop` or Linux TCP socket diagnostics. Plugins can
+also supply exact completed download bytes by implementing
+`completed_downloads(stderr) -> list[tuple[hostname, bytes]]` in their presentation
+module. The panel reads bounded tails of recent completed process logs and
+uses these measurements for history in place of socket byte deltas from the
+same plugin. Recorded DNS
 observations label peers when they identify a single site. Ambiguous traffic remains
 in an unattributed total. Site cards use archived favicons and show 24-hour
 download history, rolling download totals, minimum observed RTT, and hit
 estimates based on observed connections. History is retained in the browser
-tab, and short connections between polls can be missed. Interface cards use
+tab. Short connections can be missed by socket polling. Interface cards use
 separate host interface counters for devices used by observed flows. Recorded
 ArchiveResult sizes supply disk totals, and foreground CPU totals exclude
 background hooks. Both plugins contribute cards through the generic admin slots.

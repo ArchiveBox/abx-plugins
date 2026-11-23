@@ -338,3 +338,18 @@
   flex-wrap: wrap;
   gap: 4px;
 }
+
+#bandwidth-ui .cards,
+#bandwidth-ui .bandwidth-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+#bandwidth-ui .traffic-values,
+#bandwidth-ui .window-tiles .rate-badge,
+#bandwidth-ui .window-tiles .rate-badge strong {
+  min-width: 0;
+}
+#bandwidth-ui .window-tiles .rate-badge strong,
+#bandwidth-ui .hit-estimate {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

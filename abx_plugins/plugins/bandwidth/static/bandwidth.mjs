@@ -1,13 +1,14 @@
 const root = document.getElementById("bandwidth-ui");
 const $ = (id) => root.querySelector(`#${id}`);
-const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const processes = new Map(),
   previousProcesses = new Map(),
   crawls = new Map(),
   plugins = new Map(),
   interfaces = new Map(),
   sites = new Map();
-const historyKey = `archivebox-bandwidth:${root.dataset.monitorKey}`;
+const historyKey = `archivebox-bandwidth-v2:${root.dataset.monitorKey}`;
+const completed = new Map();
+const renderedReports = new Set();
 let savedAt = 0;
 let cursor = "",
   previous = null,
@@ -79,9 +80,9 @@ function appendBucket(bucket, amount) {
   if (amount.rtt != null)
     bucket.rtt = Math.min(bucket.rtt ?? Infinity, amount.rtt);
 }
-function addTraffic(group, now, amount, seconds) {
+function addTraffic(group, now, amount, seconds = 0) {
   group.measured = true;
-  group.rate = amount.bytes / seconds;
+  if (seconds > 0) group.rate = amount.bytes / seconds;
   group.bytes += amount.bytes;
   group.peak = Math.max(group.peak, group.rate);
   if (!amount.bytes && !amount.hits && amount.rtt == null) return;
@@ -115,15 +116,26 @@ function trafficWindows(group, now) {
 }
 function restoreSites() {
   try {
-    for (const { id, href, favicon, seconds, minutes, peak } of JSON.parse(
-      sessionStorage.getItem(historyKey) || "[]"
-    )) {
+    const saved = JSON.parse(sessionStorage.getItem(historyKey) || "{}");
+    totalBytes = saved.totalBytes || 0;
+    for (const [id, time] of saved.completed || [])
+      if (Date.now() / 1000 - time < 86400) completed.set(id, time);
+    for (const {
+      id,
+      href,
+      favicon,
+      seconds,
+      minutes,
+      peak,
+      hostnames,
+    } of saved.sites || []) {
       const site = group(sites, id);
       Object.assign(site, {
         href,
         favicon,
         seconds: new Map(seconds),
         minutes: new Map(minutes),
+        hostnames: new Set(hostnames),
         peak,
       });
       site.bytes = trafficWindows(site, Date.now() / 1000)[2].bytes;
@@ -144,9 +156,16 @@ function saveSites() {
         favicon: s.favicon,
         seconds: [...s.seconds],
         minutes: [...s.minutes],
+        hostnames: [...(s.hostnames || [])],
         peak: s.peak,
       }));
-    sessionStorage.setItem(historyKey, JSON.stringify(history));
+    const now = Date.now() / 1000;
+    for (const [id, time] of completed)
+      if (now - time >= 86400) completed.delete(id);
+    sessionStorage.setItem(
+      historyKey,
+      JSON.stringify({ sites: history, completed: [...completed], totalBytes })
+    );
   } catch {
     // Storage limits do not affect live measurements.
   }
@@ -243,7 +262,9 @@ function ingest(data) {
     data.processes.map((process) => [process.id, process])
   );
   const amounts = new Map();
-  let transferred = 0;
+  const liveRates = new Map();
+  let transferred = 0,
+    liveBytes = 0;
   for (const flow of data.flows) {
     const owner = owners.get(flow.process);
     if (!owner) continue;
@@ -260,24 +281,52 @@ function ingest(data) {
     }
     if (delta <= 0) continue;
     const old = previousFlows.get(flow.id);
+    const bytes = old ? Math.max(0, flow.rx - old.rx) : 0;
     const amount = {
-      bytes: old ? Math.max(0, flow.rx - old.rx) : 0,
-      // New observed connections are a proxy for hits, including reused
-      // connections only once. The first sample sets a baseline.
-      hits: flow.site && (!old || !old.site) ? 1 : 0,
+      bytes: owner.reports_downloads ? 0 : bytes,
+      hits:
+        !owner.reports_downloads && flow.site && (!old || !old.site) ? 1 : 0,
       rtt: Number.isFinite(flow.rtt) && flow.rtt > 0 ? flow.rtt : null,
     };
     for (const g of [site, ...workGroups(owner)]) {
+      liveRates.set(g, (liveRates.get(g) || 0) + bytes / delta);
       if (!amounts.has(g)) amounts.set(g, emptyBucket());
       appendBucket(amounts.get(g), amount);
     }
+    liveBytes += bytes;
     transferred += amount.bytes;
   }
   for (const map of [plugins, crawls, sites, interfaces])
     for (const g of map.values()) g.rate = 0;
   for (const [g, amount] of amounts) addTraffic(g, now, amount, delta);
+  for (const [g, rate] of liveRates) {
+    g.rate = rate;
+    g.peak = Math.max(g.peak, rate);
+  }
+  for (const report of data.downloads || []) {
+    const owner = owners.get(report.process);
+    if (!owner || renderedReports.has(report.process)) continue;
+    renderedReports.add(report.process);
+    const alreadyCounted = completed.has(report.process);
+    completed.set(report.process, report.time);
+    for (const entry of report.entries) {
+      const site = group(sites, entry.site);
+      site.href ||= entry.site_url;
+      site.favicon ||= data.favicons?.[entry.site];
+      site.hostnames ||= new Set();
+      if (site.hostnames.size < 12) site.hostnames.add(entry.hostname);
+      site.last = Math.max(site.last, report.time);
+      if (site.owners.size < 12) site.owners.add(owner.name);
+      const amount = { bytes: entry.bytes, hits: entry.hits, rtt: null };
+      for (const g of workGroups(owner)) addTraffic(g, report.time, amount);
+      if (!alreadyCounted) {
+        addTraffic(site, report.time, amount);
+        transferred += entry.bytes;
+      }
+    }
+  }
   totalBytes += transferred;
-  totalRate = delta > 0 ? transferred / delta : 0;
+  totalRate = delta > 0 ? liveBytes / delta : 0;
 
   const counters = new Map(
     data.interfaces.map((counter) => [counter.id, counter])
@@ -428,6 +477,8 @@ function renderCard(card, g, kind, chartMaximum) {
     g.href ? "a" : "strong",
     kind === "crawls"
       ? g.label || `Crawl #${short(g.id)}`
+      : g.hostnames?.size === 1
+      ? g.hostnames.values().next().value
       : g.id || "Unattributed"
   );
   if (g.href) name.href = g.href;
@@ -449,8 +500,14 @@ function renderCard(card, g, kind, chartMaximum) {
 
   const traffic = el("div", null, "traffic-strip");
   const metrics = el("dl", null, "traffic-values");
+  const averaged = !g.rate && g.windows[0].bytes > 0;
+  const rate = averaged ? g.windows[0].bytes / 60 : g.rate;
   metrics.append(
-    metric("receive", "Download / sec", g.measured ? `${bytes(g.rate)}/s` : "—")
+    metric(
+      "receive",
+      averaged ? "1m avg" : "Download / sec",
+      g.measured ? `${bytes(rate)}/s` : "—"
+    )
   );
   if (!site) {
     metrics.append(
@@ -567,7 +624,7 @@ function renderCard(card, g, kind, chartMaximum) {
           }`,
           "hit-estimate"
         );
-        estimate.title = "Estimated from observed connections";
+        estimate.title = "Completed downloads and observed connections";
         item.append(estimate);
       }
       windows.append(item);
@@ -613,12 +670,6 @@ function render() {
     }
     const parent = $(id),
       existing = new Map([...parent.children].map((n) => [n.dataset.key, n]));
-    const positions = new Map(
-      [...parent.children].map((n) => [
-        n.dataset.key,
-        n.getBoundingClientRect().top,
-      ])
-    );
     groups.forEach((g) => {
       const card = existing.get(g.id) || el("article");
       card.dataset.key = g.id;
@@ -627,20 +678,6 @@ function render() {
       existing.delete(g.id);
     });
     for (const card of existing.values()) card.remove();
-    if (!reduced)
-      for (const card of parent.children) {
-        const before = positions.get(card.dataset.key);
-        if (before == null) continue;
-        const shift = before - card.getBoundingClientRect().top;
-        if (Math.abs(shift) > 2)
-          card.animate(
-            [
-              { transform: `translateY(${shift}px)` },
-              { transform: "translateY(0)" },
-            ],
-            { duration: 450, easing: "cubic-bezier(.2,.8,.2,1)" }
-          );
-      }
     $(`${id}-count`).hidden = !groups.length;
     $(`${id}-count`).textContent = String(
       id === "interfaces" ? groups.length : map.size
@@ -690,6 +727,8 @@ $("reset").onclick = () => {
   try {
     sessionStorage.removeItem(historyKey);
     sites.clear();
+    completed.clear();
+    totalBytes = 0;
   } catch {}
   location.reload();
 };

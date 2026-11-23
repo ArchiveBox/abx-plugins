@@ -1,9 +1,13 @@
 @scope (#networkgraph-ui) {
   :scope {
-    color-scheme: dark;
+    color-scheme: light;
+    --graph-canvas: #f5f8fc;
+    --graph-rule: #d6e0eb;
+    --graph-muted: #53657a;
+    --graph-hover: #e5effb;
     font: 12px ui-monospace, SFMono-Regular, monospace;
-    color: #b4c8dd;
-    background: #050912;
+    color: #24364b;
+    background: var(--graph-canvas);
   }
   * {
     box-sizing: border-box;
@@ -21,10 +25,10 @@
   #selection {
     position: absolute;
     z-index: 2;
-    background: #080f1bdc;
-    border: 1px solid #27415380;
+    background: #fffffff5;
+    border: 1px solid var(--graph-rule);
     backdrop-filter: blur(16px);
-    box-shadow: 0 12px 60px #0007;
+    box-shadow: 0 12px 60px #233f591c;
     border-radius: 8px;
   }
   nav {
@@ -50,30 +54,30 @@
   button:hover,
   a:hover,
   button.active {
-    background: #153344;
-    color: #75fff0;
+    background: var(--graph-hover);
+    color: #123557;
   }
   button:focus-visible,
   a:focus-visible,
   input:focus-visible {
-    outline: 1px solid #6fffe3;
+    outline: 1px solid #255f9d;
   }
   input {
     width: 180px;
-    color: #e4f5ff;
-    background: #050912;
-    border: 1px solid #263646;
+    color: #24364b;
+    background: var(--graph-canvas);
+    border: 1px solid #c0ccda;
     border-radius: 4px;
     padding: 9px;
     font: inherit;
   }
   #connection {
     font-size: 9px;
-    color: #54f5b9;
+    color: #08784d;
     margin: 0 9px;
   }
   #connection.error {
-    color: #ff547c;
+    color: #b52e46;
   }
   #connection.loading {
     animation: blink 1s infinite;
@@ -89,9 +93,9 @@
     display: flex;
     justify-content: space-between;
     padding: 14px 12px;
-    border-bottom: 1px solid #284052;
+    border-bottom: 1px solid var(--graph-rule);
     font-size: 10px;
-    color: #73d9d1;
+    color: #225b73;
   }
   .meter span {
     white-space: nowrap;
@@ -120,7 +124,7 @@
   }
   .domain output {
     font-size: 10px;
-    color: #8ca5b9;
+    color: var(--graph-muted);
   }
   .domain:before {
     content: "";
@@ -129,11 +133,11 @@
     top: 0;
     bottom: 0;
     width: var(--weight);
-    background: linear-gradient(90deg, #28dfcc15, transparent);
+    background: linear-gradient(90deg, #3084aa22, transparent);
     pointer-events: none;
   }
   .domain.selected {
-    background: #19374b;
+    background: var(--graph-hover);
   }
   #selection {
     bottom: 20px;
@@ -144,14 +148,14 @@
   }
   #selection strong {
     font-size: 14px;
-    color: #e8ffff;
+    color: #162b42;
     font-weight: 500;
     display: block;
     margin-right: 30px;
   }
   #selection output {
     display: block;
-    color: #6de8d7;
+    color: #225b73;
     margin: 10px 0;
   }
   #selection #close {
@@ -170,22 +174,22 @@
     position: absolute;
     width: 30px;
     height: 1px;
-    background: #56ffe2;
+    background: #197782;
     top: 20px;
     transform-origin: left;
   }
   #axis i:nth-child(2) {
-    background: #ff4cad;
+    background: #b72e73;
     transform: rotate(-90deg);
   }
   #axis i:nth-child(3) {
-    background: #587bff;
+    background: #3157ba;
     transform: rotate(135deg);
   }
   .scene-tooltip {
-    background: #081422ee !important;
-    color: #dcffff !important;
-    border: 1px solid #3f6578;
+    background: #fffffff7 !important;
+    color: #24364b !important;
+    border: 1px solid var(--graph-rule);
     padding: 8px !important;
     font: 12px ui-monospace, monospace !important;
     border-radius: 4px !important;
@@ -250,20 +254,19 @@
     white-space: nowrap;
     font-size: 10px;
     padding: 2px 5px;
-    text-shadow: 0 1px 4px #000, 0 0 10px #000;
-    background: #05091299;
+    background: #ffffffd9;
     border-radius: 3px;
     will-change: transform;
   }
   .node-label:hover {
-    background: #193647;
+    background: var(--graph-hover);
   }
   #distribution {
     display: block;
     width: 100%;
     height: 45px;
     padding: 0 10px;
-    border-bottom: 1px solid #1e3544;
+    border-bottom: 1px solid var(--graph-rule);
   }
   .domain {
     display: grid;
@@ -273,7 +276,7 @@
   .domain small {
     grid-column: 1/-1;
     font-size: 9px;
-    color: #618899;
+    color: var(--graph-muted);
     letter-spacing: 1px;
   }
   #selection {
@@ -284,11 +287,11 @@
   }
   #node-metrics {
     font-size: 10px;
-    color: #7e9cae;
+    color: var(--graph-muted);
     margin-bottom: 10px;
   }
   #neighbors {
-    border-top: 1px solid #23404b;
+    border-top: 1px solid var(--graph-rule);
     margin-top: 8px;
     padding-top: 8px;
   }
@@ -303,7 +306,7 @@
     white-space: nowrap;
   }
   #captures {
-    border-top: 1px solid #23404b;
+    border-top: 1px solid var(--graph-rule);
     margin-top: 8px;
     padding-top: 8px;
   }
@@ -314,7 +317,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #839dad;
+    color: var(--graph-muted);
   }
   button:disabled {
     opacity: 0.25;
@@ -353,7 +356,7 @@
     position: relative;
     height: calc(100vh - 210px);
     min-height: 540px;
-    border: 1px solid #274153;
+    border: 1px solid var(--graph-rule);
     border-radius: 8px;
     isolation: isolate;
     line-height: normal;
@@ -390,7 +393,8 @@
   top: 0;
   left: 0;
   font: 600 15px system-ui, sans-serif;
-  background: #0b1628e8;
+  background: #fffffff0;
+  box-shadow: 0 1px 4px #233f591a;
   padding: 5px 9px;
   border-radius: 5px;
   white-space: nowrap;

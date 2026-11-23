@@ -92,6 +92,12 @@ def view(request, *, host, data=False, asset=None):
         except ValueError:
             return JsonResponse({}, status=400)
         result = sample(page)
+        result["downloads"] = completed_downloads(
+            host,
+            request,
+            result["processes"],
+            result["time"],
+        )
         identify_sites(host, request, page, result, reverse("domains:index"))
         cache.set(key, result, timeout=interval / 1000)
     return JsonResponse(result, headers={"Cache-Control": "private, no-store"})
@@ -234,6 +240,52 @@ def process_tree(roots):
     return owners
 
 
+def completed_downloads(host, request, processes, now):
+    from django.core.cache import cache
+
+    get_reporters = getattr(host, "download_reporters", None)
+    log_tails = getattr(host, "process_log_tails", None)
+    if get_reporters is None or log_tails is None:
+        return []
+    reporters = get_reporters(request, [process["name"] for process in processes])
+    pending = {}
+    reports = []
+    for process in processes:
+        if process["name"] not in reporters:
+            continue
+        process["reports_downloads"] = True
+        ended = process["ended"]
+        if process["status"] != "exited" or ended is None or now - ended >= 86400:
+            continue
+        cache_key = f"bandwidth-downloads:{process['id']}"
+        entries = cache.get(cache_key)
+        if entries is None:
+            pending[process["id"]] = process
+        elif entries:
+            reports.append(
+                {"process": process["id"], "time": ended, "entries": entries},
+            )
+
+    if pending:
+        for pid, log in log_tails(request, list(pending)).items():
+            process = pending[pid]
+            counts = defaultdict(lambda: [0, 0])
+            for hostname, size in reporters[process["name"]](log):
+                total = counts[hostname]
+                total[0] += size
+                total[1] += 1
+            entries = [
+                {"hostname": name, "bytes": size, "hits": hits}
+                for name, (size, hits) in counts.items()
+            ]
+            cache.set(f"bandwidth-downloads:{pid}", entries, 86400)
+            if entries:
+                reports.append(
+                    {"process": pid, "time": process["ended"], "entries": entries},
+                )
+    return reports
+
+
 @lru_cache(maxsize=128)
 def read_dns_observations(path, mtime, size):
     # Only the most recent portion of the capture's existing DNS artifact.
@@ -267,14 +319,14 @@ def read_dns_observations(path, mtime, size):
 
 
 def identify_sites(host, request, page, result, domains_url):
-    if not result["flows"]:
+    if not result["flows"] and not result["downloads"]:
         return
     recent = {
         row["snapshot"] for row in result["processes"] if row["status"] == "running"
     }
     addresses = defaultdict(set)
     peers = {flow["peer"] for flow in result["flows"]}
-    for snapshot, directory in page["output_dirs"].items():
+    for snapshot, directory in page["output_dirs"].items() if peers else ():
         if snapshot not in recent:
             continue
         path = Path(directory) / "dns" / "dns.jsonl"
@@ -290,16 +342,23 @@ def identify_sites(host, request, page, result, domains_url):
     # A literal-IP URL needs no DNS evidence. Never assign a socket to an
     # arbitrary snapshot URL merely because its process belongs to that capture.
     urls = {}
+    captured = {}
     for row in page["records"]:
         if url := row["archiveresult__snapshot__url"]:
             try:
                 parsed = urlsplit(url)
+                pid = str(row["id"])
+                captured[pid] = (parsed.hostname, row["archiveresult__snapshot_id"])
                 name = ip_address(parsed.hostname or "")
                 port = parsed.port or (443 if parsed.scheme == "https" else 80)
                 urls[str(row["id"])] = (str(name), port, parsed.netloc)
             except ValueError:
                 pass
-    names = sorted({name for values in addresses.values() for name in values})
+    downloads = [entry for report in result["downloads"] for entry in report["entries"]]
+    names = sorted(
+        {name for values in addresses.values() for name in values}
+        | {entry["hostname"] for entry in downloads},
+    )
     grouped = {}
     for start in range(0, len(names), 512):
         grouped.update(host.group_domains(request, names[start : start + 512]))
@@ -313,9 +372,25 @@ def identify_sites(host, request, page, result, domains_url):
         flow["site"] = next(iter(domains)) if len(domains) == 1 else ""
         if flow["site"]:
             flow["site_url"] = domains_url + "?" + urlencode({"q": flow["site"]})
+    for entry in downloads:
+        entry["site"] = grouped.get(entry["hostname"], entry["hostname"])
+        entry["site_url"] = domains_url + "?" + urlencode({"q": entry["site"]})
     site_names = list(
-        dict.fromkeys(flow["site"] for flow in result["flows"] if flow["site"]),
+        dict.fromkeys(
+            entry["site"] for entry in [*downloads, *result["flows"]] if entry["site"]
+        ),
     )[:30]
     get_icons = getattr(host, "domain_favicons", None)
     if site_names and get_icons is not None:
-        result["favicons"] = get_icons(request, site_names)
+        preferred = {}
+        for report in result["downloads"]:
+            hostname, snapshot = captured.get(report["process"], (None, None))
+            if snapshot:
+                for entry in report["entries"]:
+                    if entry["hostname"] == hostname:
+                        preferred[entry["site"]] = str(snapshot)
+        result["favicons"] = (
+            get_icons(request, site_names, preferred=preferred)
+            if preferred
+            else get_icons(request, site_names)
+        )
