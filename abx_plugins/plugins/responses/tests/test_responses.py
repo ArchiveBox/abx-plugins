@@ -21,6 +21,7 @@ import pytest
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
     get_plugin_dir,
+    parse_jsonl_records,
     start_process_and_wait_for_file,
     wait_for_file,
 )
@@ -37,6 +38,81 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 PLUGIN_DIR = get_plugin_dir(__file__)
 RESPONSES_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_responses.*")
 FILENAME_UTILS = PLUGIN_DIR / "filename_utils.js"
+
+
+def test_chrome_error_page_resources_are_not_saved(tmp_path):
+    url = "http://archivebox-unreachable.invalid/"
+    with chrome_session(
+        tmp_path,
+        test_url=url,
+        navigate=False,
+        env_overrides={
+            "CHROME_ARGS_EXTRA": json.dumps(
+                [
+                    "--no-proxy-server",
+                    "--host-resolver-rules=MAP archivebox-unreachable.invalid ~NOTFOUND",
+                ],
+            ),
+        },
+    ) as (_, _, chrome_dir, env):
+        output = chrome_dir.parent / "responses"
+        index = output / "index.jsonl"
+        process = start_process_and_wait_for_file(
+            [str(RESPONSES_HOOK), f"--url={url}"],
+            index,
+            cwd=output,
+            env=env,
+        )
+        try:
+            navigation = subprocess.run(
+                [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+                cwd=chrome_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert navigation.returncode == 1, navigation.stdout + navigation.stderr
+            state = json.loads((chrome_dir / "navigation.json").read_text())
+            assert state["status"] is None
+            assert (
+                "ERR_NAME_NOT_RESOLVED" in state["error"]
+                or "unreachable error page" in state["error"]
+            )
+            # Page.navigate can fail before Chrome has committed and loaded its
+            # replacement error document. Drain the recorder after that load.
+            subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    """
+const {connectToPage} = require(process.argv[1]);
+(async () => {
+  const {browser, page} = await connectToPage({chromeSessionDir: process.argv[2]});
+  try {
+    await page.waitForFunction(() => location.protocol === 'chrome-error:' &&
+      document.readyState === 'complete', {timeout: 10000});
+  } finally {
+    browser.disconnect();
+  }
+})().catch(error => {console.error(error); process.exitCode = 1;});
+""",
+                    str(CHROME_NAVIGATE_HOOK.with_name("chrome_utils.js")),
+                    str(chrome_dir),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=20,
+            )
+        finally:
+            process.terminate()
+            stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == 0, (stdout, stderr)
+        assert not list((output / "all").iterdir()), stderr
+        assert index.read_text() == ""
+        assert parse_jsonl_records(stdout)[-1]["status"] == "noresults"
 
 
 class TestResponsesPlugin:
