@@ -8,6 +8,7 @@
   "display_order": 100,
   "app_module": "abx_plugins.plugins.sentry.app",
   "x-auto-run": false,
+  "x-runtimes": ["archivebox"],
   "required_plugins": [],
   "required_binaries": [
     {
