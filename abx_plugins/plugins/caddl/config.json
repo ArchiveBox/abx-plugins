@@ -2,6 +2,17 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "CAD/3D Downloader",
   "description": "Download linked and embedded CAD, 3D, and geospatial assets without processing them.",
+  "presentation_module": "abx_plugins.plugins.caddl.presentation",
+  "file_preview_extensions": [".stl", ".glb", ".gltf", ".obj", ".ply", ".3mf"],
+  "replay_assets": {
+    "file-preview": [
+      "replay/model-viewer/viewer.js",
+      "replay/model-viewer/three.bundle.js",
+      "replay/model-viewer/LICENSE.three.txt",
+      "replay/model-viewer/LICENSE.fflate.txt"
+    ]
+  },
+  "app_module": "abx_plugins.plugins.caddl.app",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
