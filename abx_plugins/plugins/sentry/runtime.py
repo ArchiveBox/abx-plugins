@@ -134,6 +134,7 @@ def initialize(config):
         logs = import_module("sentry_sdk.integrations.logging")
         tracing = import_module("opentelemetry.sdk.trace")
         sampling = import_module("opentelemetry.sdk.trace.sampling")
+        trace_api = import_module("opentelemetry.trace")
         otlp = import_module("sentry_sdk.integrations.otlp")
         exporter = import_module(
             "opentelemetry.exporter.otlp.proto.http.trace_exporter",
@@ -166,6 +167,9 @@ def initialize(config):
             profile_lifecycle="manual",
             enable_logs=config.SENTRY_ENABLE_LOGS,
             enable_metrics=config.SENTRY_ENABLE_METRICS,
+            # Native Django/SQL spans would otherwise shadow the OTel span ID
+            # on logs and metrics, even without a Sentry trace sampling rate.
+            instrumenter="otel",
         )
         if config.SENTRY_PROFILE_SESSION_SAMPLE_RATE:
             sentry.profiler.start_profiler()
@@ -215,13 +219,20 @@ def initialize(config):
                         "scope": span.instrumentation_scope.name,
                         "status": span.status.status_code.name,
                     }
-                    sentry.metrics.count("archivebox.spans", 1, attributes=attributes)
-                    sentry.metrics.distribution(
-                        "archivebox.span.duration",
-                        (span.end_time - span.start_time) / 1_000_000,
-                        unit="millisecond",
-                        attributes=attributes,
-                    )
+                    # on_end can run after the caller has detached this span.
+                    # Keep its native trace context on metrics about that span.
+                    with trace_api.use_span(trace_api.NonRecordingSpan(span.context)):
+                        sentry.metrics.count(
+                            "archivebox.spans",
+                            1,
+                            attributes=attributes,
+                        )
+                        sentry.metrics.distribution(
+                            "archivebox.span.duration",
+                            (span.end_time - span.start_time) / 1_000_000,
+                            unit="millisecond",
+                            attributes=attributes,
+                        )
 
             _provider.add_span_processor(MetricsProcessor())
         for module, name in (
