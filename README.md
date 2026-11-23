@@ -59,9 +59,6 @@ Snapshot hooks may receive `CACHE_CANDIDATES`, a JSON list of records with
 `url`, `snapdir` (relative to `DATA_DIR`), and `created_at`. ArchiveBox provides
 sealed captures from the same owner, persona and visibility, preferring exact
 URLs and including nearby paths. Hints may be absent, stale or incomplete.
-Git uses `GIT_CACHE_TTL` (seconds, default one year, zero disables) to reuse
-a recent fetch via a single relative symlink at `git/`. Removing the source
-checkout breaks links to it. Runner logs written through the link are shared.
 
 On a cache miss, Git captures acquire a fresh shallow repository, all branch tips, and recursive
 submodules in `TMP_DIR/git/<hash of SNAP_DIR>/repo` before replacing the saved
@@ -92,7 +89,6 @@ not import or require `archivebox` or `abx-dl`.
 | `snapshot_live_preview_route` | Registered Django URL name accepting `snapshot_id`. |
 | `replay_assets` | Format → relative asset paths; an export uses one provider's complete bundle. |
 | `replay_document_patterns` | MIME type → snapshot-relative path globs handled by `rewrite_replay_document`. |
-| `outlinks_path` | Plugin-relative JSONL file of recorded outbound HTTP(S) URLs. Each record has a string `url`. |
 | `search_order`, `search_fallback`, `search_scan` | Integer priority (default `1000`), fallback eligibility, filesystem-scan flag (both default `false`). |
 | `presentation_module` | Importable module providing the presentation functions below. |
 | `app_module` | Importable `app.py` providing optional native application functions below; import must not require Django setup. |
@@ -117,8 +113,8 @@ exactly one ID and checks access before returning `output_dirs` and `tmp_dir`.
 Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 Collection UIs can stream `host.collection_records(request, after=None, limit=512)`
 (primary-key pages of domain, parent domain, size and archived favicon metadata) and
-`host.outlink_records(request, after=None, limit=32)` (capture directories and registered
-outlink paths), or read `host.domain_records(request, cursor=None, limit=16)`,
+`host.outlink_records(request, after=None, limit=32)` (capture directories and saved
+`<plugin>/urls.jsonl` paths), or read `host.domain_records(request, cursor=None, limit=16)`,
 `host.snapshot_records(request, domain=..., after=None, limit=16)`,
 `host.resolve_snapshot_urls(request, urls)`, and
 `host.process_records(request, after=None, ids=(), limit=128)`, and
