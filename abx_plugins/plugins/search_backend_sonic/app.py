@@ -1,5 +1,6 @@
 """ArchiveBox collection service; indexing and search remain standalone commands."""
 
+import logging
 import os
 import shlex
 import time
@@ -27,8 +28,23 @@ def search_word_hits(word, *, environ, timeout):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return
-        page = search(word, environ=environ, timeout=remaining, offset=offset)
-        yield from page
+        try:
+            page = search(word, environ=environ, timeout=remaining, offset=offset)
+        except OSError:
+            # Keep earlier positives if the next network request fails. The
+            # host treats every omitted posting as unknown and can continue.
+            logging.getLogger(__name__).warning(
+                "Sonic word lookup stopped at offset %s",
+                offset,
+                exc_info=True,
+            )
+            return
+        for snapshot_id in page:
+            # Socket timeouts bound individual operations. The consumer may
+            # also spend time checking each batch against its active scope.
+            if time.monotonic() >= deadline:
+                return
+            yield snapshot_id
         if len(page) < PAGE_SIZE:
             return
 

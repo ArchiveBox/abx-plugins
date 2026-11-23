@@ -1,5 +1,6 @@
 import gzip
 import hashlib
+from itertools import islice
 import json
 import os
 from pathlib import Path
@@ -345,7 +346,7 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             # Sonic page. The optional adapter must expose later native ranks.
             from sonic import IngestClient
 
-            objects = {f"bulk-{i}" for i in range(112)}
+            objects = {f"bulk-{i}" for i in range(512)}
             with IngestClient(
                 "127.0.0.1",
                 port,
@@ -363,11 +364,18 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             all_hits = list(
                 search_word_hits("paginationuniqueneedle", environ=env, timeout=2),
             )
-            assert (
-                all_hits[:100] == first_page
-                and len(all_hits) == len(objects)
-                and set(all_hits) == objects
+            assert all_hits[:100] == first_page
+            assert len(all_hits) == len(set(all_hits)) == 500
+            assert set(all_hits) < objects
+            # Work done by the consumer between results also spends the budget.
+            expiring = search_word_hits(
+                "paginationuniqueneedle",
+                environ=env,
+                timeout=1,
             )
+            assert next(expiring) == first_page[0]
+            time.sleep(1)
+            assert list(expiring) == []
             # The same registered CLI used by hosts only confirms IDs it was
             # asked about. A case-sensitive word cannot be proved by Sonic.
             candidate_request = {
@@ -410,8 +418,15 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert (missing["id"], missing["matches"]) == ("unindexed", {})
             # Stall our temporary daemon. Its TCP socket still accepts a
             # connection but never sends the Sonic protocol greeting.
+            interrupted = search_word_hits(
+                "paginationuniqueneedle",
+                environ=env,
+                timeout=1,
+            )
+            assert list(islice(interrupted, len(first_page))) == first_page
             daemon.send_signal(signal.SIGSTOP)
             try:
+                assert list(interrupted) == []
                 stalled = scoped_result(
                     {**candidate_request, "limits": {"seconds": 0.3}},
                 )
