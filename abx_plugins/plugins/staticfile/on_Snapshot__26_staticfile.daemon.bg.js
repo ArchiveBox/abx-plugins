@@ -40,6 +40,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  copyBrowserDownload,
   captureOriginalResponseBodies,
   resolvePuppeteerModule,
   resolveChromeLaunchOptions,
@@ -455,7 +456,7 @@ async function setupStaticFileListener() {
       if (size === event.receivedBytes && size > 0) {
         if (size > maxSize) throw new Error(`File too large: ${size} bytes`);
         const outputName = sanitizeFilename(filename || path.basename(sourcePath));
-        fs.copyFileSync(sourcePath, path.join(OUTPUT_DIR, outputName));
+        await copyBrowserDownload(sourcePath, path.join(OUTPUT_DIR, outputName));
         return getOutputPathRelativeToSnapshot(outputName);
       }
       await sleep(50);

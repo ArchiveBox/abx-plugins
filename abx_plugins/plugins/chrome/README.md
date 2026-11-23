@@ -96,6 +96,13 @@ as Excalidraw use their supported browser-download fallback. Native save pickers
 cannot complete unattended headless saving and do not emit browser download
 events for CDP capture. Origin-private filesystem storage remains available.
 
+Hooks publishing a completed browser file use `chrome_utils.moveBrowserDownload(src, dest)`
+when they own the download or `chrome_utils.copyBrowserDownload(src, dest)` when
+the source must remain available. Moves use a native rename on the same filesystem.
+Copies stream the bytes with a fresh destination mtime, avoiding a second object
+version on rclone/S3 mounts. Provider exports that produce a `downloads.json`
+manifest use `saveDownloads` in `base/downloads.js`, which already streams each file.
+
 The default flags disable automatic activation of HTTPS-First balanced mode.
 Its native confirmation dialog prevents unattended captures of HTTP-only sites
 when an HTTPS upgrade fails. Normal HTTPS upgrades and explicit profile security
