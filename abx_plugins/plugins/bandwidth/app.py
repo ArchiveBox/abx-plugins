@@ -194,7 +194,6 @@ def sample(page):
             related_interfaces.add(record["interface"])
         processes.append(record)
     events = []
-    cutoff = now - 120
     for snapshot_id, directory in page["output_dirs"].items():
         file = Path(directory) / "responses" / "index.jsonl"
         try:
@@ -220,8 +219,6 @@ def sample(page):
                             .timestamp()
                         )
                     except (ValueError, TypeError):
-                        continue
-                    if timestamp < cutoff:
                         continue
                     size = response_size(file.parent, event.get("path", ""))
                     events.append(

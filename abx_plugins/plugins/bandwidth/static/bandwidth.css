@@ -11,7 +11,7 @@
     isolation: isolate;
     background: #060c15;
     color: #c3d7e4;
-    font: 12px/1.4 ui-monospace, SFMono-Regular, monospace;
+    font: 14px/1.3 ui-monospace, SFMono-Regular, monospace;
     --cyan: #58f5db;
     --pink: #ff63b0;
   }
@@ -27,8 +27,8 @@
     cursor: pointer;
   }
   nav {
-    height: 90px;
-    padding: 15px 22px;
+    height: 76px;
+    padding: 10px 18px;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -53,7 +53,7 @@
     outline: 2px solid var(--cyan);
   }
   #connection {
-    font-size: 8px;
+    font-size: 10px;
     color: var(--cyan);
   }
   #connection.error {
@@ -62,8 +62,8 @@
   .total {
     display: flex;
     flex-direction: column;
-    margin-left: 24px;
-    gap: 3px;
+    margin-left: 18px;
+    gap: 1px;
   }
   .total output {
     font-size: 26px;
@@ -72,24 +72,23 @@
     font-variant-numeric: tabular-nums;
   }
   .total small {
-    font-size: 10px;
+    font-size: 12px;
     color: #7995a6;
-    letter-spacing: 1px;
   }
   .cyan {
     color: var(--cyan);
   }
   #clock {
     margin-left: auto;
-    font-size: 11px;
+    font-size: 12px;
     color: #68889c;
   }
   #dashboard {
-    height: calc(100% - 90px);
+    height: calc(100% - 76px);
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 18px;
-    padding: 0 18px 16px;
+    gap: 16px;
+    padding: 0 16px 12px;
     background-image: linear-gradient(#15304420 1px, transparent 1px),
       linear-gradient(90deg, #15304420 1px, transparent 1px);
     background-size: 32px 32px;
@@ -101,72 +100,70 @@
     flex-direction: column;
   }
   .column header {
-    height: 62px;
+    height: 50px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    font-size: 14px;
     color: #9ab3c7;
     border-bottom: 1px solid #1d3648;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
   }
   .column header output {
-    font-size: 10px;
+    font-size: 12px;
     color: #55798f;
     margin-left: 6px;
   }
   .column select {
-    font-size: 10px;
+    font-size: 12px;
     background: #0d1c29;
     color: #86aabd;
     border: 1px solid #264150;
     border-radius: 4px;
-    padding: 5px;
-    max-width: 118px;
+    padding: 4px;
+    max-width: 140px;
   }
   .cards {
     overflow: auto;
     scrollbar-width: thin;
     scrollbar-color: #284352 transparent;
     min-height: 0;
-    padding: 0 3px 40px 0;
+    padding: 0 3px 30px 0;
   }
   .card {
     position: relative;
-    padding: 16px 16px 13px;
-    margin: 0 0 16px;
+    padding: 9px 11px 7px;
+    margin: 0 0 10px;
     border: 1px solid color-mix(in srgb, var(--color) 45%, #15273a);
     border-left: 3px solid var(--color);
-    border-radius: 6px;
+    border-radius: 5px;
     background: linear-gradient(
       125deg,
       color-mix(in srgb, var(--color) 9%, #0a1220),
       #080f1b
     );
-    box-shadow: 0 10px 28px #0003;
+    box-shadow: 0 6px 20px #0003;
     transition: opacity 0.7s, box-shadow 0.6s;
     overflow: hidden;
   }
   .card.live {
-    box-shadow: 0 0 28px color-mix(in srgb, var(--color) 10%, transparent);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--color) 10%, transparent);
   }
   .card.cold {
-    opacity: 0.55;
+    filter: saturate(0.65);
   }
   .card-title {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
+    line-height: 1.2;
   }
   .card-title b,
   .card-title a {
     font-size: 18px;
-    letter-spacing: -0.5px;
     color: var(--color);
     overflow: hidden;
     white-space: nowrap;
@@ -174,128 +171,104 @@
   }
   .rank {
     color: #56778d;
-    font-size: 10px;
+    font-size: 12px;
   }
   .live-count {
     margin-left: auto;
     color: var(--cyan);
-    font-size: 11px;
+    font-size: 12px;
     white-space: nowrap;
   }
-  .sub {
-    font-size: 10px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #758da5;
-    margin-top: 8px;
-  }
-  .headline,
-  .totals {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 18px;
+  .stat-strip,
+  .work-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 15px;
+    margin-top: 7px;
   }
   .metric {
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    align-items: baseline;
+    gap: 5px;
     min-width: 0;
+    line-height: 1.15;
   }
   .metric output {
-    font-size: 21px;
-    letter-spacing: -0.7px;
+    font-size: 18px;
     color: #e2f2fd;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    order: 1;
   }
   .metric small {
-    color: #6f8da2;
-    font-size: 9px;
-    letter-spacing: 0.4px;
+    color: #7d9bb0;
+    font-size: 12px;
+    white-space: nowrap;
   }
-  .headline .metric:first-child output {
+  .stat-strip .metric:first-child output {
     color: var(--cyan);
-  }
-  .totals {
-    margin-top: 10px;
-  }
-  .totals output {
-    font-size: 15px;
-    color: #bed4e1;
+    font-size: 18px;
   }
   .work-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px 8px;
-    border-top: 1px solid #28415080;
-    margin-top: 14px;
-    padding-top: 12px;
+    border-top: 1px solid #29405270;
+    padding-top: 6px;
+    margin-top: 6px;
   }
   .work-stats output {
-    font-size: 13px;
-    letter-spacing: -0.4px;
+    font-size: 16px;
   }
   .peak {
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    font-size: 10px;
+    font-size: 12px;
     color: var(--color);
-    margin: 14px 0 6px;
+    margin: 6px 0 3px;
   }
   .rate-table {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
     border-top: 1px solid #29405270;
   }
   .rate-row {
-    display: grid;
-    grid-template-columns: 28px 1fr 1fr;
-    gap: 7px;
-    font-size: 10px;
-    padding: 6px 0;
-    border-bottom: 1px solid #29405240;
-    color: #a1bbcf;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 14px;
+    padding: 2px 0;
+    line-height: 1.2;
+    color: #aec7d9;
   }
   .rate-row small {
-    color: #5e8298;
-    font-size: 9px;
+    color: #7795aa;
+    font-size: 12px;
   }
   .rate-row span:last-child {
-    text-align: right;
+    text-align: left;
     color: #5fe9d5;
   }
   .spark {
     width: 100%;
-    height: 32px;
+    height: 10px;
     display: block;
-    margin-top: 12px;
+    margin-top: 4px;
   }
   .spark path {
     fill: none;
     stroke: var(--color);
     stroke-width: 1.5;
-    filter: drop-shadow(0 0 3px var(--color));
+    filter: drop-shadow(0 0 2px var(--color));
   }
-  .hosts {
-    font-size: 9px;
-    line-height: 1.7;
-    color: #6d8ca4;
-    margin-top: 9px;
-    max-height: 32px;
-    overflow: hidden;
-  }
-  .address {
+  .addresses {
     display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 12px;
-    font-size: 12px;
-    color: #d1e4ef;
-    overflow-wrap: anywhere;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    margin-top: 6px;
   }
-  .address small {
-    color: #65869b;
-    font-size: 10px;
+  .addresses output {
+    font-size: 14px;
   }
   .heat {
     position: absolute;
@@ -307,32 +280,27 @@
     transform: scaleX(var(--heat, 0.1));
     transform-origin: left;
     transition: transform 1s;
-    box-shadow: 0 0 8px var(--color);
+    box-shadow: 0 0 6px var(--color);
   }
-  @media (max-width: 1100px) {
+  @media (max-width: 1300px) {
     #dashboard {
-      grid-template-columns: repeat(4, minmax(240px, 1fr));
+      grid-template-columns: repeat(4, minmax(280px, 1fr));
       overflow-x: auto;
       gap: 12px;
       padding: 0 12px 12px;
     }
-    .card {
-      padding: 12px;
-    }
     .total {
       margin-left: 8px;
     }
-    .total output {
-      font-size: 21px;
-    }
-    .column header {
-      letter-spacing: 0;
-    }
     .column select {
-      max-width: 105px;
+      max-width: 132px;
     }
     #clock {
       display: none;
+    }
+    .stat-strip,
+    .work-stats {
+      gap: 4px 10px;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -357,171 +325,4 @@
     color-mix(in srgb, var(--color) 9%, #0a1220),
     #080f1b
   );
-}
-
-@scope (#bandwidth-ui) {
-  .card {
-    padding: 9px 10px 7px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-  }
-  .card-title {
-    gap: 7px;
-  }
-  .card-title b,
-  .card-title a {
-    font-size: 14px;
-  }
-  .rank,
-  .live-count {
-    font-size: 9px;
-  }
-  .sub {
-    font-size: 8px;
-    margin-top: 3px;
-  }
-  .stat-strip {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 7px;
-  }
-  .headline,
-  .totals {
-    margin: 0;
-    gap: 8px;
-  }
-  .metric {
-    gap: 1px;
-  }
-  .metric output,
-  .totals output {
-    font-size: 15px;
-    letter-spacing: -0.5px;
-  }
-  .metric small {
-    font-size: 8px;
-    letter-spacing: 0;
-  }
-  .work-stats {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 5px;
-    margin-top: 7px;
-    padding-top: 6px;
-  }
-  .work-stats output {
-    font-size: 11px;
-    white-space: nowrap;
-  }
-  .work-stats small {
-    font-size: 8px;
-  }
-  .peak {
-    margin: 6px 0 3px;
-    font-size: 9px;
-  }
-  .rate-table {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-  }
-  .rate-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    font-size: 9px;
-    padding: 3px 0;
-    border: 0;
-  }
-  .rate-row span:last-child {
-    text-align: left;
-  }
-  .rate-row small {
-    font-size: 8px;
-    line-height: 1.2;
-  }
-  .spark {
-    height: 12px;
-    margin-top: 4px;
-  }
-  .hosts {
-    font-size: 8px;
-    line-height: 1.3;
-    max-height: 12px;
-    margin-top: 3px;
-  }
-  .address {
-    display: inline-flex;
-    width: 50%;
-    padding-right: 10px;
-    gap: 5px;
-    font-size: 10px;
-    margin-top: 6px;
-  }
-  .address small {
-    font-size: 8px;
-  }
-  .column header {
-    height: 46px;
-    margin-bottom: 10px;
-  }
-  @media (max-width: 1600px) {
-    .work-stats {
-      grid-template-columns: repeat(3, 1fr);
-    }
-    .metric output,
-    .totals output {
-      font-size: 13px;
-    }
-    .address {
-      display: flex;
-      width: 100%;
-      padding: 0;
-    }
-    .card-title b,
-    .card-title a {
-      font-size: 13px;
-    }
-  }
-}
-@scope (#bandwidth-ui) {
-  .card-title {
-    line-height: 1.15;
-  }
-  .metric output,
-  .metric small {
-    line-height: 1.05;
-  }
-  .metric {
-    gap: 2px;
-  }
-  .work-stats {
-    margin-top: 5px;
-    padding-top: 5px;
-  }
-  .peak {
-    line-height: 1.1;
-    margin-top: 5px;
-  }
-  .rate-row {
-    display: grid;
-    grid-template-columns: 20px 1fr;
-    gap: 1px 4px;
-    line-height: 1.05;
-    padding: 3px 0;
-  }
-  .rate-row small {
-    grid-row: 1/3;
-    align-self: center;
-  }
-  .rate-row span {
-    grid-column: 2;
-  }
-  .spark {
-    height: 10px;
-    margin-top: 3px;
-  }
-  .stat-strip {
-    margin-top: 6px;
-  }
 }

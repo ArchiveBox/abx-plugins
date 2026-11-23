@@ -1,6 +1,7 @@
 const root = document.getElementById("bandwidth-ui");
 const $ = (id) => root.querySelector(`#${id}`);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const responseOwners = new Map();
 const processes = new Map(),
   previousProcesses = new Map(),
   crawls = new Map(),
@@ -25,7 +26,7 @@ const bytes = (value) => {
     value /= 1000;
     i++;
   }
-  return `${compact.format(value)} ${units[i]}`;
+  return `${Math.round(value).toLocaleString()} ${units[i]}`;
 };
 const duration = (seconds) =>
   seconds >= 3600
@@ -120,6 +121,9 @@ function ingest(data) {
     present = new Set();
   for (const row of data.processes) {
     if (!row.snapshot) continue;
+    if (row.name === "responses") responseOwners.set(row.snapshot, row);
+    while (responseOwners.size > 512)
+      responseOwners.delete(responseOwners.keys().next().value);
     const old = previousProcesses.get(row.id),
       fg = !background(row);
     const p = { ...processes.get(row.id), ...row };
@@ -228,16 +232,14 @@ function ingest(data) {
   for (const event of data.events) {
     if (seen.has(event.id)) continue;
     seen.set(event.id, now);
-    if (!Number.isFinite(event.time) || now - event.time > 120) continue;
+    if (!Number.isFinite(event.time)) continue;
     totalRequests++;
     totalBytes += event.bytes || 0;
     const site = group(domains, event.domain);
     recordTraffic(site, event);
     if (site.hosts.size < 64) site.hosts.add(event.host);
     if (Number.isFinite(event.latency_ms)) site.latency = event.latency_ms;
-    const owner = [...processes.values()].find(
-      (p) => p.snapshot === event.snapshot && p.name === "responses"
-    );
+    const owner = responseOwners.get(event.snapshot);
     if (owner) {
       recordTraffic(group(plugins, owner.name), event);
       recordTraffic(group(crawls, owner.crawl), event);
@@ -287,7 +289,7 @@ function metric(label, value) {
 }
 function renderCard(card, g, kind, rank, now) {
   const r = rates(g, now),
-    isWork = kind === "plugins" || kind === "crawls",
+    work = kind === "plugins" || kind === "crawls",
     nic = kind === "interfaces";
   card.style.setProperty("--color", color(g.id));
   card.style.setProperty(
@@ -295,7 +297,7 @@ function renderCard(card, g, kind, rank, now) {
     String(Math.max(0.05, 1 - (now - g.last) / 60))
   );
   card.className = `card${g.active ? " live" : ""}${
-    !isWork && !nic && now - g.last > 60 ? " cold" : ""
+    !work && !nic && now - g.last > 60 ? " cold" : ""
   }`;
   const title = el("div", null, "card-title");
   title.append(el("small", String(rank + 1).padStart(2, "0"), "rank"));
@@ -310,113 +312,102 @@ function renderCard(card, g, kind, rank, now) {
       : g.id
   );
   if (g.href) name.href = g.href;
+  name.title = g.label || g.id;
   title.append(name);
-  if (isWork) title.append(el("span", `● ${g.active}`, "live-count"));
+  if (work)
+    title.append(
+      el(
+        "span",
+        `▤ ${compact.format(g.snapshots.size)} · ● ${g.active}`,
+        "live-count"
+      )
+    );
   card.replaceChildren(title);
-  if (kind === "crawls" && g.label) {
-    const label = el("div", g.label, "sub");
-    label.title = g.label;
-    card.append(label);
-  }
   if (nic) {
+    const address = el("div", null, "addresses");
     for (const [label, value] of [
       ["Local", g.local],
       ["WAN", g.wan],
-    ]) {
-      const row = el("div", null, "address");
-      row.append(el("small", label), el("span", value || "—"));
-      card.append(row);
-    }
+    ])
+      address.append(metric(label, value || "—"));
+    card.append(address);
   }
-  const headline = el("div", null, "headline");
-  headline.append(
-    metric(
-      nic ? "↓ NIC" : "body /s",
-      nic ? bytes(g.rx) + "/s" : g.measured ? bytes(r.bytes) + "/s" : "—"
-    ),
-    metric(
-      nic ? "↑ NIC" : "resp /min",
-      nic
-        ? bytes(g.tx) + "/s"
-        : g.measured
-        ? compact.format(r.requests * 60)
-        : "—"
-    )
-  );
-  card.append(headline);
-  const totals = el("div", null, "totals");
-  totals.append(
-    metric("Σ resp", g.measured ? compact.format(g.requests) : "—"),
-    metric(
-      nic ? "Σ NIC" : "Σ body",
-      nic ? bytes(g.nicBytes || 0) : g.measured ? bytes(g.bytes) : "—"
-    )
-  );
-  const strip = el("div", null, "stat-strip");
-  strip.append(headline, totals);
-  card.append(strip);
-  if (isWork) {
-    const stats = el("div", null, "work-stats");
+  if (g.measured || nic) {
+    const stats = el("div", null, "stat-strip");
     stats.append(
-      metric("disk", bytes(g.disk)),
-      metric("CPU fg", g.cpu ? `≥ ${duration(g.cpu)}` : "—"),
-      metric("FG time", duration(g.fg)),
-      metric(
-        "Ø CPU fg",
-        g.cpuSamples ? `${(g.cpuLive / g.cpuSamples).toFixed(1)}%` : "—"
-      ),
-      metric("Ø RAM", g.ramSamples ? bytes(g.ram / g.ramSamples) : "—"),
-      metric("snapshots", compact.format(g.snapshots.size))
+      metric(nic ? "↓" : "body", bytes(nic ? g.rx : r.bytes) + "/s")
+    );
+    if (nic) stats.append(metric("↑", bytes(g.tx) + "/s"));
+    stats.append(
+      metric(nic ? "Σ NIC" : "Σ body", bytes(nic ? g.nicBytes || 0 : g.bytes)),
+      metric("Σ resp", g.measured ? compact.format(g.requests) : "—")
     );
     card.append(stats);
   }
-  const peak = el("div", null, "peak");
-  peak.append(
-    el(
-      "span",
-      `${(((nic ? g.nicPeak || 0 : g.peak) * 8) / 1e6).toFixed(2)} Mb/s peak`
-    )
-  );
-  if (kind === "domains")
-    peak.append(
-      el("span", g.latency == null ? "RTT —" : `${g.latency.toFixed(0)} ms`)
+  if (work) {
+    const stats = el("div", null, "work-stats");
+    stats.append(
+      metric("disk", bytes(g.disk)),
+      metric("CPU fg", g.cpu ? `≥ ${duration(g.cpu)}` : "—")
     );
-  if (g.measured || nic) card.append(peak);
-  const table = el("div", null, "rate-table");
-  for (const [unit, seconds] of [
-    ["min", 60],
-    ["hr", 3600],
-    ["day", 86400],
-  ]) {
-    const row = el("div", null, "rate-row");
-    row.append(
-      el("small", unit),
+    if (g.active)
+      stats.append(
+        metric(
+          "Ø CPU fg",
+          g.cpuSamples ? `${Math.round(g.cpuLive / g.cpuSamples)}%` : "—"
+        ),
+        metric("Ø RAM", g.ramSamples ? bytes(g.ram / g.ramSamples) : "—")
+      );
+    stats.title = `FG ${duration(g.fg)}`;
+    card.append(stats);
+  }
+  if (g.measured || nic) {
+    const peak = el("div", null, "peak");
+    peak.append(
       el(
         "span",
-        g.measured
-          ? `${unit === "min" ? "" : "~"}${compact.format(
-              r.requests * seconds
-            )} resp`
-          : "—"
-      ),
-      el(
-        "span",
-        nic
-          ? `${unit === "min" ? "" : "~"}${bytes(
-              ((g.nicMinute || 0) / 60) * seconds
-            )}`
-          : g.measured
-          ? `${unit === "min" ? "" : "~"}${bytes(r.bytes * seconds)}`
-          : "—"
+        `${Math.round(
+          ((nic ? g.nicPeak || 0 : g.peak) * 8) / 1e6
+        ).toLocaleString()} Mb/s peak`
       )
     );
-    table.append(row);
+    if (kind === "domains")
+      peak.append(
+        el("span", g.latency == null ? "RTT —" : `${Math.round(g.latency)} ms`)
+      );
+    card.append(peak);
+    const table = el("div", null, "rate-table");
+    for (const [unit, seconds] of [
+      ["min", 60],
+      ["hr", 3600],
+      ["day", 86400],
+    ]) {
+      const row = el("div", null, "rate-row");
+      row.append(
+        el("small", unit),
+        el(
+          "span",
+          g.measured
+            ? `${unit === "min" ? "" : "~"}${compact.format(
+                Math.round(r.requests * seconds)
+              )} resp`
+            : "—"
+        ),
+        el(
+          "span",
+          `${unit === "min" ? "" : "~"}${bytes(
+            (nic ? (g.nicMinute || 0) / 60 : r.bytes) * seconds
+          )}`
+        )
+      );
+      table.append(row);
+    }
+    card.append(table, spark(g));
   }
-  if (g.measured || nic) card.append(table, spark(g));
-  if (g.hosts.size)
-    card.append(el("div", [...g.hosts].slice(0, 8).join(" · "), "hosts"));
+  if (g.hosts.size) card.title = [...g.hosts].join(" · ");
   card.append(el("i", null, "heat"));
 }
+
 function render() {
   const now = Date.now() / 1000;
   for (const [id, map, limit] of [
@@ -475,7 +466,9 @@ function render() {
             { duration: 450, easing: "cubic-bezier(.2,.8,.2,1)" }
           );
       }
-    $(`${id}-count`).textContent = String(map.size);
+    $(`${id}-count`).textContent = String(
+      id === "interfaces" ? groups.length : map.size
+    );
   }
   $("total-requests").textContent = compact.format(totalRequests);
   $("total-bytes").textContent = bytes(totalBytes);

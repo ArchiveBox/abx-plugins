@@ -33,7 +33,7 @@ const bytes = (value) => {
     value /= 1024;
     i++;
   }
-  return `${number.format(value)} ${units[i]}`;
+  return `${Math.round(value).toLocaleString()} ${units[i]}`;
 };
 const color = (id) =>
   `hsl(${
