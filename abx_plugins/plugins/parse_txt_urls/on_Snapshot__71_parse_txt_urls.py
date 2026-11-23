@@ -270,20 +270,36 @@ def main(
         # already saved text. Saved titles/documents must not hide its URLs.
         if (file_content := read_file_url_text(url)) is not None:
             assert input_path is not None
-            input_format = load_config().PARSER.lower()
+            parser = load_config().PARSER.lower()
+            input_format = parser
             if input_format not in {"csv", "tsv"}:
                 input_format = input_path.suffix.lower().lstrip(".")
             structured_format = bookmark_input_format(file_content)
-            bookmarks = (
-                {
-                    entry["url"]: entry
-                    for record in iter_json_records(file_content)
-                    if isinstance(record, dict)
-                    and (entry := json_object_to_entry(record))
-                }
-                if structured_format
-                else {}
-            )
+            if structured_format:
+                for record in iter_json_records(file_content):
+                    if not isinstance(record, dict) or not (
+                        entry := json_object_to_entry(record)
+                    ):
+                        continue
+                    bookmarks[entry["url"]] = entry
+                    if (
+                        structured_format == "json"
+                        and parser in {"auto", "txt"}
+                        and "://" in entry["url"].partition("://")[2]
+                        and input_format
+                        not in {"csv", "tsv", "json", "jsonl", "ndjson"}
+                        and not (
+                            record.get("type") == "Snapshot"
+                            and record.get("schema_version")
+                        )
+                    ):
+                        # Pasted loose URL records still support wrapper links.
+                        # Scan only the URL field, never bookmark metadata.
+                        extract_urls_from_reader(
+                            io.StringIO(entry["url"]),
+                            source_url=url,
+                            urls_found=urls_found,
+                        )
             if structured_format == "csv" or bookmarks:
                 urls_found.update(bookmarks)
                 readers = []
