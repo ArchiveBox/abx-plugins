@@ -17,7 +17,15 @@ from typing import Any
 import json
 import os
 import sqlite3
+from contextlib import closing
 
+from abx_plugins.plugins.base.search_candidates import (
+    Candidate,
+    Evidence,
+    SearchBudget,
+    SearchTerm,
+    id_spellings,
+)
 from abx_plugins.plugins.base.search_command import run_search_command
 
 
@@ -128,6 +136,97 @@ def search(
         conn.close()
 
 
+def _document_ids(conn, snapshot_id, has_lookup):
+    identities = id_spellings(snapshot_id)
+    slots = ",".join("?" for _ in identities)
+    if has_lookup:
+        return conn.execute(
+            f"SELECT document_rowid FROM search_index_lookup WHERE snapshot_id IN ({slots}) LIMIT 65",
+            identities,
+        )
+    # Older indexes lack the identity B-tree. Restrict the search to the
+    # existing FTS postings and verify stored IDs; never backfill on a read.
+    words = " OR ".join(
+        'snapshot_id:"' + key.replace('"', '""') + '"' for key in identities
+    )
+    return conn.execute(
+        f"SELECT rowid FROM search_index WHERE search_index MATCH ? AND snapshot_id IN ({slots}) LIMIT 65",
+        (words, *identities),
+    )
+
+
+def search_candidates(
+    candidates: list[Candidate],
+    terms: list[SearchTerm],
+    budget: SearchBudget,
+):
+    path = get_db_path()
+    if not path.is_file():
+        return
+    indexed = [
+        term for term in terms if term.mode == "word" and not term.case_sensitive
+    ]
+    literals = [term for term in terms if term.mode != "deep" and term not in indexed]
+    with closing(
+        sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0),
+    ) as conn:
+        conn.set_progress_handler(lambda: int(not budget.remaining()), 1000)
+        has_lookup = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='search_index_lookup'",
+        ).fetchone()
+        for candidate in candidates:
+            if not budget.remaining():
+                return
+            evidence = Evidence(candidate.id)
+            try:
+                docs = [row[0] for row in _document_ids(conn, candidate.id, has_lookup)]
+                covered = bool(docs) and len(docs) <= 64
+                complete_text = covered
+                for doc in docs[:64]:
+                    for term in indexed:
+                        # An operand is one quoted FTS phrase, never FTS syntax.
+                        expression = 'content:"' + term.value.replace('"', '""') + '"'
+                        hit = conn.execute(
+                            "SELECT bm25(search_index) FROM search_index WHERE rowid=? AND search_index MATCH ?",
+                            (doc, expression),
+                        ).fetchone()
+                        if hit:
+                            evidence.matches[term.key] = True
+                            evidence.scores[term.key] = max(
+                                evidence.scores.get(term.key, 0),
+                                -hit[0],
+                            )
+                    if not any(term.key not in evidence.matches for term in literals):
+                        continue
+                    # Incremental I/O avoids materializing an arbitrarily large
+                    # stored document just to examine its admitted prefix.
+                    with conn.blobopen(
+                        "search_index_content",
+                        "c3",
+                        doc,
+                        readonly=True,
+                    ) as blob:
+                        count = min(len(blob), budget.bytes, budget.per_file)
+                        text = blob.read(count).decode("utf-8", "surrogateescape")
+                        budget.bytes -= count
+                        complete_text &= count == len(blob)
+                    for term in literals:
+                        if term.pattern.search(text):
+                            evidence.matches[term.key] = True
+                if covered:
+                    for term in indexed:
+                        evidence.matches.setdefault(term.key, False)
+                if complete_text:
+                    for term in literals:
+                        evidence.matches.setdefault(term.key, False)
+            except sqlite3.OperationalError:
+                # Locks, interrupted SQL or an incompatible old index can only
+                # establish the positives already seen, not a false result.
+                yield evidence
+                return
+            yield evidence
+
+
 def flush(
     snapshot_ids: Iterable[str],
     *,
@@ -152,4 +251,6 @@ def flush(
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_search_command(search, flush))
+    raise SystemExit(
+        run_search_command(search, flush, search_candidates=search_candidates),
+    )

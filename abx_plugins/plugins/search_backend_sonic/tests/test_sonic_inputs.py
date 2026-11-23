@@ -312,6 +312,42 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert record["snapshot_id"] == "reflection-only"
             assert record["trace_id"] == ["keep", 3]
             assert search("metatitleuniqueneedle", environ=env) == ["explicit-sonic-id"]
+            # The same registered CLI used by hosts only confirms IDs it was
+            # asked about. A case-sensitive word cannot be proved by Sonic.
+            candidate_request = {
+                "terms": [
+                    {
+                        "key": "positive",
+                        "value": "metatitleuniqueneedle",
+                        "mode": "word",
+                    },
+                    {
+                        "key": "unknown",
+                        "value": "Metatitleuniqueneedle",
+                        "mode": "word",
+                    },
+                ],
+                "candidates": [{"id": "explicit-sonic-id"}, {"id": "unindexed"}],
+            }
+            command = json.loads(hook.with_name("config.json").read_text())["commands"][
+                "search_candidates"
+            ]
+            scoped = subprocess.run(
+                [str(hook.with_name(command[0])), *command[1:]],
+                input=json.dumps(candidate_request),
+                capture_output=True,
+                text=True,
+                env=env,
+                check=True,
+                timeout=10,
+            )
+            matched, missing = map(json.loads, scoped.stdout.splitlines())
+            assert (matched["id"], matched["matches"], matched["scores"]) == (
+                "explicit-sonic-id",
+                {"positive": True},
+                {"positive": 1.0},
+            )
+            assert (missing["id"], missing["matches"]) == ("unindexed", {})
             assert search("afterescapeuniqueneedle", environ=env) == [
                 "explicit-sonic-id",
             ]

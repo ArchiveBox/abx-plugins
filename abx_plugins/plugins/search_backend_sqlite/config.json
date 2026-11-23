@@ -45,6 +45,7 @@
     }
   },
   "commands": {
+    "search_candidates": ["search.py", "search_candidates"],
     "search": ["search.py", "search"],
     "flush": ["search.py", "flush"]
   },

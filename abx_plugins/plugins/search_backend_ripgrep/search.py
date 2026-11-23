@@ -17,12 +17,20 @@
 import os
 import subprocess
 import threading
+import stat
+from fnmatch import fnmatchcase
 import uuid
 import re
 from pathlib import Path
 from collections.abc import Iterable, Mapping
 
 from abx_plugins.plugins.base.utils import load_config
+from abx_plugins.plugins.base.search_candidates import (
+    Candidate,
+    Evidence,
+    SearchBudget,
+    SearchTerm,
+)
 from abx_plugins.plugins.base.search_command import run_search_command
 
 
@@ -200,10 +208,151 @@ def search(
         return []
 
 
+def _scan_candidate(candidate, terms, budget, rg_binary):
+    found = Evidence(candidate.id)
+    if candidate.path is None:
+        return found
+    incomplete = set()
+    observed = set()
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+    def scan_file(parent, name, active):
+        if not budget.files or not budget.bytes:
+            incomplete.update(active)
+            return
+        budget.files -= 1
+        # Use openat on an already opened directory and reject links/special
+        # files. An archived page may have created hostile names or symlinks.
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        with os.fdopen(fd, "rb", buffering=0) as stream:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                incomplete.update(active)
+                return
+            observed.update(active)
+            count = min(info.st_size, budget.bytes, budget.per_file)
+            data = stream.read(count)
+            budget.bytes -= len(data)
+            current = os.fstat(fd)
+            if len(data) != info.st_size or (current.st_size, current.st_mtime_ns) != (
+                info.st_size,
+                info.st_mtime_ns,
+            ):
+                incomplete.update(active)
+        if len(active) == 1 and not any(
+            c in active[0].value for c in ("\n", "\r", "\x00")
+        ):
+            term = active[0]
+            # Never hand rg a directory: only the admitted bytes may be read.
+            result = subprocess.run(
+                [
+                    rg_binary,
+                    "--no-config",
+                    "--threads=1",
+                    "--quiet",
+                    "--text",
+                    "--encoding=none",
+                    "--case-sensitive" if term.case_sensitive else "--ignore-case",
+                    "--fixed-strings",
+                    "-e",
+                    term.value,
+                    "-",
+                ],
+                input=data,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=max(0.001, budget.remaining()),
+                check=False,
+            )
+            if result.returncode == 0:
+                found.matches[term.key] = True
+            elif result.returncode != 1:
+                incomplete.add(term)
+        else:
+            # Evaluate overlapping operands independently on the same bytes.
+            # rg -e A -e B identifies a hit, but cannot prove both operands.
+            text = data.decode("utf-8", "surrogateescape")
+            for term in active:
+                if term.pattern.search(text):
+                    found.matches[term.key] = True
+
+    def visit(parent):
+        with os.scandir(parent) as entries:
+            for entry in entries:
+                if len(found.matches) == len(terms):
+                    return
+                if not budget.entries or not budget.remaining():
+                    incomplete.update(terms)
+                    return
+                budget.entries -= 1
+                if entry.name.startswith("."):
+                    continue
+                active = [term for term in terms if term.key not in found.matches]
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        child = os.open(entry.name, directory_flags, dir_fd=parent)
+                        try:
+                            visit(child)
+                        finally:
+                            os.close(child)
+                    elif entry.is_file(follow_symlinks=False):
+                        active = [
+                            term
+                            for term in active
+                            if not any(
+                                fnmatchcase(entry.name, glob)
+                                for glob in (
+                                    DEEP_EXCLUDES
+                                    if term.mode == "deep"
+                                    else DEFAULT_CONTENT_EXCLUDES
+                                )
+                            )
+                        ]
+                        if active:
+                            scan_file(parent, entry.name, active)
+                except (OSError, subprocess.TimeoutExpired):
+                    incomplete.update(active)
+
+    try:
+        root = os.open(candidate.path, directory_flags)
+        try:
+            visit(root)
+        finally:
+            os.close(root)
+    except OSError:
+        incomplete.update(terms)
+    for term in terms:
+        if term in observed and term not in incomplete:
+            found.matches.setdefault(term.key, False)
+    return found
+
+
+def search_candidates(
+    candidates: list[Candidate],
+    terms: list[SearchTerm],
+    budget: SearchBudget,
+):
+    config = load_config(
+        Path(__file__).with_name("config.json"),
+        hydrate_binaries=False,
+    )
+    for candidate in candidates:
+        if not budget.remaining():
+            return
+        yield _scan_candidate(
+            candidate,
+            terms,
+            budget,
+            str(config.RIPGREP_BINARY or "rg"),
+        )
+
+
 def flush(snapshot_ids: Iterable[str]) -> None:
     """No-op for ripgrep - it searches files directly."""
     pass
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_search_command(iter_search, flush))
+    raise SystemExit(
+        run_search_command(iter_search, flush, search_candidates=search_candidates),
+    )
