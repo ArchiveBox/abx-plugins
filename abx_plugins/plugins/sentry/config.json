@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sentry",
+  "description": "Opt-in errors, traces, logs, metrics and browser monitoring for your own Sentry project.",
+  "type": "object",
+  "additionalProperties": false,
+  "category": "monitoring",
+  "display_order": 100,
+  "app_module": "abx_plugins.plugins.sentry.app",
+  "eventbus_module": "abx_plugins.plugins.sentry.runtime",
+  "x-auto-run": false,
+  "required_plugins": [],
+  "required_binaries": [
+    {
+      "name": "sentry_sdk",
+      "binproviders": "uv",
+      "min_version": "2.75.0",
+      "max_version": "2.75.0",
+      "overrides": {
+        "uv": {
+          "install_args": [
+            "sentry-sdk==2.75.0",
+            "opentelemetry-sdk==1.45.2",
+            "opentelemetry-instrumentation-django==0.66b2",
+            "opentelemetry-instrumentation-sqlite3==0.66b2",
+            "opentelemetry-instrumentation-requests==0.66b2",
+            "opentelemetry-instrumentation-urllib3==0.66b2"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [],
+  "properties": {
+    "SENTRY_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable this server's Sentry integration. Install the sentry plugin before enabling; restart the server after configuration changes."
+    },
+    "SENTRY_DSN": {
+      "type": "string",
+      "default": "",
+      "description": "DSN for your Sentry project. No shared or built-in destination is provided."
+    },
+    "SENTRY_ENVIRONMENT": {
+      "type": "string",
+      "default": "production",
+      "description": "Environment attached to Sentry events."
+    },
+    "SENTRY_RELEASE": {
+      "type": "string",
+      "default": "",
+      "description": "Release identifier; empty uses the Sentry SDK's release detection."
+    },
+    "SENTRY_SEND_DEFAULT_PII": {
+      "type": "boolean",
+      "default": false,
+      "description": "Include default personally identifiable information such as authenticated user details."
+    },
+    "SENTRY_TRACES_SAMPLE_RATE": {
+      "type": "number",
+      "default": 0.0,
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Fraction of Django, HTTP, SQL, browser and EventBus traces sampled. Zero disables performance tracing."
+    },
+    "SENTRY_ENABLE_LOGS": {
+      "type": "boolean",
+      "default": false,
+      "description": "Also send Python log records to Sentry Logs. Error events and breadcrumbs work without this."
+    },
+    "SENTRY_LOG_LEVEL": {
+      "type": "string",
+      "enum": [
+        "DEBUG",
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "CRITICAL"
+      ],
+      "default": "INFO",
+      "description": "Minimum level for breadcrumbs and optional Sentry Logs, subject to the host logger's own level. ERROR and CRITICAL records always create error events."
+    },
+    "SENTRY_ENABLE_METRICS": {
+      "type": "boolean",
+      "default": false,
+      "description": "Send span counts and duration distributions, plus browser page-load metrics."
+    },
+    "SENTRY_BROWSER_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "When Sentry is enabled on this machine, load the browser SDK for UI exceptions, tracing, logs and metrics. Session replay is never enabled."
+    }
+  }
+}
