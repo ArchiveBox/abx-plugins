@@ -16,6 +16,9 @@
   "output_mimetypes": [
     "text/html"
   ],
+  "crawler_output_paths": [
+    "output.html"
+  ],
   "properties": {
     "DOM_ENABLED": {
       "type": "boolean",

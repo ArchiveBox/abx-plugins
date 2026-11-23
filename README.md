@@ -80,6 +80,7 @@ not import or require `archivebox` or `abx-dl`.
 | `commands` | Command name → `[relative executable, ...arguments]`; JSON input/output follows the command's contract. |
 | `output_str_type` | `"path"` (default) or `"text"`; text results never identify output files. `default_output_path` identifies their saved artifact. |
 | `default_output_path` | Saved filename relative to the plugin output directory. |
+| `crawler_output_paths` | Exact plugin-relative `.html`/`.htm` files suitable for inexpensive crawler access; omitted means none. Hosts may allow identified crawlers to read only these stored bytes after normal authorization, without previews, rewrites, directory scans, or generated exports. This declaration does not grant access to private captures. |
 | `archive_result_aliases` | List of historical ArchiveResult plugin names owned by this plugin. |
 | `snapshot_output_group`, `snapshot_output_order`, `snapshot_display_name` | Card group (`html`, `article_text`, `images`, `embedded_media`, `metadata`, `other`), integer order, and label. |
 | `snapshot_thumbnail_cards` | List of `{archive_result_name, order}` entries selecting existing card templates for list/grid previews. |

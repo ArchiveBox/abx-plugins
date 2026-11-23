@@ -38,6 +38,9 @@
     "text/plain",
     "application/json"
   ],
+  "crawler_output_paths": [
+    "content.html"
+  ],
   "properties": {
     "READABILITY_ENABLED": {
       "type": "boolean",
