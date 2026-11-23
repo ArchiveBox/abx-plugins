@@ -131,17 +131,18 @@ resolve against the existing URL index. Missing or malformed artifacts leave
 discovery relationships available. Weighted PageRank, Louvain link communities,
 and d3 layout run in a browser worker using vendored libraries. Unlinked sites
 are omitted from the canvas when there are more than 200, but remain searchable.
-W3C, Schema.org and Open Graph namespace domains are excluded from nodes and edges.
+W3C, Schema.org, Open Graph and WordPress metadata domains are excluded from nodes and edges.
 Nodes use recorded favicons, logarithmic snapshot counts and
-PageRank; only the configured domain budget is drawn. Domain selection lazily
+PageRank; only the configured domain budget is drawn. The 3D view lays out
+communities and their members in depth. Domain selection lazily
 loads capture details. Neither loading nor layout requires new backend workers,
 models, indexes or hooks.
 `bandwidth` registers `/admin/bandwidth/`, samples native interface byte counters
 and process sockets through psutil, and reads up to 64 KiB from each capture's
 saved `responses/index.jsonl` for traffic totals. Only related interfaces are
 displayed. The saved response body's file size supplies per-domain byte counts;
-the minute badge counts observed responses/bytes in the trailing 60 seconds;
-hour/day projections use that rolling rate. The UI uses plain HTML admin cards
+the minute, hour and day badges count observed responses and traffic in independent
+rolling windows. The UI uses plain HTML admin cards
 and badges, updates only after polling, and omits zero-value badges. The four ranked columns aggregate
 crawls, the top ten plugins, related interfaces, and registered domains. CPU and
 foreground duration totals exclude background hooks. Recorded ArchiveResult
@@ -218,7 +219,8 @@ Optional fields: `ready() -> bool`, `bind: (host, port)`, `process_name`,
 
 `templates/<slot>.html` contributes UI through `{% plugin_ui slot %}`;
 `{% plugin_ui plugin slot %}` selects one plugin. Collection slots: `navigation`,
-`add`, `importers_actions`, `importer_sessions`, `snapshot_head`.
+`add`, `importers_actions`, `importer_sessions`, `snapshot_head`,
+`admin_archive_results_cards`, `admin_environment_cards`.
 Output slots: `icon`, `card`, `full`. Static assets stay inside the plugin.
 Templates and `template_context` receive the existing context, including Django
 models and `request` when supplied by the view.

@@ -1,3 +1,0 @@
-{% if user.is_active and user.is_superuser and request.archivebox_config.BANDWIDTH_ENABLED %}
-<a href="{% url 'bandwidth-index' %}" class="navbar-item" aria-label="Bandwidth" title="Bandwidth">ϟ</a>
-{% endif %}

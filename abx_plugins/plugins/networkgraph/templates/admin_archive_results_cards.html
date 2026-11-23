@@ -1,0 +1,9 @@
+{% load i18n %}
+{% if user.is_active and user.is_superuser and request.archivebox_config.NETWORKGRAPH_ENABLED %}
+<article class="abx-admin-card abx-admin-card--main">
+    <a class="abx-admin-card__main abx-admin-card__main--link" href="{% url 'networkgraph-index' %}">
+        <span class="abx-admin-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" role="presentation" focusable="false"><circle cx="6" cy="6" r="3" /><circle cx="18" cy="9" r="3" /><circle cx="10" cy="18" r="3" /><path d="m9 7 6 1M7 9l2 6m3 1 4-5" /></svg></span>
+        <span class="abx-admin-card__copy"><strong class="abx-admin-card__title">{% translate "Graph Explorer" %}</strong></span>
+    </a>
+</article>
+{% endif %}

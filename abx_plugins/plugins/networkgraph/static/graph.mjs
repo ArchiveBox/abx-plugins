@@ -135,6 +135,11 @@ function nodeIcon(n) {
 let communityLabels = [];
 const worker = new Worker(new URL("./rank.js", import.meta.url));
 worker.onmessage = ({ data }) => {
+  layoutBusy = false;
+  if (data.dimensions !== dimensionality) {
+    requestLayout();
+    return;
+  }
   for (const row of data.nodes) {
     const n = nodes.get(row.id);
     if (!n) continue;
@@ -152,7 +157,6 @@ worker.onmessage = ({ data }) => {
       n.z = row.z;
     }
   }
-  layoutBusy = false;
   communityLabels = data.communities;
   layout();
 };
@@ -263,6 +267,7 @@ graph.d3Force("charge", null);
 graph.d3Force("center", null);
 graph.d3Force("link", null);
 graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.5));
+graph.controls().enableRotate = false;
 function enqueue(n, priority = false) {
   if (queued.has(n.id) || queue.length >= maxNodes || pages.get(n.id) === null)
     return;
@@ -397,7 +402,7 @@ function layout() {
       if (n) select(n);
     };
     labelNodes.push({
-      n: { x: group.x, y: group.y - group.radius - 25, z: 0 },
+      n: { x: group.x, y: group.y - group.radius - 25, z: group.z },
       el,
     });
   }
@@ -540,16 +545,13 @@ function select(n) {
   if (!visible.includes(n)) layout();
   if (Number.isFinite(n.x)) {
     const distance = 160 + Math.log2(1 + (n.count || 1)) * 6;
-    const norm = Math.hypot(n.x, n.y, n.z) || 1;
-    graph.cameraPosition(
-      {
-        x: n.x + (n.x / norm) * distance,
-        y: n.y + (n.y / norm) * distance,
-        z: n.z + (n.z / norm || 1) * distance,
-      },
-      n,
-      reduced ? 0 : 800
-    );
+    const position = graph
+      .camera()
+      .position.clone()
+      .sub(graph.controls().target)
+      .setLength(distance)
+      .add(n);
+    graph.cameraPosition(position, n, reduced ? 0 : 800);
   }
   if (!pages.has(n.id)) enqueue(n, true);
   paint();
@@ -628,9 +630,30 @@ $("fit").onclick = () =>
   graph.zoomToFit(reduced ? 0 : 700, 80, (n) => Boolean(n.community));
 $("dimensions").onclick = () => {
   dimensionality = dimensionality === 3 ? 2 : 3;
+  const spatial = dimensionality === 3;
+  const target = graph.controls().target.clone();
+  const distance = graph.camera().position.distanceTo(target);
+  if (!spatial) target.z = 0;
+  for (const n of visible) {
+    if (n.fx == null) continue;
+    if (!spatial) n.pinnedDepth = n.fz;
+    n.fz = spatial ? n.pinnedDepth ?? 0 : 0;
+  }
+  graph.controls().enableRotate = spatial;
+  graph.cameraPosition(
+    {
+      x: target.x + (spatial ? distance * 0.45 : 0),
+      y: target.y + (spatial ? distance * 0.25 : 0),
+      z: target.z + (spatial ? distance * 0.86 : distance),
+    },
+    target,
+    reduced || paused ? 0 : 500
+  );
   graph.numDimensions(dimensionality);
   requestLayout();
   $("dimensions").textContent = `${dimensionality}D`;
+  $("dimensions").setAttribute("aria-pressed", String(spatial));
+  $("orbit").disabled = !spatial;
 };
 $("orbit").onclick = () => {
   orbit = !orbit;
@@ -655,6 +678,7 @@ $("expand").onclick = () => selected && enqueue(selected, true);
 $("pin").onclick = () => {
   if (!selected) return;
   const pinned = selected.fx != null;
+  delete selected.pinnedDepth;
   for (const axis of ["x", "y", "z"])
     selected[`f${axis}`] = pinned ? undefined : selected[axis];
   requestLayout();
@@ -675,14 +699,18 @@ function frame(t) {
   requestAnimationFrame(frame);
   if (document.hidden || paused || t - lastFrame < 40) return;
   lastFrame = t;
-  if (orbit && !reduced) {
-    const p = graph.cameraPosition(),
-      a = 0.0015;
-    graph.cameraPosition({
-      x: p.x * Math.cos(a) - p.z * Math.sin(a),
-      y: p.y,
-      z: p.x * Math.sin(a) + p.z * Math.cos(a),
-    });
+  if (dimensionality === 3 && orbit) {
+    const target = graph.controls().target;
+    const p = graph.camera().position.clone().sub(target);
+    const a = 0.0015;
+    graph.cameraPosition(
+      {
+        x: target.x + p.x * Math.cos(a) - p.z * Math.sin(a),
+        y: target.y + p.y,
+        z: target.z + p.x * Math.sin(a) + p.z * Math.cos(a),
+      },
+      target
+    );
   }
   for (const n of visible) {
     if (!n.target || n.fx != null) continue;

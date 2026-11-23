@@ -34,10 +34,6 @@ const duration = (seconds) =>
     : seconds >= 60
     ? `${(seconds / 60).toFixed(1)} min`
     : `${seconds.toFixed(1)} s`;
-const color = (id) =>
-  `hsl(${
-    [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 300, 0) + 150
-  },78%,67%)`;
 const short = (id) => id.slice(-8);
 const background = (p) => /\.bg(?:\.|$)/.test(p.hook);
 function el(tag, text, className) {
@@ -68,8 +64,8 @@ function group(map, id) {
       ramSamples: 0,
       peak: 0,
       last: 0,
-      buckets: new Map(),
-      history: [],
+      seconds: new Map(),
+      minutes: new Map(),
       hosts: new Set(),
       snapshots: new Set(),
       measured: false,
@@ -77,19 +73,44 @@ function group(map, id) {
   }
   return map.get(id);
 }
-function rates(g, now = Date.now() / 1000) {
-  let requests = 0,
-    size = 0;
-  for (const [second, b] of g.buckets) {
-    if (now - second > 60) {
-      g.buckets.delete(second);
-      continue;
-    }
-    requests += b.requests;
-    size += b.bytes;
+const emptyTraffic = () => ({ requests: 0, bytes: 0, wireBytes: 0 });
+function addTraffic(g, time, { requests = 0, bytes = 0, wireBytes = 0 }) {
+  for (const [buckets, period] of [
+    [g.seconds, 1],
+    [g.minutes, 60],
+  ]) {
+    const timeKey = Math.floor(time / period);
+    const bucket = buckets.get(timeKey) || emptyTraffic();
+    bucket.requests += requests;
+    bucket.bytes += bytes;
+    bucket.wireBytes += wireBytes;
+    buckets.set(timeKey, bucket);
+    if (period === 1) g.peak = Math.max(g.peak, bucket.bytes);
   }
-  const span = 60;
-  return { requests: requests / span, bytes: size / span };
+}
+function trafficWindows(g, now) {
+  const recent = emptyTraffic(),
+    hour = emptyTraffic(),
+    day = emptyTraffic();
+  function add(total, bucket) {
+    total.requests += bucket.requests;
+    total.bytes += bucket.bytes;
+    total.wireBytes += bucket.wireBytes;
+  }
+  for (const [second, bucket] of g.seconds) {
+    if (now - second >= 60) g.seconds.delete(second);
+    else add(recent, bucket);
+  }
+  const minute = Math.floor(now / 60);
+  for (const [time, bucket] of g.minutes) {
+    const age = minute - time;
+    if (age >= 1440) g.minutes.delete(time);
+    else {
+      add(day, bucket);
+      if (age < 60) add(hour, bucket);
+    }
+  }
+  return [recent, hour, day];
 }
 function recordTraffic(g, event) {
   const size = event.bytes || 0;
@@ -97,11 +118,7 @@ function recordTraffic(g, event) {
   g.requests++;
   g.bytes += size;
   g.last = Math.max(g.last, event.time);
-  const second = Math.floor(event.time),
-    bucket = g.buckets.get(second) || { requests: 0, bytes: 0 };
-  bucket.requests++;
-  bucket.bytes += size;
-  g.buckets.set(second, bucket);
+  addTraffic(g, event.time, { requests: 1, bytes: size });
 }
 function ifaceFor(p) {
   if (!p.interface) return null;
@@ -214,11 +231,7 @@ function ingest(data) {
         : 0;
       g.nicBytes = (g.nicBytes || 0) + transferred;
       g.nicPeak = Math.max(g.nicPeak || 0, g.rx + g.tx);
-      g.nicBuckets ||= new Map();
-      g.nicBuckets.set(Math.floor(now), transferred);
-      for (const t of g.nicBuckets.keys())
-        if (now - t > 60) g.nicBuckets.delete(t);
-      g.nicMinute = [...g.nicBuckets.values()].reduce((sum, b) => sum + b, 0);
+      if (transferred) addTraffic(g, now, { wireBytes: transferred });
     }
   }
   for (const event of data.events) {
@@ -239,17 +252,6 @@ function ingest(data) {
       if (nic) recordTraffic(nic, event);
     }
   }
-  for (const map of [crawls, plugins, interfaces, domains])
-    for (const g of map.values()) {
-      const r = rates(g, now);
-      g.peak = Math.max(
-        g.peak,
-        ...[...g.buckets.values()].map((b) => b.bytes),
-        0
-      );
-      g.history.push(map === interfaces ? g.rx + g.tx : r.bytes);
-      if (g.history.length > 90) g.history.shift();
-    }
   while (seen.size > 16384) seen.delete(seen.keys().next().value);
   previous = data;
   cursor = data.cursor || cursor;
@@ -264,9 +266,8 @@ function metric(label, value) {
   item.append(el("dt", label), el("dd", value));
   return item;
 }
-function renderCard(card, g, kind, rank, now) {
-  const r = rates(g, now),
-    work = kind === "plugins" || kind === "crawls",
+function renderCard(card, g, kind, rank) {
+  const work = kind === "plugins" || kind === "crawls",
     nic = kind === "interfaces";
   card.className = "bandwidth-card";
   const header = el("header");
@@ -310,7 +311,9 @@ function renderCard(card, g, kind, rank, now) {
   metrics.append(
     metric(
       nic ? "↓ Receive" : "Traffic / sec",
-      g.measured || nic ? `${bytes(nic ? g.rx : r.bytes)}/s` : "—"
+      g.measured || nic
+        ? `${bytes(nic ? g.rx : g.windows[0].bytes / 60)}/s`
+        : "—"
     )
   );
   if (nic) metrics.append(metric("↑ Send", `${bytes(g.tx)}/s`));
@@ -341,27 +344,22 @@ function renderCard(card, g, kind, rank, now) {
       summary.append(badge(`${Math.round(g.latency) || "<1"} ms`));
     card.append(summary);
     const ratesRow = el("div", null, "rate-badges");
-    for (const [label, seconds] of [
-      ["/min", 60],
-      ["~/hr", 3600],
-      ["~/day", 86400],
-    ]) {
-      if (!r.requests && !(nic ? g.nicMinute : r.bytes)) continue;
+    g.windows.forEach((window, index) => {
+      const traffic = nic ? window.wireBytes : window.bytes;
+      const values = [];
+      if (window.requests)
+        values.push(`${window.requests.toLocaleString()} resp`);
+      if (traffic) values.push(bytes(traffic));
+      if (!values.length) return;
       const item = el("span", null, "rate-badge");
-      item.append(el("b", label));
+      item.title = ["Last minute", "Last hour", "Last 24 hours"][index];
       item.append(
-        el(
-          "span",
-          `${
-            g.measured
-              ? Math.round(r.requests * seconds).toLocaleString() + " resp · "
-              : ""
-          }${bytes((nic ? (g.nicMinute || 0) / 60 : r.bytes) * seconds)}`
-        )
+        el("b", ["1m", "1h", "24h"][index]),
+        el("span", values.join(" · "))
       );
       ratesRow.append(item);
-    }
-    card.append(ratesRow);
+    });
+    if (ratesRow.childElementCount) card.append(ratesRow);
   }
 }
 
@@ -373,6 +371,7 @@ function render() {
     ["interfaces", interfaces, 8],
     ["domains", domains, 30],
   ]) {
+    for (const g of map.values()) g.windows = trafficWindows(g, now);
     const sort = $(`${id}-sort`)?.value || "bandwidth";
     const weight = (g) =>
       sort === "cpu"
@@ -381,7 +380,7 @@ function render() {
         ? g.disk
         : id === "interfaces"
         ? g.rx + g.tx
-        : rates(g, now).bytes;
+        : g.windows[0].bytes;
     const groups = [...map.values()]
       .filter((g) => id !== "interfaces" || g.active || now - g.last < 120)
       .sort(
@@ -404,7 +403,7 @@ function render() {
     groups.forEach((g, i) => {
       const card = existing.get(g.id) || el("article");
       card.dataset.key = g.id;
-      renderCard(card, g, id, i, now);
+      renderCard(card, g, id, i);
       parent.append(card);
       existing.delete(g.id);
     });
@@ -431,8 +430,9 @@ function render() {
   $("total-requests").textContent = compact.format(totalRequests);
   $("total-bytes").textContent = bytes(totalBytes);
   $("total-rate").textContent =
-    bytes([...domains.values()].reduce((s, g) => s + rates(g, now).bytes, 0)) +
-    "/s";
+    bytes(
+      [...domains.values()].reduce((s, g) => s + g.windows[0].bytes, 0) / 60
+    ) + "/s";
   $("process-count").textContent = String(
     [...processes.values()].filter((p) => p.status === "running").length
   );
