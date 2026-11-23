@@ -70,7 +70,7 @@ def search(
                 limit=100,
             )
     except (protocol.SonicServerError, protocol.ChannelError) as err:
-        raise RuntimeError("Sonic could not complete the search") from err
+        raise ConnectionError("Sonic could not complete the search") from err
 
 
 def search_candidates(
@@ -94,7 +94,7 @@ def search_candidates(
             continue
         try:
             results = search(term.value, timeout=max(0.001, budget.remaining()))
-        except (OSError, RuntimeError, ValueError):
+        except (OSError, ValueError):
             # Keep positives from earlier terms when the service disconnects
             # or rejects an operand. The remaining predicates are unknown.
             break
