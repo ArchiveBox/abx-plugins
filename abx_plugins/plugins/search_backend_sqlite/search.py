@@ -176,6 +176,36 @@ def _match_literals(conn, doc, terms, evidence, budget):
             continue
         if not budget.remaining():
             raise TimeoutError
+        if budget.streaming:
+            with conn.blobopen(
+                "search_index_content",
+                column,
+                doc,
+                readonly=True,
+            ) as blob:
+                length = len(blob)
+            offset = 0
+
+            def read(size):
+                # Release the SQLite read transaction before waiting for the
+                # next I/O window, so an index writer can commit between chunks.
+                nonlocal offset
+                with conn.blobopen(
+                    "search_index_content",
+                    column,
+                    doc,
+                    readonly=True,
+                ) as blob:
+                    blob.seek(offset)
+                    data = blob.read(size)
+                offset += len(data)
+                return data
+
+            complete &= budget.match_stream(read, length, pending, evidence.matches)
+            pending = [term for term in pending if term.key not in evidence.matches]
+            if not pending:
+                break
+            continue
         with conn.blobopen("search_index_content", column, doc, readonly=True) as blob:
             count = min(len(blob), budget.bytes, remaining)
             text = blob.read(count).decode("utf-8", "surrogateescape")

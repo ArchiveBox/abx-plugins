@@ -33,6 +33,7 @@ def search(
     *,
     environ: Mapping[str, str] | None = None,
     timeout: float | None = None,
+    offset: int = 0,
 ) -> list[str]:
     """Search for snapshots in Sonic."""
     del search_mode
@@ -68,6 +69,7 @@ def search(
                 config.SEARCH_BACKEND_SONIC_BUCKET,
                 query,
                 limit=100,
+                offset=offset,
             )
     except (protocol.SonicServerError, protocol.ChannelError) as err:
         raise ConnectionError("Sonic could not complete the search") from err
@@ -93,16 +95,27 @@ def search_candidates(
         if term.mode != "word" or term.case_sensitive:
             continue
         try:
-            results = search(term.value, timeout=max(0.001, budget.remaining()))
+            offset = 0
+            while True:
+                results = search(
+                    term.value,
+                    timeout=max(0.001, budget.remaining()),
+                    offset=offset,
+                )
+                for rank, found in enumerate(results, start=offset):
+                    candidate_id = aliases.get(found)
+                    if candidate_id is not None:
+                        rows[candidate_id].matches[term.key] = True
+                        rows[candidate_id].scores[term.key] = 1 / (1 + rank)
+                if (
+                    not budget.streaming
+                    or len(results) < 100
+                    or all(term.key in row.matches for row in rows.values())
+                ):
+                    break
+                offset += len(results)
         except (OSError, ValueError):
-            # Keep positives from earlier terms when the service disconnects
-            # or rejects an operand. The remaining predicates are unknown.
             break
-        for rank, found in enumerate(results):
-            candidate_id = aliases.get(found)
-            if candidate_id is not None:
-                rows[candidate_id].matches[term.key] = True
-                rows[candidate_id].scores[term.key] = 1 / (1 + rank)
     yield from rows.values()
 
 

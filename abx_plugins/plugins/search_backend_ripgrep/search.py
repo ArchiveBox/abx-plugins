@@ -217,10 +217,9 @@ def _scan_candidate(candidate, terms, budget, rg_binary):
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 
     def scan_file(parent, name, active):
-        if not budget.files or not budget.bytes:
+        if not budget.take("files", 1) or not budget.bytes:
             incomplete.update(active)
             return
-        budget.files -= 1
         # Use openat on an already opened directory and reject links/special
         # files. An archived page may have created hostile names or symlinks.
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
@@ -230,6 +229,20 @@ def _scan_candidate(candidate, terms, budget, rg_binary):
                 incomplete.update(active)
                 return
             observed.update(active)
+            if budget.streaming:
+                complete = budget.match_stream(
+                    stream.read,
+                    info.st_size,
+                    active,
+                    found.matches,
+                )
+                current = os.fstat(fd)
+                if not complete or (current.st_size, current.st_mtime_ns) != (
+                    info.st_size,
+                    info.st_mtime_ns,
+                ):
+                    incomplete.update(active)
+                return
             count = min(info.st_size, budget.bytes, budget.per_file)
             data = stream.read(count)
             budget.bytes -= len(data)
@@ -281,10 +294,9 @@ def _scan_candidate(candidate, terms, budget, rg_binary):
             for entry in entries:
                 if len(found.matches) == len(terms):
                     return
-                if not budget.entries or not budget.remaining():
+                if not budget.take("entries", 1) or not budget.remaining():
                     incomplete.update(terms)
                     return
-                budget.entries -= 1
                 if entry.name.startswith("."):
                     continue
                 active = [term for term in terms if term.key not in found.matches]
