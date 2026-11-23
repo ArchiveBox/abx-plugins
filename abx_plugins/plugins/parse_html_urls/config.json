@@ -14,7 +14,6 @@
   "output_mimetypes": [
     "application/x-ndjson"
   ],
-  "outlinks_path": "urls.jsonl",
   "properties": {
     "PARSE_HTML_URLS_ENABLED": {
       "type": "boolean",
