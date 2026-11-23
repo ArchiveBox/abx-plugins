@@ -53,6 +53,34 @@ def test_opencode_cold_agent_wrapper_returns_before_server_starts(
     )
 
 
+def _assert_agent_uses_importer_workspace(admin_client, live_opencode):
+    from uuid import uuid4
+
+    importer_id = uuid4().hex
+    workspace = (
+        live_opencode.config.data_dir / "importers" / importer_id / "state" / "current"
+    )
+    workspace.mkdir(parents=True)
+    response = admin_client.post(
+        f"/admin/agent/opencode/session?directory={quote(str(workspace))}",
+        data="{}",
+        content_type="application/json",
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_ORIGIN=f"http://{ADMIN_TEST_HOST}",
+    )
+    assert response.status_code == 200, response.content
+    assert response.json()["directory"] == str(workspace.resolve())
+    session_id = response.json()["id"]
+    page = admin_client.get(
+        "/admin/agent/",
+        {"session": session_id, "importer": importer_id},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert page.status_code == 200
+    assert page.context["workdir"] == str(workspace.resolve())
+    assert page.context["proxy_url"].endswith(f"/session/{session_id}")
+
+
 @pytest.mark.parametrize(
     "task_route,task_host",
     [
@@ -179,6 +207,7 @@ def test_opencode_proxy_serves_real_project_and_session(
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert task_page.context["proxy_url"].endswith("/session/" + task["session_id"])
+    _assert_agent_uses_importer_workspace(admin_client, live_opencode)
 
     workdir = str(live_opencode.config.data_dir.resolve())
     encoded_workdir = quote(workdir)

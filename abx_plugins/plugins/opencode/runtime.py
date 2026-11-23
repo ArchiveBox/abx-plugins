@@ -789,7 +789,9 @@ def _response_headers(upstream: httpx.Response, settings: dict) -> dict[str, str
 atexit.register(_stop_owned_process)
 
 
-def agent_context(settings: dict, session_id: str = "") -> dict:
+def agent_context(
+    settings: dict, session_id: str = "", *, workdir: Path | None = None,
+) -> dict:
     if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
         raise ValueError("Invalid agent session ID")
     _ensure_server_context(settings)
@@ -800,7 +802,7 @@ def agent_context(settings: dict, session_id: str = "") -> dict:
         "proxy_url": _session_route(settings)
         + (f"/{session_id}" if session_id else ""),
         "proxy_prefix": _PROXY_PREFIX,
-        "workdir": str(settings["workdir"].resolve()),
+        "workdir": str((workdir or settings["workdir"]).resolve()),
         "recent_session_id": session_id,
     }
 

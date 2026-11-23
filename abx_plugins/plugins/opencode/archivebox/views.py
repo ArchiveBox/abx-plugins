@@ -72,11 +72,23 @@ def _dispatch(request, path=None, browser_action=None, *, host, prepare_proxy=Fa
             session_id = request.GET.get("session", "")
             if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
                 return HttpResponse("Invalid session ID.", status=400)
+            importer = request.GET.get("importer")
+            workdir = None
+            if session_id and importer:
+                try:
+                    source_id = UUID(importer).hex
+                except ValueError:
+                    return HttpResponse("Invalid importer ID.", status=400)
+                importers = (settings["archivebox_data_dir"] / "importers").resolve()
+                workspace = importers / source_id / "state" / "current"
+                if workspace.is_dir() and workspace.resolve().is_relative_to(importers):
+                    workdir = workspace
             context = {
                 **host.admin_context(request),
                 **runtime.agent_context(
                     settings,
-                    session_id=request.GET.get("session", ""),
+                    session_id=session_id,
+                    workdir=workdir,
                 ),
             }
             source = (
