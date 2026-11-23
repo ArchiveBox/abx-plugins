@@ -70,16 +70,6 @@ function readChromeNavigationState() {
   }
 }
 
-async function moveAcrossMounts(src, dest) {
-  try {
-    await fs.promises.rename(src, dest);
-  } catch (error) {
-    if (error?.code !== "EXDEV") throw error;
-    await fs.promises.copyFile(src, dest);
-    await fs.promises.unlink(src);
-  }
-}
-
 function readRecordingState() {
   const statePath = path.join(outputDir, RECORDING_STATE_FILENAME);
   const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -247,7 +237,7 @@ async function downloadExactWacz(
     // Chrome's download directory and our external output-path contract stay absolute.
     const localDestPath = path.relative(process.cwd(), path.resolve(destPath));
     if (path.resolve(downloadedPath) !== path.resolve(destPath)) {
-      await moveAcrossMounts(downloadedPath, localDestPath);
+      await chromeUtils.moveBrowserDownload(downloadedPath, localDestPath);
     }
     const size = (await fs.promises.stat(localDestPath)).size;
     reportExport("move-completed");

@@ -14,6 +14,7 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  copyBrowserDownload,
   downloadBrowserResource,
 } = require("../chrome/chrome_utils.js");
 const {
@@ -141,7 +142,7 @@ async function main() {
           try {
             validateExport(cached.file, format, cached.mimeType);
             if ((await fileHash(cached.file)) === cached.responseSha256) {
-              fs.copyFileSync(cached.file, temporary);
+              await copyBrowserDownload(cached.file, temporary);
               mimeType = cached.mimeType;
               reused = true;
             }

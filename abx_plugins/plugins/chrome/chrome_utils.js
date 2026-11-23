@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
+const { pipeline } = require("node:stream/promises");
 const http = require("http");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
@@ -3478,6 +3479,45 @@ async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs,
   }
 }
 
+async function copyBrowserDownload(src, dest) {
+  // libuv's copyFile sets the download's timestamps on the destination.
+  // On a versioned rclone/S3 mount that metadata update can copy the whole object.
+  const { mode } = await fs.promises.stat(src);
+  let output = dest;
+  let file;
+  try {
+    file = await fs.promises.open(output, "wx", mode & 0o777);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    // Keep the existing capture readable until its replacement has closed.
+    output = path.join(path.dirname(dest), `.${path.basename(dest)}.${crypto.randomUUID()}.tmp`);
+    file = await fs.promises.open(output, "wx", mode & 0o777);
+  }
+  try {
+    await pipeline(fs.createReadStream(src), file.createWriteStream());
+    if (output !== dest) await fs.promises.rename(output, dest);
+  } catch (error) {
+    await fs.promises.rm(output, { force: true }).catch(cleanupError => {
+      console.error(`Could not remove incomplete download ${output}: ${cleanupError.message}`);
+    });
+    throw error;
+  }
+}
+
+async function moveBrowserDownload(src, dest, onPhase = () => {}) {
+  onPhase("rename");
+  try {
+    await fs.promises.rename(src, dest);
+    return;
+  } catch (error) {
+    if (error.code !== "EXDEV") throw error;
+  }
+  onPhase("copy");
+  await copyBrowserDownload(src, dest);
+  onPhase("unlink");
+  await fs.promises.unlink(src);
+}
+
 /**
  * Wait for Chrome to finish the download with the exact requested filename.
  * The native downloadProgress event is the completion boundary; the destination file
@@ -6303,6 +6343,8 @@ module.exports = {
   getTargetIdFromPage,
   connectToPage,
   downloadBrowserResource,
+  copyBrowserDownload,
+  moveBrowserDownload,
   waitForNavigationComplete,
   readNavigatedUrls,
   waitForVisibleImages,

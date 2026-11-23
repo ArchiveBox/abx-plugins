@@ -40,6 +40,7 @@ const {
 ensureNodeModuleResolution(module);
 const {
   connectToPage,
+  moveBrowserDownload,
   resolvePuppeteerModule,
   resolveChromeLaunchOptions,
 } = require("../chrome/chrome_utils.js");
@@ -118,12 +119,7 @@ async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
     const dst = path.join(outputDir, entry);
 
     try {
-      try {
-        await fs.promises.rename(src, dst);
-      } catch (e) {
-        await fs.promises.copyFile(src, dst);
-        await fs.promises.unlink(src);
-      }
+      await moveBrowserDownload(src, dst);
       moved.push(entry);
       console.error(`[+] Moved download: ${entry}`);
     } catch (e) {

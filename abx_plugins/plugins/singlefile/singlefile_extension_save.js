@@ -50,22 +50,6 @@ function getSinglefileDownloadWaitTimeoutMs(
   return Math.max(3000, totalTimeoutMs - DOWNLOAD_WAIT_RESERVE_MS - elapsedMs);
 }
 
-async function moveAcrossMounts(src, dest, startedAt) {
-  // The hook already holds its output directory as cwd. Avoid walking expired
-  // remote ancestors again before rename's EXDEV and the subsequent copy.
-  dest = path.relative(process.cwd(), path.resolve(dest));
-  console.error(`[singlefile] phase=file-rename started elapsed_ms=${Date.now() - startedAt}`);
-  try {
-    await fs.promises.rename(src, dest);
-  } catch (error) {
-    if (error?.code !== "EXDEV") throw error;
-    console.error(`[singlefile] phase=file-copy started elapsed_ms=${Date.now() - startedAt}`);
-    await fs.promises.copyFile(src, dest);
-    console.error(`[singlefile] phase=file-unlink started elapsed_ms=${Date.now() - startedAt}`);
-    await fs.promises.unlink(src);
-  }
-}
-
 async function getExactChromeTab(extension, page) {
   const targetId = chromeUtils.getTargetIdFromPage(page);
   if (!targetId) {
@@ -404,7 +388,11 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     throw new Error(`SingleFile download is empty: ${downloadedPath}`);
   }
   if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
-    await moveAcrossMounts(downloadedPath, outputPath, saveStartedAt);
+    // cwd already pins the output directory on remote mounts.
+    const dest = path.relative(process.cwd(), path.resolve(outputPath));
+    await chromeUtils.moveBrowserDownload(downloadedPath, dest, phase => {
+      console.error(`[singlefile] phase=file-${phase} started elapsed_ms=${Date.now() - saveStartedAt}`);
+    });
   }
   console.error(`[singlefile] phase=file-saved elapsed_ms=${Date.now() - saveStartedAt}`);
   return outputPath;
