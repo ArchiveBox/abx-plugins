@@ -253,6 +253,14 @@ Disk-scanning hosts should send an absolute `archive_root` alongside `candidates
 and lexical candidate paths beneath that directory. The scanner opens each path
 component relative to the trusted root and rejects symlinks and parent references.
 
+An indexed provider's optional `app_module.search_word_hits(word, *, environ, timeout)`
+can return a bounded, ranked iterable of confirmed snapshot IDs for a lowercase
+word. This avoids launching a command for a single cheap index lookup. It must
+honor the supplied timeout, use the resolved environment, and require no archive
+file reads. Missing IDs are unknown. Hosts check permissions, scope and the full
+Boolean expression before displaying any hit. Providers without this adapter use
+the standalone commands.
+
 Input is one JSON object on stdin. A provider flushes at most one JSON object per
 candidate to stdout, in the order evidence becomes available. It may omit
 unresolved candidates. Each operand in a request must have a unique key.

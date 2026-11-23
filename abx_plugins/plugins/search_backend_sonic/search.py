@@ -25,6 +25,7 @@ from abx_plugins.plugins.base.utils import load_config
 
 
 CONFIG_PATH = Path(__file__).with_name("config.json")
+PAGE_SIZE = 100
 
 
 def search(
@@ -68,7 +69,7 @@ def search(
                 config.SEARCH_BACKEND_SONIC_COLLECTION,
                 config.SEARCH_BACKEND_SONIC_BUCKET,
                 query,
-                limit=100,
+                limit=PAGE_SIZE,
                 offset=offset,
             )
     except (protocol.SonicServerError, protocol.ChannelError) as err:
@@ -109,7 +110,7 @@ def search_candidates(
                         rows[candidate_id].scores[term.key] = 1 / (1 + rank)
                 if (
                     not budget.streaming
-                    or len(results) < 100
+                    or len(results) < PAGE_SIZE
                     or all(term.key in row.matches for row in rows.values())
                 ):
                     break

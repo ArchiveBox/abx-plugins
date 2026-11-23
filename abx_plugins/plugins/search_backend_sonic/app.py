@@ -2,6 +2,7 @@
 
 import os
 import shlex
+import time
 from functools import partial
 from pathlib import Path
 
@@ -13,6 +14,23 @@ from .daemon import (
     is_sonic_backend_enabled,
     sonic_daemon_bind_host,
 )
+
+
+def search_word_hits(word, *, environ, timeout):
+    """Stream a bounded prefix of ranked positives without reading archive files."""
+    from .search import PAGE_SIZE, search
+
+    # The host applies permission and Boolean filters. Its first visible
+    # match may be on Sonic's second page. Fetch it only if still consumed.
+    deadline = time.monotonic() + timeout
+    for offset in range(0, 500, PAGE_SIZE):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        page = search(word, environ=environ, timeout=remaining, offset=offset)
+        yield from page
+        if len(page) < PAGE_SIZE:
+            return
 
 
 def prepare_worker(config):

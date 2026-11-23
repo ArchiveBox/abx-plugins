@@ -12,6 +12,7 @@ import time
 
 import pytest
 
+from abx_plugins.plugins.search_backend_sonic.app import search_word_hits
 from abx_plugins.plugins.search_backend_sonic.daemon import (
     get_sonic_supervisord_worker,
     is_port_listening,
@@ -332,6 +333,41 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert json.loads(added.stdout.splitlines()[-1])["status"] == "succeeded"
             ranked = search("metatitleuniqueneedle", environ=env)
             assert set(ranked) == {"explicit-sonic-id", "outside-scope"}
+            assert (
+                list(search_word_hits("metatitleuniqueneedle", environ=env, timeout=2))
+                == ranked
+            )
+            assert (
+                list(search_word_hits("unknownuniqueneedle", environ=env, timeout=2))
+                == []
+            )
+            # A host's permission/file predicate may reject an entire first
+            # Sonic page. The optional adapter must expose later native ranks.
+            from sonic import IngestClient
+
+            objects = {f"bulk-{i}" for i in range(112)}
+            with IngestClient(
+                "127.0.0.1",
+                port,
+                config["SEARCH_BACKEND_SONIC_PASSWORD"],
+            ) as ingest:
+                for object_id in sorted(objects):
+                    ingest.push(
+                        "archivebox",
+                        "snapshots",
+                        object_id,
+                        "paginationuniqueneedle",
+                    )
+            first_page = search("paginationuniqueneedle", environ=env)
+            assert len(first_page) == 100
+            all_hits = list(
+                search_word_hits("paginationuniqueneedle", environ=env, timeout=2),
+            )
+            assert (
+                all_hits[:100] == first_page
+                and len(all_hits) == len(objects)
+                and set(all_hits) == objects
+            )
             # The same registered CLI used by hosts only confirms IDs it was
             # asked about. A case-sensitive word cannot be proved by Sonic.
             candidate_request = {
