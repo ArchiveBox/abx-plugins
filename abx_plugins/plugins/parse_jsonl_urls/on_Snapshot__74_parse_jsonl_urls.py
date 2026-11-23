@@ -17,16 +17,18 @@ Expected JSONL format (one object per line):
 
 Supports various field names for URL, title, timestamp, and tags.
 Also accepts a JSON object or array of bookmark objects, including pretty-printed JSON.
+ArchiveBox CSV exports use the same bookmark fields, read with csv.DictReader.
 """
 
 import sys
 import json
 import os
 from pathlib import Path
-from datetime import datetime
-from html import unescape
 
-from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
+from abx_plugins.plugins.parse_jsonl_urls.bookmarks import (
+    iter_json_records,
+    json_object_to_entry,
+)
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -49,91 +51,6 @@ URLS_FILE = Path("urls.jsonl")
 NORESULTS_OUTPUT = "0 URLs parsed"
 
 
-def parse_bookmarked_at(link: dict) -> str | None:
-    """Parse timestamp from various JSON formats, return ISO 8601."""
-    from datetime import timezone
-
-    def json_date(s: str) -> datetime:
-        # Try ISO 8601 format
-        return datetime.strptime(s.split(",", 1)[0], "%Y-%m-%dT%H:%M:%S%z")
-
-    def to_iso(dt: datetime) -> str:
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.isoformat()
-
-    try:
-        if link.get("bookmarked_at"):
-            # Already in our format, pass through
-            return link["bookmarked_at"]
-        elif link.get("timestamp"):
-            # Chrome/Firefox histories use microseconds
-            return to_iso(
-                datetime.fromtimestamp(link["timestamp"] / 1000000, tz=timezone.utc),
-            )
-        elif link.get("time"):
-            return to_iso(json_date(link["time"]))
-        elif link.get("created_at"):
-            return to_iso(json_date(link["created_at"]))
-        elif link.get("created"):
-            return to_iso(json_date(link["created"]))
-        elif link.get("date"):
-            return to_iso(json_date(link["date"]))
-        elif link.get("bookmarked"):
-            return to_iso(json_date(link["bookmarked"]))
-        elif link.get("saved"):
-            return to_iso(json_date(link["saved"]))
-    except (ValueError, TypeError, KeyError):
-        pass
-
-    return None
-
-
-def json_object_to_entry(link: dict) -> dict | None:
-    """Convert a JSON bookmark object to a URL entry."""
-    # Parse URL (try various field names)
-    url = link.get("href") or link.get("url") or link.get("URL")
-    if not url:
-        return None
-    cleaned_url = sanitize_extracted_url(url)
-    if not cleaned_url:
-        return None
-
-    entry = {
-        "type": "Snapshot",
-        "url": cleaned_url,
-        "plugin": PLUGIN_NAME,
-    }
-
-    # Parse title
-    title = None
-    if link.get("title"):
-        title = link["title"].strip()
-    elif link.get("description"):
-        title = link["description"].replace(" — Readability", "").strip()
-    elif link.get("name"):
-        title = link["name"].strip()
-    if title:
-        entry["title"] = unescape(title)
-
-    # Parse bookmarked_at (ISO 8601)
-    bookmarked_at = parse_bookmarked_at(link)
-    if bookmarked_at:
-        entry["bookmarked_at"] = bookmarked_at
-
-    # Parse tags
-    tags = link["tags"] if "tags" in link else ""
-    if isinstance(tags, list):
-        tags = ",".join(tags)
-    elif isinstance(tags, str) and "," not in tags and tags:
-        # If no comma, assume space-separated
-        tags = tags.replace(" ", ",")
-    if tags:
-        entry["tags"] = unescape(tags)
-
-    return entry
-
-
 def emit_result(status: str, output_str: str) -> None:
     """Emit final ArchiveResult JSONL plus a short stderr summary."""
     emit_archive_result_record(status, output_str)
@@ -152,20 +69,6 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
 
     URLS_FILE.unlink(missing_ok=True)
     return "noresults", NORESULTS_OUTPUT
-
-
-def iter_json_records(content: str):
-    """Accept a JSON document or one bookmark object per JSONL line."""
-    try:
-        document = json.loads(content)
-    except json.JSONDecodeError:
-        for line in content.split("\n"):
-            try:
-                yield json.loads(line)
-            except json.JSONDecodeError:
-                continue
-    else:
-        yield from document if isinstance(document, list) else [document]
 
 
 @click.command(

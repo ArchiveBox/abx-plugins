@@ -45,6 +45,11 @@ from abx_plugins.plugins.parse_txt_urls.document_sources import (
     iter_document_content,
     iter_document_sources,
 )
+from abx_plugins.plugins.parse_jsonl_urls.bookmarks import (
+    bookmark_input_format,
+    iter_json_records,
+    json_object_to_entry,
+)
 
 import rich_click as click
 
@@ -219,6 +224,7 @@ def main(
     """Parse plain text and extract URLs."""
     urls_file = get_output_file()
     urls_found = set()
+    bookmarks = {}
     source_paths = tuple(iter_document_sources(urls_file.parent.parent))
     input_path = (
         Path(unquote(urlparse(url).path)).resolve()
@@ -267,7 +273,21 @@ def main(
             input_format = load_config().PARSER.lower()
             if input_format not in {"csv", "tsv"}:
                 input_format = input_path.suffix.lower().lstrip(".")
-            if input_format in {"csv", "tsv"}:
+            structured_format = bookmark_input_format(file_content)
+            bookmarks = (
+                {
+                    entry["url"]: entry
+                    for record in iter_json_records(file_content)
+                    if isinstance(record, dict)
+                    and (entry := json_object_to_entry(record))
+                }
+                if structured_format
+                else {}
+            )
+            if structured_format == "csv" or bookmarks:
+                urls_found.update(bookmarks)
+                readers = []
+            elif input_format in {"csv", "tsv"}:
                 extract_urls_from_document(
                     iter_delimited_content(
                         io.StringIO(file_content),
@@ -318,6 +338,14 @@ def main(
             "plugin": PLUGIN_NAME,
             "depth": depth + 1,
         }
+        if found_url in bookmarks:
+            record.update(
+                {
+                    key: value
+                    for key, value in bookmarks[found_url].items()
+                    if key in {"title", "tags", "bookmarked_at"}
+                },
+            )
         records.append(record)
         emit_snapshot_record(record)
 

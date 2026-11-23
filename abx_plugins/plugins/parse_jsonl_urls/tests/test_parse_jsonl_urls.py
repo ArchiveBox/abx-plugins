@@ -15,6 +15,54 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_jsonl_urls.*"), None)
 class TestParseJsonlUrls:
     """Test the parse_jsonl_urls extractor CLI."""
 
+    @pytest.mark.parametrize("format", ["csv", "jsonl", "json"])
+    @pytest.mark.parametrize("parser", ["parse_jsonl_urls", "parse_txt_urls"])
+    @pytest.mark.parametrize("tags", ["research,reading list", "reading list"])
+    def test_archivebox_export_metadata_roundtrip(self, tmp_path, format, parser, tags):
+        import csv
+
+        record = {
+            "type": "Snapshot",
+            "schema_version": "0.9.78",
+            "url": "https://example.com/a,b?q=one,two&literal=amp;",
+            "title": 'Research, "quoted"\nsecond line',
+            "bookmarked_at": "2020-01-02T12:34:56.123456+00:00",
+            "tags": tags,
+        }
+        source = tmp_path / "stdin.txt"
+        with source.open("w", newline="") as output:
+            if format == "csv":
+                writer = csv.DictWriter(output, fieldnames=record)
+                writer.writeheader()
+                writer.writerow(record)
+            elif format == "json":
+                output.write(json.dumps([record], indent=2))
+            else:
+                output.write(json.dumps(record) + "\n")
+        script = next((PLUGIN_DIR.parent / parser).glob("on_Snapshot__*"))
+        result = subprocess.run(
+            [str(script), "--url", source.as_uri()],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        emitted = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        entries = [entry for entry in emitted if entry.get("type") == "Snapshot"]
+        assert len(entries) == 1, result.stdout
+        for field in ("url", "title", "bookmarked_at", "tags"):
+            assert entries[0][field] == record[field]
+        if parser == "parse_jsonl_urls":
+            tag_names = {
+                entry["name"] for entry in emitted if entry.get("type") == "Tag"
+            }
+            assert tag_names == set(tags.split(","))
+            assert all("," not in name for name in tag_names)
+
     @pytest.mark.parametrize("as_array", [False, True])
     def test_json_document_preserves_explicit_url_boundary(self, tmp_path, as_array):
         record = {
