@@ -132,13 +132,14 @@ executionEnvironments = [
     { root = "abx_plugins/plugins/importers_browser/archivebox", reportMissingImports = false },
     { root = "abx_plugins/plugins/chrome/app.py", reportMissingImports = false },
     { root = "abx_plugins/plugins/chrome_screencast/app.py", reportMissingImports = false },
+    { root = "abx_plugins/plugins/sentry/app.py", reportMissingImports = false },
     { root = "abx_plugins/plugins/opencode/app.py", reportMissingImports = false },
     { root = "abx_plugins/plugins/base/django.py", reportMissingImports = false },
     { root = "." },
 ]
 
 [[tool.ty.overrides]]
-include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/importers_browser/archivebox/**", "abx_plugins/plugins/base/django.py", "abx_plugins/plugins/chrome/app.py", "abx_plugins/plugins/chrome_screencast/app.py", "abx_plugins/plugins/opencode/app.py"]
+include = ["abx_plugins/plugins/opencode/archivebox/**", "abx_plugins/plugins/importers_browser/archivebox/**", "abx_plugins/plugins/base/django.py", "abx_plugins/plugins/chrome/app.py", "abx_plugins/plugins/chrome_screencast/app.py", "abx_plugins/plugins/sentry/app.py", "abx_plugins/plugins/opencode/app.py"]
 rules = { unresolved-import = "ignore" }
 
 [tool.codespell]

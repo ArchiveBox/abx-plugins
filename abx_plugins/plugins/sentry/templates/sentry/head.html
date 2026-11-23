@@ -1,0 +1,26 @@
+{{ sentry_config|json_script:"sentry-config" }}
+<script src="https://browser.sentry-cdn.com/11.16.0/bundle.tracing.logs.metrics.min.js"
+        integrity="sha384-XcZ8m7iwkARVWfuRO/UAILjpG673Dp/Ac8WpsofArNE4uo943lmfAHuQOtXUmrDu"
+        crossorigin="anonymous"></script>
+<script>
+if (window.Sentry) {
+    const config = JSON.parse(document.getElementById('sentry-config').textContent);
+    Sentry.init({
+        ...config,
+        integrations: [
+            Sentry.browserTracingIntegration(),
+            ...(config.enableLogs ? [Sentry.consoleLoggingIntegration({levels: ['warn', 'error']})] : []),
+        ],
+        tracePropagationTargets: [new RegExp('^' + location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:/|$)'), /^\//],
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: 0,
+    });
+    if (config.enableMetrics) {
+        window.addEventListener('load', function () {
+            Sentry.metrics.count('archivebox.ui.page_load', 1);
+            const navigation = performance.getEntriesByType('navigation')[0];
+            if (navigation) Sentry.metrics.distribution('archivebox.ui.dom_ready', navigation.domContentLoadedEventEnd, {unit: 'millisecond'});
+        }, {once: true});
+    }
+}
+</script>
