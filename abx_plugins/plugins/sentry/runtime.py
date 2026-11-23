@@ -11,8 +11,7 @@ from urllib.parse import urlsplit
 from abxpkg import BinaryLoadError
 
 from abx_plugins.plugins.base.utils import (
-    get_hydrated_required_binaries,
-    load_required_binary,
+    load_required_binary_from_config,
 )
 
 
@@ -29,9 +28,13 @@ def initialize(config):
         raise ValueError("SENTRY_ENABLED requires your own SENTRY_DSN")
     if _sentry is None:
         # Installation is explicit, never a side effect of runtime startup.
-        record = get_hydrated_required_binaries(CONFIG_PATH)[0]
         try:
-            sdk = load_required_binary(record, config=config.model_dump())
+            sdk = load_required_binary_from_config(
+                "sentry_sdk",
+                CONFIG_PATH,
+                global_config=config.model_dump(),
+                environ={},
+            )
         except BinaryLoadError as error:
             raise RuntimeError(
                 "Sentry SDK is not installed. Run `SENTRY_ENABLED=false "
