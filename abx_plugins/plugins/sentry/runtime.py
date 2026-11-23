@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+import threading
 from importlib import import_module
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -21,9 +22,10 @@ _sentry = None
 
 
 def shutdown():
+    if _provider is not None:
+        _provider.shutdown()
     if _sentry is not None:
-        if _sentry.get_client().options["profile_lifecycle"] == "manual":
-            _sentry.profiler.stop_profiler()
+        _sentry.profiler.stop_profiler()
         _sentry.flush()
 
 
@@ -132,18 +134,17 @@ def initialize(config):
         logs = import_module("sentry_sdk.integrations.logging")
         tracing = import_module("opentelemetry.sdk.trace")
         sampling = import_module("opentelemetry.sdk.trace.sampling")
-        trace_api = import_module("opentelemetry.trace")
-        sentry_otel = import_module("sentry_sdk.integrations.opentelemetry")
-
-        def link_telemetry(item, hint):
-            context = trace_api.get_current_span().get_span_context()
-            if context.is_valid:
-                item["trace_id"] = trace_api.format_trace_id(context.trace_id)
-                item["span_id"] = trace_api.format_span_id(context.span_id)
-            return item
+        otlp = import_module("sentry_sdk.integrations.otlp")
+        exporter = import_module(
+            "opentelemetry.exporter.otlp.proto.http.trace_exporter",
+        )
+        export = import_module("opentelemetry.sdk.trace.export")
+        resources = import_module("opentelemetry.sdk.resources")
+        profiler = import_module("sentry_sdk.profiler.continuous_profiler")
 
         level = getattr(logging, config.SENTRY_LOG_LEVEL)
         integrations = [
+            otlp.OTLPIntegration(setup_otlp_traces_exporter=False),
             logs.LoggingIntegration(
                 level=level,
                 event_level=logging.ERROR,
@@ -161,23 +162,51 @@ def initialize(config):
             send_default_pii=config.SENTRY_SEND_DEFAULT_PII,
             include_local_variables=False,
             max_request_body_size="never",
-            traces_sample_rate=config.SENTRY_TRACES_SAMPLE_RATE,
             profile_session_sample_rate=config.SENTRY_PROFILE_SESSION_SAMPLE_RATE,
-            profile_lifecycle=config.SENTRY_PROFILE_LIFECYCLE,
+            profile_lifecycle="manual",
             enable_logs=config.SENTRY_ENABLE_LOGS,
             enable_metrics=config.SENTRY_ENABLE_METRICS,
-            before_send_log=link_telemetry,
-            before_send_metric=link_telemetry,
-            instrumenter="otel",
         )
-        if (
-            config.SENTRY_PROFILE_LIFECYCLE == "manual"
-            and config.SENTRY_PROFILE_SESSION_SAMPLE_RATE
-        ):
+        if config.SENTRY_PROFILE_SESSION_SAMPLE_RATE:
             sentry.profiler.start_profiler()
         # A private provider leaves the host's global OpenTelemetry provider alone.
-        _provider = tracing.TracerProvider()
-        processors = [sentry_otel.SentrySpanProcessor()]
+        _provider = tracing.TracerProvider(
+            sampler=sampling.ParentBased(
+                sampling.TraceIdRatioBased(config.SENTRY_TRACES_SAMPLE_RATE),
+            )
+            if config.SENTRY_TRACES_SAMPLE_RATE
+            else sampling.ALWAYS_OFF,
+            resource=resources.Resource.create(
+                {
+                    "service.name": "archivebox",
+                    "service.version": sentry.get_client().options["release"] or "",
+                    "deployment.environment.name": config.SENTRY_ENVIRONMENT,
+                    "host.name": sentry.get_client().options["server_name"] or "",
+                    "process.pid": os.getpid(),
+                },
+            ),
+        )
+        auth = sentry.utils.Dsn(config.SENTRY_DSN.strip()).to_auth(
+            f"sentry.python/{sentry.VERSION}",
+        )
+        _provider.add_span_processor(
+            export.BatchSpanProcessor(
+                exporter.OTLPSpanExporter(
+                    endpoint=auth.get_api_url(sentry.consts.EndpointType.OTLP_TRACES),
+                    headers={"X-Sentry-Auth": auth.to_header()},
+                ),
+            ),
+        )
+
+        class ProfileContextProcessor(tracing.SpanProcessor):
+            def on_start(self, span, parent_context=None):
+                span.set_attribute("thread.id", str(threading.get_ident()))
+                span.set_attribute("thread.name", threading.current_thread().name)
+                profiler_id = profiler.get_profiler_id()
+                if profiler_id is not None:
+                    span.set_attribute("sentry.profiler_id", profiler_id)
+
+        _provider.add_span_processor(ProfileContextProcessor())
         if config.SENTRY_ENABLE_METRICS:
 
             class MetricsProcessor(tracing.SpanProcessor):
@@ -194,18 +223,7 @@ def initialize(config):
                         attributes=attributes,
                     )
 
-            processors.append(MetricsProcessor())
-        # SQL is a child operation, not a standalone transaction. Startup and
-        # worker queries without an active span otherwise flood the transport
-        # queue and displace errors/logs. Use OTel's native parent-based policy.
-        sql_provider = tracing.TracerProvider(
-            sampler=sampling.ParentBased(sampling.ALWAYS_OFF),
-        )
-        for processor in processors:
-            _provider.add_span_processor(processor)
-            sql_provider.add_span_processor(processor)
-        propagation = import_module("opentelemetry.propagate")
-        propagation.set_global_textmap(sentry_otel.SentryPropagator())
+            _provider.add_span_processor(MetricsProcessor())
         for module, name in (
             ("sqlite3", "SQLite3Instrumentor"),
             ("requests", "RequestsInstrumentor"),
@@ -213,9 +231,7 @@ def initialize(config):
         ):
             instrumentation = import_module(f"opentelemetry.instrumentation.{module}")
             options = {"tracer_provider": _provider}
-            if module == "sqlite3":
-                options["tracer_provider"] = sql_provider
-            else:
+            if module != "sqlite3":
                 # Monitoring exports must never recursively trace themselves.
                 endpoint = urlsplit(config.SENTRY_DSN)
                 options["excluded_urls"] = re.escape(
@@ -224,6 +240,18 @@ def initialize(config):
             getattr(instrumentation, name)().instrument(**options)
         _sentry = sentry
 
+        def response_hook(span, request, response):
+            if config.SENTRY_SEND_DEFAULT_PII:
+                user = getattr(request, "user", None)
+                if user is not None and user.is_authenticated:
+                    span.set_attribute("user.id", str(user.pk))
+                    span.set_attribute("user.name", user.get_username())
+                    if getattr(user, "email", None):
+                        span.set_attribute("user.email", user.email)
+
         instrumentation = import_module("opentelemetry.instrumentation.django")
-        instrumentation.DjangoInstrumentor().instrument(tracer_provider=_provider)
+        instrumentation.DjangoInstrumentor().instrument(
+            tracer_provider=_provider,
+            response_hook=response_hook,
+        )
     return _provider

@@ -36,17 +36,17 @@ absent from add/persona settings and cannot be overridden or frozen on a crawl.
   requests/urllib3 calls, browser navigation/fetch and native EventBus event/handler
   trees are instrumented. Sentry headers propagate browser-to-server traces only
   to the same origin. Monitoring export requests are excluded from instrumentation.
-  SQL spans require an active parent; standalone startup/worker queries are not
-  exported as thousands of separate transactions that can crowd out logs/errors.
+  Spans use Sentry's native OTLP ingestion with SQL statements and database
+  attributes intact. Request and event context supplies query parents; queries
+  outside those operations remain visible so background work can be diagnosed.
 - `SENTRY_ENABLE_METRICS=true` sends span counts and duration distributions, grouped
   by instrumentation scope/status, plus browser page-load counts and DOM-ready times.
 - `SENTRY_PROFILE_SESSION_SAMPLE_RATE=1` enables native Python CPU profiling in
   every server/worker process. Fractions sample fewer processes; the default zero
   disables profiling. Restart after changes. It does not profile browser JS.
-  Set `SENTRY_PROFILE_LIFECYCLE=manual` for continuous process-lifetime coverage,
-  including worker computation before the bus exports its completed event tree.
-  The default `trace` mode samples only while spans are active and requires a
-  nonzero trace sample rate.
+  Profiles cover the enabled process lifetime, including work between requests
+  and bus events. Spans carry the profiler and thread IDs that link them to those
+  samples. Profiling is independent of the trace sample rate.
 - `SENTRY_BROWSER_ENABLED=true` allows the browser integration **only when the
   machine's SENTRY_ENABLED is also true**. Its pinned, integrity-checked CDN bundle
   includes errors, tracing, logs and metrics. Session replay is never loaded or enabled.
@@ -72,8 +72,11 @@ The plugin imports neither ArchiveBox nor abx-dl.
 ArchiveBox calls `app.register_eventbus(bus, config)` before dispatch on its crawl,
 binary-resolution and install buses. The plugin
 checks its own enable flag before importing its runtime and attaching the native
-`OtelTracingMiddleware`, backed by a private tracer provider and Sentry's native
-span processor. Standalone abx-dl never calls this hook or initializes Sentry.
+`OtelTracingMiddleware`, backed by a private tracer provider and the standard
+batched OTLP exporter. Completed spans are sent independently, without waiting
+for an entire crawl or buffering a transaction's complete span tree. Sentry's
+OTLP integration links errors, logs and metrics to the current OTel context.
+Standalone abx-dl never calls this hook or initializes Sentry.
 Child extractors do not initialize their own SDK; their process and handler spans
 are recorded by ArchiveBox's bus.
 

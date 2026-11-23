@@ -25,6 +25,7 @@ def test_runtime_loads_sdk_from_configured_library_root(tmp_path):
             "-c",
             textwrap.dedent("""
                 import sys
+                import threading
                 from pathlib import Path
                 from abx_plugins.plugins.base.utils import load_config, load_required_binary_from_config
                 from abx_plugins.plugins.sentry.runtime import CONFIG_PATH, initialize
@@ -45,6 +46,7 @@ def test_runtime_loads_sdk_from_configured_library_root(tmp_path):
                 import sentry_sdk
                 assert Path(sentry_sdk.__file__).is_relative_to(library), sentry_sdk.__file__
                 assert sentry_sdk.VERSION == "2.75.0"
+                assert not any(thread.name.startswith("sentry.profiler.") for thread in threading.enumerate())
                 from opentelemetry.instrumentation.django.middleware import otel_middleware
                 assert otel_middleware._is_asgi_supported
                 import opentelemetry.instrumentation.asgi
