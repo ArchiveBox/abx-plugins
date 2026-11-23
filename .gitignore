@@ -40,3 +40,5 @@ tmp/
 /build/
 .pytest_cache/
 .ruff_cache/
+.coverage
+.coverage.*
