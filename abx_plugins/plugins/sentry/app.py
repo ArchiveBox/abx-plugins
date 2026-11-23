@@ -94,11 +94,10 @@ def register_eventbus(bus, config):
     )
     if not resolved.SENTRY_ENABLED:
         return
-    from .runtime import initialize, register_hook_logs
+    from .runtime import initialize, register_hook_reporting
     from abxbus.middlewares import OtelTracingMiddleware
 
     provider = initialize(resolved)
     assert provider is not None
     bus.middlewares.append(OtelTracingMiddleware(tracer=provider.get_tracer("abxbus")))
-    if resolved.SENTRY_ENABLE_LOGS:
-        register_hook_logs(bus, resolved)
+    register_hook_reporting(bus, resolved)

@@ -27,7 +27,7 @@ def shutdown():
         _sentry.flush()
 
 
-def register_hook_logs(bus, config):
+def register_hook_reporting(bus, config):
     """Consume the host bus's existing process streams, without rereading log files."""
     assert _sentry is not None
     sentry = _sentry
@@ -44,7 +44,7 @@ def register_hook_logs(bus, config):
         }
 
     async def stdout(event):
-        if level <= logging.INFO:
+        if config.SENTRY_ENABLE_LOGS and level <= logging.INFO:
             sentry.logger.info(
                 event.line,
                 attributes={**attributes(event), "process.stream": "stdout"},
@@ -52,7 +52,7 @@ def register_hook_logs(bus, config):
 
     async def stderr(event):
         # stderr is also used for ordinary progress; it is not proof of an error.
-        if level <= logging.INFO:
+        if config.SENTRY_ENABLE_LOGS and level <= logging.INFO:
             sentry.logger.info(
                 event.line,
                 attributes={**attributes(event), "process.stream": "stderr"},
@@ -61,7 +61,29 @@ def register_hook_logs(bus, config):
     async def completed(event):
         failed = event.status == "failed" and not event.cancelled
         severity = logging.ERROR if failed else logging.INFO
-        if level <= severity:
+        if failed:
+            with sentry.isolation_scope() as scope:
+                scope.fingerprint = [
+                    "archivebox.hook",
+                    event.plugin_name,
+                    event.hook_name,
+                    str(event.exit_code),
+                ]
+                scope.set_tag("plugin.name", event.plugin_name)
+                scope.set_tag("hook.name", event.hook_name)
+                scope.set_context(
+                    "hook",
+                    {
+                        **attributes(event),
+                        "exit_code": event.exit_code,
+                        "stderr": event.stderr[-8192:],
+                    },
+                )
+                sentry.capture_message(
+                    f"Hook {event.hook_name} failed (exit {event.exit_code})",
+                    level="error",
+                )
+        if config.SENTRY_ENABLE_LOGS and level <= severity:
             emit = sentry.logger.error if failed else sentry.logger.info
             emit(
                 "Hook {hook} finished: {status} (exit {exit_code})",
@@ -109,6 +131,7 @@ def initialize(config):
         sentry = import_module("sentry_sdk")
         logs = import_module("sentry_sdk.integrations.logging")
         tracing = import_module("opentelemetry.sdk.trace")
+        sampling = import_module("opentelemetry.sdk.trace.sampling")
         trace_api = import_module("opentelemetry.trace")
         sentry_otel = import_module("sentry_sdk.integrations.opentelemetry")
 
@@ -154,7 +177,7 @@ def initialize(config):
             sentry.profiler.start_profiler()
         # A private provider leaves the host's global OpenTelemetry provider alone.
         _provider = tracing.TracerProvider()
-        _provider.add_span_processor(sentry_otel.SentrySpanProcessor())
+        processors = [sentry_otel.SentrySpanProcessor()]
         if config.SENTRY_ENABLE_METRICS:
 
             class MetricsProcessor(tracing.SpanProcessor):
@@ -171,7 +194,16 @@ def initialize(config):
                         attributes=attributes,
                     )
 
-            _provider.add_span_processor(MetricsProcessor())
+            processors.append(MetricsProcessor())
+        # SQL is a child operation, not a standalone transaction. Startup and
+        # worker queries without an active span otherwise flood the transport
+        # queue and displace errors/logs. Use OTel's native parent-based policy.
+        sql_provider = tracing.TracerProvider(
+            sampler=sampling.ParentBased(sampling.ALWAYS_OFF),
+        )
+        for processor in processors:
+            _provider.add_span_processor(processor)
+            sql_provider.add_span_processor(processor)
         propagation = import_module("opentelemetry.propagate")
         propagation.set_global_textmap(sentry_otel.SentryPropagator())
         for module, name in (
@@ -181,7 +213,9 @@ def initialize(config):
         ):
             instrumentation = import_module(f"opentelemetry.instrumentation.{module}")
             options = {"tracer_provider": _provider}
-            if module != "sqlite3":
+            if module == "sqlite3":
+                options["tracer_provider"] = sql_provider
+            else:
                 # Monitoring exports must never recursively trace themselves.
                 endpoint = urlsplit(config.SENTRY_DSN)
                 options["excluded_urls"] = re.escape(

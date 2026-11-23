@@ -20,7 +20,9 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
 ## Reporting
 
 - Django exceptions and Python ERROR/CRITICAL records create issues. Breadcrumbs
-  use `SENTRY_LOG_LEVEL` (INFO by default).
+  use `SENTRY_LOG_LEVEL` (INFO by default). Failed, non-cancelled hook processes
+  also create issues grouped by plugin, hook and exit code, with a bounded stderr
+  tail. Skipped hooks and ordinary stderr progress do not create issues.
 - `SENTRY_ENABLE_LOGS=true` enables structured Python logs and browser warning/error
   console logs. Host Python logger thresholds still apply. The existing process
   bus also forwards hook stdout/stderr and completion records, with plugin, hook,
@@ -32,6 +34,8 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
   requests/urllib3 calls, browser navigation/fetch and native EventBus event/handler
   trees are instrumented. Sentry headers propagate browser-to-server traces only
   to the same origin. Monitoring export requests are excluded from instrumentation.
+  SQL spans require an active parent; standalone startup/worker queries are not
+  exported as thousands of separate transactions that can crowd out logs/errors.
 - `SENTRY_ENABLE_METRICS=true` sends span counts and duration distributions, grouped
   by instrumentation scope/status, plus browser page-load counts and DOM-ready times.
 - `SENTRY_PROFILE_SESSION_SAMPLE_RATE=1` enables continuous Python CPU profiling

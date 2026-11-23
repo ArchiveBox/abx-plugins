@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "app_module": "abx_plugins.plugins.networkgraph.app",
   "category": "utilities",
+  "display_order": 1010,
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [],
@@ -17,9 +18,9 @@
     },
     "NETWORKGRAPH_MAX_NODES": {
       "type": "integer",
-      "default": 1200,
+      "default": 12000,
       "minimum": 100,
-      "maximum": 3000
+      "maximum": 20000
     },
     "NETWORKGRAPH_BATCH_SIZE": {
       "type": "integer",
