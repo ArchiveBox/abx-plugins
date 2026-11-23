@@ -48,6 +48,17 @@ def register_hook_reporting(bus, config):
             "abxbus.event_id": event.event_id,
             "abxbus.event_parent_id": event.event_parent_id or "",
             "process.output_dir": event.output_dir,
+            **({"hook.process.pid": event.pid} if getattr(event, "pid", 0) else {}),
+            **(
+                {"hook.process.type": event.process_type}
+                if getattr(event, "process_type", "")
+                else {}
+            ),
+            **(
+                {"hook.worker.type": event.worker_type}
+                if getattr(event, "worker_type", "")
+                else {}
+            ),
         }
 
     async def stdout(event):
@@ -182,6 +193,17 @@ def initialize(config):
             # on logs and metrics, even without a Sentry trace sampling rate.
             instrumenter="otel",
         )
+        process_attributes = {
+            "process.pid": os.getpid(),
+            "process.parent_pid": os.getppid(),
+            "process.command": Path(sys.argv[0]).name,
+            **(
+                {"supervisor.process.name": os.environ["SUPERVISOR_PROCESS_NAME"]}
+                if os.environ.get("SUPERVISOR_PROCESS_NAME")
+                else {}
+            ),
+        }
+        sentry.get_global_scope().set_attributes(process_attributes)
         if config.SENTRY_PROFILE_SESSION_SAMPLE_RATE:
             sentry.profiler.start_profiler()
         # A private provider leaves the host's global OpenTelemetry provider alone.
@@ -197,18 +219,7 @@ def initialize(config):
                     "service.version": sentry.get_client().options["release"] or "",
                     "deployment.environment.name": config.SENTRY_ENVIRONMENT,
                     "host.name": sentry.get_client().options["server_name"] or "",
-                    "process.pid": os.getpid(),
-                    "process.parent_pid": os.getppid(),
-                    "process.command": Path(sys.argv[0]).name,
-                    **(
-                        {
-                            "supervisor.process.name": os.environ[
-                                "SUPERVISOR_PROCESS_NAME"
-                            ],
-                        }
-                        if os.environ.get("SUPERVISOR_PROCESS_NAME")
-                        else {}
-                    ),
+                    **process_attributes,
                 },
             ),
         )

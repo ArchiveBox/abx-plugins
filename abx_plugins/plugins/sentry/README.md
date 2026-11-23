@@ -30,7 +30,9 @@ absent from add/persona settings and cannot be overridden or frozen on a crawl.
   bus also forwards hook stdout/stderr and completion records, with plugin, hook,
   stream, event and output-directory attributes. Ordinary stderr is INFO;
   unsuccessful, non-cancelled completions are ERROR. Python records and hook output
-  are sent once, at their source.
+  are sent once, at their source. Python and hook logs include the emitting
+  worker PID, parent PID, command and Supervisor process name when present;
+  hook completion records also include their child PID and available process/worker type.
 - `SENTRY_TRACES_SAMPLE_RATE=1` records all traces; fractions sample fewer traces
   and the default zero disables tracing. Django requests, SQLite queries,
   requests/urllib3 calls, browser navigation/fetch and native EventBus event/handler
