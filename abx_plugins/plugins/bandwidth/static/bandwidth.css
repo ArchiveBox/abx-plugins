@@ -1,6 +1,8 @@
 #bandwidth-ui {
   color: var(--body-fg, #334155);
   font: 14px/1.4 system-ui, sans-serif;
+  max-width: 1512px;
+  margin-inline: auto;
 }
 #bandwidth-ui * {
   box-sizing: border-box;
@@ -86,44 +88,67 @@
   gap: 8px;
 }
 #bandwidth-ui .bandwidth-card {
+  --card-accent: #176b84;
+  --card-tint: color-mix(in srgb, var(--card-accent) 12%, var(--body-bg, #fff));
+  padding: 7px 9px;
+  display: grid;
+  gap: 5px;
   border: 1px solid var(--hairline-color, #dbe2ea);
   border-radius: 8px;
   background: var(--body-bg, #fff);
-  overflow: hidden;
   box-shadow: 0 1px 3px #00000008;
 }
-#bandwidth-ui .bandwidth-card > header {
+#bandwidth-ui .crawls-card {
+  --card-accent: #a04c4c;
+}
+#bandwidth-ui .plugins-card {
+  --card-accent: #6256a3;
+}
+#bandwidth-ui .interfaces-card {
+  --card-accent: #397857;
+}
+#bandwidth-ui .bandwidth-card > header,
+#bandwidth-ui .traffic-strip,
+#bandwidth-ui .traffic-values,
+#bandwidth-ui .metric dt,
+#bandwidth-ui .detail-strip,
+#bandwidth-ui .window-strip {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
-  background: var(--darkened-bg, #f7f9fc);
-  border-bottom: 1px solid var(--hairline-color, #dbe2ea);
 }
 #bandwidth-ui .bandwidth-card > header > strong,
 #bandwidth-ui .bandwidth-card > header > a {
+  min-width: 0;
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
 }
-#bandwidth-ui .rank {
-  font-size: 13px;
-  color: var(--body-quiet-color, #64748b);
+#bandwidth-ui .metric-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-#bandwidth-ui .badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 6px 10px;
+#bandwidth-ui .card-icon {
+  display: inline-flex;
+  padding: 4px;
+  color: var(--card-accent);
+  background: var(--card-tint);
+  border-radius: 5px;
 }
 #bandwidth-ui .status-badge {
-  display: inline-block;
-  font: 500 12px/1.4 system-ui, sans-serif;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 1px 6px;
+  border-radius: 10px;
   white-space: nowrap;
 }
 #bandwidth-ui .status-badge.started {
@@ -134,68 +159,86 @@
   background: #d1fae5;
   color: #065f46;
 }
-#bandwidth-ui .status-badge.skipped {
-  background: #f1f5f9;
-  color: #475569;
+#bandwidth-ui .traffic-strip {
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: var(--card-tint);
 }
-#bandwidth-ui dl {
+#bandwidth-ui .traffic-values {
+  gap: 6px 10px;
+  flex-wrap: wrap;
   margin: 0;
 }
-#bandwidth-ui .metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px 12px;
-  padding: 8px 10px;
+#bandwidth-ui .metric + .metric {
+  border-left: 1px solid var(--hairline-color, #dbe2ea);
+  padding-left: 8px;
 }
-#bandwidth-ui dt {
+#bandwidth-ui .metric dt {
+  gap: 3px;
   font-size: 12px;
   color: var(--body-quiet-color, #64748b);
+  white-space: nowrap;
 }
-#bandwidth-ui dd {
+#bandwidth-ui .metric dt svg {
+  color: var(--card-accent);
+}
+#bandwidth-ui .metric dd {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-#bandwidth-ui .addresses {
-  padding: 7px 10px;
-  display: grid;
-  gap: 3px;
+#bandwidth-ui .sparkline {
+  flex: 0 1 72px;
+  min-width: 28px;
+  height: 28px;
+  margin-left: auto;
+  align-self: flex-end;
+  fill: var(--card-accent);
+  opacity: 0.8;
 }
-#bandwidth-ui .addresses .metric {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-#bandwidth-ui .addresses dd {
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-#bandwidth-ui .rate-badges {
-  display: flex;
+#bandwidth-ui .detail-strip,
+#bandwidth-ui .window-strip {
   flex-wrap: wrap;
-  gap: 5px;
-  padding: 4px 10px 8px;
+  gap: 4px;
 }
+#bandwidth-ui .metric-chip,
 #bandwidth-ui .rate-badge {
   display: inline-flex;
-  gap: 5px;
-  align-items: baseline;
-  padding: 2px 6px;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
   border-radius: 4px;
   background: var(--darkened-bg, #f1f5f9);
   font-size: 13px;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+#bandwidth-ui .metric-chip svg,
+#bandwidth-ui .window-strip > svg {
+  color: var(--card-accent);
+}
+#bandwidth-ui .window-strip {
+  border-top: 1px solid var(--hairline-color, #dbe2ea);
+  padding-top: 4px;
+}
+#bandwidth-ui .rate-badge {
+  background: var(--card-tint);
+  white-space: nowrap;
 }
 #bandwidth-ui .rate-badge b {
-  font-size: 12px;
   color: var(--body-quiet-color, #64748b);
   font-weight: 500;
+  padding-right: 4px;
+  border-right: 1px solid var(--hairline-color, #dbe2ea);
 }
 #bandwidth-ui .cards:empty::after {
   content: "—";
   text-align: center;
-  padding: 24px;
+  padding: 8px;
   border: 1px dashed var(--hairline-color, #dbe2ea);
   border-radius: 8px;
   color: var(--body-quiet-color, #64748b);
@@ -219,4 +262,79 @@
 
 #bandwidth-ui [hidden] {
   display: none !important;
+}
+
+#bandwidth-ui .card-icon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+#bandwidth-ui .day-chart {
+  padding: 3px 6px 0;
+  border-radius: 4px;
+  background: var(--darkened-bg, #f3f6fb);
+  color: var(--card-accent);
+}
+#bandwidth-ui .day-chart svg {
+  display: block;
+  width: 100%;
+  height: 34px;
+  background: linear-gradient(
+      to top,
+      var(--hairline-color, #dbe2ea) 1px,
+      transparent 1px
+    )
+    0 100% / 100% 50%;
+  fill: currentColor;
+}
+#bandwidth-ui .chart-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  color: var(--body-quiet-color, #64748b);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+#bandwidth-ui .window-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+#bandwidth-ui .window-tiles .rate-badge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: baseline;
+  gap: 0 3px;
+  padding: 2px 5px;
+}
+#bandwidth-ui .window-tiles .rate-badge b {
+  border: 0;
+  padding-right: 0;
+}
+#bandwidth-ui .window-tiles .rate-badge strong {
+  justify-self: end;
+  font-size: 15px;
+}
+#bandwidth-ui .hit-estimate {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--body-quiet-color, #64748b);
+}
+
+#bandwidth-ui .sites-card .traffic-strip {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 3px 6px;
+}
+#bandwidth-ui .sites-card .traffic-values .metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+#bandwidth-ui .site-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }

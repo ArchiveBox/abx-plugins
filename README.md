@@ -141,18 +141,17 @@ PageRank; only the configured domain budget is drawn. The 3D view lays out
 communities and their members in depth. Domain selection lazily
 loads capture details. Neither loading nor layout requires new backend workers,
 models, indexes or hooks.
-`bandwidth` registers `/admin/bandwidth/`, samples native interface byte counters
-and process sockets through psutil, and reads up to 64 KiB from each capture's
-saved `responses/index.jsonl` for traffic totals. Only related interfaces are
-displayed. The saved response body's file size supplies per-domain byte counts;
-the minute, hour and day badges count observed responses and traffic in independent
-rolling windows. The UI uses plain HTML admin cards
-and badges, updates only after polling, and omits zero-value badges. The four ranked columns aggregate
-crawls, the top ten plugins, related interfaces, and registered domains. CPU and
-foreground duration totals exclude background hooks. Recorded ArchiveResult
-sizes supply disk totals. NIC rates remain
-separate from captured-body rates. Saved WAN IPs retain their original timestamp;
-absent latency stays empty. Both views use the normal admin layout.
+`bandwidth` registers `/admin/bandwidth/` and samples network I/O while the
+dashboard polls. It associates runner hook processes and their descendants with
+socket counters from macOS `nettop` or Linux TCP socket diagnostics. Recorded DNS
+observations label peers when they identify a single site. Ambiguous traffic remains
+in an unattributed total. Site cards use archived favicons and show 24-hour
+download history, rolling download totals, minimum observed RTT, and hit
+estimates based on observed connections. History is retained in the browser
+tab, and short connections between polls can be missed. Interface cards use
+separate host interface counters for devices used by observed flows. Recorded
+ArchiveResult sizes supply disk totals, and foreground CPU totals exclude
+background hooks. Both plugins contribute cards through the generic admin slots.
 Neither plugin has capture hooks,
 background services, models, or migrations. Both stop polling in hidden tabs.
 

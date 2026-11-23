@@ -2,11 +2,15 @@
 
 from functools import lru_cache, partial
 from hashlib import sha256
+from ipaddress import IPv6Address, ip_address
 from pathlib import Path
+from collections import defaultdict
+from datetime import datetime
 import json
 import time
-from datetime import datetime, timezone
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
+
+from .network import sample_sockets
 
 ROOT = Path(__file__).parent
 
@@ -41,6 +45,7 @@ def view(request, *, host, data=False, asset=None):
     )
     from django.template import engines
     from django.views.static import serve
+    from django.urls import reverse
 
     if request.method != "GET":
         return HttpResponseNotAllowed(["GET"])
@@ -61,6 +66,7 @@ def view(request, *, host, data=False, asset=None):
         context = {
             **host.admin_context(request),
             "poll_ms": interval,
+            "monitor_key": sha256(str(config["DATA_DIR"]).encode()).hexdigest()[:16],
             "admin_url": host.route_urls(request)["admin"] + "/",
         }
         return HttpResponse(
@@ -86,12 +92,7 @@ def view(request, *, host, data=False, asset=None):
         except ValueError:
             return JsonResponse({}, status=400)
         result = sample(page)
-        groups = host.group_domains(
-            request,
-            list(dict.fromkeys(event["host"] for event in result["events"])),
-        )
-        for event in result["events"]:
-            event["domain"] = groups.get(event["host"], event["host"])
+        identify_sites(host, request, page, result, reverse("domains:index"))
         cache.set(key, result, timeout=interval / 1000)
     return JsonResponse(result, headers={"Cache-Control": "private, no-store"})
 
@@ -122,67 +123,42 @@ def sample(page):
     except (OSError, psutil.Error):
         pass
     processes = []
+    roots = {}
     for row in page["records"]:
-        try:
-            domain = urlsplit(row["archiveresult__snapshot__url"] or "").hostname or ""
-        except ValueError:
-            domain = ""
+        hook = Path(row.get("cmd__0") or "")
+        plugin = row["archiveresult__plugin"]
+        if not plugin and row["process_type"] == "hook" and hook.name.startswith("on_"):
+            plugin = hook.parent.name
+        if not plugin:
+            continue
         record = {
             "id": str(row["id"]),
-            "pid": row["pid"],
-            "parent": str(row["parent_id"] or ""),
             "status": row["status"],
-            "name": row["archiveresult__plugin"]
-            or row["worker_type"]
-            or row["process_type"],
-            "domain": domain,
+            "name": plugin,
             "snapshot": str(row["archiveresult__snapshot_id"] or ""),
             "started": row["started_at"].timestamp() if row["started_at"] else None,
             "ended": row["ended_at"].timestamp() if row["ended_at"] else None,
-            "exit_code": row["exit_code"],
             "crawl": str(row["archiveresult__snapshot__crawl_id"] or ""),
             "crawl_label": row["archiveresult__snapshot__crawl__label"] or "",
-            "title": row["archiveresult__snapshot__title"] or "",
-            "url": row["archiveresult__snapshot__url"] or "",
-            "hook": row["archiveresult__hook_name"] or "",
+            "hook": row["archiveresult__hook_name"] or hook.name,
             "disk": row["archiveresult__output_size"] or 0,
             "interface": row["iface__iface"] or "",
             "local_ip": row["iface__ip_local"] or "",
             "wan_ip": row["iface__ip_public"] or "",
-            "network_updated": row["iface__modified_at"].timestamp()
-            if row["iface__modified_at"]
-            else None,
-            "sockets": [],
         }
         if row["pid"] and row["status"] == "running":
             try:
                 process = psutil.Process(row["pid"])
                 with process.oneshot():
-                    # Never attribute a recycled PID's telemetry to an old DB row.
-                    if (
-                        record["started"]
-                        and abs(process.create_time() - record["started"]) < 10
-                    ):
+                    # Match process identity before sampling its counters or descendants.
+                    started = record["started"]
+                    if started is not None and abs(process.create_time() - started) < 2:
+                        roots[process.pid] = record
                         cpu = process.cpu_times()
                         record.update(
                             cpu=cpu.user + cpu.system,
                             rss=process.memory_info().rss,
                         )
-                        if len(processes) < 32:
-                            for connection in process.net_connections(kind="inet")[:32]:
-                                if connection.raddr and connection.laddr:
-                                    local = connection.laddr.ip.split("%")[0]
-                                    interface = addresses.get(local, "")
-                                    if interface:
-                                        related_interfaces.add(interface)
-                                    record["sockets"].append(
-                                        {
-                                            "local": local,
-                                            "remote": connection.raddr.ip,
-                                            "port": connection.raddr.port,
-                                            "interface": interface,
-                                        },
-                                    )
                     else:
                         record["status"] = "exited"
             except psutil.NoSuchProcess:
@@ -190,53 +166,39 @@ def sample(page):
                 record["ended"] = now
             except (psutil.Error, OSError):
                 pass
-        if record["interface"] and record["status"] == "running" and record["snapshot"]:
-            related_interfaces.add(record["interface"])
         processes.append(record)
-    events = []
-    for snapshot_id, directory in page["output_dirs"].items():
-        file = Path(directory) / "responses" / "index.jsonl"
+
+    flows = []
+    owners = process_tree(roots)
+    for pid, key, local, remote, interface, received, sent, port, rtt in sample_sockets(
+        owners.keys(),
+    ):
         try:
-            with file.open("rb") as stream:
-                stream.seek(0, 2)
-                offset = max(0, stream.tell() - 65536)
-                stream.seek(offset)
-                if offset:
-                    stream.readline(65536)
-                content = stream.read(65536)
-            for line in content.splitlines()[-256:]:
-                try:
-                    event = json.loads(line)
-                    if not isinstance(event, dict):
-                        continue
-                    domain = urlsplit(event.get("url", "")).hostname
-                    if not domain:
-                        continue
-                    try:
-                        timestamp = (
-                            datetime.strptime(event.get("ts", ""), "%Y%m%dT%H%M%S")
-                            .replace(tzinfo=timezone.utc)
-                            .timestamp()
-                        )
-                    except (ValueError, TypeError):
-                        continue
-                    size = response_size(file.parent, event.get("path", ""))
-                    events.append(
-                        {
-                            "id": sha256(snapshot_id.encode() + line).hexdigest()[:24],
-                            "host": domain,
-                            "bytes": size,
-                            "time": timestamp,
-                            "latency_ms": event.get("latency_ms"),
-                            "snapshot": snapshot_id,
-                            "ts": event.get("ts"),
-                            "status": event.get("status"),
-                        },
-                    )
-                except (ValueError, TypeError, UnicodeError):
-                    continue
-        except OSError:
+            peer = ip_address(remote)
+        except ValueError:
             continue
+        if isinstance(peer, IPv6Address) and (mapped := peer.ipv4_mapped) is not None:
+            peer = mapped
+        if peer.is_loopback or peer.is_unspecified:
+            continue
+        # A tracked hook owns its descendants until another tracked hook takes over.
+        owner = owners[pid]
+        interface = interface or addresses.get(local, "")
+        if interface:
+            related_interfaces.add(interface)
+        flows.append(
+            {
+                "id": f"{owner['id']}:{pid}:{key}",
+                "process": owner["id"],
+                "local": local,
+                "peer": str(peer),
+                "interface": interface,
+                "rx": received,
+                "tx": sent,
+                "port": port,
+                "rtt": rtt,
+            },
+        )
     return {
         "time": now,
         "interfaces": [
@@ -245,20 +207,115 @@ def sample(page):
             if interface["id"] in related_interfaces
         ],
         "processes": processes,
-        "events": events,
+        "flows": flows,
         "cursor": page["cursor"],
     }
 
 
-@lru_cache(maxsize=8192)
-def response_size(root, relative):
-    """Response bodies are immutable; resolve only paths inside this capture."""
-    if not isinstance(relative, str):
-        return None
-    try:
-        path = (root / relative).resolve()
-        if not path.is_relative_to(root.resolve()) or not path.is_file():
-            return None
-        return path.stat().st_size
-    except (OSError, ValueError):
-        return None
+def process_tree(roots):
+    if not roots:
+        return {}
+    import psutil
+
+    children = {}
+    for process in psutil.process_iter(["ppid"]):
+        if (parent := process.info["ppid"]) is not None:
+            children.setdefault(parent, []).append(process.pid)
+    owners = dict(roots)
+    queue = list(roots)
+    for pid in queue:
+        for child in children.get(pid, ()):
+            if child in owners:
+                continue
+            owners[child] = owners[pid]
+            queue.append(child)
+            if len(owners) >= 512:
+                return owners
+    return owners
+
+
+@lru_cache(maxsize=128)
+def read_dns_observations(path, mtime, size):
+    # Only the most recent portion of the capture's existing DNS artifact.
+    with path.open("rb") as stream:
+        if size > 65536:
+            stream.seek(size - 65536)
+            stream.readline(65536)
+        data = stream.read(65536)
+    records = []
+    for line in data.splitlines()[-256:]:
+        try:
+            record = json.loads(line)
+            if not isinstance(record, dict) or record.get("source") not in {
+                "cdp",
+                "node-dns",
+            }:
+                continue
+            host = record["hostname"].lower().rstrip(".")
+            if not host or len(host) > 253:
+                continue
+            ip = ip_address(record["ip"].split("%")[0])
+            if isinstance(ip, IPv6Address) and (mapped := ip.ipv4_mapped) is not None:
+                ip = mapped
+            ts = datetime.fromisoformat(record["ts"]).timestamp()
+            port = record["port"]
+            if port is None or isinstance(port, int):
+                records.append((str(ip), port or 0, host, ts))
+        except (KeyError, AttributeError, TypeError, ValueError):
+            continue
+    return records
+
+
+def identify_sites(host, request, page, result, domains_url):
+    if not result["flows"]:
+        return
+    recent = {
+        row["snapshot"] for row in result["processes"] if row["status"] == "running"
+    }
+    addresses = defaultdict(set)
+    peers = {flow["peer"] for flow in result["flows"]}
+    for snapshot, directory in page["output_dirs"].items():
+        if snapshot not in recent:
+            continue
+        path = Path(directory) / "dns" / "dns.jsonl"
+        try:
+            stat = path.stat()
+            records = read_dns_observations(path, stat.st_mtime_ns, stat.st_size)
+        except OSError:
+            continue
+        for ip, port, hostname, timestamp in records:
+            if ip in peers and result["time"] - timestamp < 3600:
+                addresses[ip, port].add(hostname)
+
+    # A literal-IP URL needs no DNS evidence. Never assign a socket to an
+    # arbitrary snapshot URL merely because its process belongs to that capture.
+    urls = {}
+    for row in page["records"]:
+        if url := row["archiveresult__snapshot__url"]:
+            try:
+                parsed = urlsplit(url)
+                name = ip_address(parsed.hostname or "")
+                port = parsed.port or (443 if parsed.scheme == "https" else 80)
+                urls[str(row["id"])] = (str(name), port, parsed.netloc)
+            except ValueError:
+                pass
+    names = sorted({name for values in addresses.values() for name in values})
+    grouped = {}
+    for start in range(0, len(names), 512):
+        grouped.update(host.group_domains(request, names[start : start + 512]))
+    for flow in result["flows"]:
+        key = (flow["peer"], flow["port"])
+        matches = addresses[key] | addresses[flow["peer"], 0]
+        domains = {grouped.get(name, name) for name in matches}
+        literal = urls.get(flow["process"])
+        if literal and literal[:2] == key:
+            domains.add(literal[2])
+        flow["site"] = next(iter(domains)) if len(domains) == 1 else ""
+        if flow["site"]:
+            flow["site_url"] = domains_url + "?" + urlencode({"q": flow["site"]})
+    site_names = list(
+        dict.fromkeys(flow["site"] for flow in result["flows"] if flow["site"]),
+    )[:30]
+    get_icons = getattr(host, "domain_favicons", None)
+    if site_names and get_icons is not None:
+        result["favicons"] = get_icons(request, site_names)

@@ -4,6 +4,8 @@ from typing import Any, Protocol
 
 
 class Host(Protocol):
+    def domain_favicons(self, request: Any, domains: list[str]) -> dict[str, str]: ...
+
     def group_domains(self, request: Any, hosts: list[str]) -> dict[str, str]: ...
 
     def outlink_records(
