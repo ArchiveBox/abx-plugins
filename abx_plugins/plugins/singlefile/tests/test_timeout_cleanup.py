@@ -1,9 +1,11 @@
 """A real suspended helper must retain diagnostics at the hard deadline."""
 
 import json
+import re
 import subprocess
 import os
 import signal
+import sys
 import time
 from pathlib import Path
 
@@ -16,6 +18,135 @@ from abx_plugins.plugins.singlefile.tests.test_singlefile import (
     SINGLEFILE_HELPER,
     SNAPSHOT_HOOK,
 )
+
+
+@pytest.mark.parametrize(
+    "directory",
+    [None, "", "relative/path", "/absolute/gallery-failure"],
+)
+def test_singlefile_timeline_requires_gallery_failure_capture(tmp_path, directory):
+    check = r"""
+import threading, time
+from abx_plugins.plugins.singlefile.helper_process import TIMELINE_ENABLED, emit_timeline
+
+if TIMELINE_ENABLED:
+    emit_timeline("singlefile_wrapper_begin", time.monotonic_ns())
+    # Wait here only to observe the diagnostic; production never joins it.
+    for thread in threading.enumerate():
+        if thread.name == "singlefile-timeline":
+            thread.join(timeout=2)
+            assert not thread.is_alive()
+"""
+    env = dict(os.environ)
+    env.pop("SCREENSHOT_FAILURE_DIR", None)
+    if directory is not None:
+        env["SCREENSHOT_FAILURE_DIR"] = directory
+    result = subprocess.run(
+        [sys.executable, "-c", check],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = [
+        line for line in result.stderr.splitlines() if line.startswith("[timeline]")
+    ]
+    if sys.platform == "linux" and directory and directory.startswith("/"):
+        assert len(lines) == 1 and re.fullmatch(
+            r"\[timeline\] event=singlefile_wrapper_begin monotonic_ns=\d+",
+            lines[0],
+        )
+    else:
+        assert not lines
+
+
+@pytest.mark.parametrize("stderr_state", ["open", "closed", "full-pipe"])
+def test_singlefile_timeline_never_blocks_owned_helper_cleanup(tmp_path, stderr_state):
+    # Run in a separate process so a closed or saturated OS stderr descriptor
+    # cannot affect pytest. The child is a real process held open by stdin,
+    # not a simulated extension or browser.
+    check = r"""
+import os, signal, subprocess, sys, threading, time
+from abx_plugins.plugins.singlefile.helper_process import emit_timeline, wait_for_singlefile_helper
+
+mode = sys.argv[1]
+with subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.buffer.read()"],
+                      stdin=subprocess.PIPE, stdout=subprocess.PIPE) as helper:
+    reader = threading.Thread(target=helper.stdout.read, daemon=True)
+    reader.start()
+    if mode == "closed":
+        os.close(2)
+    elif mode == "full-pipe":
+        rfd, wfd = os.pipe()
+        os.set_blocking(wfd, False)
+        try:
+            while True:
+                os.write(wfd, b"x")
+        except BlockingIOError:
+            pass
+        os.set_blocking(wfd, True)
+        os.dup2(wfd, 2)
+        os.close(wfd)
+    # Exercise the same writer even on non-Linux, where the hook deliberately
+    # does not add cross-runtime timeline events.
+    emit_timeline("singlefile_wrapper_begin", time.monotonic_ns())
+    try:
+        wait_for_singlefile_helper(helper, reader, time.monotonic(), 0)
+    except subprocess.TimeoutExpired as error:
+        assert error.timeout == 0
+    else:
+        raise AssertionError("the timeout did not propagate")
+    assert helper.returncode == -signal.SIGKILL
+    try:
+        os.waitpid(helper.pid, os.WNOHANG)
+    except ChildProcessError:
+        pass
+    else:
+        raise AssertionError("the helper was not reaped")
+    if mode == "full-pipe":
+        assert any(t.name == "singlefile-timeline" and t.daemon for t in threading.enumerate())
+    elif mode == "open":
+        # With a healthy sink, observe the actual writer rather than requiring
+        # best-effort stderr delivery at immediate production process exit.
+        for thread in threading.enumerate():
+            if thread.name == "singlefile-timeline":
+                thread.join(timeout=2)
+                assert not thread.is_alive()
+    print("timeout preserved; helper killed and reaped", flush=True)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", check, stderr_state],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SCREENSHOT_FAILURE_DIR": str(tmp_path / "failure"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip() == "timeout preserved; helper killed and reaped"
+    assert not (tmp_path / "failure").exists()
+    assert str(tmp_path / "failure") not in result.stderr
+    if stderr_state == "open":
+        timeline = re.findall(
+            r"^\[timeline\] event=(singlefile_wrapper_\w+) monotonic_ns=(\d+)$",
+            result.stderr,
+            re.MULTILINE,
+        )
+        stamps = {event: int(stamp) for event, stamp in timeline}
+        expected = {"singlefile_wrapper_begin"}
+        if sys.platform == "linux":
+            expected.add("singlefile_wrapper_timeout")
+        assert len(timeline) == len(expected) and set(stamps) == expected, result.stderr
+        if sys.platform == "linux":
+            assert (
+                stamps["singlefile_wrapper_begin"]
+                <= stamps["singlefile_wrapper_timeout"]
+            )
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -84,7 +215,11 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
             subprocess.Popen(
                 [str(SNAPSHOT_HOOK), f"--url={url}"],
                 cwd=output,
-                env={**env, "SINGLEFILE_TIMEOUT": "10"},
+                env={
+                    **env,
+                    "SINGLEFILE_TIMEOUT": "10",
+                    "SCREENSHOT_FAILURE_DIR": str(tmp_path / "failure"),
+                },
                 stdout=subprocess.PIPE,
                 stderr=stderr_log,
                 text=True,
@@ -150,6 +285,26 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
                 pass
         assert "[singlefile] phase=connect" in result.stderr, result.stderr
         assert "[singlefile] phase=extension" in result.stderr, result.stderr
+        timeline = re.findall(
+            r"^\[timeline\] event=(singlefile_wrapper_\w+) monotonic_ns=(\d+)$",
+            result.stderr,
+            re.MULTILINE,
+        )
+        if sys.platform == "linux":
+            expected = ["singlefile_wrapper_begin"]
+            if termination == "helper-deadline":
+                expected.append("singlefile_wrapper_timeout")
+            # The diagnostic writer intentionally never joins on process exit.
+            stamps = {event: int(stamp) for event, stamp in timeline}
+            assert len(stamps) == len(timeline) and stamps.keys() <= set(expected), (
+                result.stderr
+            )
+            times = [stamps[event] for event in expected if event in stamps]
+            assert times == sorted(times) and all(
+                stamp <= time.monotonic_ns() for stamp in times
+            ), result.stderr
+        else:
+            assert not timeline, result.stderr
         assert not (output / "singlefile.html").exists()
 
 
@@ -350,7 +505,11 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
         with subprocess.Popen(
             capture_command,
             cwd=output,
-            env={**env, "SINGLEFILE_TIMEOUT": "20"},
+            env={
+                **env,
+                "SINGLEFILE_TIMEOUT": "20",
+                "SCREENSHOT_FAILURE_DIR": str(tmp_path / "failure"),
+            },
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -422,6 +581,24 @@ const cu=require({json.dumps(str(CHROME_UTILS))});
             assert expected_error in stderr, stderr
         if failure == "download-deadline":
             assert "chrome_utils.js:" in stderr, stderr
+            markers = re.findall(
+                r"^\[timeline\] event=(singlefile_\w+) monotonic_ns=(\d+)$",
+                stderr,
+                re.MULTILINE,
+            )
+            if sys.platform == "linux":
+                stamps = {event: int(stamp) for event, stamp in markers}
+                assert len(stamps) == len(markers), stderr
+                lower = int(capture_started * 1_000_000_000)
+                assert (
+                    lower
+                    <= stamps.get("singlefile_wrapper_begin", lower)
+                    <= stamps["singlefile_capture_begin"]
+                    <= stamps["singlefile_download_timeout"]
+                    <= time.monotonic_ns()
+                ), stderr
+            else:
+                assert not markers, stderr
             phases = [
                 "phase=helper-navigation started",
                 "phase=helper-profile started",

@@ -12,6 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const TIMELINE_ENABLED = process.platform === "linux" && path.isAbsolute(process.env.SCREENSHOT_FAILURE_DIR || "");
 const { createHash } = require("crypto");
 const {
   ensureNodeModuleResolution,
@@ -172,6 +173,8 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   };
   let captureStarted = false;
   let captureError = null;
+  const expiredBeforeWait = "SingleFile download deadline exceeded";
+  let downloadTimeoutMessage;
   try {
     // Only SingleFile's temporary shared profile and toolbar action need
     // serialization. Chrome's persistent owner keeps GUID download routing;
@@ -228,12 +231,16 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       // Chrome actions target the selected tab. Select the exact saved CDP page;
       // opening the observer page above otherwise leaves that helper selected.
       await page.bringToFront();
+      if (TIMELINE_ENABLED) {
+        console.error(`[timeline] event=singlefile_capture_begin monotonic_ns=${process.hrtime.bigint()}`);
+      }
       console.error(`[singlefile] phase=capture started elapsed_ms=${Date.now() - saveStartedAt}`);
       captureStarted = true;
       await page.triggerExtensionAction(installed);
     });
     const downloadTimeoutMs = deadline - Date.now();
-    if (downloadTimeoutMs <= 0) throw new Error("SingleFile download deadline exceeded");
+    if (downloadTimeoutMs <= 0) throw new Error(expiredBeforeWait);
+    downloadTimeoutMessage = `SingleFile download for tab ${tab.id} did not complete within ${downloadTimeoutMs}ms`;
     // The capture budget belongs to this process: renderer timers can stop
     // advancing while Chrome is busy, but cancellation must precede our caller.
     downloadedPath = await chromeUtils.withTimeout(
@@ -342,10 +349,14 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       },
       { exactTab: tab, extensionId: extension.id }),
       downloadTimeoutMs,
-      `SingleFile download for tab ${tab.id} did not complete within ${downloadTimeoutMs}ms`
+      downloadTimeoutMessage
     );
     console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
   } catch (error) {
+    if (TIMELINE_ENABLED &&
+        (error?.message === expiredBeforeWait || (downloadTimeoutMessage && error?.message === downloadTimeoutMessage))) {
+      console.error(`[timeline] event=singlefile_download_timeout monotonic_ns=${process.hrtime.bigint()}`);
+    }
     captureError = error;
     if (captureStarted) {
       // Either the capture deadline or a CDP failure can end our wait.

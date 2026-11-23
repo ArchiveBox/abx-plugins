@@ -23,6 +23,13 @@ from abx_plugins.plugins.base.utils import (
 )
 
 
+from abx_plugins.plugins.singlefile.helper_process import (
+    TIMELINE_ENABLED,
+    emit_timeline,
+    wait_for_singlefile_helper,
+)
+
+
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 CONFIG = load_config(CONFIG_PATH)
@@ -61,6 +68,8 @@ def save_singlefile_with_extension(
     # Forward phases immediately, retaining only a bounded tail for the result.
     recent_output: deque[str] = deque(maxlen=64)
     deadline = time.monotonic() + timeout
+    if TIMELINE_ENABLED:
+        emit_timeline("singlefile_wrapper_begin", time.monotonic_ns())
     with subprocess.Popen(
         [
             str(EXTENSION_SAVE_SCRIPT),
@@ -83,15 +92,7 @@ def save_singlefile_with_extension(
 
         reader = Thread(target=forward_output, daemon=True)
         reader.start()
-        try:
-            helper.wait(timeout=max(0, deadline - time.monotonic()))
-            reader.join(timeout=max(0, deadline - time.monotonic()))
-            if reader.is_alive():
-                raise subprocess.TimeoutExpired(helper.args, timeout)
-        except BaseException:
-            helper.kill()
-            helper.wait()
-            raise
+        wait_for_singlefile_helper(helper, reader, deadline, timeout)
 
     if (
         helper.returncode == 0
