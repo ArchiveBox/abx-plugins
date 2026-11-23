@@ -8,7 +8,9 @@
   "display_order": 100,
   "app_module": "abx_plugins.plugins.sentry.app",
   "x-auto-run": false,
-  "x-runtimes": ["archivebox"],
+  "x-runtimes": [
+    "archivebox"
+  ],
   "required_plugins": [],
   "required_binaries": [
     {
@@ -37,52 +39,64 @@
     "SENTRY_ENABLED": {
       "type": "boolean",
       "default": false,
-      "description": "Enable this server's Sentry integration. Install the sentry plugin before enabling; restart the server after configuration changes."
+      "description": "Enable this server's Sentry integration. Install the sentry plugin before enabling; restart the server after configuration changes.",
+      "x-scope": "server"
     },
     "SENTRY_DSN": {
       "type": "string",
       "default": "",
-      "description": "DSN for your Sentry project. No shared or built-in destination is provided."
+      "description": "DSN for your Sentry project. No shared or built-in destination is provided.",
+      "x-scope": "server"
     },
     "SENTRY_ENVIRONMENT": {
       "type": "string",
       "default": "production",
-      "description": "Environment attached to Sentry events."
+      "description": "Environment attached to Sentry events.",
+      "x-scope": "server"
     },
     "SENTRY_RELEASE": {
       "type": "string",
       "default": "",
-      "description": "Release identifier; empty uses the Sentry SDK's release detection."
+      "description": "Release identifier; empty uses the Sentry SDK's release detection.",
+      "x-scope": "server"
     },
     "SENTRY_PROFILE_SESSION_SAMPLE_RATE": {
       "type": "number",
       "default": 0.0,
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Fraction of server processes collecting CPU profiles using the configured lifecycle. Zero disables profiling; restart after changes."
+      "description": "Fraction of server processes collecting CPU profiles using the configured lifecycle. Zero disables profiling; restart after changes.",
+      "x-scope": "server"
     },
     "SENTRY_PROFILE_LIFECYCLE": {
       "type": "string",
-      "enum": ["trace", "manual"],
+      "enum": [
+        "trace",
+        "manual"
+      ],
       "default": "trace",
-      "description": "Profile only while spans are active (trace), or continuously for the enabled process lifetime (manual). Manual mode also covers worker work whose EventBus spans are exported after completion."
+      "description": "Profile only while spans are active (trace), or continuously for the enabled process lifetime (manual). Manual mode also covers worker work whose EventBus spans are exported after completion.",
+      "x-scope": "server"
     },
     "SENTRY_SEND_DEFAULT_PII": {
       "type": "boolean",
       "default": false,
-      "description": "Include default personally identifiable information such as authenticated user details."
+      "description": "Include default personally identifiable information such as authenticated user details.",
+      "x-scope": "server"
     },
     "SENTRY_TRACES_SAMPLE_RATE": {
       "type": "number",
       "default": 0.0,
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Fraction of Django, HTTP, SQL, browser and EventBus traces sampled. Zero disables performance tracing."
+      "description": "Fraction of Django, HTTP, SQL, browser and EventBus traces sampled. Zero disables performance tracing.",
+      "x-scope": "server"
     },
     "SENTRY_ENABLE_LOGS": {
       "type": "boolean",
       "default": false,
-      "description": "Also send Python log records to Sentry Logs. Error events and breadcrumbs work without this."
+      "description": "Also send Python log records to Sentry Logs. Error events and breadcrumbs work without this.",
+      "x-scope": "server"
     },
     "SENTRY_LOG_LEVEL": {
       "type": "string",
@@ -94,17 +108,20 @@
         "CRITICAL"
       ],
       "default": "INFO",
-      "description": "Minimum level for breadcrumbs and optional Sentry Logs, subject to the host logger's own level. ERROR and CRITICAL records always create error events."
+      "description": "Minimum level for breadcrumbs and optional Sentry Logs, subject to the host logger's own level. ERROR and CRITICAL records always create error events.",
+      "x-scope": "server"
     },
     "SENTRY_ENABLE_METRICS": {
       "type": "boolean",
       "default": false,
-      "description": "Send span counts and duration distributions, plus browser page-load metrics."
+      "description": "Send span counts and duration distributions, plus browser page-load metrics.",
+      "x-scope": "server"
     },
     "SENTRY_BROWSER_ENABLED": {
       "type": "boolean",
       "default": true,
-      "description": "When Sentry is enabled on this machine, load the browser SDK for UI exceptions, tracing, logs and metrics. Session replay is never enabled."
+      "description": "When Sentry is enabled on this machine, load the browser SDK for UI exceptions, tracing, logs and metrics. Session replay is never enabled.",
+      "x-scope": "server"
     }
   }
 }

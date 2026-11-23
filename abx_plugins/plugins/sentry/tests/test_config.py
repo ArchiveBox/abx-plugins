@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import subprocess
 import textwrap
@@ -66,6 +67,10 @@ def test_sentry_is_unconfigured_and_disabled_by_default():
     assert config.SENTRY_TRACES_SAMPLE_RATE == 0
     assert config.SENTRY_PROFILE_SESSION_SAMPLE_RATE == 0
     assert config.SENTRY_SEND_DEFAULT_PII is False
+    assert all(
+        prop["x-scope"] == "server"
+        for prop in json.loads(CONFIG.read_text())["properties"].values()
+    )
 
 
 def test_dsn_alone_does_not_enable_sentry():

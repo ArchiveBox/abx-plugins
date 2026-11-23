@@ -159,8 +159,10 @@ ArchiveBox exposes its resolved process configuration through Django's
 `settings.CONFIG`; apps can pass `settings.CONFIG.model_dump(mode="json")` to
 `load_config(global_config=...)` in `ready()` without importing ArchiveBox.
 Apps must check their own enable flag before loading optional dependencies or
-registering external integrations. `app_module` plugins with `x-auto-run: false`
-keep their explicit enable flag independently of the crawl's `PLUGINS` selection.
+registering external integrations. Declare `x-scope: server` on a plugin's
+`<NAME>_ENABLED` property for machine/collection ownership: its settings appear
+only in Machine settings, cannot be overridden by personas/crawls, and remain
+independent of the crawl's `PLUGINS` selection.
 The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
 opt-in Django error reporting and logging; it is disabled and has no DSN by default.
 

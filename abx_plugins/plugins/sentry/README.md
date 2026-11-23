@@ -16,6 +16,8 @@ archivebox config --set SENTRY_DSN='YOUR_PROJECT_DSN' SENTRY_ENABLED=True
 Restart servers and workers after configuration changes.
 The Machine configuration UI uses the same settings. Installation is explicit;
 startup never downloads packages. No ArchiveBox reporting destination is built in.
+All Sentry settings are machine/collection-owned (`x-scope: server`); they are
+absent from add/persona settings and cannot be overridden or frozen on a crawl.
 
 ## Reporting
 
