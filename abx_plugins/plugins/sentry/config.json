@@ -58,7 +58,7 @@
     "SENTRY_RELEASE": {
       "type": "string",
       "default": "",
-      "description": "Release identifier; empty uses the Sentry SDK's release detection.",
+      "description": "Release identifier; empty uses archivebox@<installed version> for server and browser telemetry.",
       "x-scope": "server"
     },
     "SENTRY_PROFILE_SESSION_SAMPLE_RATE": {

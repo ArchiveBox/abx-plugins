@@ -28,6 +28,7 @@ class AppConfig(DjangoAppConfig):
         if not resolved.SENTRY_ENABLED or not resolved.SENTRY_BROWSER_ENABLED:
             return ""
         from django.template.loader import render_to_string
+        from .runtime import get_release
 
         user = getattr(request, "user", None)
         user_info = None
@@ -45,7 +46,7 @@ class AppConfig(DjangoAppConfig):
                 "sentry_config": {
                     "dsn": resolved.SENTRY_DSN,
                     "environment": resolved.SENTRY_ENVIRONMENT,
-                    "release": resolved.SENTRY_RELEASE or None,
+                    "release": get_release(),
                     "sendDefaultPii": resolved.SENTRY_SEND_DEFAULT_PII,
                     "tracesSampleRate": resolved.SENTRY_TRACES_SAMPLE_RATE,
                     "enableLogs": resolved.SENTRY_ENABLE_LOGS,

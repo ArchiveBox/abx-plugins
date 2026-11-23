@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 from importlib import import_module
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -19,6 +20,10 @@ from abx_plugins.plugins.base.utils import (
 CONFIG_PATH = Path(__file__).with_name("config.json")
 _provider = None
 _sentry = None
+
+
+def get_release():
+    return _sentry.get_client().options["release"] if _sentry is not None else None
 
 
 def shutdown():
@@ -154,10 +159,16 @@ def initialize(config):
         ]
         integration = import_module("sentry_sdk.integrations.django")
         integrations.append(integration.DjangoIntegration())
+        release = config.SENTRY_RELEASE
+        if not release:
+            try:
+                release = f"archivebox@{version('archivebox')}"
+            except PackageNotFoundError:
+                release = None
         sentry.init(
             dsn=config.SENTRY_DSN.strip(),
             environment=config.SENTRY_ENVIRONMENT,
-            release=config.SENTRY_RELEASE or None,
+            release=release,
             integrations=integrations,
             auto_enabling_integrations=False,
             send_default_pii=config.SENTRY_SEND_DEFAULT_PII,
@@ -187,6 +198,17 @@ def initialize(config):
                     "deployment.environment.name": config.SENTRY_ENVIRONMENT,
                     "host.name": sentry.get_client().options["server_name"] or "",
                     "process.pid": os.getpid(),
+                    "process.parent_pid": os.getppid(),
+                    "process.command": Path(sys.argv[0]).name,
+                    **(
+                        {
+                            "supervisor.process.name": os.environ[
+                                "SUPERVISOR_PROCESS_NAME"
+                            ],
+                        }
+                        if os.environ.get("SUPERVISOR_PROCESS_NAME")
+                        else {}
+                    ),
                 },
             ),
         )

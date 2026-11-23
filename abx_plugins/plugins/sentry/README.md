@@ -39,6 +39,10 @@ absent from add/persona settings and cannot be overridden or frozen on a crawl.
   Spans use Sentry's native OTLP ingestion with SQL statements and database
   attributes intact. Request and event context supplies query parents; queries
   outside those operations remain visible so background work can be diagnosed.
+  Every span includes its process and parent PID, command name, release,
+  environment and thread; supervised workers also include their Supervisor
+  process name, distinguishing HTTP workers from crawl runners and watchdogs.
+  Command arguments are not collected.
 - `SENTRY_ENABLE_METRICS=true` sends span counts and duration distributions, grouped
   by instrumentation scope/status, plus browser page-load counts and DOM-ready times.
 - `SENTRY_PROFILE_SESSION_SAMPLE_RATE=1` enables native Python CPU profiling in
@@ -52,8 +56,10 @@ absent from add/persona settings and cannot be overridden or frozen on a crawl.
   includes errors, tracing, logs and metrics. Session replay is never loaded or enabled.
   Page-load spans end at the browser load event; background progress polls remain
   traced without extending the page-load measurement to the SDK's 30-second limit.
-- `SENTRY_ENVIRONMENT` defaults to production. `SENTRY_RELEASE` defaults to SDK
-  detection; set it to the deployed version/commit for reliable release grouping.
+- `SENTRY_ENVIRONMENT` defaults to production. An empty `SENTRY_RELEASE` uses
+  `archivebox@<installed version>` for both server and browser telemetry, so image
+  updates receive their own release automatically. Explicit overrides take
+  precedence; hosts without the ArchiveBox distribution use SDK detection.
 - PII collection is off by default. Request bodies and frame locals are excluded.
   `SENTRY_SEND_DEFAULT_PII=true` enables Django's authenticated user ID, username
   and email, and the same identity in the browser. Anonymous pages clear identity.
