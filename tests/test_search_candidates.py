@@ -16,10 +16,24 @@ from abx_plugins.plugins.base.testing import (
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
 
 
-def run_candidates(plugin, tmp_path, candidates, terms, *, archive_root=None, **limits):
+def run_candidates(
+    plugin,
+    tmp_path,
+    candidates,
+    terms,
+    *,
+    archive_root=None,
+    streaming=False,
+    **limits,
+):
     manifest = json.loads((PLUGINS / plugin / "config.json").read_text())
     script, *args = manifest["commands"]["search_candidates"]
-    request = {"terms": terms, "candidates": candidates, "limits": limits}
+    request = {
+        "terms": terms,
+        "candidates": candidates,
+        "limits": limits,
+        "streaming": streaming,
+    }
     if archive_root:
         request["archive_root"] = str(archive_root)
     env = {**os.environ, "DATA_DIR": str(tmp_path)}
@@ -257,3 +271,20 @@ def test_unreadable_sqlite_document_does_not_hide_later_candidates(tmp_path):
     )
     assert rows["old"]["matches"] == {"posting": True}
     assert rows["next"]["matches"] == {"posting": False, "literal": True}
+
+
+def test_file_scan_progresses_across_windows_and_utf8_boundaries(tmp_path):
+    root = tmp_path / "snap"
+    root.mkdir()
+    (root / "late.txt").write_bytes(b"x" * 63 + "Éclipse".encode())
+    found = run_candidates(
+        "search_backend_ripgrep",
+        tmp_path,
+        [{"id": "snap", "path": str(root)}],
+        [term("a", "éclipse", "deep"), term("b", "absent", "deep")],
+        streaming=True,
+        bytes=64,
+        per_file=32,
+    )
+    assert found["snap"]["matches"] == {"a": True, "b": False}
+    assert found["snap"]["usage"]["bytes"] == (root / "late.txt").stat().st_size

@@ -57,7 +57,64 @@ class SearchBudget:
     bytes: int
     per_file: int
 
+    streaming: bool = False
+    _window: float = field(default_factory=time.monotonic)
+    _last_progress: float = field(default_factory=time.monotonic)
+    _spent: dict[str, int] = field(default_factory=dict)
+    consumed: dict[str, int] = field(default_factory=dict)
+
+    def take(self, name: str, requested: int) -> int:
+        """Charge one chunk. Connected searches keep their cursor between I/O windows."""
+        if self.streaming:
+            self.report_progress()
+        limit = getattr(self, name)
+        if not self.streaming:
+            count = min(requested, limit)
+            setattr(self, name, limit - count)
+            return count
+        if not limit or not requested:
+            return 0
+        if self._spent.get(name, 0) >= limit:
+            time.sleep(max(0, self._window + 1 - time.monotonic()))
+            self._spent.clear()
+            self._window = time.monotonic()
+        count = min(requested, limit - self._spent.get(name, 0))
+        self._spent[name] = self._spent.get(name, 0) + count
+        self.consumed[name] = self.consumed.get(name, 0) + count
+        return count
+
+    def match_stream(self, read, length, terms, matches):
+        # Keep enough overlap for a literal split across reads, including UTF-8
+        # characters. Each file/FTS column starts with independent overlap.
+        tail = b""
+        overlap = 4 * max(len(term.value) for term in terms)
+        while length:
+            size = self.take("bytes", min(length, self.per_file))
+            if not size or not (data := read(size)):
+                return False
+            length -= len(data)
+            combined = tail + data
+            text = combined.decode("utf-8", "surrogateescape")
+            for term in terms:
+                if term.key not in matches and term.pattern.search(text):
+                    matches[term.key] = True
+            if all(term.key in matches for term in terms):
+                return True
+            tail = combined[-overlap:]
+        return True
+
+    def report_progress(self):
+        now = time.monotonic()
+        if now - self._last_progress >= 2:
+            print(json.dumps({"progress": True}), flush=True)
+            self._last_progress = now
+
     def remaining(self) -> float:
+        if self.streaming:
+            self.report_progress()
+            return (
+                8.0  # individual socket/command timeout, independent of scan duration
+            )
         return max(0.0, self.deadline - time.monotonic())
 
 
@@ -125,12 +182,17 @@ def run_candidates(search: CandidateSearch) -> int:
         entries=limit("entries", 512),
         bytes=limit("bytes", 4 * 1024**2),
         per_file=limit("per_file", 512 * 1024),
+        streaming=data.get("streaming") is True,
     )
     counters = ("files", "entries", "bytes")
-    before = {key: getattr(budget, key) for key in counters}
+    before = {key: 0 if budget.streaming else getattr(budget, key) for key in counters}
     for evidence in search(candidates, terms, budget):
-        after = {key: getattr(budget, key) for key in counters}
-        usage = {key: before[key] - after[key] for key in counters}
+        if budget.streaming:
+            after = {key: budget.consumed.get(key, 0) for key in counters}
+            usage = {key: after[key] - before[key] for key in counters}
+        else:
+            after = {key: getattr(budget, key) for key in counters}
+            usage = {key: before[key] - after[key] for key in counters}
         print(
             json.dumps(
                 {

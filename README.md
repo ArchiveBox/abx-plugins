@@ -121,6 +121,12 @@ Snapshot context also includes `id`, `url`, `title`, `crawl_id`, and `tags`.
 label. The host installs it at startup; models, migrations, management commands,
 and `ready()` use standard Django behavior. Register signals and logging filters
 there. App registration is independent of hook enable flags.
+Hosts expose resolved process configuration as the plain Django setting
+`ABX_PLUGIN_CONFIG`; apps can pass it to `load_config(global_config=...)` in
+`ready()` without importing the host. Apps must check their own enable flag
+before loading optional dependencies or registering external integrations.
+The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
+opt-in Django error reporting and logging; it is disabled and has no DSN by default.
 
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to
@@ -179,6 +185,8 @@ unresolved candidates. Each operand in a request must have a unique key.
   and 512 KiB per file. `usage` gives the increment for each emitted row so
   callers can charge subsequent pages against one query budget. Hosts also
   enforce a subprocess timeout for blocked filesystem or network reads.
+
+Connected clients may send `"streaming": true` to continue beyond the preview limits. The bundled file and SQLite scanners keep a cursor and match across chunk boundaries. For this mode the file, entry and byte allowances renew in one-second windows, and `per_file` limits an individual read. While processing a long candidate, providers may flush `{"progress":true}` to renew the inactivity timeout without reporting a match. Consumers must terminate their subprocess when the client disconnects. An unavailable source still supplies no evidence for negation.
 
 ### Configuration field templates
 
