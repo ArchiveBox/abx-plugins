@@ -9,6 +9,9 @@ import {
 const root = document.getElementById("networkgraph-ui");
 const $ = (id) => root.querySelector(`#${id}`);
 const maxNodes = Number(root.dataset.maxNodes),
+  renderLimit = Math.min(maxNodes, 850),
+  layoutLimit = Math.min(maxNodes, 1800),
+  outlinkScanLimit = 50000,
   reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const nodes = new Map(),
   links = new Map(),
@@ -20,6 +23,7 @@ let queue = [],
   catalogCursor = "",
   catalogDone = false,
   outlinkCursor = "",
+  outlinkSampled = 0,
   linksDone = false,
   sampled = 0,
   layoutBusy = false,
@@ -27,7 +31,7 @@ let queue = [],
   paused = false,
   busy = false,
   selected = null,
-  hovered = null,
+  pointerDown = false,
   drag = null,
   layoutDeferred = false,
   rearranged = false;
@@ -40,10 +44,15 @@ let dimensionality = 2,
   visible = [],
   visibleIds = new Set(),
   visibleLinks = [],
+  catalogOrder = [],
   labelNodes = [];
 const number = new Intl.NumberFormat(undefined, {
   notation: "compact",
   maximumFractionDigits: 1,
+});
+const pageRank = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumSignificantDigits: 3,
 });
 const bytes = (value) => {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -116,7 +125,7 @@ function loadIcons() {
 }
 function nodeIcon(n) {
   // Small low-ranked sites use inexpensive geometry; prominent sites use saved icons.
-  if (!n.favicon) return undefined;
+  if (!n.favicon || !n.showIcon) return undefined;
   if (n.sprite && n.spriteUrl === n.favicon) return n.sprite;
   n.spriteUrl = n.favicon;
   const key = n.favicon;
@@ -163,32 +172,36 @@ worker.onmessage = ({ data }) => {
       n.z = row.z;
     }
   }
+  for (const [id, rank] of data.ranks) {
+    const n = nodes.get(id);
+    if (n) n.rank = rank;
+  }
   communityLabels = data.communities;
   layout();
 };
 function requestLayout() {
   layoutDirty = true;
-  if (layoutBusy || drag) return;
+  if (layoutBusy || drag || pointerDown) return;
   layoutBusy = true;
   layoutDirty = false;
   const activeLinks = graphLinks();
   worker.postMessage({
-    nodes: drawableNodes(activeLinks)
-      .slice(0, maxNodes)
-      .map((n) => ({
-        id: n.id,
-        count: n.count || 0,
-      })),
+    nodes: drawableNodes(activeLinks).map((n) => ({
+      id: n.id,
+      count: n.count || 0,
+    })),
     links: activeLinks.map((l) => ({
       source: end(l.source),
       target: end(l.target),
       value: l.value,
     })),
+    focus: [...focusNeighborhood(activeLinks)],
+    layoutLimit,
     dimensions: dimensionality,
   });
 }
 const end = (value) => value.id || value;
-const focused = () => hovered || selected;
+const focused = () => selected;
 const incomingColor = "#a22d66";
 const outgoingColor = "#087764";
 const incident = (l) =>
@@ -207,7 +220,7 @@ const graph = new window.ForceGraph3D($("graph"), {
   .nodeThreeObject(nodeIcon)
   .nodeThreeObjectExtend(true)
   .nodeRelSize(4)
-  .nodeResolution(8)
+  .nodeResolution(6)
   .nodeVal((n) => ((n.radius || 3) / 4) ** 3)
   .nodeColor((n) =>
     n === focused()
@@ -219,11 +232,7 @@ const graph = new window.ForceGraph3D($("graph"), {
   .nodeOpacity(0.95)
   .linkOpacity(0.65)
   .linkWidth((l) =>
-    focused() && incident(l)
-      ? 2
-      : l.value >= 4
-      ? Math.min(2, Math.log2(l.value) * 0.3)
-      : 0
+    l.emphasized ? Math.min(2, 0.75 + Math.log2(l.value + 1) * 0.4) : 0
   )
   .linkResolution(3)
   .linkColor((l) =>
@@ -235,18 +244,11 @@ const graph = new window.ForceGraph3D($("graph"), {
       ? incomingColor
       : outgoingColor
   )
-  .linkDirectionalArrowLength((l) => (focused() && incident(l) ? 5 : 0))
+  .linkDirectionalArrowLength((l) => (l.emphasized ? 5 : 0))
   .linkDirectionalArrowRelPos(0.85)
   .linkCurvature((l) =>
-    focused() && incident(l) && links.has(`${end(l.target)}\0${end(l.source)}`)
-      ? 0.14
-      : 0
+    l.emphasized && links.has(`${end(l.target)}\0${end(l.source)}`) ? 0.14 : 0
   )
-  .linkDirectionalParticles((l) =>
-    !reduced && focused() && incident(l) ? 2 : 0
-  )
-  .linkDirectionalParticleSpeed(0.003)
-  .linkDirectionalParticleWidth(1.5)
   .nodeLabel((n) => {
     const el = document.createElement("span");
     el.textContent = `${n.id} · ▤ ${n.count ?? "…"} · ↙ ${
@@ -259,22 +261,17 @@ const graph = new window.ForceGraph3D($("graph"), {
     el.textContent = `${end(l.source)} → ${end(l.target)} · ${l.value}`;
     return el;
   })
-  .onNodeClick(select)
+  .onNodeClick((n) => select(n))
   .onNodeRightClick((n) => {
     select(n);
     enqueue(n, true);
-  })
-  .onNodeHover((n) => {
-    hovered = n;
-    if (!drag) paint();
   })
   .onNodeDrag(dragNode)
   .onNodeDragEnd(dropNode)
   .onBackgroundClick(() => {
     selected = null;
     $("selection").hidden = true;
-    paint();
-    renderList();
+    layout();
   })
   .cooldownTicks(Infinity)
   .cooldownTime(Infinity)
@@ -282,9 +279,50 @@ const graph = new window.ForceGraph3D($("graph"), {
 graph.d3Force("charge", null);
 graph.d3Force("center", null);
 graph.d3Force("link", null);
-graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.5));
+graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.25));
 graph.controls().enableRotate = false;
 graph.controls().zoomToCursor = true;
+const canvas = graph.renderer().domElement;
+let rendering = true;
+let renderDeadline = performance.now() + 1300;
+function wakeRenderer(ms = 300) {
+  if (paused || document.hidden) return;
+  renderDeadline = Math.max(renderDeadline, performance.now() + ms);
+  if (!rendering) {
+    rendering = true;
+    graph.resumeAnimation();
+  }
+}
+function stopRenderer() {
+  rendering = false;
+  graph.pauseAnimation();
+}
+canvas.addEventListener(
+  "pointerdown",
+  () => {
+    pointerDown = true;
+    wakeRenderer();
+  },
+  true
+);
+function releasePointer() {
+  if (!pointerDown) return;
+  pointerDown = false;
+  if (!drag && layoutDeferred) layout();
+}
+window.addEventListener("pointerup", releasePointer);
+window.addEventListener("pointercancel", releasePointer);
+for (const type of ["pointermove", "pointerleave", "wheel"])
+  canvas.addEventListener(type, () => wakeRenderer(), { passive: true });
+graph.controls().addEventListener("change", () => wakeRenderer());
+$("labels").addEventListener(
+  "wheel",
+  (event) => {
+    event.preventDefault();
+    canvas.dispatchEvent(new WheelEvent("wheel", event));
+  },
+  { passive: false }
+);
 
 function linkAffinity(a, b) {
   const references =
@@ -440,7 +478,7 @@ function finishDrag() {
   }
   drag = null;
   if (layoutDeferred) layout();
-  else paint();
+  else wakeRenderer();
 }
 
 function enqueue(n, priority = false) {
@@ -454,10 +492,10 @@ function enqueue(n, priority = false) {
   queued.add(n.id);
   priority ? queue.unshift(n) : queue.push(n);
 }
-function merge(data, source, scan = false) {
+function merge(data, source, catalog = false) {
   let changed = false;
   for (const row of data.nodes || []) {
-    if (!nodes.has(row.id) && nodes.size >= 100000) continue;
+    if (!nodes.has(row.id) && (!catalog || nodes.size >= 100000)) continue;
     let n = nodes.get(row.id);
     if (!n) {
       n = { ...row, captures: new Map() };
@@ -469,16 +507,21 @@ function merge(data, source, scan = false) {
       const count = (n.count || 0) + (row.count || 0),
         size = (n.size || 0) + (row.size || 0);
       Object.assign(n, { ...row, favicon: row.favicon || n.favicon });
-      if (scan) Object.assign(n, { count, size });
+      if (catalog) Object.assign(n, { count, size });
     }
   }
   for (const edge of data.links || []) {
+    if (
+      !catalog &&
+      (!nodes.get(edge.source)?.count || !nodes.get(edge.target)?.count)
+    )
+      continue;
     for (const id of [edge.source, edge.target])
       if (!nodes.has(id)) nodes.set(id, { id, count: 0, captures: new Map() });
     const id = `${edge.source}\0${edge.target}`;
     if (links.has(id)) {
       const link = links.get(id);
-      const value = scan
+      const value = !source
         ? link.value + edge.value
         : Math.max(link.value, edge.value);
       changed ||= value !== link.value;
@@ -498,15 +541,7 @@ function merge(data, source, scan = false) {
   root.dataset.complete = String(catalogDone);
   root.dataset.linksComplete = String(linksDone);
   $("snapshot-count").textContent = sampled.toLocaleString();
-  if (selected) details();
-}
-function paint() {
-  graph
-    .nodeColor(graph.nodeColor())
-    .linkColor(graph.linkColor())
-    .linkWidth(graph.linkWidth())
-    .linkCurvature(graph.linkCurvature())
-    .linkDirectionalParticles(graph.linkDirectionalParticles());
+  if (source && source === selected) details();
 }
 function graphLinks() {
   const all = [...links.values()];
@@ -522,30 +557,68 @@ function drawableNodes(activeLinks) {
     connected.add(end(link.target));
   }
   const hideIsolates = nodes.size - hiddenNodes.size - connected.size > 200;
+  if (hideIsolates && !connected.size && !linksDone)
+    return [...nodes.values()]
+      .filter((n) => !hiddenNodes.has(n.id))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 64);
   return [...nodes.values()].filter(
     (n) =>
       !hiddenNodes.has(n.id) &&
       (!hideIsolates || connected.has(n.id) || n === selected)
   );
 }
+function focusNeighborhood(activeLinks) {
+  if (!selected) return new Set();
+  const ids = new Set([selected.id]);
+  for (const edge of activeLinks
+    .filter(incident)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, Math.min(160, renderLimit / 3))) {
+    ids.add(end(edge.source));
+    ids.add(end(edge.target));
+  }
+  return ids;
+}
 function layout() {
-  if (drag) {
+  if (drag || pointerDown) {
     layoutDeferred = true;
     return;
   }
   layoutDeferred = false;
   const activeLinks = graphLinks();
+  const focus = focusNeighborhood(activeLinks);
   const ranked = drawableNodes(activeLinks).sort(
     (a, b) => (b.rank || 0) - (a.rank || 0) || (b.count || 0) - (a.count || 0)
   );
-  visible = ranked.slice(0, maxNodes);
-  if (selected && !visible.includes(selected)) visible.push(selected);
+  visible = ranked.filter((n) => n.target && focus.has(n.id));
+  visible.push(
+    ...ranked
+      .filter((n) => n.target && !focus.has(n.id))
+      .slice(0, renderLimit - visible.length)
+  );
+  if (selected && !visible.includes(selected)) {
+    if (visible.length === renderLimit) visible.pop();
+    visible.push(selected);
+  }
   visibleIds = new Set(visible.map((n) => n.id));
   visibleLinks = activeLinks
     .filter(
       (l) => visibleIds.has(end(l.source)) && visibleIds.has(end(l.target))
     )
+    .sort(
+      (a, b) =>
+        Number(Boolean(selected) && incident(b)) -
+          Number(Boolean(selected) && incident(a)) || b.value - a.value
+    )
+    .slice(0, renderLimit * 2)
     .map((l) => {
+      l.emphasized = Boolean(
+        selected &&
+          incident(l) &&
+          focus.has(end(l.source)) &&
+          focus.has(end(l.target))
+      );
       l.source = nodes.get(end(l.source));
       l.target = nodes.get(end(l.target));
       return l;
@@ -554,22 +627,35 @@ function layout() {
   for (const n of nodes.values()) {
     n.incoming = 0;
     n.outgoing = 0;
-    adjacency.set(n.id, new Set());
   }
   for (const l of activeLinks) {
     const a = end(l.source),
       b = end(l.target);
     nodes.get(a).outgoing++;
     nodes.get(b).incoming++;
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
     adjacency.get(a).add(b);
     adjacency.get(b).add(a);
   }
+  for (const n of visible) n.showIcon = n === selected;
+  for (const n of ranked.filter((n) => visibleIds.has(n.id)).slice(0, 96))
+    n.showIcon = true;
   graph.graphData({ nodes: visible, links: visibleLinks });
   graph
     .nodeVal(graph.nodeVal())
     .nodeColor(graph.nodeColor())
-    .nodeThreeObject(graph.nodeThreeObject());
+    .nodeThreeObject(graph.nodeThreeObject())
+    .linkColor(graph.linkColor())
+    .linkWidth(graph.linkWidth())
+    .linkCurvature(graph.linkCurvature())
+    .linkDirectionalArrowLength(graph.linkDirectionalArrowLength());
+  wakeRenderer(1300);
+  catalogOrder = [...nodes.values()].sort(
+    (a, b) => (b.count || 0) - (a.count || 0)
+  );
   renderList();
+  if (selected) details();
   root.dataset.loaded = String(sampled);
   root.dataset.complete = String(catalogDone);
   root.dataset.linksComplete = String(linksDone);
@@ -577,16 +663,24 @@ function layout() {
   $("node-count").textContent = `${visible.length.toLocaleString()} / ${(
     nodes.size - hiddenNodes.size
   ).toLocaleString()}`;
-  $("link-count").textContent = number.format(visibleLinks.length);
+  $("link-count").textContent =
+    visibleLinks.length < activeLinks.length
+      ? `${number.format(visibleLinks.length)}/${number.format(
+          activeLinks.length
+        )}`
+      : number.format(visibleLinks.length);
   $("snapshot-count").textContent = sampled.toLocaleString();
-  labelNodes = visible.slice(0, 20).map((n) => {
-    const el = document.createElement("button");
-    el.className = "node-label";
-    el.textContent = n.id;
-    el.style.color = color(n.id);
-    el.onclick = () => select(n);
-    return { n, el };
-  });
+  labelNodes = ranked
+    .filter((n) => visibleIds.has(n.id))
+    .slice(0, 20)
+    .map((n) => {
+      const el = document.createElement("button");
+      el.className = "node-label";
+      el.textContent = n.id;
+      el.style.color = color(n.id);
+      el.onclick = () => select(n);
+      return { n, el };
+    });
   for (const group of communityLabels
     .filter((g) => g.id && !hiddenNodes.has(g.id) && g.count > 2)
     .sort((a, b) => b.count - a.count)
@@ -638,17 +732,21 @@ function layout() {
     if (catalogDone) completeFit = true;
     if (linksDone) linksFit = true;
     setTimeout(() => {
-      if (!rearranged)
+      if (!rearranged && !selected) {
+        wakeRenderer(1200);
         graph.zoomToFit(reduced ? 0 : 900, 100, (n) => Boolean(n.community));
+      }
     }, 1800);
   }
 }
 function renderList() {
   const term = $("search").value.trim().toLowerCase();
-  const list = [...nodes.values()]
-    .filter((n) => !hiddenNodes.has(n.id) && (!term || n.id.includes(term)))
-    .sort((a, b) => (b.count || 0) - (a.count || 0))
-    .slice(0, 100);
+  const list = [];
+  for (const n of catalogOrder) {
+    if (hiddenNodes.has(n.id) || (term && !n.id.includes(term))) continue;
+    list.push(n);
+    if (list.length === 100) break;
+  }
   $("domains").replaceChildren(
     ...list.map((n) => {
       const b = document.createElement("button");
@@ -676,7 +774,7 @@ function renderList() {
         b.append(img);
       }
       b.append(name, count, degree);
-      b.onclick = () => select(n);
+      b.onclick = () => select(n, true);
       return b;
     })
   );
@@ -691,11 +789,11 @@ function details() {
   $("selected-count").textContent = `▤ ${n.count ?? "…"}   ↙ ${
     n.incoming || 0
   }   ↗ ${n.outgoing || 0}`;
-  $("node-metrics").textContent = `PageRank ${((n.rank || 0) * 100).toFixed(
-    2
-  )}% · ◫ ${captures.length < (n.count || 0) ? "≥ " : ""}${bytes(size)}   ✓ ${
-    captures.filter((c) => c.downloaded).length
-  }   ◷ ${
+  const rank =
+    n.rank && (n.incoming || n.outgoing) ? pageRank.format(n.rank) : "—";
+  $("node-metrics").textContent = `PageRank ${rank} · ◫ ${
+    captures.length < (n.count || 0) ? "≥ " : ""
+  }${bytes(size)}   ✓ ${captures.filter((c) => c.downloaded).length}   ◷ ${
     captures.length
       ? new Date(captures.at(-1).created).toLocaleDateString()
       : "·"
@@ -715,7 +813,7 @@ function details() {
       const target = nodes.get(incoming ? end(l.source) : end(l.target));
       b.textContent = `${incoming ? "↙" : "↗"} ${target.id} · ${l.value}`;
       b.style.color = incoming ? incomingColor : outgoingColor;
-      b.onclick = () => select(target);
+      b.onclick = () => select(target, true);
       return b;
     })
   );
@@ -741,12 +839,14 @@ function details() {
       })
   );
 }
-function select(n) {
+function select(n, locate = false) {
   if (hiddenNodes.has(n.id)) return;
+  if (selected === n && !locate) return;
   selected = n;
-  hovered = null;
-  if (!visible.includes(n)) layout();
-  if (Number.isFinite(n.x)) {
+  layout();
+  if ([...focusNeighborhood(graphLinks())].some((id) => !nodes.get(id)?.target))
+    requestLayout();
+  if (locate && Number.isFinite(n.x)) {
     const distance = 160 + Math.log2(1 + (n.count || 1)) * 6;
     const position = graph
       .camera()
@@ -757,7 +857,6 @@ function select(n) {
     graph.cameraPosition(position, n, reduced ? 0 : 800);
   }
   if (!pages.has(n.id)) enqueue(n, true);
-  paint();
   renderList();
   details();
 }
@@ -796,15 +895,17 @@ async function step() {
     if (node) pages.set(node.id, data.cursor);
     else if (params.get("scan") === "links") {
       outlinkCursor = data.cursor;
-      linksDone = !data.cursor;
-      if (linksDone) requestLayout();
+      outlinkSampled += data.sampled;
+      linksDone = !data.cursor || outlinkSampled >= outlinkScanLimit;
     } else {
       sampled += data.sampled;
       catalogCursor = data.cursor;
       catalogDone = !data.cursor;
     }
-    merge(data, node, !node);
-    if (catalogDone && !node && params.get("scan") === "1") requestLayout();
+    const scan = params.get("scan");
+    merge(data, node, scan === "1");
+    if ((scan === "1" && catalogDone) || (scan === "links" && linksDone))
+      requestLayout();
     $("connection").className = "";
     $("connection").ariaLabel = "Connected";
   } catch (error) {
@@ -818,7 +919,7 @@ async function step() {
   } finally {
     busy = false;
     if (!paused && (!catalogDone || !linksDone || queue.length))
-      setTimeout(step, 0);
+      setTimeout(step, pointerDown || drag ? 100 : 8);
   }
 }
 function togglePause() {
@@ -826,18 +927,21 @@ function togglePause() {
   paused = !paused;
   $("play").textContent = paused ? "▶" : "Ⅱ";
   $("play").ariaLabel = paused ? "Resume" : "Pause";
-  paused ? graph.pauseAnimation() : graph.resumeAnimation();
+  paused ? stopRenderer() : wakeRenderer(1300);
   if (!paused) step();
 }
 $("play").onclick = togglePause;
-$("fit").onclick = () =>
+$("fit").onclick = () => {
+  wakeRenderer(1100);
   graph.zoomToFit(reduced ? 0 : 700, 80, (n) => Boolean(n.community));
+};
 $("dimensions").onclick = () => {
   if (drag) finishDrag();
   dimensionality = dimensionality === 3 ? 2 : 3;
   const spatial = dimensionality === 3;
   const target = graph.controls().target.clone();
   const distance = graph.camera().position.distanceTo(target);
+  wakeRenderer(1300);
   if (!spatial) target.z = 0;
   graph.controls().enableRotate = spatial;
   graph.cameraPosition(
@@ -857,6 +961,7 @@ $("dimensions").onclick = () => {
 };
 $("orbit").onclick = () => {
   orbit = !orbit;
+  wakeRenderer();
   $("orbit").classList.toggle("active", orbit);
 };
 $("reset").onclick = () => location.reload();
@@ -871,13 +976,12 @@ $("search").onkeydown = (e) => {
       : [...nodes.values()].find(
           (n) => !hiddenNodes.has(n.id) && n.id.includes(value)
         );
-  if (n) select(n);
+  if (n) select(n, true);
 };
 $("close").onclick = () => {
   selected = null;
   $("selection").hidden = true;
-  paint();
-  renderList();
+  layout();
 };
 $("expand").onclick = () => selected && enqueue(selected, true);
 $("hide").onclick = () => {
@@ -886,7 +990,7 @@ $("hide").onclick = () => {
   hiddenNodes.add(selected.id);
   queue = queue.filter((n) => n !== selected);
   queued.delete(selected.id);
-  selected = hovered = null;
+  selected = null;
   $("selection").hidden = true;
   rearranged = true;
   layout();
@@ -896,17 +1000,29 @@ function resize() {
   graph
     .width(root.clientWidth > 760 ? root.clientWidth - 260 : root.clientWidth)
     .height(root.clientHeight);
+  wakeRenderer();
 }
 new ResizeObserver(resize).observe(root);
 resize();
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) graph.pauseAnimation();
-  else if (!paused) graph.resumeAnimation();
+  if (document.hidden) {
+    releasePointer();
+    stopRenderer();
+  } else wakeRenderer(1300);
 });
 function frame(t) {
   requestAnimationFrame(frame);
-  if (document.hidden || paused) return;
+  if (document.hidden || paused || !rendering) return;
   if (drag?.time < t) advanceDrag(t);
+  if (
+    !drag &&
+    !pointerDown &&
+    !(dimensionality === 3 && orbit) &&
+    t >= renderDeadline
+  ) {
+    stopRenderer();
+    return;
+  }
   if (t - lastFrame < 40) return;
   lastFrame = t;
   if (dimensionality === 3 && orbit && !drag) {

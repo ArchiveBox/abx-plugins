@@ -12,6 +12,7 @@ def test_graph_ignores_shared_assets_and_widget_links():
         "https://fonts.gstatic.com",
         "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js",
         "https://creativecommons.org/licenses/by/4.0/legalcode.en",
+        "https://www.reddit.com/submit?url=https://news.ycombinator.com/",
     ):
         assert is_boilerplate_url(url), url
 
@@ -20,5 +21,6 @@ def test_graph_ignores_shared_assets_and_widget_links():
         "https://blog.disqus.com/",
         "https://creativecommons.org/who-we-are/",
         "https://dl.acm.org/doi/10.1145/3607844",
+        "https://www.reddit.com/r/MistralAI/",
     ):
         assert not is_boilerplate_url(url), url

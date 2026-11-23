@@ -62,6 +62,12 @@ class Host(Protocol):
         urls: list[str],
     ) -> dict[str, str]: ...
 
+    def group_snapshot_urls(
+        self,
+        request: Any,
+        urls: list[str],
+    ) -> dict[str, str]: ...
+
     def process_records(
         self,
         request: Any,

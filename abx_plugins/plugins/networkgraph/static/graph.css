@@ -27,7 +27,6 @@
     z-index: 2;
     background: #fffffff5;
     border: 1px solid var(--graph-rule);
-    backdrop-filter: blur(16px);
     box-shadow: 0 12px 60px #233f591c;
     border-radius: 8px;
   }

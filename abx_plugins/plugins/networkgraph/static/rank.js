@@ -13,45 +13,53 @@ importScripts(
   "vendor/graphology.umd.min.js",
   "vendor/graphology-library.min.js"
 );
-let previous = new Map();
 onmessage = ({ data }) => {
   const { dimensions } = data;
   const spatial = dimensions === 3;
-  const nodes = data.nodes.map((n) => ({ ...previous.get(n.id), ...n }));
-  const index = new Map(nodes.map((n, i) => [n.id, i]));
-  const links = data.links
+  const allNodes = data.nodes;
+  const index = new Map(allNodes.map((n, i) => [n.id, i]));
+  const allLinks = data.links
     .filter((l) => index.has(l.source) && index.has(l.target))
-    .map((l) => ({ ...l }));
-  const count = nodes.length;
+    .map((l) => ({
+      ...l,
+      a: index.get(l.source),
+      b: index.get(l.target),
+      weight: Math.log1p(l.value),
+    }));
+  const count = allNodes.length;
   if (!count) {
-    postMessage({ dimensions, nodes: [], communities: [] });
+    postMessage({ dimensions, ranks: [], nodes: [], communities: [] });
     return;
   }
   let rank = new Float64Array(count).fill(1 / count);
-  const weight = new Float64Array(count),
-    neighbors = nodes.map(() => []);
-  for (const l of links) {
-    const a = index.get(l.source),
-      b = index.get(l.target);
-    l.weight = Math.log1p(l.value);
-    weight[a] += l.weight;
-    neighbors[a].push([b, l.weight]);
-    neighbors[b].push([a, l.weight]);
-  }
+  const weight = new Float64Array(count);
+  for (const l of allLinks) weight[l.a] += l.weight;
   for (let iteration = 0; iteration < 24; iteration++) {
     let dangling = 0;
     for (let i = 0; i < count; i++) if (!weight[i]) dangling += rank[i];
     const next = new Float64Array(count).fill((0.15 + 0.85 * dangling) / count);
-    for (const l of links) {
-      const a = index.get(l.source),
-        b = index.get(l.target);
-      next[b] += (0.85 * rank[a] * l.weight) / weight[a];
-    }
+    for (const l of allLinks)
+      next[l.b] += (0.85 * rank[l.a] * l.weight) / weight[l.a];
     let error = 0;
     for (let i = 0; i < count; i++) error += Math.abs(next[i] - rank[i]);
     rank = next;
     if (error < 1e-7) break;
   }
+  for (let i = 0; i < count; i++) allNodes[i].rank = rank[i];
+  const focus = new Set(data.focus);
+  const nodes = allNodes
+    .sort(
+      (a, b) =>
+        Number(focus.has(b.id)) - Number(focus.has(a.id)) ||
+        b.rank - a.rank ||
+        b.count - a.count
+    )
+    .slice(0, data.layoutLimit);
+  const positioned = new Set(nodes.map((n) => n.id));
+  const links = allLinks
+    .filter((l) => positioned.has(l.source) && positioned.has(l.target))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, data.layoutLimit * 3);
   const network = new graphology.DirectedGraph();
   for (const n of nodes) network.addNode(n.id);
   for (const l of links)
@@ -63,15 +71,15 @@ onmessage = ({ data }) => {
   });
   const partitions = new Map();
   nodes.forEach((n, i) => {
-    const key = neighbors[i].length ? communities[n.id] : "isolates";
+    const key = network.degree(n.id) ? communities[n.id] : "isolates";
     if (!partitions.has(key)) partitions.set(key, []);
     partitions.get(key).push(i);
   });
   const groups = new Map();
   for (const [partition, members] of partitions) {
     const hub = members.reduce((a, b) =>
-      rank[a] > rank[b] ||
-      (rank[a] === rank[b] && nodes[a].count > nodes[b].count)
+      nodes[a].rank > nodes[b].rank ||
+      (nodes[a].rank === nodes[b].rank && nodes[a].count > nodes[b].count)
         ? a
         : b
     );
@@ -79,14 +87,13 @@ onmessage = ({ data }) => {
     const group = {
       id: name,
       members,
-      rank: members.reduce((sum, v) => sum + rank[v], 0),
+      rank: members.reduce((sum, v) => sum + nodes[v].rank, 0),
     };
     groups.set(name, group);
     for (const v of members) nodes[v].community = name;
   }
-  const maximum = Math.max(...rank);
-  nodes.forEach((n, i) => {
-    n.rank = rank[i];
+  const maximum = nodes.reduce((max, n) => Math.max(max, n.rank), 0);
+  nodes.forEach((n) => {
     n.radius =
       (n.community ? 3 : 1) +
       Math.log2(1 + n.count) * 2.5 +
@@ -162,9 +169,9 @@ onmessage = ({ data }) => {
     .force("y", d3.forceY((n) => n.cy).strength(0.08))
     .force("z", spatial ? d3.forceZ((n) => n.cz).strength(0.08) : null)
     .tick(35);
-  previous = new Map(nodes.map((n) => [n.id, n]));
   postMessage({
     dimensions,
+    ranks: allNodes.map(({ id, rank }) => [id, rank]),
     nodes: nodes.map(({ id, x, y, z, rank, radius, community }) => ({
       id,
       x,

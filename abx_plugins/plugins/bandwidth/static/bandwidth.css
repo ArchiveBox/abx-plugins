@@ -271,7 +271,7 @@
   border-radius: 2px;
 }
 #bandwidth-ui .day-chart {
-  padding: 3px 6px 0;
+  padding: 2px 5px 0;
   border-radius: 4px;
   background: var(--darkened-bg, #f3f6fb);
   color: var(--card-accent);
@@ -279,7 +279,7 @@
 #bandwidth-ui .day-chart svg {
   display: block;
   width: 100%;
-  height: 34px;
+  height: 24px;
   background: linear-gradient(
       to top,
       var(--hairline-color, #dbe2ea) 1px,
@@ -323,20 +323,36 @@
   color: var(--body-quiet-color, #64748b);
 }
 
-#bandwidth-ui .sites-card .traffic-strip {
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 3px 6px;
+#bandwidth-ui .sites-card {
+  padding: 4px 6px;
+  gap: 3px;
+  line-height: 1.2;
 }
-#bandwidth-ui .sites-card .traffic-values .metric {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+#bandwidth-ui .sites-card .card-icon {
+  padding: 2px;
+}
+#bandwidth-ui .sites-card .chart-axis {
+  line-height: 1.2;
+}
+#bandwidth-ui .sites-card .rate-badge {
+  line-height: 1.2;
+}
+#bandwidth-ui .site-rate {
+  background: var(--card-tint);
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 650;
 }
 #bandwidth-ui .site-summary {
   display: flex;
+  align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0 4px;
+}
+#bandwidth-ui .site-summary .metric-chip {
+  padding-block: 0;
+  white-space: nowrap;
 }
 
 #bandwidth-ui .cards,

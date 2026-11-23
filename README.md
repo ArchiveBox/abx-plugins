@@ -129,9 +129,11 @@ The host owns database queries and domain grouping;
 plugins own routes, bounded artifact reads, OS sampling, and rendering.
 
 `networkgraph` registers `/admin/graph/` and uses the vendored Three.js-based
-3d-force-graph 1.80.2 bundle. Metadata streams in 512-row primary-key pages; saved
-outlinks follow in 32-capture pages with a 64 KiB read budget per capture. Targets
-resolve against the existing URL index. Missing or malformed artifacts leave
+3d-force-graph 1.80.2 bundle. Metadata streams in 512-row primary-key pages. The
+overview reads saved outlinks from the newest 50,000 captures, in 32-capture
+pages with a 64 KiB read budget per capture. Other captures are available from
+domain selection and expansion. Targets
+are grouped with captured sites by domain. Missing or malformed artifacts leave
 discovery relationships available. Weighted PageRank, Louvain link communities,
 and d3 layout run in a browser worker using vendored libraries. Unlinked sites
 are omitted from the canvas when there are more than 200, but remain searchable.
@@ -140,8 +142,9 @@ XFN profile URLs and Creative Commons license deeds, legal code and badges are
 also excluded from graph relationships. Other pages on those sites remain eligible.
 The graph skips script, stylesheet, and font assets, along with shared CDN
 endpoints, Bootstrap homepage references, and Disqus widget links.
-Nodes use recorded favicons, logarithmic snapshot counts and
-PageRank; only the configured domain budget is drawn. The 3D view lays out
+Nodes use recorded favicons, logarithmic snapshot counts and PageRank. The
+canvas draws up to 850 domains and 1,700 links, prioritizing the selected
+neighborhood. The 3D view lays out
 communities and their members in depth. Dragging a node pulls on springs along
 its links. Nearby nodes sway and settle into new positions for the session.
 Incoming and outgoing links use distinct colors and the same springs. Wheel

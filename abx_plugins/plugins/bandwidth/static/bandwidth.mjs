@@ -10,6 +10,7 @@ const historyKey = `archivebox-bandwidth-v2:${root.dataset.monitorKey}`;
 const completed = new Map();
 const renderedReports = new Set();
 let savedAt = 0;
+let restoredWork = false;
 let cursor = "",
   previous = null,
   busy = false,
@@ -66,7 +67,6 @@ function group(map, id) {
       measured: false,
       rate: 0,
       history: [],
-      owners: new Set(),
     });
   }
   return map.get(id);
@@ -114,7 +114,7 @@ function trafficWindows(group, now) {
   }
   return [recent, hour, day];
 }
-function restoreSites() {
+function restoreHistory() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(historyKey) || "{}");
     totalBytes = saved.totalBytes || 0;
@@ -142,11 +142,32 @@ function restoreSites() {
       site.measured = site.minutes.size > 0;
       if (!site.measured) sites.delete(id);
     }
+    for (const [key, map] of [
+      ["plugins", plugins],
+      ["crawls", crawls],
+    ]) {
+      for (const { id, label, href, seconds, minutes, peak, last } of saved
+        .work?.[key] || []) {
+        const work = group(map, id);
+        Object.assign(work, {
+          label,
+          href,
+          seconds: new Map(seconds),
+          minutes: new Map(minutes),
+          peak,
+          last,
+        });
+        work.bytes = trafficWindows(work, Date.now() / 1000)[2].bytes;
+        work.measured = work.minutes.size > 0;
+        if (!work.measured) map.delete(id);
+      }
+    }
+    restoredWork = Boolean(saved.work);
   } catch {
     // The dashboard also works when storage is unavailable.
   }
 }
-function saveSites() {
+function saveHistory() {
   try {
     const history = [...sites.values()]
       .filter((s) => s.minutes.size)
@@ -162,9 +183,31 @@ function saveSites() {
     const now = Date.now() / 1000;
     for (const [id, time] of completed)
       if (now - time >= 86400) completed.delete(id);
+    const work = {};
+    for (const [key, map] of [
+      ["plugins", plugins],
+      ["crawls", crawls],
+    ]) {
+      work[key] = [...map.values()]
+        .filter((g) => g.minutes.size)
+        .map(({ id, label, href, seconds, minutes, peak, last }) => ({
+          id,
+          label,
+          href,
+          seconds: [...seconds],
+          minutes: [...minutes],
+          peak,
+          last,
+        }));
+    }
     sessionStorage.setItem(
       historyKey,
-      JSON.stringify({ sites: history, completed: [...completed], totalBytes })
+      JSON.stringify({
+        sites: history,
+        work,
+        completed: [...completed],
+        totalBytes,
+      })
     );
   } catch {
     // Storage limits do not affect live measurements.
@@ -273,7 +316,6 @@ function ingest(data) {
     site.active++;
     site.href ||= flow.site_url;
     site.favicon ||= data.favicons?.[flow.site];
-    if (site.owners.size < 12) site.owners.add(owner.name);
     const nic = ifaceFor(flow, owner);
     if (nic) {
       nic.active++;
@@ -316,9 +358,9 @@ function ingest(data) {
       site.hostnames ||= new Set();
       if (site.hostnames.size < 12) site.hostnames.add(entry.hostname);
       site.last = Math.max(site.last, report.time);
-      if (site.owners.size < 12) site.owners.add(owner.name);
       const amount = { bytes: entry.bytes, hits: entry.hits, rtt: null };
-      for (const g of workGroups(owner)) addTraffic(g, report.time, amount);
+      if (!alreadyCounted || !restoredWork)
+        for (const g of workGroups(owner)) addTraffic(g, report.time, amount);
       if (!alreadyCounted) {
         addTraffic(site, report.time, amount);
         transferred += entry.bytes;
@@ -357,7 +399,7 @@ function ingest(data) {
   $("clock").textContent = new Date(data.time * 1000).toLocaleTimeString();
   render();
   if (now - savedAt >= 30) {
-    saveSites();
+    saveHistory();
     savedAt = now;
   }
 }
@@ -436,7 +478,7 @@ function dayBins(site, now) {
   }
   return bins;
 }
-function dayChart(bins, maximum) {
+function dayChart(bins, maximum, peak, latency) {
   const panel = el("div", null, "day-chart");
   const plot = svg("svg");
   plot.setAttribute("viewBox", "0 0 96 28");
@@ -458,11 +500,21 @@ function dayChart(bins, maximum) {
     plot.append(bars);
   }
   const axis = el("div", null, "chart-axis");
-  axis.append(
-    el("span", "−24h"),
-    el("span", maximum ? `${bytes(maximum / 900)}/s` : "—"),
-    el("span", "Now")
-  );
+  const summary = el("span", null, "site-summary");
+  if (maximum) summary.append(el("span", `${bytes(maximum / 900)}/s`));
+  if (peak > 0)
+    summary.append(
+      chip(
+        "peak",
+        "Peak download rate",
+        `${Math.round((peak * 8) / 1e6) || "<1"} Mbps`
+      )
+    );
+  if (latency != null)
+    summary.append(
+      chip("pulse", "Minimum observed RTT", `${Math.round(latency) || "<1"} ms`)
+    );
+  axis.append(el("span", "−24h"), summary, el("span", "Now"));
   panel.append(plot, axis);
   return panel;
 }
@@ -496,54 +548,41 @@ function renderCard(card, g, kind, chartMaximum) {
     const label = work ? "running" : g.active === 1 ? "socket" : "sockets";
     header.append(el("span", `${g.active} ${label}`, "status-badge started"));
   } else if (work) header.append(el("span", "Finished", "status-badge sealed"));
+  if (site) {
+    const badge = chip(
+      "receive",
+      "Live download rate",
+      g.rate ? `${bytes(g.rate)}/s` : "0B/s"
+    );
+    badge.classList.add("site-rate");
+    header.append(badge);
+  }
   card.replaceChildren(header);
 
   const traffic = el("div", null, "traffic-strip");
   const metrics = el("dl", null, "traffic-values");
   const averaged = !g.rate && g.windows[0].bytes > 0;
   const rate = averaged ? g.windows[0].bytes / 60 : g.rate;
-  metrics.append(
-    metric(
-      "receive",
-      averaged ? "1m avg" : "Download / sec",
-      g.measured ? `${bytes(rate)}/s` : "—"
-    )
-  );
   if (!site) {
     metrics.append(
+      metric(
+        "receive",
+        averaged ? "1m avg" : "Download / sec",
+        g.measured ? `${bytes(rate)}/s` : "—"
+      ),
       metric(
         "sum",
         nic ? "Interface downloads" : "Observed downloads",
         g.measured ? bytes(g.bytes) : "—"
       )
     );
-  }
-  traffic.append(metrics);
-  if (site) {
-    const summary = el("div", null, "site-summary");
-    if (g.peak > 0)
-      summary.append(
-        chip(
-          "peak",
-          "Peak download rate",
-          `${Math.round((g.peak * 8) / 1e6) || "<1"} Mbps peak`
-        )
-      );
-    if (g.windows[2].rtt != null)
-      summary.append(
-        chip(
-          "pulse",
-          "Minimum observed RTT",
-          `${Math.round(g.windows[2].rtt) || "<1"} ms min`
-        )
-      );
-    if (summary.childElementCount) traffic.append(summary);
-  } else {
+    traffic.append(metrics);
     const chart = sparkline(g.history);
     if (chart) traffic.append(chart);
+    card.append(traffic);
   }
-  card.append(traffic);
-  if (site) card.append(dayChart(g.bins, chartMaximum));
+  if (site)
+    card.append(dayChart(g.bins, chartMaximum, g.peak, g.windows[2].rtt));
 
   const details = el("div", null, "detail-strip");
   if (!site && g.peak > 0)
@@ -556,6 +595,10 @@ function renderCard(card, g, kind, chartMaximum) {
     );
   if (work) {
     if (g.disk) details.append(chip("disk", "Disk", bytes(g.disk)));
+    if (g.fg)
+      details.append(
+        chip("clock", "Foreground elapsed time", `${duration(g.fg)} fg`)
+      );
     details.append(
       chip(
         "cpu",
@@ -594,19 +637,14 @@ function renderCard(card, g, kind, chartMaximum) {
       chip("interfaces", "Local IP", `LAN ${g.local || "—"}`),
       chip("sites", "WAN IP", `WAN ${g.wan || "—"}`)
     );
-  } else if (!work) {
-    for (const plugin of [...g.owners].slice(0, 3))
-      details.append(chip("plugins", "Plugin", plugin));
-    if (g.owners.size > 3)
-      details.append(el("span", `+${g.owners.size - 3}`, "metric-chip"));
   }
   if (details.childElementCount) card.append(details);
 
-  if (g.windows.some(({ bytes, hits }) => bytes || hits)) {
+  if (site || g.windows.some(({ bytes, hits }) => bytes || hits)) {
     const windows = el("div", null, site ? "window-tiles" : "window-strip");
     if (!site) windows.append(icon("clock"));
     g.windows.forEach(({ bytes: value, hits }, index) => {
-      if (!value && !hits) return;
+      if (!site && !value && !hits) return;
       const item = el("span", null, "rate-badge");
       const label = ["1m", "1h", "24h"][index];
       item.title = [
@@ -615,13 +653,11 @@ function renderCard(card, g, kind, chartMaximum) {
         "Downloads in the last 24 hours",
       ][index];
       item.append(el("b", label));
-      if (value) item.append(el("strong", bytes(value)));
-      if (site && hits) {
+      if (site || value) item.append(el("strong", bytes(value)));
+      if (site) {
         const estimate = el(
           "span",
-          `≈ ${hits.toLocaleString()} ${hits === 1 ? "hit" : "hits"}/${
-            ["m", "h", "day"][index]
-          }`,
+          `≈ ${hits.toLocaleString()} req`,
           "hit-estimate"
         );
         estimate.title = "Completed downloads and observed connections";
@@ -724,11 +760,9 @@ $("play").onclick = () => {
   }
 };
 $("reset").onclick = () => {
+  window.removeEventListener("pagehide", saveHistory);
   try {
     sessionStorage.removeItem(historyKey);
-    sites.clear();
-    completed.clear();
-    totalBytes = 0;
   } catch {}
   location.reload();
 };
@@ -740,8 +774,8 @@ document.addEventListener("visibilitychange", () => {
     poll();
   }
 });
-window.addEventListener("pagehide", saveSites);
-restoreSites();
+window.addEventListener("pagehide", saveHistory);
+restoreHistory();
 render();
 setInterval(poll, Number(root.dataset.pollMs));
 poll();

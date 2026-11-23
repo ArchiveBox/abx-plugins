@@ -9,7 +9,17 @@ import re
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).parent
-METADATA_DOMAINS = frozenset({"w3.org", "schema.org", "ogp.me", "w.org"})
+METADATA_DOMAINS = frozenset(
+    {
+        "cloudflareinsights.com",
+        "google-analytics.com",
+        "googletagmanager.com",
+        "ogp.me",
+        "schema.org",
+        "w.org",
+        "w3.org",
+    },
+)
 ASSET_HOSTS = frozenset(
     {
         "ajax.googleapis.com",
@@ -28,6 +38,11 @@ ASSET_SUFFIXES = (".css", ".js", ".mjs", ".woff", ".woff2", ".ttf", ".eot")
 BOILERPLATE_PATHS = {
     "gmpg.org": {"/xfn/1", "/xfn/11"},
     "getbootstrap.com": {""},
+    "reddit.com": {"/submit"},
+    "facebook.com": {"/sharer", "/sharer/sharer.php"},
+    "linkedin.com": {"/sharing/share-offsite", "/shareArticle"},
+    "x.com": {"/intent/tweet", "/intent/post", "/share"},
+    "twitter.com": {"/intent/tweet", "/intent/post", "/share"},
     "disqus.com": {
         "",
         "/privacy-policy",
@@ -63,6 +78,11 @@ def is_boilerplate_url(url):
     if hostname == "disqus.com" or hostname.endswith(".disqus.com"):
         return path == "/embed" or path.startswith("/embed/")
     return hostname == "disquscdn.com" or hostname.endswith(".disquscdn.com")
+
+
+def target_domains(host, request, urls):
+    group = getattr(host, "group_snapshot_urls", None) or host.resolve_snapshot_urls
+    return group(request, urls)
 
 
 def get_urlpatterns(host):
@@ -143,7 +163,7 @@ def view(request, *, host, data=False, asset=None):
     if len(request.META.get("QUERY_STRING", "")) > 4096:
         return JsonResponse({}, status=400)
     key = (
-        "collection-graph:v3:"
+        "collection-graph:v4:"
         + sha256(
             f"{config['DATA_DIR']}:{batch}:{request.GET.urlencode()}".encode(),
         ).hexdigest()
@@ -203,7 +223,7 @@ def neighbors(host, request, domain, after, batch):
     edges = Counter()
     nodes = set()
     # Each request reads at most 32 x 64 KiB; no archive-wide file walk.
-    # Each saved target is resolved through the host's existing URL index.
+    # Group saved targets the same way as the collection catalog.
     captures = []
     for record in page["records"]:
         source = record["domain"]
@@ -236,7 +256,7 @@ def neighbors(host, request, domain, after, batch):
                         urls.append(url)
         except OSError:
             pass
-        targets.update(host.resolve_snapshot_urls(request, urls).values())
+        targets.update(target_domains(host, request, urls).values())
         for target in targets:
             if target and target != source:
                 edges[source, target] += 1
@@ -356,12 +376,11 @@ def outlink_page(host, request, after):
     candidates = sorted(urls)
     for start in range(0, len(candidates), 256):
         resolved.update(
-            host.resolve_snapshot_urls(request, candidates[start : start + 256]),
+            target_domains(host, request, candidates[start : start + 256]),
         )
     edges = Counter()
     for source, targets in sources:
-        for target in targets:
-            domain = resolved.get(target)
+        for domain in {resolved.get(target) for target in targets}:
             if source and domain and source != domain:
                 edges[source, domain] += 1
     return {
