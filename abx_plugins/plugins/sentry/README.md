@@ -8,7 +8,7 @@ Sentry SDK, OpenTelemetry, or the plugin runtime, and emit no browser SDK markup
 
 From the collection directory:
 
-```bash
+```console
 SENTRY_ENABLED=false archivebox install sentry
 archivebox config --set SENTRY_DSN='YOUR_PROJECT_DSN' SENTRY_ENABLED=True
 ```
