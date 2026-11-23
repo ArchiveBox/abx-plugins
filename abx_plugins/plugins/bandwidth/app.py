@@ -106,12 +106,8 @@ def view(request, *, host, data=False, asset=None):
     if (after and len(after) > 36) or (before and len(before) > 36):
         return JsonResponse({}, status=400)
     limit = max(16, min(128, int(config.get("BANDWIDTH_MAX_PROCESSES", 128))))
-    key = (
-        "live-network:"
-        + sha256(
-            f"{config['DATA_DIR']}:{limit}:{after}:{before}:{period}:{ids}".encode()
-        ).hexdigest()
-    )
+    cache_scope = f"{config['DATA_DIR']}:{limit}:{after}:{before}:{period}:{ids}"
+    key = "live-network:" + sha256(cache_scope.encode()).hexdigest()
     result = cache.get(key)
     if result is None:
         try:
