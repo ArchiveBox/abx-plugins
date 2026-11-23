@@ -193,6 +193,43 @@ def test_opencode_defaults_to_the_archivebox_collection():
     assert settings["timeout"] == 120
 
 
+@pytest.mark.parametrize("enabled", [False, True])
+def test_opencode_uses_native_otlp_only_when_sentry_enabled(tmp_path, enabled):
+    from abx_plugins.plugins.opencode import runtime
+
+    settings = runtime._settings(
+        {
+            "SENTRY_ENABLED": enabled,
+            "SENTRY_DSN": "http://public@localhost:4318/prefix/123",
+            "SENTRY_TRACES_SAMPLE_RATE": 0.25,
+            "SENTRY_ENVIRONMENT": "agent test",
+            "SENTRY_RELEASE": "archivebox@test",
+        },
+        tmp_path,
+    )
+    env = runtime.process_environment(settings, {})
+    config = json.loads(env["OPENCODE_CONFIG_CONTENT"])
+    if enabled:
+        assert config["experimental"]["openTelemetry"] is True
+        assert (
+            env["OTEL_EXPORTER_OTLP_ENDPOINT"]
+            == "http://localhost:4318/prefix/api/123/integration/otlp"
+        )
+        assert (
+            env["OTEL_EXPORTER_OTLP_HEADERS"]
+            == "x-sentry-auth=sentry sentry_key=public"
+        )
+        assert env["OTEL_TRACES_SAMPLER"] == "parentbased_traceidratio"
+        assert env["OTEL_TRACES_SAMPLER_ARG"] == "0.25"
+        assert (
+            env["OTEL_RESOURCE_ATTRIBUTES"]
+            == "deployment.environment=agent%20test,service.version=archivebox%40test"
+        )
+    else:
+        assert "openTelemetry" not in config.get("experimental", {})
+        assert "sentry_key=public" not in env.get("OTEL_EXPORTER_OTLP_HEADERS", "")
+
+
 @pytest.mark.parametrize(
     "prefix",
     [

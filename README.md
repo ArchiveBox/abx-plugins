@@ -130,51 +130,28 @@ before loading optional dependencies or registering external integrations.
 The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
 opt-in Django error reporting and logging; it is disabled and has no DSN by default.
 
-#### Application lifecycle hooks
+An `AppConfig` may implement `render_page_head(self, request, config) -> str`.
+ArchiveBox calls it in admin/public UI heads with request-scoped machine settings
+(or current machine settings when `request` is `None`). Return `""` when disabled,
+otherwise safe Django-rendered HTML; use `json_script` for browser settings.
+Failures are logged per app and omitted without breaking the page. Archived
+content is unchanged.
 
-These in-process Python hooks are separate from executable `on_*` scripts.
-Declare only `app_module` in `config.json`; there is no separate EventBus module
-or monitoring-specific host registration path. All application modules are
-discovered regardless of their plugin enable flags. Keep module imports free of
-optional integration imports and initialization; each hook owns its enable checks.
-Use the plugin's `load_config(..., global_config=config, environ={})` to interpret
-already-resolved host settings without reapplying process environment overrides.
+An `app_module` may export synchronous `register_eventbus(bus, config) -> None`
+to attach native `bus.on(...)` handlers, services or `bus.middlewares`. ArchiveBox
+calls it once before dispatch on each crawl, binary-resolution and install bus,
+using the operation's resolved config, including applicable crawl/persona and
+runner overrides. Every application plugin is offered the bus; **the plugin
+owns enable checks** and must check before importing optional dependencies.
+Use `load_config(..., global_config=config, environ={})` to preserve host-resolved
+settings. Registration errors fail the operation; the host owns bus teardown.
+Process-wide initialization must tolerate multiple bus registrations.
 
-| Hook location and signature | Host call and configuration |
-| --- | --- |
-| `AppConfig.ready(self)` | Standard Django startup, once per application registry. Resolve process settings from `settings.CONFIG`; check enable flags before initialization. |
-| `AppConfig.render_page_head(self, request, config)` | Optional instance method called by `{% plugin_page_head %}` in the admin and public UI document heads. `request` is the current request, or `None` for requestless rendering; `config` is a JSON-compatible dictionary of resolved machine settings. |
-| `app.register_eventbus(bus, config)` | Optional synchronous module function called once for each ArchiveBox crawl, binary-resolution or install bus before dispatch. `config` is a JSON-compatible dictionary for that operation; crawl registration receives the runner's resolved crawl/persona/machine settings and overrides, following the existing configuration scope rules. |
-
-Page-head configuration reuses the request's machine configuration, resolving
-plugin fields through the same request-config helper when needed. Rendering
-without a request resolves machine configuration directly. Snapshot or persona
-settings do not enable browser integrations on the host UI. Return `""` when
-disabled. Return HTML rendered by Django templates (a safe string) when enabled;
-ordinary strings are escaped by the host. Use `json_script` for embedded settings,
-and expose only browser-required values, never the entire configuration. A failed
-page-head hook is logged with its app name and omitted; other plugins and the host
-page continue rendering. Archived documents are not modified.
-
-EventBus registration receives the actual bus, not a middleware factory or a
-Sentry adapter. The plugin may use native `bus.on(...)`, construct services on
-the bus, or append native middleware to `bus.middlewares`. The host neither filters
-plugins by enable flags nor interprets the return value. Disabled plugins return
-before importing optional dependencies. Registration errors propagate and fail
-the operation; the host owns dispatch and destruction of the bus. Process-wide
-initialization should be idempotent across multiple bus registrations, while
-per-bus registrations belong to the supplied bus. Bus configuration does not
-reconfigure integrations already initialized by Django's `ready()`.
-ArchiveBox's `services.runner.create_bus(config=..., **bus_options)` performs
-this registration when resolved config is available. Its crawl runner defers
-registration until asynchronous startup has loaded crawl state. Passing no config
-creates an unregistered bus; the caller must register apps before dispatch.
-
-Standalone abx-dl does not invoke these application lifecycle hooks. Plugins
-must continue to work without importing ArchiveBox or abx-dl; use the supplied
-bus, configuration and existing `host` interfaces for host operations. The
-[Sentry app](abx_plugins/plugins/sentry/app.py) demonstrates opt-in initialization,
-page-head rendering and native EventBus tracing through this single contract.
+ArchiveBox's `services.runner.create_bus(config=..., **bus_options)` registers
+apps immediately; crawl runners defer registration until their config is loaded.
+Standalone abx-dl does not call these application hooks. No separate EventBus
+metadata is needed beyond `app_module`. See the [Sentry app](abx_plugins/plugins/sentry/app.py)
+for an opt-in example; plugins must not import ArchiveBox or abx-dl.
 
 Call `abx_plugins.plugins.base.django.register_webhooks(model, *, events=None, status_events=None)`
 from `AppConfig.ready()` to register CRUD webhooks. `events` maps event names to

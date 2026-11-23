@@ -78,6 +78,34 @@ Keep postinstall enabled with `--no-optional`; disabling it would leave no binar
 The agent remains disabled by default; installing its executable does not enable
 the route or start the service.
 
+## Sentry tracing
+
+When the host's resolved `SENTRY_ENABLED` is true, the Agent process uses its
+native OpenTelemetry exporter and Vercel AI instrumentation. The destination and
+authentication header are derived from `SENTRY_DSN`; no destination is built in.
+`SENTRY_TRACES_SAMPLE_RATE` controls the native parent-based ratio sampler, and
+the configured environment/release become resource attributes. Restart OpenCode
+after changing these process settings. Disabled configurations add no Sentry
+exporter settings and import no Sentry or OpenTelemetry Python packages.
+
+OpenCode owns this telemetry pipeline; ArchiveBox does not install a second SDK
+or recreate its spans. The pinned OpenCode exporter sends native logs as well as
+traces to the same OTLP destination; its logs are independent of the Python SDK's
+`SENTRY_ENABLE_LOGS` setting. Existing explicitly configured OTLP export remains
+unchanged when the Sentry plugin is disabled.
+
+OpenCode 1.19.5 reports model, tool, usage and message attributes using AI SDK 6's
+native conventions. Its spans include `session.id` and
+`ai.telemetry.metadata.sessionId`, but it does not yet emit the
+`gen_ai.conversation.id` required by Sentry Conversations. Native trace export
+therefore does not guarantee an entry in the Conversations UI. The existing
+OpenCode plugin hooks cannot annotate the later AI spans; this integration does
+not fabricate conversation spans or replace the upstream tracer.
+
+See [Sentry's OTLP setup](https://docs.sentry.io/concepts/otlp/),
+[Agent Tracing](https://docs.sentry.io/platforms/javascript/guides/bun/agent-tracing/)
+and [conversation IDs](https://docs.sentry.io/product/agents/conversations/#conversation-id).
+
 ## Capture tasks
 
 The optional ArchiveBox adapter accepts a separate JSON submission at
