@@ -314,8 +314,23 @@ def _scan_candidate(candidate, terms, budget, rg_binary):
                     incomplete.update(active)
 
     try:
-        root = os.open(candidate.path, directory_flags)
+        archive_root = candidate.archive_root
+        parts = ()
+        if archive_root is not None:
+            if not candidate.path.is_relative_to(archive_root):
+                return found
+            parts = candidate.path.relative_to(archive_root).parts
+            if not parts or ".." in parts:
+                return found
+        root = os.open(archive_root or candidate.path, directory_flags)
         try:
+            # Resolving a path before opening it leaves a race if an ancestor
+            # is renamed or replaced with a symlink. Walk from the trusted
+            # archive directory, pinning each opened component by descriptor.
+            for name in parts:
+                child = os.open(name, directory_flags, dir_fd=root)
+                os.close(root)
+                root = child
             visit(root)
         finally:
             os.close(root)

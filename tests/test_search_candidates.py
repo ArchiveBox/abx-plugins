@@ -12,10 +12,12 @@ import pytest
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
 
 
-def run_candidates(plugin, tmp_path, candidates, terms, **limits):
+def run_candidates(plugin, tmp_path, candidates, terms, *, archive_root=None, **limits):
     manifest = json.loads((PLUGINS / plugin / "config.json").read_text())
     script, *args = manifest["commands"]["search_candidates"]
     request = {"terms": terms, "candidates": candidates, "limits": limits}
+    if archive_root:
+        request["archive_root"] = str(archive_root)
     proc = subprocess.run(
         [str(PLUGINS / plugin / script), *args],
         input=json.dumps(request) + "\n",
@@ -144,3 +146,31 @@ def test_sonic_cannot_certify_character_case_or_exact_substrings(tmp_path):
         [term("x", "Exact", "word"), term("y", "a phrase")],
     )
     assert rows["one"]["matches"] == {}
+
+
+def test_ripgrep_candidates_are_descendants_of_the_supplied_archive_root(tmp_path):
+    archive = tmp_path / "archive"
+    valid = archive / "user" / "snapshots" / "abc"
+    outside = tmp_path / "folder" / "abc"
+    for folder in (valid, outside):
+        folder.mkdir(parents=True)
+        (folder / "entry.txt").write_text("fixture")
+    (archive / "redirect").symlink_to(valid.parent, target_is_directory=True)
+    paths = [
+        valid,
+        archive / "redirect" / "abc",
+        outside,
+        archive,
+        archive / ".." / "folder" / "abc",
+    ]
+    rows = run_candidates(
+        "search_backend_ripgrep",
+        tmp_path,
+        [{"id": str(i), "path": str(path)} for i, path in enumerate(paths)],
+        [term("x", "fixture", "deep")],
+        archive_root=archive,
+    )
+    assert rows["0"]["matches"] == {"x": True}
+    for i in range(1, len(paths)):
+        assert rows[str(i)]["matches"] == {}
+        assert rows[str(i)]["usage"]["bytes"] == 0

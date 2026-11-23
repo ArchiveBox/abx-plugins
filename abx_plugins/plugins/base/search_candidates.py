@@ -37,6 +37,7 @@ class SearchTerm:
 class Candidate:
     id: str
     path: Path | None
+    archive_root: Path | None = None
 
 
 def id_spellings(value: str) -> tuple[str, ...]:
@@ -80,6 +81,9 @@ def run_candidates(search: CandidateSearch) -> int:
     if len(raw) > 512 * 1024:
         raise ValueError("Search request exceeds 512 KiB")
     data = json.loads(raw)
+    archive_root = Path(data["archive_root"]) if "archive_root" in data else None
+    if archive_root and (not archive_root.is_absolute() or ".." in archive_root.parts):
+        raise ValueError("Expected an absolute archive root without parent references")
     candidates = []
     if len(data["candidates"]) > 64 or len(data["terms"]) > 128:
         raise ValueError("At most 64 candidates and 128 operands per request")
@@ -93,7 +97,7 @@ def run_candidates(search: CandidateSearch) -> int:
             raise ValueError(
                 "Expected a snapshot ID and optional absolute snapshot path",
             )
-        candidates.append(Candidate(row["id"], path))
+        candidates.append(Candidate(row["id"], path, archive_root))
     terms = [
         SearchTerm(item["key"], item["value"], item["mode"]) for item in data["terms"]
     ]

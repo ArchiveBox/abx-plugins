@@ -146,7 +146,10 @@ models and `request` when supplied by the view.
 
 A search provider registers `search` and `flush` in `config.json > commands`.
 It can also register `"search_candidates": ["search.py", "search_candidates"]`
-to evaluate content predicates against an authorized page of snapshot IDs. Input
+to evaluate content predicates against an authorized page of snapshot IDs.
+Disk-scanning hosts should send an absolute `archive_root` alongside `candidates`
+and lexical candidate paths beneath that directory. The scanner opens each path
+component relative to the trusted root and rejects symlinks and parent references. Input
 is one JSON object on stdin. Output is one flushed JSON object per candidate on
 stdout. A provider can return rows in the order they become available.
 
