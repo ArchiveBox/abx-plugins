@@ -27,6 +27,7 @@ import os
 import fnmatch
 import fcntl
 import hashlib
+import json
 import re
 import shutil
 import tempfile
@@ -47,8 +48,8 @@ PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-os.chdir(OUTPUT_DIR)
+SNAP_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(SNAP_DIR)
 
 
 def rel_output(path_str: str | None) -> str | None:
@@ -169,6 +170,77 @@ def run_git(
         )
 
 
+def reuse_checkout(url: str, ttl: int, binary: str) -> bool:
+    """Publish a single relative symlink to the original fetch."""
+    try:
+        if not ttl or os.environ.get("CACHE_CANDIDATES", "[]") == "[]":
+            return False
+        root = Path(os.environ["DATA_DIR"]).resolve()
+        hints = json.loads(os.environ["CACHE_CANDIDATES"])
+        matches = sorted(
+            (
+                hint
+                for hint in hints
+                if isinstance(hint, dict)
+                and isinstance(hint.get("url"), str)
+                and normalize_git_url(hint["url"]) == url
+            ),
+            key=lambda hint: hint.get("created_at", ""),
+            reverse=True,
+        )
+        for hint in matches[:3]:
+            try:
+                git_dir = (root / hint["snapdir"] / PLUGIN_DIR / ".git").resolve(
+                    strict=True,
+                )
+                source = git_dir.parent
+                if (
+                    git_dir.name != ".git"
+                    or source.name != PLUGIN_DIR
+                    or source == OUTPUT_DIR
+                    or not source.is_relative_to(root)
+                ):
+                    continue
+                age = time.time() - (git_dir / "FETCH_HEAD").stat().st_mtime
+                if not 0 <= age <= ttl:
+                    continue
+                origin = subprocess.check_output(
+                    [
+                        binary,
+                        "config",
+                        "--no-includes",
+                        "--file",
+                        git_dir / "config",
+                        "--get",
+                        "remote.origin.url",
+                    ],
+                    timeout=1,
+                )
+                if os.fsdecode(origin).rstrip("\n") != url:
+                    continue
+                with tempfile.TemporaryDirectory(prefix=".git-", dir=SNAP_DIR) as stage:
+                    staged = Path(stage) / "link"
+                    staged.symlink_to(
+                        os.path.relpath(source, SNAP_DIR),
+                        target_is_directory=True,
+                    )
+                    old = Path(stage) / "old"
+                    if OUTPUT_DIR.is_dir() and not OUTPUT_DIR.is_symlink():
+                        OUTPUT_DIR.rename(old)
+                    try:
+                        staged.replace(OUTPUT_DIR)
+                    except OSError:
+                        if old.exists():
+                            old.rename(OUTPUT_DIR)
+                        raise
+                return True
+            except (OSError, RuntimeError, subprocess.SubprocessError):
+                continue
+    except (KeyError, TypeError, ValueError, OSError, RuntimeError):
+        pass
+    return False
+
+
 def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Clone git repository.
@@ -205,6 +277,8 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
             # Never clear another live attempt; after all owners exit, startup
             # discards only this snapshot's scratch instead of accumulating GBs.
             fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if reuse_checkout(url, config.GIT_CACHE_TTL, binary):
+                return True, str(OUTPUT_DIR), ""
             acquisition_succeeded = False
             try:
                 if repo_dir.exists():
@@ -316,6 +390,10 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                             raise ValueError(
                                 f"Repository path collides with hook metadata: {entry.name}",
                             )
+                    if OUTPUT_DIR.is_symlink():
+                        OUTPUT_DIR.unlink()
+                    OUTPUT_DIR.mkdir(exist_ok=True)
+                    os.chdir(OUTPUT_DIR)
                     for entry in Path(".").iterdir():
                         if is_sidecar(entry.name):
                             continue

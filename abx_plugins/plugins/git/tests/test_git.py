@@ -334,3 +334,69 @@ def test_git_checks_out_remote_default_branch_and_retains_other_branches(tmp_pat
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_cache_reuses_original_checkout_until_fetch_expires(tmp_path):
+    import json
+
+    url = "https://github.com/example/cache-test"
+    upstream = tmp_path / "upstream"
+    subprocess.run(["git", "init", "-q", upstream], check=True)
+    (upstream / "README").write_text("archived bytes")
+    subprocess.run(["git", "-C", upstream, "add", "README"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            upstream,
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "seed",
+        ],
+        check=True,
+    )
+
+    def capture(name, previous, ttl):
+        snap = tmp_path / name
+        snap.mkdir(exist_ok=True)
+        result = subprocess.run(
+            [str(GIT_HOOK), "--url", url + "/blob/main/" + name],
+            cwd=snap,
+            env={
+                **os.environ,
+                "DATA_DIR": str(tmp_path),
+                "SNAP_DIR": str(snap),
+                "GIT_CACHE_TTL": str(ttl),
+                "CACHE_CANDIDATES": json.dumps(
+                    [{"snapdir": previous, "url": url + "/issues/1"}],
+                ),
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": f"url.{upstream.as_uri()}.insteadOf",
+                "GIT_CONFIG_VALUE_0": url,
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["output_str"] == "git"
+        assert (snap / "git/README").read_text() == "archived bytes"
+        return snap / "git"
+
+    source = capture("first", "absent", 60)
+    (source / "git.jsonl").write_text("source sidecar")
+    for name, previous in [("second", "first"), ("third", "second")]:
+        cached = capture(name, previous, 60)
+        assert cached.readlink() == Path(os.path.relpath(source, cached.parent))
+    assert not capture("third", "first", 0).is_symlink()
+    assert (source / "git.jsonl").read_text() == "source sidecar"
+    os.utime(source / ".git/FETCH_HEAD", (1, 1))
+    assert not capture("second", "first", 60).is_symlink()
+    assert (source / ".git/FETCH_HEAD").stat().st_mtime == 1

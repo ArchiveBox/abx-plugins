@@ -40,6 +40,12 @@
       "default": "git",
       "description": "Path to git binary"
     },
+    "GIT_CACHE_TTL": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 31536000,
+      "description": "Reuse a matching archived checkout for this many seconds since its fetch. Set to 0 to always download."
+    },
     "GIT_TIMEOUT": {
       "type": "integer",
       "default": 120,

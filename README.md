@@ -55,7 +55,15 @@ Hooks run with:
 - **Crawl hook output** = `CRAWL_DIR/<plugin>/...`
 - **Other plugin outputs** can be read via `../<other-plugin>/...` from your own output dir
 
-Git captures acquire a fresh shallow repository, all branch tips, and recursive
+Snapshot hooks may receive `CACHE_CANDIDATES`, a JSON list of records with
+`url`, `snapdir` (relative to `DATA_DIR`), and `created_at`. ArchiveBox provides
+sealed captures from the same owner, persona and visibility, preferring exact
+URLs and including nearby paths. Hints may be absent, stale or incomplete.
+Git uses `GIT_CACHE_TTL` (seconds, default one year, zero disables) to reuse
+a recent fetch via a single relative symlink at `git/`. Removing the source
+checkout breaks links to it. Runner logs written through the link are shared.
+
+On a cache miss, Git captures acquire a fresh shallow repository, all branch tips, and recursive
 submodules in `TMP_DIR/git/<hash of SNAP_DIR>/repo` before replacing the saved
 checkout. A failed acquisition preserves previous output. A local OS lock is
 inherited by Git processes so an interrupted hook cannot leave a live child whose

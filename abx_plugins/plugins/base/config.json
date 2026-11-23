@@ -23,6 +23,12 @@
       "description": "Runtime-derived install preflight cache keyed by binary name",
       "x-scope": "crawl_execution"
     },
+    "CACHE_CANDIDATES": {
+      "type": "string",
+      "default": "[]",
+      "description": "Runtime JSON list of prior snapshot URLs and collection-relative directories",
+      "x-scope": "crawl_execution"
+    },
     "SNAP_DIR": {
       "type": "string",
       "default": "",
