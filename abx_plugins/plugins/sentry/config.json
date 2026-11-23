@@ -23,7 +23,7 @@
           "install_args": [
             "sentry-sdk==2.75.0",
             "opentelemetry-sdk==1.45.2",
-            "opentelemetry-instrumentation-django==0.66b2",
+            "opentelemetry-instrumentation-django[asgi]==0.66b2",
             "opentelemetry-instrumentation-sqlite3==0.66b2",
             "opentelemetry-instrumentation-requests==0.66b2",
             "opentelemetry-instrumentation-urllib3==0.66b2"
@@ -60,6 +60,12 @@
       "minimum": 0.0,
       "maximum": 1.0,
       "description": "Fraction of server processes collecting continuous CPU profiles while traces are active. Zero disables profiling; restart after changes."
+    },
+    "SENTRY_PROFILE_LIFECYCLE": {
+      "type": "string",
+      "enum": ["trace", "manual"],
+      "default": "trace",
+      "description": "Profile only while spans are active (trace), or continuously for the enabled process lifetime (manual). Manual mode also covers worker work whose EventBus spans are exported after completion."
     },
     "SENTRY_SEND_DEFAULT_PII": {
       "type": "boolean",

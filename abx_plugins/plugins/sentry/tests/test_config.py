@@ -44,6 +44,10 @@ def test_runtime_loads_sdk_from_configured_library_root(tmp_path):
                 import sentry_sdk
                 assert Path(sentry_sdk.__file__).is_relative_to(library), sentry_sdk.__file__
                 assert sentry_sdk.VERSION == "2.75.0"
+                from opentelemetry.instrumentation.django.middleware import otel_middleware
+                assert otel_middleware._is_asgi_supported
+                import opentelemetry.instrumentation.asgi
+                assert Path(opentelemetry.instrumentation.asgi.__file__).is_relative_to(library)
                 sentry_sdk.get_client().close()
             """),
             str(tmp_path / "configured"),

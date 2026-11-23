@@ -20,6 +20,66 @@ _provider = None
 _sentry = None
 
 
+def shutdown():
+    if _sentry is not None:
+        if _sentry.get_client().options["profile_lifecycle"] == "manual":
+            _sentry.profiler.stop_profiler()
+        _sentry.flush()
+
+
+def register_hook_logs(bus, config):
+    """Consume the host bus's existing process streams, without rereading log files."""
+    assert _sentry is not None
+    sentry = _sentry
+    level = getattr(logging, config.SENTRY_LOG_LEVEL)
+
+    def attributes(event):
+        return {
+            "sentry.origin": "auto.log.archivebox.hook",
+            "plugin.name": event.plugin_name,
+            "hook.name": event.hook_name,
+            "abxbus.event_id": event.event_id,
+            "abxbus.event_parent_id": event.event_parent_id or "",
+            "process.output_dir": event.output_dir,
+        }
+
+    async def stdout(event):
+        if level <= logging.INFO:
+            sentry.logger.info(
+                event.line,
+                attributes={**attributes(event), "process.stream": "stdout"},
+            )
+
+    async def stderr(event):
+        # stderr is also used for ordinary progress; it is not proof of an error.
+        if level <= logging.INFO:
+            sentry.logger.info(
+                event.line,
+                attributes={**attributes(event), "process.stream": "stderr"},
+            )
+
+    async def completed(event):
+        failed = event.status == "failed" and not event.cancelled
+        severity = logging.ERROR if failed else logging.INFO
+        if level <= severity:
+            emit = sentry.logger.error if failed else sentry.logger.info
+            emit(
+                "Hook {hook} finished: {status} (exit {exit_code})",
+                hook=event.hook_name,
+                status=event.status,
+                exit_code=event.exit_code,
+                attributes={
+                    **attributes(event),
+                    "process.exit_code": event.exit_code,
+                    "process.cancelled": event.cancelled,
+                },
+            )
+
+    bus.on("ProcessStdoutEvent", stdout)
+    bus.on("ProcessStderrEvent", stderr)
+    bus.on("ProcessCompletedEvent", completed)
+
+
 def initialize(config):
     global _provider, _sentry
     if not config.SENTRY_ENABLED:
@@ -49,7 +109,16 @@ def initialize(config):
         sentry = import_module("sentry_sdk")
         logs = import_module("sentry_sdk.integrations.logging")
         tracing = import_module("opentelemetry.sdk.trace")
+        trace_api = import_module("opentelemetry.trace")
         sentry_otel = import_module("sentry_sdk.integrations.opentelemetry")
+
+        def link_telemetry(item, hint):
+            context = trace_api.get_current_span().get_span_context()
+            if context.is_valid:
+                item["trace_id"] = trace_api.format_trace_id(context.trace_id)
+                item["span_id"] = trace_api.format_span_id(context.span_id)
+            return item
+
         level = getattr(logging, config.SENTRY_LOG_LEVEL)
         integrations = [
             logs.LoggingIntegration(
@@ -71,11 +140,18 @@ def initialize(config):
             max_request_body_size="never",
             traces_sample_rate=config.SENTRY_TRACES_SAMPLE_RATE,
             profile_session_sample_rate=config.SENTRY_PROFILE_SESSION_SAMPLE_RATE,
-            profile_lifecycle="trace",
+            profile_lifecycle=config.SENTRY_PROFILE_LIFECYCLE,
             enable_logs=config.SENTRY_ENABLE_LOGS,
             enable_metrics=config.SENTRY_ENABLE_METRICS,
+            before_send_log=link_telemetry,
+            before_send_metric=link_telemetry,
             instrumenter="otel",
         )
+        if (
+            config.SENTRY_PROFILE_LIFECYCLE == "manual"
+            and config.SENTRY_PROFILE_SESSION_SAMPLE_RATE
+        ):
+            sentry.profiler.start_profiler()
         # A private provider leaves the host's global OpenTelemetry provider alone.
         _provider = tracing.TracerProvider()
         _provider.add_span_processor(sentry_otel.SentrySpanProcessor())

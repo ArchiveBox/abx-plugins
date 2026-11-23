@@ -8,13 +8,19 @@ if (window.Sentry) {
     Sentry.init({
         ...config,
         integrations: [
-            Sentry.browserTracingIntegration(),
+            Sentry.browserTracingIntegration({
+                enableReportPageLoaded: true,
+                beforeStartSpan: (options) => ({...options, name: location.pathname}),
+            }),
             ...(config.enableLogs ? [Sentry.consoleLoggingIntegration({levels: ['warn', 'error']})] : []),
         ],
         tracePropagationTargets: [new RegExp('^' + location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:/|$)'), /^\//],
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: 0,
     });
+    Sentry.setUser(config.user || null);
+    // Background progress polling must not keep page-load spans open indefinitely.
+    window.addEventListener('load', () => Sentry.reportPageLoaded(), {once: true});
     if (config.enableMetrics) {
         window.addEventListener('load', function () {
             Sentry.metrics.count('archivebox.ui.page_load', 1);

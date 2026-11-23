@@ -29,6 +29,16 @@ class AppConfig(DjangoAppConfig):
             return ""
         from django.template.loader import render_to_string
 
+        user = getattr(request, "user", None)
+        user_info = None
+        if (
+            resolved.SENTRY_SEND_DEFAULT_PII
+            and user is not None
+            and user.is_authenticated
+        ):
+            user_info = {"id": str(user.pk), "username": user.get_username()}
+            if getattr(user, "email", None):
+                user_info["email"] = user.email
         return render_to_string(
             "sentry/head.html",
             {
@@ -40,6 +50,7 @@ class AppConfig(DjangoAppConfig):
                     "tracesSampleRate": resolved.SENTRY_TRACES_SAMPLE_RATE,
                     "enableLogs": resolved.SENTRY_ENABLE_LOGS,
                     "enableMetrics": resolved.SENTRY_ENABLE_METRICS,
+                    "user": user_info,
                 },
             },
             request=request,
@@ -58,12 +69,18 @@ class AppConfig(DjangoAppConfig):
         )
         if not config.SENTRY_ENABLED:
             return
-        from .runtime import initialize
+        from .runtime import initialize, shutdown
 
         try:
             initialize(config)
+            self._shutdown = shutdown
         except (ValueError, RuntimeError) as error:
             raise ImproperlyConfigured(str(error)) from error
+
+    def shutdown(self):
+        close = getattr(self, "_shutdown", None)
+        if close is not None:
+            close()
 
 
 def register_eventbus(bus, config):
@@ -77,9 +94,11 @@ def register_eventbus(bus, config):
     )
     if not resolved.SENTRY_ENABLED:
         return
-    from .runtime import initialize
+    from .runtime import initialize, register_hook_logs
     from abxbus.middlewares import OtelTracingMiddleware
 
     provider = initialize(resolved)
     assert provider is not None
     bus.middlewares.append(OtelTracingMiddleware(tracer=provider.get_tracer("abxbus")))
+    if resolved.SENTRY_ENABLE_LOGS:
+        register_hook_logs(bus, resolved)

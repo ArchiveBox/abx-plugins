@@ -158,8 +158,9 @@ there. App registration is independent of hook enable flags.
 ArchiveBox exposes its resolved process configuration through Django's
 `settings.CONFIG`; apps can pass `settings.CONFIG.model_dump(mode="json")` to
 `load_config(global_config=...)` in `ready()` without importing ArchiveBox.
-Apps must check their own enable flag
-before loading optional dependencies or registering external integrations.
+Apps must check their own enable flag before loading optional dependencies or
+registering external integrations. `app_module` plugins with `x-auto-run: false`
+keep their explicit enable flag independently of the crawl's `PLUGINS` selection.
 The [Sentry plugin](abx_plugins/plugins/sentry/README.md) uses this hook for
 opt-in Django error reporting and logging; it is disabled and has no DSN by default.
 
@@ -169,6 +170,10 @@ ArchiveBox calls it in admin/public UI heads with request-scoped machine setting
 otherwise safe Django-rendered HTML; use `json_script` for browser settings.
 Failures are logged per app and omitted without breaking the page. Archived
 content is unchanged.
+
+An `AppConfig` may implement synchronous `shutdown() -> None` to flush or close
+resources during HTTP worker shutdown. It runs off the event loop; failures are
+logged without skipping other apps. Disabled apps must keep cleanup a no-op.
 
 An `app_module` may export synchronous `register_eventbus(bus, config) -> None`
 to attach native `bus.on(...)` handlers, services or `bus.middlewares`. ArchiveBox
