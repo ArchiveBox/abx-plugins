@@ -59,6 +59,24 @@ class AppConfig(DjangoAppConfig):
         from .runtime import initialize
 
         try:
-            initialize(config, django=True)
+            initialize(config)
         except (ValueError, RuntimeError) as error:
             raise ImproperlyConfigured(str(error)) from error
+
+
+def register_eventbus(bus, config):
+    """ArchiveBox offers the bus; this plugin decides whether to attach tracing."""
+    resolved = load_config(
+        CONFIG_PATH,
+        global_config=config,
+        hydrate_binaries=False,
+        hydrate_user_agent=False,
+    )
+    if not resolved.SENTRY_ENABLED:
+        return
+    from .runtime import initialize
+    from abxbus.middlewares import OtelTracingMiddleware
+
+    provider = initialize(resolved)
+    assert provider is not None
+    bus.middlewares.append(OtelTracingMiddleware(tracer=provider.get_tracer("abxbus")))

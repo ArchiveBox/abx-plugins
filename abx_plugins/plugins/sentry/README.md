@@ -1,6 +1,6 @@
 # Sentry
 
-Optional monitoring for Django and abx-dl, **disabled by default** with an **empty
+Optional monitoring for ArchiveBox, **disabled by default** with an **empty
 DSN**. A DSN alone never enables reporting. Disabled processes do not import the
 Sentry SDK, OpenTelemetry, or the plugin runtime, and emit no browser SDK markup.
 
@@ -13,8 +13,7 @@ SENTRY_ENABLED=false archivebox install sentry
 archivebox config --set SENTRY_DSN='YOUR_PROJECT_DSN' SENTRY_ENABLED=True
 ```
 
-For standalone downloads, use `abx-dl install sentry` and `abx-dl config --set`
-with the same settings. Restart servers and workers after configuration changes.
+Restart servers and workers after configuration changes.
 The Machine configuration UI uses the same settings. Installation is explicit;
 startup never downloads packages. No ArchiveBox reporting destination is built in.
 
@@ -42,19 +41,19 @@ startup never downloads packages. No ArchiveBox reporting destination is built i
 
 ## Host hooks
 
-`config.json` declares `app_module`, `eventbus_module`, settings and optional
+`config.json` declares `app_module`, settings and optional
 pinned dependencies. ArchiveBox registers the native Django `AppConfig`; `ready()`
 reads `settings.CONFIG.model_dump(mode="json")` and initializes the SDK only after
 explicit opt-in. Its `render_page_head(request, config)` hook renders browser setup
 using the current machine configuration and Django's safe JSON serialization.
 The plugin imports neither ArchiveBox nor abx-dl.
 
-The host catalog checks the enable flag before importing `eventbus_module` and
-calling `get_eventbus_middlewares(config)`. The plugin returns the bus's native
+ArchiveBox calls `app.register_eventbus(bus, config)` for each new bus. The plugin
+checks its own enable flag before importing its runtime and attaching the native
 `OtelTracingMiddleware`, backed by a private tracer provider and Sentry's native
-span processor. Process integrations stay enabled independently of a download's
-`--plugins` capture selection. Child extractors do not initialize their own SDK;
-their process and handler spans are recorded by the host bus.
+span processor. Standalone abx-dl never calls this hook or initializes Sentry.
+Child extractors do not initialize their own SDK; their process and handler spans
+are recorded by ArchiveBox's bus.
 
 See the upstream [OpenTelemetry Django instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html),
 [Sentry metrics](https://docs.sentry.io/platforms/python/metrics/) and
