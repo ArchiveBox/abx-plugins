@@ -21,7 +21,10 @@ onmessage = ({ data }) => {
     .filter((l) => index.has(l.source) && index.has(l.target))
     .map((l) => ({ ...l }));
   const count = nodes.length;
-  if (!count) return;
+  if (!count) {
+    postMessage({ nodes: [], communities: [] });
+    return;
+  }
   let rank = new Float64Array(count).fill(1 / count);
   const weight = new Float64Array(count),
     neighbors = nodes.map(() => []);

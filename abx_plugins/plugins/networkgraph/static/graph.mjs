@@ -111,6 +111,8 @@ function loadIcons() {
 function nodeIcon(n) {
   // Small low-ranked sites use inexpensive geometry; prominent sites use saved icons.
   if (!n.favicon) return undefined;
+  if (n.sprite && n.spriteUrl === n.favicon) return n.sprite;
+  n.spriteUrl = n.favicon;
   const key = n.favicon;
   if (!icons.has(key)) {
     const material = new SpriteMaterial({
@@ -153,7 +155,6 @@ worker.onmessage = ({ data }) => {
   layoutBusy = false;
   communityLabels = data.communities;
   layout();
-  if (layoutDirty) requestLayout();
 };
 function requestLayout() {
   layoutDirty = true;
@@ -161,13 +162,15 @@ function requestLayout() {
   layoutBusy = true;
   layoutDirty = false;
   worker.postMessage({
-    nodes: [...nodes.values()].slice(0, maxNodes).map((n) => ({
-      id: n.id,
-      count: n.count || 0,
-      fx: n.fx,
-      fy: n.fy,
-      fz: n.fz,
-    })),
+    nodes: drawableNodes()
+      .slice(0, maxNodes)
+      .map((n) => ({
+        id: n.id,
+        count: n.count || 0,
+        fx: n.fx,
+        fy: n.fy,
+        fz: n.fz,
+      })),
     links: [...links.values()].map((l) => ({
       source: end(l.source),
       target: end(l.target),
@@ -276,7 +279,8 @@ function merge(data, source, scan = false) {
       nodes.set(row.id, n);
       changed = true;
     } else {
-      if (row.count != null && row.count !== n.count) changed = true;
+      if (row.count != null || (row.favicon && row.favicon !== n.favicon))
+        changed = true;
       const count = (n.count || 0) + (row.count || 0),
         size = (n.size || 0) + (row.size || 0);
       Object.assign(n, { ...row, favicon: row.favicon || n.favicon });
@@ -287,11 +291,14 @@ function merge(data, source, scan = false) {
     for (const id of [edge.source, edge.target])
       if (!nodes.has(id)) nodes.set(id, { id, count: 0, captures: new Map() });
     const id = `${edge.source}\0${edge.target}`;
-    if (links.has(id))
-      links.get(id).value = scan
-        ? links.get(id).value + edge.value
-        : Math.max(links.get(id).value, edge.value);
-    else if (links.size < maxNodes * 6) {
+    if (links.has(id)) {
+      const link = links.get(id);
+      const value = scan
+        ? link.value + edge.value
+        : Math.max(link.value, edge.value);
+      changed ||= value !== link.value;
+      link.value = value;
+    } else if (links.size < maxNodes * 6) {
       links.set(id, { ...edge });
       changed = true;
     }
@@ -301,7 +308,11 @@ function merge(data, source, scan = false) {
     if (n && n.captures.size < 64) n.captures.set(capture.id, capture);
   }
   if (source) source.sampled = (source.sampled || 0) + (data.sampled || 0);
-  if (changed || scan) layoutDirty = true;
+  if (changed) layoutDirty = true;
+  root.dataset.loaded = String(sampled);
+  root.dataset.complete = String(catalogDone);
+  root.dataset.linksComplete = String(linksDone);
+  $("snapshot-count").textContent = sampled.toLocaleString();
   if (selected) details();
 }
 function paint() {
@@ -311,21 +322,31 @@ function paint() {
     .linkWidth(graph.linkWidth())
     .linkDirectionalParticles(graph.linkDirectionalParticles());
 }
+function drawableNodes() {
+  const connected = new Set();
+  for (const link of links.values()) {
+    connected.add(end(link.source));
+    connected.add(end(link.target));
+  }
+  const hideIsolates = nodes.size - connected.size > 200;
+  return [...nodes.values()].filter(
+    (n) => !hideIsolates || connected.has(n.id) || n === selected
+  );
+}
 function layout() {
-  const ranked = [...nodes.values()].sort(
+  const ranked = drawableNodes().sort(
     (a, b) => (b.rank || 0) - (a.rank || 0) || (b.count || 0) - (a.count || 0)
   );
   visible = ranked.slice(0, maxNodes);
-  if (selected && !visible.includes(selected))
-    visible[visible.length - 1] = selected;
+  if (selected && !visible.includes(selected)) visible.push(selected);
   const ids = new Set(visible.map((n) => n.id));
   visibleLinks = [...links.values()]
     .filter((l) => ids.has(end(l.source)) && ids.has(end(l.target)))
-    .map((l) => ({
-      ...l,
-      source: nodes.get(end(l.source)),
-      target: nodes.get(end(l.target)),
-    }));
+    .map((l) => {
+      l.source = nodes.get(end(l.source));
+      l.target = nodes.get(end(l.target));
+      return l;
+    });
   adjacency.clear();
   for (const n of nodes.values()) {
     n.incoming = 0;
@@ -349,7 +370,10 @@ function layout() {
   root.dataset.loaded = String(sampled);
   root.dataset.complete = String(catalogDone);
   root.dataset.linksComplete = String(linksDone);
-  $("node-count").textContent = visible.length.toLocaleString();
+  root.dataset.rendered = String(visible.length);
+  $(
+    "node-count"
+  ).textContent = `${visible.length.toLocaleString()} / ${nodes.size.toLocaleString()}`;
   $("link-count").textContent = number.format(visibleLinks.length);
   $("snapshot-count").textContent = sampled.toLocaleString();
   labelNodes = visible.slice(0, 20).map((n) => {
@@ -568,6 +592,7 @@ async function step() {
     else if (params.get("scan") === "links") {
       outlinkCursor = data.cursor;
       linksDone = !data.cursor;
+      if (linksDone) requestLayout();
     } else {
       sampled += data.sampled;
       catalogCursor = data.cursor;
@@ -618,11 +643,6 @@ $("search").onkeydown = (e) => {
   const value = $("search").value.trim().toLowerCase();
   let n =
     nodes.get(value) || [...nodes.values()].find((n) => n.id.includes(value));
-  if (!n && /^[a-z0-9.-]+$/.test(value) && value.includes(".")) {
-    n = { id: value, scope: "*." + value, captures: new Map() };
-    nodes.set(value, n);
-    layout();
-  }
   if (n) select(n);
 };
 $("close").onclick = () => {
@@ -692,6 +712,6 @@ setInterval(() => {
     (!catalogDone || !linksDone || queue.length)
   )
     step();
-}, 1000);
+}, 2000);
 step();
 requestAnimationFrame(frame);

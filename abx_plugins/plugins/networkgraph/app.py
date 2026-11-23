@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+SCHEMA_DOMAINS = frozenset({"w3.org", "schema.org", "ogp.me"})
 
 
 def get_urlpatterns(host):
@@ -127,6 +128,17 @@ def view(request, *, host, data=False, asset=None):
                     )
         except (ValueError, signing.BadSignature):
             return JsonResponse({}, status=400)
+        # Namespace references are document metadata, not site relationships.
+        if "nodes" in result:
+            result["nodes"] = [
+                node for node in result["nodes"] if node["id"] not in SCHEMA_DOMAINS
+            ]
+        if "links" in result:
+            result["links"] = [
+                edge
+                for edge in result["links"]
+                if not SCHEMA_DOMAINS.intersection((edge["source"], edge["target"]))
+            ]
         cache.set(key, result, timeout=30)
     return JsonResponse(result, headers={"Cache-Control": "private, no-store"})
 

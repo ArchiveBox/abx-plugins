@@ -130,7 +130,9 @@ outlinks follow in 32-capture pages with a 64 KiB read budget per capture. Targe
 resolve against the existing URL index. Missing or malformed artifacts leave
 discovery relationships available. Weighted PageRank, Louvain link communities,
 and d3 layout run in a browser worker using vendored libraries. Unlinked sites
-remain ungrouped. Nodes use recorded favicons, logarithmic snapshot counts and
+are omitted from the canvas when there are more than 200, but remain searchable.
+W3C, Schema.org and Open Graph namespace domains are excluded from nodes and edges.
+Nodes use recorded favicons, logarithmic snapshot counts and
 PageRank; only the configured domain budget is drawn. Domain selection lazily
 loads capture details. Neither loading nor layout requires new backend workers,
 models, indexes or hooks.
