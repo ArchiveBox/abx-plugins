@@ -5,9 +5,29 @@ from functools import partial
 from hashlib import sha256
 import json
 from pathlib import Path
+import re
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).parent
 METADATA_DOMAINS = frozenset({"w3.org", "schema.org", "ogp.me", "w.org"})
+CC_REFERENCE = re.compile(
+    r"^/(?:licenses/[^/]+|publicdomain/(?:zero|mark))/\d+(?:\.\d+)+(?:/|$)",
+)
+
+
+def is_boilerplate_url(url):
+    if not url:
+        return False
+    try:
+        parts = urlsplit(url)
+        hostname = (parts.hostname or "").rstrip(".")
+    except ValueError:
+        return False
+    if hostname in {"gmpg.org", "www.gmpg.org"}:
+        return parts.path.rstrip("/") in {"/xfn/1", "/xfn/11"}
+    if hostname in {"creativecommons.org", "www.creativecommons.org"}:
+        return parts.path.rstrip("/") == "/ns" or bool(CC_REFERENCE.match(parts.path))
+    return hostname == "i.creativecommons.org" and parts.path.startswith("/l/")
 
 
 def get_urlpatterns(host):
@@ -88,7 +108,7 @@ def view(request, *, host, data=False, asset=None):
     if len(request.META.get("QUERY_STRING", "")) > 4096:
         return JsonResponse({}, status=400)
     key = (
-        "collection-graph:"
+        "collection-graph:v2:"
         + sha256(
             f"{config['DATA_DIR']}:{batch}:{request.GET.urlencode()}".encode(),
         ).hexdigest()
@@ -128,7 +148,7 @@ def view(request, *, host, data=False, asset=None):
                     )
         except (ValueError, signing.BadSignature):
             return JsonResponse({}, status=400)
-        # Namespace references are document metadata, not site relationships.
+        # These domains predominantly appear as document namespace references.
         if "nodes" in result:
             result["nodes"] = [
                 node for node in result["nodes"] if node["id"] not in METADATA_DOMAINS
@@ -149,12 +169,22 @@ def neighbors(host, request, domain, after, batch):
     nodes = set()
     # Each request reads at most 32 x 64 KiB; no archive-wide file walk.
     # Each saved target is resolved through the host's existing URL index.
+    captures = []
     for record in page["records"]:
         source = record["domain"]
-        if not source:
+        if not source or is_boilerplate_url(record["url"]):
             continue
+        captures.append(record)
         nodes.add(source)
-        targets = set(record["children"])
+        targets = (
+            {
+                target
+                for target, url in record["child_links"]
+                if not is_boilerplate_url(url)
+            }
+            if "child_links" in record
+            else set(record["children"])
+        )
         urls = []
         file = Path(record["output_dir"]) / "parse_dom_outlinks" / "urls.jsonl"
         try:
@@ -166,7 +196,9 @@ def neighbors(host, request, domain, after, batch):
                 except (ValueError, UnicodeError):
                     continue
                 if isinstance(item, dict) and isinstance(item.get("url"), str):
-                    urls.append(item["url"][:8192])
+                    url = item["url"][:8192]
+                    if not is_boilerplate_url(url):
+                        urls.append(url)
         except OSError:
             pass
         targets.update(host.resolve_snapshot_urls(request, urls).values())
@@ -174,10 +206,14 @@ def neighbors(host, request, domain, after, batch):
             if target and target != source:
                 edges[source, target] += 1
                 nodes.add(target)
-        if parent := record["parent"]:
-            if parent != source:
-                edges[parent, source] += 1
-                nodes.add(parent)
+        parent = record["parent"]
+        if (
+            parent
+            and parent != source
+            and not is_boilerplate_url(record.get("parent_url"))
+        ):
+            edges[parent, source] += 1
+            nodes.add(parent)
     return {
         "nodes": [
             {"id": name, "scope": f"*.{name}" if ":" not in name else name}
@@ -203,7 +239,7 @@ def neighbors(host, request, domain, after, batch):
                     "downloaded",
                 )
             }
-            for record in page["records"]
+            for record in captures
         ],
     }
 
@@ -214,7 +250,7 @@ def collection_page(host, request, after):
     edges = Counter()
     for record in page["records"]:
         domain = record["domain"]
-        if not domain:
+        if not domain or is_boilerplate_url(record.get("url")):
             continue
         node = nodes.setdefault(
             domain,
@@ -231,7 +267,11 @@ def collection_page(host, request, after):
         if record["favicon"]:
             node["favicon"] = record["favicon"]
         parent = record["parent"]
-        if parent and parent != domain:
+        if (
+            parent
+            and parent != domain
+            and not is_boilerplate_url(record.get("parent_url"))
+        ):
             edges[parent, domain] += 1
     return {
         "nodes": list(nodes.values()),
@@ -249,6 +289,8 @@ def outlink_page(host, request, after):
     sources = []
     urls = set()
     for record in page["records"]:
+        if is_boilerplate_url(record.get("url")):
+            continue
         targets = set()
         root = Path(record["output_dir"])
         budget = 65536
@@ -263,7 +305,11 @@ def outlink_page(host, request, after):
                     try:
                         item = json.loads(line)
                         url = item.get("url") if isinstance(item, dict) else None
-                        if isinstance(url, str) and len(url) <= 8192:
+                        if (
+                            isinstance(url, str)
+                            and len(url) <= 8192
+                            and not is_boilerplate_url(url)
+                        ):
                             targets.add(url)
                     except (ValueError, UnicodeError):
                         continue

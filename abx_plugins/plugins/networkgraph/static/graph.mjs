@@ -25,7 +25,10 @@ let queue = [],
   paused = false,
   busy = false,
   selected = null,
-  hovered = null;
+  hovered = null,
+  drag = null,
+  layoutDeferred = false,
+  rearranged = false;
 let dimensionality = 2,
   initialFit = false,
   completeFit = false,
@@ -33,6 +36,7 @@ let dimensionality = 2,
   orbit = false,
   lastFrame = 0,
   visible = [],
+  visibleIds = new Set(),
   visibleLinks = [],
   labelNodes = [];
 const number = new Intl.NumberFormat(undefined, {
@@ -162,7 +166,7 @@ worker.onmessage = ({ data }) => {
 };
 function requestLayout() {
   layoutDirty = true;
-  if (layoutBusy) return;
+  if (layoutBusy || drag) return;
   layoutBusy = true;
   layoutDirty = false;
   worker.postMessage({
@@ -254,8 +258,10 @@ const graph = new window.ForceGraph3D($("graph"), {
   })
   .onNodeHover((n) => {
     hovered = n;
-    paint();
+    if (!drag) paint();
   })
+  .onNodeDrag(dragNode)
+  .onNodeDragEnd(dropNode)
   .onBackgroundClick(() => {
     selected = null;
     $("selection").hidden = true;
@@ -270,6 +276,75 @@ graph.d3Force("center", null);
 graph.d3Force("link", null);
 graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.5));
 graph.controls().enableRotate = false;
+
+function linkedNeighbors(n) {
+  return [...(adjacency.get(n.id) || [])]
+    .filter((id) => visibleIds.has(id) && nodes.get(id).fx == null)
+    .map((id) => {
+      const value =
+        (links.get(`${n.id}\0${id}`)?.value || 0) +
+        (links.get(`${id}\0${n.id}`)?.value || 0);
+      const peer = nodes.get(id);
+      const sameCommunity = n.community && n.community === peer.community;
+      const weight = Math.min(0.68, 0.3 + Math.log2(value + 1) * 0.08);
+      return { peer, weight: weight * (sameCommunity ? 1 : 0.55) };
+    })
+    .sort((a, b) => b.weight - a.weight);
+}
+
+function dragNode(n, delta) {
+  if (!drag) {
+    const neighbors = new Map();
+    const adjacent = linkedNeighbors(n).slice(0, 64);
+    for (const { peer, weight } of adjacent)
+      neighbors.set(peer, { x: peer.x, y: peer.y, z: peer.z, weight });
+    // Carry movement into the nearest part of the community, with a weaker pull.
+    for (const { peer, weight } of adjacent.slice(0, 8)) {
+      if (!n.community || peer.community !== n.community) continue;
+      for (const next of linkedNeighbors(peer).slice(0, 8)) {
+        const neighbor = next.peer;
+        if (
+          neighbor === n ||
+          neighbor.community !== n.community ||
+          neighbors.has(neighbor)
+        )
+          continue;
+        neighbors.set(neighbor, {
+          x: neighbor.x,
+          y: neighbor.y,
+          z: neighbor.z,
+          weight: weight * next.weight * 0.5,
+        });
+      }
+    }
+    drag = {
+      origin: { x: n.x - delta.x, y: n.y - delta.y, z: n.z - delta.z },
+      neighbors,
+    };
+    rearranged = true;
+  }
+  for (const [peer, start] of drag.neighbors) {
+    peer.x = start.x + (n.x - drag.origin.x) * start.weight;
+    peer.y = start.y + (n.y - drag.origin.y) * start.weight;
+    if (dimensionality === 3)
+      peer.z = start.z + (n.z - drag.origin.z) * start.weight;
+  }
+}
+
+function dropNode(n) {
+  if (!drag) return;
+  for (const peer of [n, ...drag.neighbors.keys()]) {
+    peer.placement = {
+      x: peer.x,
+      y: peer.y,
+      z: dimensionality === 3 ? peer.z : peer.placement?.z,
+    };
+  }
+  drag = null;
+  if (layoutDeferred) layout();
+  else paint();
+}
+
 function enqueue(n, priority = false) {
   if (queued.has(n.id) || queue.length >= maxNodes || pages.get(n.id) === null)
     return;
@@ -341,14 +416,21 @@ function drawableNodes() {
   );
 }
 function layout() {
+  if (drag) {
+    layoutDeferred = true;
+    return;
+  }
+  layoutDeferred = false;
   const ranked = drawableNodes().sort(
     (a, b) => (b.rank || 0) - (a.rank || 0) || (b.count || 0) - (a.count || 0)
   );
   visible = ranked.slice(0, maxNodes);
   if (selected && !visible.includes(selected)) visible.push(selected);
-  const ids = new Set(visible.map((n) => n.id));
+  visibleIds = new Set(visible.map((n) => n.id));
   visibleLinks = [...links.values()]
-    .filter((l) => ids.has(end(l.source)) && ids.has(end(l.target)))
+    .filter(
+      (l) => visibleIds.has(end(l.source)) && visibleIds.has(end(l.target))
+    )
     .map((l) => {
       l.source = nodes.get(end(l.source));
       l.target = nodes.get(end(l.target));
@@ -430,16 +512,16 @@ function layout() {
       (catalogDone && !completeFit) ||
       (linksDone && !linksFit)) &&
     visible.length > 4 &&
-    !selected
+    !selected &&
+    !rearranged
   ) {
     initialFit = true;
     if (catalogDone) completeFit = true;
     if (linksDone) linksFit = true;
-    setTimeout(
-      () =>
-        graph.zoomToFit(reduced ? 0 : 900, 100, (n) => Boolean(n.community)),
-      1800
-    );
+    setTimeout(() => {
+      if (!rearranged)
+        graph.zoomToFit(reduced ? 0 : 900, 100, (n) => Boolean(n.community));
+    }, 1800);
   }
 }
 function renderList() {
@@ -701,7 +783,7 @@ function frame(t) {
   requestAnimationFrame(frame);
   if (document.hidden || paused || t - lastFrame < 40) return;
   lastFrame = t;
-  if (dimensionality === 3 && orbit) {
+  if (dimensionality === 3 && orbit && !drag) {
     const target = graph.controls().target;
     const p = graph.camera().position.clone().sub(target);
     const a = 0.0015;
@@ -715,9 +797,14 @@ function frame(t) {
     );
   }
   for (const n of visible) {
-    if (!n.target || n.fx != null) continue;
-    for (const axis of ["x", "y", "z"])
-      n[axis] += (n.target[axis] - n[axis]) * (reduced ? 1 : 0.16);
+    if (!n.target || n.fx != null || drag?.neighbors.has(n)) continue;
+    for (const axis of ["x", "y", "z"]) {
+      const position =
+        axis === "z" && dimensionality === 2
+          ? 0
+          : n.placement?.[axis] ?? n.target[axis];
+      n[axis] += (position - n[axis]) * (reduced ? 1 : 0.16);
+    }
   }
   for (const { n, el } of labelNodes) {
     const p = graph.graph2ScreenCoords(n.x || 0, n.y || 0, n.z || 0);

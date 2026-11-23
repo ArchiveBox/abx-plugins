@@ -136,9 +136,12 @@ discovery relationships available. Weighted PageRank, Louvain link communities,
 and d3 layout run in a browser worker using vendored libraries. Unlinked sites
 are omitted from the canvas when there are more than 200, but remain searchable.
 W3C, Schema.org, Open Graph and WordPress metadata domains are excluded from nodes and edges.
+XFN profile URLs and Creative Commons license deeds, legal code and badges are
+also excluded from graph relationships. Other pages on those sites remain eligible.
 Nodes use recorded favicons, logarithmic snapshot counts and
 PageRank; only the configured domain budget is drawn. The 3D view lays out
-communities and their members in depth. Domain selection lazily
+communities and their members in depth. Dragging a node pulls nearby linked
+nodes and keeps the adjusted positions for the session. Domain selection lazily
 loads capture details. Neither loading nor layout requires new backend workers,
 models, indexes or hooks.
 `bandwidth` registers `/admin/bandwidth/` and samples network I/O while the
