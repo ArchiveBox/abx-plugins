@@ -44,18 +44,18 @@
     {
       "name": "abxbus",
       "binproviders": "pnpm",
-      "min_version": "2.5.93",
+      "min_version": "2.5.94",
       "min_release_age": 0,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus",
           "min_release_age": 0,
           "install_args": [
-            "abxbus@2.5.93"
+            "abxbus@2.5.94"
           ],
           "postinstall_scripts": true,
           "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js",
-          "version": "2.5.93"
+          "version": "2.5.94"
         }
       }
     },
