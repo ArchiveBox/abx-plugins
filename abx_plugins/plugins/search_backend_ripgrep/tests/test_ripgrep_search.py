@@ -357,3 +357,34 @@ def test_stalled_candidate_command_has_absolute_deadline():
     ) as process:
         assert process.wait(timeout=4) == 0
     assert time.monotonic() - started < 4
+
+
+def test_streaming_request_cannot_replenish_file_budget(tmp_path):
+    import json
+    import subprocess
+    import sys
+
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "article.txt").write_bytes(b"proven" + b" " * 128 + b"unread")
+    request = {
+        "streaming": True,
+        "archive_root": str(tmp_path),
+        "candidates": [{"id": "snapshot", "path": str(snapshot)}],
+        "terms": [
+            {"key": term, "mode": "literal", "value": term}
+            for term in ("proven", "unread")
+        ],
+        "limits": {"seconds": 90, "bytes": 32, "per_file": 32},
+    }
+    result = subprocess.run(
+        [sys.executable, str(PLUGIN_DIR / "search.py"), "search_candidates"],
+        input=json.dumps(request),
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=4,
+    )
+    evidence = json.loads(result.stdout)
+    assert evidence["matches"] == {"proven": True}
+    assert evidence["usage"]["bytes"] == 32
