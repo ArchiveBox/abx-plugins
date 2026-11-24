@@ -61,10 +61,12 @@ ANCHOR_START_PATTERN = re.compile(r"<[aA](?=[\s>/])")
 ANCHOR_END_PATTERN = re.compile(r"</[aA](?=[\s>/])")
 
 
-def looks_like_netscape_bookmarks(content: str) -> bool:
-    """Avoid treating arbitrary HTML pages as Netscape bookmark exports."""
+def looks_like_bookmark_export(content: str) -> bool:
+    """Recognize Netscape-format and Pocket bookmark exports."""
     lowered = content[:200000].lower()
     if "netscape-bookmark-file-1" in lowered:
+        return True
+    if "<title>pocket export</title>" in lowered and "time_added" in lowered:
         return True
     if "<dt" in lowered and "<a" in lowered and "href" in lowered:
         return True
@@ -266,7 +268,7 @@ def iter_bookmarks(content: str):
             continue
         yield {
             "url": bookmark_url,
-            "add_date": attrs.get("add_date", ""),
+            "add_date": attrs.get("add_date") or attrs.get("time_added", ""),
             "tags": attrs.get("tags", ""),
             "title": clean_bookmark_title(title_text),
         }
@@ -322,7 +324,7 @@ def main(
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
 
-    if not looks_like_netscape_bookmarks(content):
+    if not looks_like_bookmark_export(content):
         status, output_str = persist_records([])
         print(output_str)
         emit_result(status, output_str)

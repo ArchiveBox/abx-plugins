@@ -15,6 +15,37 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_netscape_urls.*"), None
 class TestParseNetscapeUrls:
     """Test the parse_netscape_urls extractor CLI."""
 
+    def test_pocket_html_preserves_tags_and_saved_date(self, tmp_path):
+        source = tmp_path / "ril_export.html"
+        source.write_text(
+            "<!DOCTYPE html><html><head><title>Pocket Export</title></head>"
+            '<body><h1>Unread</h1><ul><li><a href="https://example.com/reading" '
+            'time_added="1609459200" tags="reading list,⭐️">Saved article</a></li></ul>'
+            "<h1>Read Archive</h1><ul></ul></body></html>",
+        )
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", source.as_uri()],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        snapshots = [record for record in records if record.get("type") == "Snapshot"]
+        assert len(snapshots) == 1, result.stdout
+        assert snapshots[0]["url"] == "https://example.com/reading"
+        assert snapshots[0]["title"] == "Saved article"
+        assert snapshots[0]["bookmarked_at"] == "2021-01-01T00:00:00+00:00"
+        assert snapshots[0]["tags"] == "reading list,⭐️"
+        assert {r["name"] for r in records if r.get("type") == "Tag"} == {
+            "reading list",
+            "⭐️",
+        }
+
     def test_large_bookmark_export_preserves_every_entry(self, tmp_path):
         """Scanning each anchor must not repeatedly copy the entire export."""
         count = 20000

@@ -15,6 +15,73 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_jsonl_urls.*"), None)
 class TestParseJsonlUrls:
     """Test the parse_jsonl_urls extractor CLI."""
 
+    @pytest.mark.parametrize("parser", ["parse_jsonl_urls", "parse_txt_urls"])
+    @pytest.mark.parametrize(
+        ("source", "expected_tags"),
+        [
+            (
+                json.dumps(
+                    {
+                        "url": "https://example.com/reading",
+                        "title": "Saved article",
+                        "savedId": "123",
+                        "_createdAt": 1609459200,
+                        "isFavorite": True,
+                        "tags": [
+                            {"id": "1", "name": "reading list"},
+                            {"id": "2", "name": "⭐️"},
+                        ],
+                    }
+                ),
+                "reading list,⭐️",
+            ),
+            (
+                json.dumps(
+                    {
+                        "url": "https://example.com/reading",
+                        "title": "Saved article",
+                        "savedId": "456",
+                        "_createdAt": 1609459200,
+                        "isFavorite": True,
+                        "tags": [],
+                    }
+                ),
+                "⭐️",
+            ),
+            (
+                "title,url,time_added,tags,status\n"
+                "Saved article,https://example.com/reading,1609459200,reading list|⭐️,unread\n",
+                "reading list,⭐️",
+            ),
+        ],
+    )
+    def test_pocket_export_metadata(self, tmp_path, parser, source, expected_tags):
+        input_file = tmp_path / "stdin.txt"
+        input_file.write_text(source)
+        script = next((PLUGIN_DIR.parent / parser).glob("on_Snapshot__*"))
+        result = subprocess.run(
+            [str(script), "--url", input_file.as_uri()],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        emitted = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
+        snapshots = [record for record in emitted if record.get("type") == "Snapshot"]
+        assert len(snapshots) == 1, result.stdout
+        assert snapshots[0]["url"] == "https://example.com/reading"
+        assert snapshots[0]["title"] == "Saved article"
+        assert snapshots[0]["tags"] == expected_tags
+        assert snapshots[0]["bookmarked_at"] == "2021-01-01T00:00:00+00:00"
+        if parser == "parse_jsonl_urls":
+            assert {r["name"] for r in emitted if r.get("type") == "Tag"} == set(
+                expected_tags.split(",")
+            )
+
     @pytest.mark.parametrize("format", ["csv", "jsonl", "json"])
     @pytest.mark.parametrize("parser", ["parse_jsonl_urls", "parse_txt_urls"])
     @pytest.mark.parametrize("tags", ["research,reading list", "reading list"])
