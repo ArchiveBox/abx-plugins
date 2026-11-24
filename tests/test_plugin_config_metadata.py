@@ -187,6 +187,7 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             "output_plugin",
             "importer",
             "library",
+            "app_page",
             "diagnostics",
             "output_ready",
             "public_lane",
@@ -225,6 +226,17 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
                 recipe_path,
                 key,
             )
+        if page := recipe.get("app_page"):
+            assert (
+                recipe["view"]
+                and page["path"].startswith("/")
+                and not page["path"].startswith("//")
+            ), recipe_path
+            assert (plugin_dir / page["source"]).is_file(), recipe_path
+            if "port_setting" in page:
+                assert (
+                    config["properties"][page["port_setting"]]["type"] == "integer"
+                ), recipe_path
         library = recipe.get("library", {})
         for key in ("config_overrides", "folder_config", "homepage_config"):
             assert library.get(key, {}).keys() <= config["properties"].keys(), (
