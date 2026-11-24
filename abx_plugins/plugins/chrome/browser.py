@@ -96,6 +96,7 @@ def main():
         if request.get("browser_binary"):
             payload["CHROME_BINARY"] = request["browser_binary"]
     binaries = {}
+    recovery_paths = None
     if operation == "recover":
         from abxpkg.exceptions import BinaryLoadError
 
@@ -104,37 +105,33 @@ def main():
             not isinstance(path, str) or not Path(path).is_absolute() for path in paths
         ):
             raise ValueError("paths must be a list of absolute runtime roots")
+        recovery_paths = paths
         dependency = next(
             item
             for item in json.loads(config_path.read_text())["required_binaries"]
             if item["name"] == "{NODE_BINARY}"
         )
         try:
-            node = load_required_binary(dependency, config=payload, install=False)
+            binaries["{NODE_BINARY}"] = load_required_binary(
+                dependency,
+                config=payload,
+                install=False,
+            )
         except BinaryLoadError:
             print(json.dumps({"processes_orphaned": 0}))
             return
-        env = BinProvider.build_exec_env(
-            providers=[node.loaded_binprovider] if node.loaded_binprovider else [],
-            base_env=os.environ,
-        )
-        os.execvpe(
-            str(node.abspath),
-            [
-                str(node.abspath),
-                str(Path(__file__).with_name("chrome_utils.js")),
-                "recover",
-                *paths,
-            ],
-            env,
-        )
-    for dependency in json.loads(config_path.read_text())["required_binaries"]:
-        name = dependency["name"]
-        if operation == "export-state" and name == "{CHROME_BINARY}":
-            continue
-        binaries[name] = load_required_binary(dependency, config=payload, install=True)
-        if name.startswith("{") and name.endswith("}"):
-            payload[name[1:-1]] = str(binaries[name].abspath)
+    else:
+        for dependency in json.loads(config_path.read_text())["required_binaries"]:
+            name = dependency["name"]
+            if operation == "export-state" and name == "{CHROME_BINARY}":
+                continue
+            binaries[name] = load_required_binary(
+                dependency,
+                config=payload,
+                install=True,
+            )
+            if name.startswith("{") and name.endswith("}"):
+                payload[name[1:-1]] = str(binaries[name].abspath)
     env = BinProvider.build_exec_env(
         providers=[
             binary.loaded_binprovider
@@ -155,6 +152,19 @@ def main():
     env["NODE_MODULES_DIR"] = str(
         Path(payload["ABXPKG_LIB_DIR"]) / "pnpm/packages/chrome/node_modules",
     )
+    if recovery_paths is not None:
+        # Recovery uses the same JS helper as browser operations, so it needs
+        # the same resolved module environment even though it never installs.
+        os.execvpe(
+            node,
+            [
+                node,
+                str(Path(__file__).with_name("chrome_utils.js")),
+                "recover",
+                *recovery_paths,
+            ],
+            env,
+        )
     if operation == "open":
         import psutil
 

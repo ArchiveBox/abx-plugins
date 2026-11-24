@@ -1,6 +1,7 @@
 """Run Chrome's declared profile command against real filesystem state."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,39 @@ import pytest
 
 
 PLUGIN = Path(__file__).resolve().parent.parent
+
+
+def test_recovery_resolves_its_node_environment(tmp_path):
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
+
+    env = get_test_env()
+    for name in (
+        "NODE_MODULES_DIR",
+        "NODE_MODULE_DIR",
+        "NODE_PATH",
+        "PNPM_HOME",
+        "PNPM_BIN_DIR",
+    ):
+        env.pop(name, None)
+    env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
+    env["PATH"] = os.pathsep.join(
+        entry
+        for entry in env["PATH"].split(os.pathsep)
+        if Path(entry).parent.name != "node_modules"
+    )
+    command = json.loads((PLUGIN / "config.json").read_text())["commands"]["recover"]
+    result = subprocess.run(
+        [str(PLUGIN / command[0]), *command[1:]],
+        input=json.dumps({"paths": [str(tmp_path)]}),
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {"processes_orphaned": 0}
+    assert "Checking for zombie Chrome processes" in result.stderr
 
 
 def run_profile(**request):
