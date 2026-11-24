@@ -38,13 +38,11 @@ def opencode_env(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def rg_binary(opencode_env):
-    binary = install_required_binary_from_config(
-        Path(__file__).parents[2] / "search_backend_ripgrep",
-        "rg",
-        env=opencode_env,
-    )
-    assert binary.abspath and binary.version, "Failed to install ripgrep"
-    return str(binary.abspath)
+    import shutil
+
+    executable = shutil.which("rg")
+    assert executable, "OpenCode file discovery uses the rg executable"
+    return executable
 
 
 def test_agent_child_python_uses_host_packages(tmp_path, opencode_env):

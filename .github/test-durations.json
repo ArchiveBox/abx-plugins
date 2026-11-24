@@ -46,8 +46,6 @@
     "abx_plugins/plugins/responses/tests/test_responses.py": 51,
     "abx_plugins/plugins/screenshot/tests/test_screenshot.py": 114,
     "abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py": 61,
-    "abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_detection.py": 17,
-    "abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py": 61,
     "abx_plugins/plugins/search_backend_sonic/tests/test_sonic_inputs.py": 37,
     "abx_plugins/plugins/search_backend_sonic/tests/test_sonic_start.py": 18,
     "abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py": 59,

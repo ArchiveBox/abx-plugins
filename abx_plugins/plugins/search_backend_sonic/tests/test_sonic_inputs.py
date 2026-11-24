@@ -535,24 +535,10 @@ def test_unpacked_exports_index_text_and_ocr_end_to_end(tmp_path: Path):
     )
     assert not transport.exists()
     assert not list(snap.rglob("*.zip"))
-    from abx_plugins.plugins.base.testing import install_required_binary_from_config
-
-    ripgrep = install_required_binary_from_config(
-        Path(__file__).parents[2] / "search_backend_ripgrep",
-        "rg",
+    assert (
+        "exportplainuniqueneedle"
+        in (snap / "googledrive/files/nested/note.txt").read_text()
     )
-    assert ripgrep and ripgrep.abspath
-    rg = subprocess.run(
-        [
-            str(ripgrep.abspath),
-            "-l",
-            "exportplainuniqueneedle",
-            str(snap / "googledrive/files"),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert rg.returncode == 0 and "nested/note.txt" in rg.stdout
     parsed = _run_hook(snap, IMAGE_URL_OCR)
     assert parsed.returncode == 0, parsed.stderr
     assert json.loads(parsed.stdout.splitlines()[-1])["status"] == "succeeded", (
