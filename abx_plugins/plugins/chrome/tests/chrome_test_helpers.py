@@ -1689,7 +1689,18 @@ def launch_chromium_session(
                 check=True,
             )
         subprocess.run(
-            ["certutil", "-A", "-d", database, "-n", "ugNAS Squid CA", "-t", "C,,", "-i", squid_ca],
+            [
+                "certutil",
+                "-A",
+                "-d",
+                database,
+                "-n",
+                "ugNAS Squid CA",
+                "-t",
+                "C,,",
+                "-i",
+                squid_ca,
+            ],
             check=True,
         )
     stdout_log = chrome_dir / "chrome_launch.stdout.log"
