@@ -184,6 +184,10 @@ jobs:
           retention-days: 90
 
   compatibility:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     name: ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
     needs: [prepare, build-package]
     runs-on: ${{ matrix.os }}
@@ -195,6 +199,18 @@ jobs:
         artifact: [wheel, sdist]
 
     steps:
+      - name: Set up Squid
+        if: >-
+          github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@db5cad0e622fce387c927f5e9c8c6b2580ef003e
+        with:
+          proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID }}
+          tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE }}
+          browser: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
@@ -397,6 +413,18 @@ jobs:
         test: ${{ fromJson(needs.prepare.outputs.test-matrix) }}
 
     steps:
+      - name: Set up Squid
+        if: >-
+          github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@db5cad0e622fce387c927f5e9c8c6b2580ef003e
+        with:
+          proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID }}
+          tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE }}
+          browser: 'true'
+
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -561,7 +589,8 @@ jobs:
             echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
             # Use SwiftShader only for WebGL; routing 2D PDF export through the
             # emulated GPU stalls Figma on CPU-limited runners.
-            echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' >> "$GITHUB_ENV"
+            args="$(jq -c '. + ["--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader"]' <<<"${CHROME_ARGS_EXTRA:-[]}")"
+            printf 'CHROME_ARGS_EXTRA=%s\n' "$args" >> "$GITHUB_ENV"
           fi
 
       - name: Login to Docker Hub for verifier builds
