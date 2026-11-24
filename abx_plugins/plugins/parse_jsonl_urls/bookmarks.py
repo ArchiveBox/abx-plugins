@@ -12,7 +12,9 @@ PLUGIN_NAME = "parse_jsonl_urls"
 
 
 def parse_bookmarked_at(
-    link: dict, *, pocket_timestamp: int | str | None = None
+    link: dict,
+    *,
+    pocket_timestamp: int | str | None = None,
 ) -> str | None:
     """Parse timestamp from various JSON formats, return ISO 8601."""
 
@@ -32,7 +34,8 @@ def parse_bookmarked_at(
         elif pocket_timestamp:
             # Both Pocket exports store the saved date in Unix seconds.
             return datetime.fromtimestamp(
-                int(pocket_timestamp), tz=timezone.utc
+                int(pocket_timestamp),
+                tz=timezone.utc,
             ).isoformat()
         elif link.get("timestamp"):
             # Chrome/Firefox histories use microseconds
@@ -104,7 +107,8 @@ def json_object_to_entry(link: dict) -> dict | None:
             tag_names.append("⭐️")
         tags = ",".join(dict.fromkeys(tag_names))
     elif {"title", "url", "time_added", "tags", "status"}.issubset(link) and isinstance(
-        tags, str
+        tags,
+        str,
     ):
         pocket_timestamp = link.get("time_added")
         tags = tags.replace("|", ",")

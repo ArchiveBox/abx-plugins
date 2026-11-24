@@ -206,14 +206,14 @@ function ingestGroups(data) {
     const crawl = group(crawls, id);
     crawl.label ||= label;
     crawl.href = `../crawls/crawl/${id}/change/`;
-    crawl.allTime = true;
+    crawl.hasHistory = true;
   }
-  for (const name of data.plugins) group(plugins, name).allTime = true;
+  for (const name of data.plugins) group(plugins, name).hasHistory = true;
   for (const [name, { local, wan }] of Object.entries(data.interfaces)) {
     const nic = group(interfaces, name);
     nic.local ||= local;
     nic.wan ||= wan;
-    nic.allTime = true;
+    nic.hasHistory = true;
   }
 }
 function ingestDownloads(data, owners) {
@@ -674,7 +674,7 @@ function render() {
       sort === "cpu" ? g.cpu : sort === "disk" ? g.disk : g.windows[2].bytes;
     const groups = [...map.values()]
       .filter((g) => id !== "sites" || g.id)
-      .filter((g) => (!rangeSeconds && g.allTime) || g.active || g.windows[2].measured || g.windows[2].hits || g.windows[2].observations || (
+      .filter((g) => (!rangeSeconds && g.hasHistory) || g.active || g.windows[2].measured || g.windows[2].hits || g.windows[2].observations || (
         ["crawls", "plugins"].includes(id) && g.last >= (rangeSeconds ? now - rangeSeconds : 0)
       ))
       .sort(

@@ -31,7 +31,7 @@ class TestParseJsonlUrls:
                             {"id": "1", "name": "reading list"},
                             {"id": "2", "name": "⭐️"},
                         ],
-                    }
+                    },
                 ),
                 "reading list,⭐️",
             ),
@@ -44,7 +44,7 @@ class TestParseJsonlUrls:
                         "_createdAt": 1609459200,
                         "isFavorite": True,
                         "tags": [],
-                    }
+                    },
                 ),
                 "⭐️",
             ),
@@ -79,7 +79,7 @@ class TestParseJsonlUrls:
         assert snapshots[0]["bookmarked_at"] == "2021-01-01T00:00:00+00:00"
         if parser == "parse_jsonl_urls":
             assert {r["name"] for r in emitted if r.get("type") == "Tag"} == set(
-                expected_tags.split(",")
+                expected_tags.split(","),
             )
 
     @pytest.mark.parametrize("format", ["csv", "jsonl", "json"])

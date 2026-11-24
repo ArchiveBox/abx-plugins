@@ -12,7 +12,6 @@
       "replay/model-viewer/LICENSE.fflate.txt"
     ]
   },
-  "app_module": "abx_plugins.plugins.caddl.app",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
