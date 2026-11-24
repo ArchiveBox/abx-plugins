@@ -15,6 +15,7 @@ def run_search_command(
     argv: Sequence[str] | None = None,
     *,
     search_candidates: CandidateSearch | None = None,
+    allow_streaming: bool = True,
 ) -> int:
     parser = argparse.ArgumentParser(description="Run a plugin search command")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -27,7 +28,7 @@ def run_search_command(
         subparsers.add_parser("search_candidates")
     args = parser.parse_args(argv)
     if args.command == "search_candidates" and search_candidates is not None:
-        return run_candidates(search_candidates)
+        return run_candidates(search_candidates, allow_streaming=allow_streaming)
 
     if args.command == "search":
         for snapshot_id in search(args.query, args.search_mode):
