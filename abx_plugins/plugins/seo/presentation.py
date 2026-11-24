@@ -68,7 +68,9 @@ def template_context(slot, context):
 
     seo = metadata("seo/seo.json")
     title = first_plain(
-        seo.get("og:title"), seo.get("twitter:title"), seo.get("title")
+        seo.get("og:title"),
+        seo.get("twitter:title"),
+        seo.get("title"),
     ) or first_plain(article().get("title"), context["title"], context["url"])
     description = first_plain(
         seo.get("og:description"),
@@ -78,7 +80,8 @@ def template_context(slot, context):
     if not description:
         saved_article = article()
         description = first_plain(
-            saved_article.get("excerpt"), saved_article.get("description")
+            saved_article.get("excerpt"),
+            saved_article.get("description"),
         )
     if not description:
         for path in ("readability/content.txt", "htmltotext/htmltotext.txt"):

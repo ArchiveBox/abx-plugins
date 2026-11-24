@@ -184,7 +184,7 @@ def test_index_scan_progresses_across_windows_and_utf8_boundaries(tmp_path):
     content = "x" * 63 + "Éclipse"
     with sqlite3.connect(tmp_path / "search.sqlite3") as db:
         db.execute(
-            "CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id,url,title,content)"
+            "CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id,url,title,content)",
         )
         db.execute("INSERT INTO search_index VALUES ('snap', '', '', ?)", (content,))
     found = run_candidates(

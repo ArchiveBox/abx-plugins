@@ -371,7 +371,7 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert len(all_hits) == len(set(all_hits)) == 500
             assert set(all_hits) < objects
             pages = list(
-                search_word_pages("paginationuniqueneedle", environ=env, timeout=2)
+                search_word_pages("paginationuniqueneedle", environ=env, timeout=2),
             )
             complete = [pk for page in pages for pk in page]
             assert complete[: len(all_hits)] == all_hits
