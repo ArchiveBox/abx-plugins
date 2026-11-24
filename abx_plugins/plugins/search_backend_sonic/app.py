@@ -29,7 +29,12 @@ def search_word_pages(word, *, environ, timeout):
         offset += len(page)
 
 
-def search_word_hits(word, *, environ, timeout):
+def search_word_hits_with_availability(word, *, environ, timeout, observe):
+    """Observe the first real connection without making a second Sonic request."""
+    yield from search_word_hits(word, environ=environ, timeout=timeout, observe=observe)
+
+
+def search_word_hits(word, *, environ, timeout, observe=None):
     """Stream a bounded prefix of ranked positives without reading archive files."""
     from .search import PAGE_SIZE, search
 
@@ -41,7 +46,14 @@ def search_word_hits(word, *, environ, timeout):
         if remaining <= 0:
             return
         try:
-            page = search(word, environ=environ, timeout=remaining, offset=offset)
+            options = {"observe": observe} if observe is not None else {}
+            page = search(
+                word,
+                environ=environ,
+                timeout=remaining,
+                offset=offset,
+                **options,
+            )
         except OSError:
             # Keep earlier positives if the next network request fails. The
             # host treats every omitted posting as unknown and can continue.

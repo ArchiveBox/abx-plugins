@@ -8,7 +8,8 @@
 # This module provides the search interface for the Sonic backend.
 
 from importlib import import_module
-from collections.abc import Iterable
+import socket
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 from collections.abc import Mapping
@@ -35,6 +36,7 @@ def search(
     environ: Mapping[str, str] | None = None,
     timeout: float | None = None,
     offset: int = 0,
+    observe: Callable[[bool], None] | None = None,
 ) -> list[str]:
     """Search for snapshots in Sonic."""
     del search_mode
@@ -53,15 +55,33 @@ def search(
         config.SEARCH_BACKEND_SONIC_PASSWORD,
     )
     protocol = import_module("sonic.client")
-    if timeout is not None:
+    pool_type = protocol.ConnectionPool
+    if observe is not None:
+
+        class ObservedConnectionPool(protocol.ConnectionPool):
+            def _make_connection(self):
+                try:
+                    connection = super()._make_connection()
+                except ConnectionRefusedError:
+                    observe(False)
+                    raise
+                except socket.gaierror as err:
+                    if err.errno == socket.EAI_NONAME:
+                        observe(False)
+                    raise
+                observe(True)
+                return connection
+
+        pool_type = ObservedConnectionPool
+    if timeout is not None or observe is not None:
         # sonic-client opens sockets through its pool. Assigning a timeout to
         # SearchClient itself leaves new connections at the 60-second default.
-        client.pool = protocol.ConnectionPool(
+        client.pool = pool_type(
             host=client.host,
             port=client.port,
             password=config.SEARCH_BACKEND_SONIC_PASSWORD,
             channel=client.channel,
-            timeout=timeout,
+            timeout=60 if timeout is None else timeout,
         )
     try:
         with client:
