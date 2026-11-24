@@ -3,7 +3,7 @@
 import csv
 import io
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from html import unescape
 
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
@@ -11,9 +11,10 @@ from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 PLUGIN_NAME = "parse_jsonl_urls"
 
 
-def parse_bookmarked_at(link: dict) -> str | None:
+def parse_bookmarked_at(
+    link: dict, *, pocket_timestamp: int | str | None = None
+) -> str | None:
     """Parse timestamp from various JSON formats, return ISO 8601."""
-    from datetime import timezone
 
     def json_date(s: str) -> datetime:
         # Try ISO 8601 format
@@ -28,6 +29,11 @@ def parse_bookmarked_at(link: dict) -> str | None:
         if link.get("bookmarked_at"):
             # Already in our format, pass through
             return link["bookmarked_at"]
+        elif pocket_timestamp:
+            # Both Pocket exports store the saved date in Unix seconds.
+            return datetime.fromtimestamp(
+                int(pocket_timestamp), tz=timezone.utc
+            ).isoformat()
         elif link.get("timestamp"):
             # Chrome/Firefox histories use microseconds
             return to_iso(
@@ -45,7 +51,7 @@ def parse_bookmarked_at(link: dict) -> str | None:
             return to_iso(json_date(link["bookmarked"]))
         elif link.get("saved"):
             return to_iso(json_date(link["saved"]))
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError, OverflowError, OSError):
         pass
 
     return None
@@ -81,20 +87,37 @@ def json_object_to_entry(link: dict) -> dict | None:
     if title:
         entry["title"] = title if archivebox_record else unescape(title)
 
-    # Parse bookmarked_at (ISO 8601)
-    bookmarked_at = parse_bookmarked_at(link)
-    if bookmarked_at:
-        entry["bookmarked_at"] = bookmarked_at
-
-    # Parse tags
-    tags = link["tags"] if "tags" in link else ""
-    if isinstance(tags, list):
+    pocket_timestamp = None
+    tags = link.get("tags") or ""
+    if isinstance(link.get("savedId"), str) and "isFavorite" in link:
+        pocket_timestamp = link.get("_createdAt")
+        tag_names = []
+        if isinstance(tags, list):
+            tag_names = [
+                tag["name"]
+                for tag in tags
+                if isinstance(tag, dict)
+                and isinstance(tag.get("name"), str)
+                and tag["name"]
+            ]
+        if link["isFavorite"] is True:
+            tag_names.append("⭐️")
+        tags = ",".join(dict.fromkeys(tag_names))
+    elif {"title", "url", "time_added", "tags", "status"}.issubset(link) and isinstance(
+        tags, str
+    ):
+        pocket_timestamp = link.get("time_added")
+        tags = tags.replace("|", ",")
+    elif isinstance(tags, list):
         tags = ",".join(tags)
     elif not archivebox_record and isinstance(tags, str) and "," not in tags and tags:
         # If no comma, assume space-separated
         tags = tags.replace(" ", ",")
     if tags:
         entry["tags"] = tags if archivebox_record else unescape(tags)
+    bookmarked_at = parse_bookmarked_at(link, pocket_timestamp=pocket_timestamp)
+    if bookmarked_at:
+        entry["bookmarked_at"] = bookmarked_at
 
     return entry
 
