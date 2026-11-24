@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "search_order": 1000,
+  "search_scan": true,
+  "title": "ripgrep Search",
+  "description": "Bounded file search for collections without an enabled search index.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [
+    {
+      "name": "{RIPGREP_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "ripgrep"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [],
+  "properties": {
+    "SEARCH_BACKEND_RIPGREP_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-scope": "server",
+      "description": "Search archived snapshot files directly with ripgrep."
+    },
+    "RIPGREP_BINARY": {
+      "type": "string",
+      "default": "rg",
+      "description": "Path to ripgrep binary"
+    },
+    "RIPGREP_TIMEOUT": {
+      "type": "integer",
+      "default": 2,
+      "minimum": 1,
+      "x-aliases": [
+        "SEARCH_BACKEND_TIMEOUT",
+        "SEARCH_BACKEND_RIPGREP_TIMEOUT"
+      ],
+      "description": "Search timeout in seconds (hard maximum 2, including legacy larger settings)."
+    },
+    "RIPGREP_ARGS": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "--files-with-matches",
+        "--no-messages",
+        "--ignore-case"
+      ],
+      "x-aliases": [
+        "RIPGREP_DEFAULT_ARGS"
+      ],
+      "description": "Default ripgrep arguments"
+    },
+    "RIPGREP_ARGS_EXTRA": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "x-aliases": [
+        "RIPGREP_EXTRA_ARGS"
+      ],
+      "description": "Extra arguments to append to ripgrep command"
+    }
+  },
+  "commands": {
+    "search_candidates": ["search.py", "search_candidates"],
+    "search": ["search.py", "search"],
+    "flush": ["search.py", "flush"]
+  },
+  "hidden": true
+}

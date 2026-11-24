@@ -260,8 +260,12 @@ models and `request` when supplied by the view.
 A search provider registers `search` and `flush` in `config.json > commands`.
 It can also register `"search_candidates": ["search.py", "search_candidates"]`
 to evaluate content predicates against an authorized page of snapshot IDs.
-Content search reads the provider's collection index. ArchiveBox sends snapshot
-IDs and applies the active scope without opening snapshot directories.
+For indexed providers ArchiveBox sends snapshot IDs. A provider declaring
+`search_scan: true` is eligible only when the collection has no enabled index.
+The host uses its candidate command exclusively, including for legacy contents
+URLs. Each candidate includes its authorized snapshot path under `archive_root`.
+File, byte and wall-clock budgets are shared across the query. A scanner must
+treat an incomplete read as unknown, including in a connected stream.
 
 An indexed provider's optional `app_module.search_word_hits(word, *, environ, timeout)`
 can return a bounded, ranked iterable of confirmed snapshot IDs for a lowercase

@@ -131,7 +131,7 @@ CandidateSearch = Callable[
 ]
 
 
-def run_candidates(search: CandidateSearch) -> int:
+def run_candidates(search: CandidateSearch, *, allow_streaming: bool = True) -> int:
     # Black-box executables share the same JSONL protocol. No host or ORM is
     # imported, and no user-supplied value becomes a command-line option.
     raw = sys.stdin.buffer.readline(512 * 1024 + 1)
@@ -182,7 +182,7 @@ def run_candidates(search: CandidateSearch) -> int:
         entries=limit("entries", 512),
         bytes=limit("bytes", 4 * 1024**2),
         per_file=limit("per_file", 512 * 1024),
-        streaming=data.get("streaming") is True,
+        streaming=allow_streaming and data.get("streaming") is True,
     )
     counters = ("files", "entries", "bytes")
     before = {key: 0 if budget.streaming else getattr(budget, key) for key in counters}
