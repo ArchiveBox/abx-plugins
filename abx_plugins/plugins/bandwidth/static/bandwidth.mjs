@@ -361,7 +361,6 @@ const icons = {
   memory: "M3 7h18v10H3zM7 10v3m5-3v3m5-3v3M7 17v3m5-3v3m5-3v3",
   snapshots: "M7 3h12v14H7zM4 7v13h12M10 7h6m-6 4h6",
   pulse: "M2 12h5l3-7 4 14 3-7h5",
-  sum: "M18 4H6l7 8-7 8h12",
   peak: "M3 19 10 7l4 6 3-4 4 10z",
   receive: "M12 4v11m-4-4 4 4 4-4M5 18v2h14v-2",
   send: "M12 15V4m-4 4 4-4 4 4M5 18v2h14v-2",
@@ -379,11 +378,10 @@ function icon(name) {
   node.append(path);
   return node;
 }
-function metric(symbol, label, value) {
+function metric(label, value) {
   const item = el("div", null, "metric");
-  const title = el("dt");
-  title.append(icon(symbol), el("span", label));
-  item.append(title, el("dd", value));
+  item.append(el("dt", label), el("dd", value));
+  item.title = label;
   return item;
 }
 function chip(symbol, label, value) {
@@ -479,13 +477,13 @@ function renderCard(card, g, kind, chartMaximum) {
   if (g.active) {
     const label = work ? "running" : g.active === 1 ? "socket" : "sockets";
     header.append(el("span", `${g.active} ${label}`, "status-badge started"));
-  } else if (work) header.append(el("span", "Finished", "status-badge sealed"));
+  }
   if (site) {
     const stats = el("div", null, "site-stats");
     const badge = chip(
       "receive",
       "Live download rate",
-      g.rate ? `${bytes(g.rate)}/s` : "0B/s"
+      `${bytes(g.rate)}/s`
     );
     badge.classList.add("site-rate");
     stats.append(badge);
@@ -517,13 +515,11 @@ function renderCard(card, g, kind, chartMaximum) {
   if (!site) {
     metrics.append(
       metric(
-        "receive",
-        averaged ? "1m avg" : "Download / sec",
+        averaged ? "1-minute average" : "Download rate",
         g.measured ? `${bytes(rate)}/s` : "—"
       ),
       metric(
-        "sum",
-        nic ? "Interface downloads" : "Observed downloads",
+        "Total transferred",
         g.measured || g.windows[2].bytes ? bytes(g.windows[2].bytes) : "—"
       )
     );
@@ -540,28 +536,23 @@ function renderCard(card, g, kind, chartMaximum) {
       chip(
         "peak",
         "Peak traffic",
-        `${Math.round((g.peak * 8) / 1e6) || "<1"} Mbps peak`
+        `${Math.round((g.peak * 8) / 1e6) || "<1"} Mbps`
       )
     );
   if (work) {
     if (g.disk) details.append(chip("disk", "Disk", bytes(g.disk)));
     if (g.fg)
       details.append(
-        chip("clock", "Foreground elapsed time", `${duration(g.fg)} fg`)
+        chip("clock", "Foreground elapsed time", duration(g.fg))
       );
-    details.append(
-      chip(
-        "cpu",
-        "Foreground CPU",
-        g.cpu ? `≥ ${duration(g.cpu)} CPU` : "— CPU"
-      )
-    );
+    if (g.cpu)
+      details.append(chip("cpu", "Observed foreground CPU", duration(g.cpu)));
     if (g.snapshots.size)
       details.append(
         chip(
           "snapshots",
           "Snapshots",
-          `${g.snapshots.size.toLocaleString()} snapshots`
+          g.snapshots.size.toLocaleString()
         )
       );
     if (g.active && g.cpuSamples && g.cpuLive > 0)
@@ -569,7 +560,7 @@ function renderCard(card, g, kind, chartMaximum) {
         chip(
           "cpu",
           "Average live CPU",
-          `${Math.round(g.cpuLive / g.cpuSamples) || "<1"}% CPU avg`
+          `${Math.round(g.cpuLive / g.cpuSamples) || "<1"}%`
         )
       );
     if (g.active && g.ramSamples && g.ram > 0)
@@ -577,25 +568,27 @@ function renderCard(card, g, kind, chartMaximum) {
         chip(
           "memory",
           "Average live RAM",
-          `${bytes(g.ram / g.ramSamples)} RAM avg`
+          bytes(g.ram / g.ramSamples)
         )
       );
   }
   if (nic) {
     if (g.tx) details.append(chip("send", "Upload rate", `${bytes(g.tx)}/s ↑`));
-    details.append(
-      chip("interfaces", "Local IP", `LAN ${g.local || "—"}`),
-      chip("sites", "WAN IP", `WAN ${g.wan || "—"}`)
-    );
+    if (g.local) details.append(chip("interfaces", "Local IP", g.local));
+    if (g.wan) details.append(chip("sites", "WAN IP", g.wan));
   }
   if (details.childElementCount) card.append(details);
 
-  if (site || g.windows.some(({ bytes, hits }) => bytes || hits)) {
+  const windowsToShow = g.windows
+    .map((amount, index) => ({ ...amount, index }))
+    .filter(({ bytes, hits, index }) =>
+      !(range === "1h" && index === 1) &&
+      (site || (index < 2 && (bytes || hits)))
+    );
+  if (windowsToShow.length) {
     const windows = el("div", null, site ? "window-tiles" : "window-strip");
     if (!site) windows.append(icon("clock"));
-    g.windows.forEach(({ bytes: value, hits }, index) => {
-      if (!site && !value && !hits) return;
-      if (range === "1h" && index === 1) return;
+    for (const { bytes: value, hits, index } of windowsToShow) {
       const item = el("span", null, "rate-badge");
       const label = ["1m", "1h", range === "all" ? "All time" : range][index];
       item.title = [
@@ -608,14 +601,14 @@ function renderCard(card, g, kind, chartMaximum) {
       if (site) {
         const estimate = el(
           "span",
-          `≈ ${hits.toLocaleString()} req`,
+          `${hits.toLocaleString()} req`,
           "hit-estimate"
         );
         estimate.title = "Completed downloads and observed connections";
         item.append(estimate);
       }
       windows.append(item);
-    });
+    }
     card.append(windows);
   }
 }

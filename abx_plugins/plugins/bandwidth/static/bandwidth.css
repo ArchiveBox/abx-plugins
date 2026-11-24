@@ -59,10 +59,6 @@
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
-#bandwidth-ui small {
-  font-size: 13px;
-  color: var(--body-quiet-color, #64748b);
-}
 #bandwidth-ui #clock {
   margin-left: auto;
   color: var(--body-quiet-color, #64748b);
@@ -129,7 +125,6 @@
 #bandwidth-ui .bandwidth-card > header,
 #bandwidth-ui .traffic-strip,
 #bandwidth-ui .traffic-values,
-#bandwidth-ui .metric dt,
 #bandwidth-ui .detail-strip,
 #bandwidth-ui .window-strip {
   display: flex;
@@ -174,10 +169,6 @@
   background: #dbeafe;
   color: #1e40af;
 }
-#bandwidth-ui .status-badge.sealed {
-  background: #d1fae5;
-  color: #065f46;
-}
 #bandwidth-ui .traffic-strip {
   padding: 4px 7px;
   border-radius: 5px;
@@ -193,13 +184,12 @@
   padding-left: 8px;
 }
 #bandwidth-ui .metric dt {
-  gap: 3px;
-  font-size: 12px;
-  color: var(--body-quiet-color, #64748b);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
-}
-#bandwidth-ui .metric dt svg {
-  color: var(--card-accent);
 }
 #bandwidth-ui .metric dd {
   margin: 0;

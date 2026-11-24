@@ -1,19 +1,19 @@
 {% extends "admin/base.html" %}
 {% block title %}Bandwidth{% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="{{ admin_url }}">Home</a> &rsaquo; Bandwidth</div>{% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="assets/bandwidth.css">{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="assets/bandwidth.css?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">{% endblock %}
 {% block content_title %}{% endblock %}
 {% block content %}
 <div id="bandwidth-ui" data-poll-ms="{{ poll_ms }}" data-monitor-key="{{ monitor_key }}" data-history-enabled="{{ history_enabled|yesno:'true,false' }}" data-range="{{ selected_range }}" data-range-seconds="{{ range_seconds }}" data-range-label="{{ range_label }}">
 <nav class="range-bar" aria-label="Time range">
 {% for key, range in ranges.items %}<a href="?range={{ key }}" data-range="{{ key }}" data-seconds="{{ range.1 }}"{% if key == selected_range %} aria-current="true"{% endif %}>{{ range.0 }}</a>{% endfor %}
 </nav>
-<nav class="toolbar"><button id="play" aria-label="Pause" title="Pause">Ⅱ</button><button id="reset" aria-label="Reset" title="Reset">↻</button><span id="connection" role="status" aria-label="Connected">●</span><div class="total"><output id="total-bytes">0 B</output><small>observed downloads</small></div><div class="total cyan"><output id="total-rate">0 B/s</output><small>download / sec</small></div><div class="total"><output id="process-count">0</output><small>running</small></div><span id="clock"></span></nav>
+<nav class="toolbar"><button id="play" aria-label="Pause" title="Pause">Ⅱ</button><button id="reset" aria-label="Reset" title="Reset">↻</button><span id="connection" role="status" aria-label="Connected">●</span><div class="total"><output id="total-bytes" aria-label="Total transferred" title="Total transferred">0 B</output></div><div class="total cyan"><output id="total-rate" aria-label="Download rate" title="Download rate">0 B/s</output></div><div class="total"><output id="process-count" aria-label="Running processes">0</output> running</div><span id="clock"></span></nav>
 <div id="dashboard">
 <section class="column"><header><span>Crawls <output id="crawls-count">0</output></span><select id="crawls-sort" aria-label="Rank crawls"><option value="bandwidth">↓ Bandwidth</option><option value="cpu">↓ CPU</option><option value="disk">↓ Disk</option></select></header><div id="crawls" class="cards"></div></section>
 <section class="column"><header><span>Plugins <output id="plugins-count">0</output></span><select id="plugins-sort" aria-label="Rank plugins"><option value="bandwidth">↓ Bandwidth</option><option value="cpu">↓ CPU</option><option value="disk">↓ Disk</option></select></header><div id="plugins" class="cards"></div></section>
 <section class="column"><header><span>Interfaces <output id="interfaces-count">0</output></span></header><div id="interfaces" class="cards"></div></section>
 <section class="column"><header><span>Sites <output id="sites-count">0</output></span></header><div id="sites" class="cards"></div></section>
 </div></div>
-<script type="module" src="assets/bandwidth.mjs"></script>
+<script type="module" src="assets/bandwidth.mjs?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
 {% endblock %}
