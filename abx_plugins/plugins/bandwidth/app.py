@@ -72,7 +72,7 @@ def view(request, *, host, data=False, asset=None):
     if asset is not None:
         if asset not in {"bandwidth.mjs", "bandwidth.css"}:
             raise Http404
-        return serve(request, asset, document_root=ROOT / "static")
+        return serve(request, asset, document_root=str(ROOT / "static"))
     interval = max(1000, min(10000, int(config.get("BANDWIDTH_POLL_MS", 2000))))
     history_records = getattr(host, "process_history_records", None)
     artifact_history = getattr(host, "process_artifact_history_records", None)

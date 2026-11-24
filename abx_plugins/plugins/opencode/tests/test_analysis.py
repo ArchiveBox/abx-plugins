@@ -20,7 +20,7 @@ PLUGIN = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(scope="module")
-def analysis_environment(tmp_path_factory):
+def analysis_environment(tmp_path_factory) -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("ABXPKG_LIB_DIR", str(tmp_path_factory.mktemp("opencode-lib")))
     env.pop("OPENCODE_CONFIG", None)
@@ -33,8 +33,8 @@ def analysis_environment(tmp_path_factory):
 @pytest.mark.parametrize("plugin", ["autotag", "autosummary"])
 def test_saved_capture_without_selected_model_is_skipped(
     tmp_path,
-    analysis_environment,
-    plugin,
+    analysis_environment: dict[str, str],
+    plugin: str,
 ):
     response = requests.get("https://news.ycombinator.com/", timeout=30)
     response.raise_for_status()

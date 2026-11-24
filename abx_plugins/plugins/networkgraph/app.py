@@ -148,7 +148,7 @@ def view(request, *, host, data=False, asset=None):
             "vendor/d3-force-3d.min.js",
         }:
             raise Http404
-        return serve(request, asset, document_root=ROOT / "static")
+        return serve(request, asset, document_root=str(ROOT / "static"))
     batch = max(1, min(32, int(config.get("NETWORKGRAPH_BATCH_SIZE", 8))))
     if not data:
         context = {

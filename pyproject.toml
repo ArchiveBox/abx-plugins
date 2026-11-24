@@ -53,6 +53,7 @@ dev = [
     "ty>=0.0.18",
     "ruff>=0.15.2",
     "playwright>=1.62.0",
+    "django-stubs>=6.0",
 ]
 
 

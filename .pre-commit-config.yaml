@@ -38,13 +38,13 @@ repos:
         types_or: [python, pyi]
       - id: ty-check
         name: ty-check
-        entry: bash -lc 'ARGS=""; [ -d ./abxpkg ] && ARGS="$ARGS --extra-search-path ./abxpkg"; [ -d ../abxpkg ] && ARGS="$ARGS --extra-search-path ../abxpkg"; uv run --active --no-sync --no-sources ty check $ARGS'
+        entry: bash -lc 'ARGS=""; [ -d ./abxpkg ] && ARGS="$ARGS --extra-search-path ./abxpkg"; [ -d ../abxpkg ] && ARGS="$ARGS --extra-search-path ../abxpkg"; uv run --locked --no-sources ty check $ARGS'
         language: system
         files: ^(abx_plugins/|tests/)
         pass_filenames: false
       - id: pyright
         name: pyright
-        entry: uv run --active --no-sync --no-sources pyright
+        entry: uv run --locked --no-sources pyright
         language: system
         files: ^(abx_plugins/|tests/)
         pass_filenames: false
