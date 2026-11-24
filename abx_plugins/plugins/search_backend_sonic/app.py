@@ -17,6 +17,18 @@ from .daemon import (
 )
 
 
+def search_word_pages(word, *, environ, timeout):
+    """Enumerate positive postings in native order. Each socket call is bounded."""
+    from .search import search
+
+    offset = 0
+    while page := search(word, environ=environ, timeout=timeout, offset=offset):
+        yield page
+        # Some servers return fewer rows than the requested limit. Advance by
+        # the actual page and request the next offset until the server says EOF.
+        offset += len(page)
+
+
 def search_word_hits(word, *, environ, timeout):
     """Stream a bounded prefix of ranked positives without reading archive files."""
     from .search import PAGE_SIZE, search
