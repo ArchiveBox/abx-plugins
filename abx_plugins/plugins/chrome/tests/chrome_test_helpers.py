@@ -1678,6 +1678,20 @@ def launch_chromium_session(
     launch_env = env.copy()
     launch_env["CRAWL_DIR"] = str(crawl_dir)
     env["CRAWL_DIR"] = str(crawl_dir)
+    if sys.platform == "linux" and (squid_ca := launch_env.get("SQUID_CA_CERT")):
+        # Chrome reads NSS trust from the test's isolated HOME, separate from the runner's NSS database.
+        nss_dir = Path(launch_env["HOME"]) / ".pki" / "nssdb"
+        nss_dir.mkdir(parents=True, exist_ok=True)
+        database = f"sql:{nss_dir}"
+        if not (nss_dir / "cert9.db").is_file():
+            subprocess.run(
+                ["certutil", "-N", "--empty-password", "-d", database],
+                check=True,
+            )
+        subprocess.run(
+            ["certutil", "-A", "-d", database, "-n", "ugNAS Squid CA", "-t", "C,,", "-i", squid_ca],
+            check=True,
+        )
     stdout_log = chrome_dir / "chrome_launch.stdout.log"
     stderr_log = chrome_dir / "chrome_launch.stderr.log"
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")

@@ -1,5 +1,6 @@
 """Integration tests for the chrome_mhtml plugin."""
 
+import json
 import os
 import subprocess
 import tempfile
@@ -189,7 +190,14 @@ def test_extracts_mhtml_from_cross_site_iframe(
             test_url=test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             env_overrides={
-                "CHROME_ARGS_EXTRA": f'["--site-per-process","--host-resolver-rules=MAP {MHTML_OOPIF_CHILD_HOST} 127.0.0.1"]',
+                "CHROME_ARGS_EXTRA": json.dumps(
+                    [
+                        "--site-per-process",
+                        # The iframe hostname maps to the local fixture in Chrome.
+                        "--no-proxy-server",
+                        f"--host-resolver-rules=MAP {MHTML_OOPIF_CHILD_HOST} 127.0.0.1",
+                    ],
+                ),
             },
         ) as (
             _process,
