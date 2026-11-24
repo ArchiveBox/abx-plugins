@@ -219,6 +219,8 @@ def test_cached_image_body_identity_across_oopif_sessions(
     chrome_options = json.dumps(
         [
             "--site-per-process",
+            # Chrome resolves both iframe names to the local fixture server.
+            "--no-proxy-server",
             "--host-resolver-rules=MAP oopif-child-a.test 127.0.0.1,MAP oopif-child-b.test 127.0.0.1",
         ],
     )

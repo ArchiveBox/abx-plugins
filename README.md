@@ -276,6 +276,12 @@ file reads. Missing IDs are unknown. Hosts check permissions, scope and the full
 Boolean expression before displaying any hit. Providers without this adapter use
 the standalone commands.
 
+An index can additionally expose `search_word_pages(word, *, environ, timeout)`.
+Yield successive pages of ranked positive IDs and finish only at end of postings.
+Raise on interruption or backend failure. Each fetch observes the socket timeout.
+Exhausting this iterator establishes all index positives for the word. It does
+not certify coverage of an individual document or prove a negation.
+
 Input is one JSON object on stdin. A provider flushes at most one JSON object per
 candidate to stdout, in the order evidence becomes available. It may omit
 unresolved candidates. Each operand in a request must have a unique key.

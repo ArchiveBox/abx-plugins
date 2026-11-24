@@ -790,7 +790,10 @@ atexit.register(_stop_owned_process)
 
 
 def agent_context(
-    settings: dict, session_id: str = "", *, workdir: Path | None = None,
+    settings: dict,
+    session_id: str = "",
+    *,
+    workdir: Path | None = None,
 ) -> dict:
     if session_id and not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
         raise ValueError("Invalid agent session ID")

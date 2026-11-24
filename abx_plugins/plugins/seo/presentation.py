@@ -1,6 +1,7 @@
 """Small, optional saved-artifact summaries for server-rendered link previews."""
 
 import json
+from functools import cache
 from html.parser import HTMLParser
 from pathlib import Path
 from stat import S_ISREG
@@ -20,24 +21,17 @@ def template_context(slot, context):
         return {}
     root = Path(context["output_dir"])
     files = context["output_files"]
-    canonical_root = None
 
-    def contained(path):
-        nonlocal canonical_root
-        if canonical_root is None:
-            # Resolving the collection path may traverse remote FUSE metadata.
-            # Reuse it within this rendering call, retaining each file's symlink
-            # containment check without probing the same root for every artifact.
-            canonical_root = root.resolve()
-        source = (canonical_root / path).resolve()
-        return source if source.is_relative_to(canonical_root) else None
+    @cache
+    def resolved_root():
+        return root.resolve()
 
     def read(path, limit=262144):
         if path not in files:
             return ""
         try:
-            source = contained(path)
-            if source is None:
+            source = (root / path).resolve()
+            if not source.is_relative_to(resolved_root()):
                 return ""
             with source.open("rb") as handle:
                 data = handle.read(limit + 1)
@@ -63,45 +57,32 @@ def template_context(slot, context):
         text = " ".join("".join(parser.parts).split())
         return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
+    def first_plain(*values):
+        return next((text for value in values if (text := plain(value, 300))), "")
+
+    @cache
+    def article():
+        # Most pages already have both social fields; only read the saved
+        # article when SEO did not supply a usable value.
+        return metadata("readability/article.json")
+
     seo = metadata("seo/seo.json")
-    title = next(
-        (
-            text
-            for value in (
-                seo.get("og:title"),
-                seo.get("twitter:title"),
-                seo.get("title"),
-            )
-            if (text := plain(value, 300))
-        ),
-        "",
+    title = first_plain(
+        seo.get("og:title"),
+        seo.get("twitter:title"),
+        seo.get("title"),
+    ) or first_plain(article().get("title"), context["title"], context["url"])
+    description = first_plain(
+        seo.get("og:description"),
+        seo.get("twitter:description"),
+        seo.get("description"),
     )
-    description = next(
-        (
-            text
-            for value in (
-                seo.get("og:description"),
-                seo.get("twitter:description"),
-                seo.get("description"),
-            )
-            if (text := plain(value, 300))
-        ),
-        "",
-    )
-    if not title or not description:
-        # SEO already owns these fields when present. Reading readability only
-        # for missing values avoids fetching a second remote artifact needlessly.
-        article = metadata("readability/article.json")
-        title = title or plain(article.get("title"), 300)
-        description = description or next(
-            (
-                text
-                for value in (article.get("excerpt"), article.get("description"))
-                if (text := plain(value, 300))
-            ),
-            "",
+    if not description:
+        saved_article = article()
+        description = first_plain(
+            saved_article.get("excerpt"),
+            saved_article.get("description"),
         )
-    title = title or plain(context["title"], 300) or plain(context["url"], 300)
     if not description:
         for path in ("readability/content.txt", "htmltotext/htmltotext.txt"):
             if description := plain(read(path, 16384), 300):
@@ -119,11 +100,11 @@ def template_context(slot, context):
             }:
                 continue
             try:
-                source = contained(path)
-                if source is None:
+                source = (root / path).resolve()
+                if not source.is_relative_to(resolved_root()):
                     continue
-                info = source.stat()
-                if S_ISREG(info.st_mode) and info.st_size:
+                file_stat = source.stat()
+                if S_ISREG(file_stat.st_mode) and file_stat.st_size:
                     image = path
                     break
             except (OSError, ValueError):

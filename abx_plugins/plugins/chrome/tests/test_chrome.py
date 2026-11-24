@@ -3585,6 +3585,8 @@ def test_http_only_navigation_does_not_require_https_first_dialog(
         env_overrides={
             "CHROME_ARGS_EXTRA": json.dumps(
                 [
+                    # The local server is reachable only through Chrome's resolver rule.
+                    "--no-proxy-server",
                     f"--host-resolver-rules=MAP archivebox-http.example.com {fixture_address}",
                 ],
             ),

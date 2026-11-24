@@ -41,6 +41,8 @@ def test_human_verification_with_empty_visible_body_has_noresults(
                 "CHROME_CHECK_SSL_VALIDITY": "false",
                 "CHROME_ARGS_EXTRA": json.dumps(
                     [
+                        # Resolve the fixture hostname in Chrome so the request reaches the local server.
+                        "--no-proxy-server",
                         f"--host-resolver-rules=MAP www.figma.com {address}",
                     ],
                 ),

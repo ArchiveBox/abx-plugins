@@ -391,7 +391,7 @@ if __name__ == "__main__":
                 flush,
                 search_candidates=search_candidates,
                 allow_streaming=False,
-            )
+            ),
         )
     except ScanDeadline:
         raise SystemExit(0)

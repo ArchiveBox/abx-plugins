@@ -38,11 +38,11 @@ def opencode_env(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def rg_binary(opencode_env):
-    import shutil
-
-    executable = shutil.which("rg")
-    assert executable, "OpenCode file discovery uses the rg executable"
-    return executable
+    # The Ubuntu test runner does not always have rg on PATH.
+    plugin_dir = Path(__file__).parents[2] / "search_backend_ripgrep"
+    binary = install_required_binary_from_config(plugin_dir, "rg", env=opencode_env)
+    assert binary.abspath and binary.version, "Failed to install rg"
+    return str(binary.abspath)
 
 
 def test_agent_child_python_uses_host_packages(tmp_path, opencode_env):

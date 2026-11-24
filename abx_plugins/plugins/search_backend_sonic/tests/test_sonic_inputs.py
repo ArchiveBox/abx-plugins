@@ -13,7 +13,10 @@ import time
 
 import pytest
 
-from abx_plugins.plugins.search_backend_sonic.app import search_word_hits
+from abx_plugins.plugins.search_backend_sonic.app import (
+    search_word_hits,
+    search_word_pages,
+)
 from abx_plugins.plugins.search_backend_sonic.daemon import (
     get_sonic_supervisord_worker,
     is_port_listening,
@@ -367,6 +370,12 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
             assert all_hits[:100] == first_page
             assert len(all_hits) == len(set(all_hits)) == 500
             assert set(all_hits) < objects
+            pages = list(
+                search_word_pages("paginationuniqueneedle", environ=env, timeout=2),
+            )
+            complete = [pk for page in pages for pk in page]
+            assert complete[: len(all_hits)] == all_hits
+            assert len(complete) == len(objects) and set(complete) == objects
             # Work done by the consumer between results also spends the budget.
             expiring = search_word_hits(
                 "paginationuniqueneedle",

@@ -103,9 +103,31 @@ def _run_start_hook(
             if isinstance(error.stderr, bytes)
             else error.stderr
         )
+        # The original start has already timed out. Ask the existing AWP
+        # popup protocol once whether it can now see this exact recording.
+        observation = "unavailable"
+        try:
+            status = _read_awp_status(snapshot_dir / "chrome", env, process_timeout=3)
+            if status["recording"]:
+                title = status["collectionTitle"].rsplit(" [", 1)[-1]
+                observation = (
+                    "expected-recording"
+                    if title.startswith(f"model-{snapshot_dir.name}/")
+                    else "different-recording"
+                )
+        except (
+            AssertionError,
+            OSError,
+            subprocess.TimeoutExpired,
+            ValueError,
+            KeyError,
+            TypeError,
+        ):
+            pass  # Never replace the original timeout or print probe output.
         raise AssertionError(
             f"ArchiveWebPage start timed out for {snapshot_dir.name}:\n"
-            f"stdout={stdout or ''}\nstderr={stderr or ''}",
+            f"stdout={stdout or ''}\nstderr={stderr or ''}\n"
+            f"AWP post-timeout status: {observation}",
         ) from error
 
 
@@ -547,7 +569,12 @@ const chromeSessionDir = process.argv[2];
     return result.stdout.strip()
 
 
-def _read_awp_status(snapshot_chrome_dir: Path, env: dict[str, str]) -> AwpStatus:
+def _read_awp_status(
+    snapshot_chrome_dir: Path,
+    env: dict[str, str],
+    *,
+    process_timeout: int = 30,
+) -> AwpStatus:
     script = r"""
 const chromeUtils = require(process.argv[1]);
 const awpInternal = require(process.argv[2]);
@@ -623,7 +650,7 @@ const chromeSessionDir = process.argv[3];
         ],
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=process_timeout,
         env=env,
     )
     assert result.returncode == 0, result.stderr
