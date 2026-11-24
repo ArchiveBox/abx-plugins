@@ -180,6 +180,7 @@ background services, models, or migrations. Both stop polling in hidden tabs.
 | `get_services(host, config)` | Service dictionaries described below. |
 | `register_eventbus(bus, config)` | `None`; register handlers, services or middleware on the supplied native `abxbus.EventBus`. |
 | `wrap_asgi(application, config)` | ASGI callable; wrap the complete host application, or return it unchanged when disabled. |
+| `enter_operation(name, config, *, attributes)` | Context manager for host work outside the bus, including scheduler passes and CLI commands; receives existing Process identity. |
 | `read_snapshot_inventory(snapshot_dir, *, verify=False)` | `None` when absent, otherwise `{path: {size, hash, is_dir}}`; invalid inventories raise `ValueError`. |
 
 `app.py` may export `AppConfig`, a native Django `AppConfig` subclass with a unique

@@ -89,6 +89,25 @@ class AppConfig(DjangoAppConfig):
             close()
 
 
+def enter_operation(name, config, *, attributes):
+    """Initialize optional telemetry only for an enabled host operation."""
+    from contextlib import nullcontext
+
+    resolved = load_config(
+        CONFIG_PATH,
+        global_config=config,
+        environ={},
+        hydrate_binaries=False,
+        hydrate_user_agent=False,
+    )
+    if not resolved.SENTRY_ENABLED:
+        return nullcontext()
+    from .runtime import initialize, enter_operation as operation
+
+    initialize(resolved)
+    return operation(name, attributes=attributes)
+
+
 def register_eventbus(bus, config):
     """ArchiveBox offers the bus; this plugin decides whether to attach tracing."""
     resolved = load_config(
@@ -100,8 +119,7 @@ def register_eventbus(bus, config):
     )
     if not resolved.SENTRY_ENABLED:
         return
-    from .runtime import initialize, register_hook_reporting
-    from abxbus.middlewares import OtelTracingMiddleware
+    from .runtime import initialize, register_hook_reporting, OtelTracingMiddleware
 
     provider = initialize(resolved)
     assert provider is not None
@@ -123,9 +141,19 @@ def wrap_asgi(application, config):
     from .runtime import initialize
     from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 
+    def server_request_hook(span, scope):
+        from sentry_sdk import get_global_scope
+
+        # The host supplies its already registered Process identity. It is
+        # constant for this worker; never look up database rows in the exporter.
+        attributes = scope.get("archivebox.process", {})
+        span.set_attributes(attributes)
+        get_global_scope().set_attributes(attributes)
+
     return OpenTelemetryMiddleware(
         application,
         tracer_provider=initialize(resolved),
+        server_request_hook=server_request_hook,
         # Resolved Django routes replace this low-cardinality initial name.
         default_span_details=lambda scope: (scope.get("method", scope["type"]), {}),
         # The server span covers transport waits without a child per body chunk.
@@ -134,6 +162,35 @@ def wrap_asgi(application, config):
 
 
 class RequestAttributesMiddleware(MiddlewareMixin):
+    @staticmethod
+    def _set_attributes(request):
+        from opentelemetry.trace import get_current_span
+        from sentry_sdk import get_client, get_isolation_scope
+
+        attributes = {}
+        # Replay views already resolved this object. Inspect loaded fields only:
+        # monitoring must not fetch deferred columns or a related Crawl.
+        snapshot = request.__dict__.get("archivebox_snapshot")
+        if snapshot is not None:
+            fields = vars(snapshot)
+            for field, key in (
+                ("id", "snapshot.id"),
+                ("crawl_id", "crawl.id"),
+                ("url", "snapshot.url"),
+                ("title", "snapshot.title"),
+            ):
+                if fields.get(field) is not None:
+                    attributes[key] = str(fields[field])
+        if get_client().options["send_default_pii"]:
+            user = getattr(request, "user", None)
+            if user is not None and user.is_authenticated:
+                attributes["user.id"] = str(user.pk)
+                attributes["user.name"] = user.get_username()
+                if getattr(user, "email", None):
+                    attributes["user.email"] = user.email
+        get_current_span().set_attributes(attributes)
+        get_isolation_scope().set_attributes(attributes)
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         from opentelemetry.trace import get_current_span
 
@@ -142,17 +199,13 @@ class RequestAttributesMiddleware(MiddlewareMixin):
             route = request.resolver_match.route
             span.set_attribute("http.route", route)
             span.update_name(f"{request.method} {route}")
+        # Child SQL and deferred threads inherit identity before the view runs.
+        self._set_attributes(request)
+
+    def process_exception(self, request, exception):
+        self._set_attributes(request)
 
     def process_response(self, request, response):
-        from opentelemetry.trace import get_current_span
-        from sentry_sdk import get_client
-
-        span = get_current_span()
-        if span.is_recording() and get_client().options["send_default_pii"]:
-            user = getattr(request, "user", None)
-            if user is not None and user.is_authenticated:
-                span.set_attribute("user.id", str(user.pk))
-                span.set_attribute("user.name", user.get_username())
-                if getattr(user, "email", None):
-                    span.set_attribute("user.email", user.email)
+        # API authentication and replay resolution may happen inside the view.
+        self._set_attributes(request)
         return response
