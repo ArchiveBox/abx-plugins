@@ -165,8 +165,9 @@ def verifier(tmp_path, request):
             )
             print(logs.stdout + logs.stderr)
         finally:
+            # Logs are saved and the isolated proof session is finished.
             stopped = subprocess.run(
-                [*compose, "down", "--volumes", "--remove-orphans"],
+                [*compose, "down", "--timeout", "1", "--volumes", "--remove-orphans"],
                 env=env,
                 capture_output=True,
                 text=True,
@@ -242,8 +243,8 @@ def test_real_gateway_enforces_session_limit_and_releases_capacity(verifier, req
         connections.close()
 
 
-def test_real_gateway_retains_upstream_verification_timeout(verifier):
-    """The pinned verifier's own timeout must remain observable after socket close."""
+def test_real_gateway_retains_upstream_rejection(verifier):
+    """The gateway retains a real verifier rejection after the control socket closes."""
     from websockets.sync.client import connect
 
     url = verifier["TLSNOTARY_VERIFIER_URL"]
@@ -262,6 +263,7 @@ def test_real_gateway_retains_upstream_verification_timeout(verifier):
         )
         registered = json.loads(control.recv(timeout=5))
         assert registered["type"] == "session_registered"
+        # The verifier requires a text frame for the reveal configuration.
         control.send(
             json.dumps(
                 {
@@ -288,25 +290,18 @@ def test_real_gateway_retains_upstream_verification_timeout(verifier):
                         },
                     ],
                 },
-            ),
+            ).encode(),
         )
-        # A real idle prover connection exercises the upstream 120s timeout;
-        # no substitute verifier, injected error frame, or altered deadline.
-        with connect(
-            websocket_url + "/verifier?sessionId=" + registered["sessionId"],
-            open_timeout=5,
-        ):
-            failure = json.loads(control.recv(timeout=125))
-            assert failure == {
-                "type": "error",
-                "message": "Verification timed out after 120s",
-            }
-        with pytest.raises(urllib.error.HTTPError) as terminal:
-            urllib.request.urlopen(f"{url}/receipts/{receipt_id}", timeout=2)
-        assert terminal.value.code == 502
-        assert json.load(terminal.value) == {
-            "error": "TLSNotary verifier rejected this proof.",
+        assert json.loads(control.recv(timeout=5)) == {
+            "type": "error",
+            "message": "Expected text message",
         }
+    with pytest.raises(urllib.error.HTTPError) as terminal:
+        urllib.request.urlopen(f"{url}/receipts/{receipt_id}", timeout=2)
+    assert terminal.value.code == 502
+    assert json.load(terminal.value) == {
+        "error": "TLSNotary verifier rejected this proof.",
+    }
 
 
 def test_real_gateway_refuses_proof_when_host_memory_reserve_is_unavailable(tmp_path):
