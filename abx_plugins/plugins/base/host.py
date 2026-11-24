@@ -31,6 +31,24 @@ class Host(Protocol):
         limit: int = 128,
     ) -> dict[str, Any]: ...
 
+    def process_artifact_history_records(
+        self,
+        request: Any,
+        *,
+        plugin: str,
+        before: str | None = None,
+        since: datetime | None = None,
+        limit: int = 32,
+    ) -> dict[str, Any]: ...
+
+    def bandwidth_groups(
+        self,
+        request: Any,
+        *,
+        before: str | None = None,
+        limit: int = 256,
+    ) -> dict[str, Any]: ...
+
     def group_domains(self, request: Any, hosts: list[str]) -> dict[str, str]: ...
 
     def outlink_records(

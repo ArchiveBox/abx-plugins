@@ -59,10 +59,6 @@
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
-#bandwidth-ui #clock {
-  margin-left: auto;
-  color: var(--body-quiet-color, #64748b);
-}
 #bandwidth-ui #connection {
   color: #15966b;
 }
@@ -112,6 +108,8 @@
   border-radius: 8px;
   background: var(--body-bg, #fff);
   box-shadow: 0 1px 3px #00000008;
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 78px;
 }
 #bandwidth-ui .crawls-card {
   --card-accent: #a04c4c;
@@ -336,7 +334,8 @@
   gap: 4px;
 }
 #bandwidth-ui .sites-card > header > :is(a, strong) {
-  min-width: min(8ch, 25%);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 #bandwidth-ui .sites-card .rate-badge {
   line-height: 1.2;
@@ -350,7 +349,6 @@
 #bandwidth-ui .site-stats {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 2px 3px;
   min-width: 0;

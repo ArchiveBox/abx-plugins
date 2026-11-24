@@ -5,8 +5,11 @@ from hashlib import sha256
 from ipaddress import IPv6Address, ip_address
 from pathlib import Path
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
+import os
+import stat
 import time
 from urllib.parse import urlencode, urlsplit
 
@@ -72,6 +75,8 @@ def view(request, *, host, data=False, asset=None):
         return serve(request, asset, document_root=ROOT / "static")
     interval = max(1000, min(10000, int(config.get("BANDWIDTH_POLL_MS", 2000))))
     history_records = getattr(host, "process_history_records", None)
+    artifact_history = getattr(host, "process_artifact_history_records", None)
+    group_history = getattr(host, "bandwidth_groups", None)
     period = request.GET.get("range", "24h")
     if period not in RANGES:
         return JsonResponse({}, status=400)
@@ -86,6 +91,8 @@ def view(request, *, host, data=False, asset=None):
             **host.admin_context(request),
             "poll_ms": interval,
             "history_enabled": history_records is not None,
+            "hit_history_enabled": artifact_history is not None,
+            "group_history_enabled": group_history is not None,
             "ranges": RANGES,
             "selected_range": period,
             "range_label": range_label,
@@ -100,26 +107,56 @@ def view(request, *, host, data=False, asset=None):
         )
     after = request.GET.get("after")
     before = request.GET.get("history")
+    source = request.GET.get("source", "downloads")
+    if source not in {"downloads", "hits", "groups"} or (
+        source != "downloads" and before is None
+    ):
+        return JsonResponse({}, status=400)
+    if source == "groups" and period != "all":
+        return JsonResponse({}, status=400)
     ids = tuple(request.GET.get("ids", "").split(",")) if request.GET.get("ids") else ()
     if len(ids) > 128 or any(len(value) > 36 for value in ids):
         return JsonResponse({}, status=400)
     if (after and len(after) > 36) or (before and len(before) > 36):
         return JsonResponse({}, status=400)
     limit = max(16, min(128, int(config.get("BANDWIDTH_MAX_PROCESSES", 128))))
-    cache_scope = f"{config['DATA_DIR']}:{limit}:{after}:{before}:{period}:{ids}"
+    cache_scope = (
+        f"{config['DATA_DIR']}:{limit}:{after}:{before}:{period}:{source}:{ids}"
+    )
     key = "live-network:" + sha256(cache_scope.encode()).hexdigest()
     result = cache.get(key)
     if result is None:
         try:
-            if before is None:
+            if source == "groups":
+                if group_history is None:
+                    raise Http404
+                page = group_history(request, before=before)
+            elif before is None:
                 page = host.process_records(request, after=after, ids=ids, limit=limit)
+            elif source == "hits" and artifact_history is not None:
+                page = artifact_history(
+                    request,
+                    plugin="dns",
+                    before=before,
+                    since=since,
+                )
+            elif source == "hits":
+                raise Http404
             elif history_records is not None:
                 page = history_records(request, before=before, since=since, limit=limit)
             else:
                 raise Http404
         except ValueError:
             return JsonResponse({}, status=400)
-        if before is None:
+        domains_url = reverse("domains:index")
+        if source == "groups":
+            result = page
+        elif source == "hits":
+            result = {
+                "cursor": page["cursor"],
+                "observations": browser_hits(host, request, page, domains_url, since),
+            }
+        elif before is None:
             result = sample(page)
         else:
             result = {
@@ -128,13 +165,14 @@ def view(request, *, host, data=False, asset=None):
                 "processes": [process_record(row) for row in page["records"]],
                 "cursor": page["cursor"],
             }
-        result["downloads"] = completed_downloads(
-            host,
-            request,
-            result["processes"],
-            since=since.timestamp() if since else None,
-        )
-        identify_sites(host, request, page, result, reverse("domains:index"))
+        if source == "downloads":
+            result["downloads"] = completed_downloads(
+                host,
+                request,
+                result["processes"],
+                since=since.timestamp() if since else None,
+            )
+            identify_sites(host, request, page, result, domains_url)
         cache.set(key, result, timeout=interval / 1000)
     return JsonResponse(result, headers={"Cache-Control": "private, no-store"})
 
@@ -360,6 +398,68 @@ def read_dns_observations(path, mtime, size):
         except (KeyError, AttributeError, TypeError, ValueError):
             continue
     return records
+
+
+def capture_hosts(directory):
+    path = Path(directory) / "dns" / "dns.jsonl"
+    hosts = {}
+    try:
+        with open(
+            path,
+            "rb",
+            opener=lambda path, flags: os.open(
+                path,
+                flags | os.O_NOFOLLOW | os.O_NONBLOCK,
+            ),
+        ) as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                return hosts
+            for line in stream:
+                try:
+                    row = json.loads(line)
+                    if row["source"] != "cdp" or not row.get("ip"):
+                        continue
+                    hostname = row["hostname"].lower().rstrip(".")
+                    timestamp = datetime.fromisoformat(row["ts"]).timestamp()
+                    if hostname and len(hostname) <= 253:
+                        hosts[hostname] = max(timestamp, hosts.get(hostname, timestamp))
+                except (KeyError, AttributeError, TypeError, ValueError, OverflowError):
+                    continue
+    except OSError:
+        pass
+    return hosts
+
+
+def browser_hits(host, request, page, domains_url, since):
+    directories = page["output_dirs"]
+    if not directories:
+        return []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        captures = list(pool.map(capture_hosts, directories.values()))
+    earliest = since.timestamp() if since else float("-inf")
+    names = sorted(
+        {name for hosts in captures for name, ts in hosts.items() if ts > earliest},
+    )
+    grouped = {}
+    for start in range(0, len(names), 512):
+        grouped.update(host.group_domains(request, names[start : start + 512]))
+    observations = []
+    for snapshot, hosts in zip(directories, captures, strict=True):
+        sites = {}
+        for name, timestamp in hosts.items():
+            if timestamp <= earliest:
+                continue
+            site = grouped.get(name, name)
+            if site not in sites or timestamp > sites[site]["time"]:
+                sites[site] = {
+                    "snapshot": snapshot,
+                    "hostname": name,
+                    "site": site,
+                    "site_url": domains_url + "?" + urlencode({"q": site}),
+                    "time": timestamp,
+                }
+        observations.extend(sites.values())
+    return observations
 
 
 def identify_sites(host, request, page, result, domains_url):
