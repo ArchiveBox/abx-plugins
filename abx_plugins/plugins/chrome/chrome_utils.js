@@ -1471,19 +1471,31 @@ async function launchChromium(options = {}) {
       .flatMap((arg) => arg.slice(flag.length + 1).split(","))
       .filter(Boolean);
   const enabledFeatures = featureList("--enable-features");
+  const disabledFeatures = featureList("--disable-features");
+  const isCI = process.env.CI === "true";
   if (
-    ![...enabledFeatures, ...featureList("--disable-features")].some(
+    ![...enabledFeatures, ...disabledFeatures].some(
       (feature) => feature.split(":")[0] === "HappyEyeballsV3"
     )
   ) {
     enabledFeatures.push("HappyEyeballsV3:max_stream_per_group/32");
   }
   for (let index = chromiumArgs.length - 1; index >= 0; index -= 1) {
-    if (chromiumArgs[index].startsWith("--enable-features=")) {
+    const arg = chromiumArgs[index];
+    if (
+      arg.startsWith("--enable-features=") ||
+      (isCI && arg.startsWith("--disable-features="))
+    ) {
       chromiumArgs.splice(index, 1);
     }
   }
   chromiumArgs.push(`--enable-features=${[...new Set(enabledFeatures)].join(",")}`);
+
+  if (isCI) {
+    // Fresh CI profiles otherwise send Google time and AI eligibility requests on startup.
+    disabledFeatures.push("NetworkTimeServiceQuerying", "AimEnabled");
+    chromiumArgs.push(`--disable-features=${[...new Set(disabledFeatures)].join(",")}`);
+  }
 
   // Ensure keychain prompts are disabled on macOS
   if (!chromiumArgs.includes("--use-mock-keychain")) {
