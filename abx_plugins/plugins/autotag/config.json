@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "screenshot": "screenshot.json",
   "title": "Automatic tags",
   "description": "Generate tags from saved capture text using the configured OpenCode provider.",
   "type": "object",

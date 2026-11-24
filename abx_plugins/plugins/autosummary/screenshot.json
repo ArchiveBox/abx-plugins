@@ -1,0 +1,8 @@
+{
+  "library": {
+    "model_setting": "AUTOSUMMARY_MODEL",
+    "output_view": "Snapshot View (automatic summary)",
+    "settings_view": "Automatic summary configuration",
+    "verify": "text"
+  }
+}

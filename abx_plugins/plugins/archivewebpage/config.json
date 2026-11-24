@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "screenshot": "screenshot.json",
   "title": "ArchiveWeb.page",
   "description": "Record a high-fidelity WACZ web archive of the page using the Webrecorder ArchiveWeb.page Chrome extension.",
   "type": "object",

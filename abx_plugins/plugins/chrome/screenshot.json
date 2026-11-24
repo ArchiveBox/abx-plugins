@@ -1,0 +1,35 @@
+{
+  "library": {
+    "homepage_config": {
+      "CHROME_TIMEOUT": 90
+    },
+    "navigation_file": "navigation.json"
+  },
+  "diagnostics": {
+    "phases": {
+      "navigate": "on_Snapshot__30_chrome_navigate",
+      "tab": "on_Snapshot__01_chrome_tab.daemon.bg"
+    },
+    "signals": {
+      "navigation_200": "page loaded http=200\\b",
+      "renderer_crashed": "(?i)renderer crashed",
+      "unexpected_target_close": "(?i)closed unexpectedly",
+      "missing_target_marker": "(?:No target_id\\.txt found|target_id\\.txt is missing)",
+      "tab_sigterm": "Received SIGTERM, closing chrome tab"
+    },
+    "stderr_logs": [
+      "on_Snapshot__01_chrome_tab*.stderr.log"
+    ],
+    "lifecycle": {
+      "renderer_crashed": "Page crashed!|Snapshot target [0-9a-f]+ crashed:",
+      "unexpected_target_close": "tab closed unexpectedly!|Snapshot target [0-9a-f]+ closed unexpectedly",
+      "heap_allocation_failure": "JavaScript heap out of memory|Reached heap limit|FatalProcessOutOfMemory|OOM_CRASH|(?:PartitionAlloc|partition_alloc).*out of memory",
+      "browser_close_failed": "Browser\\.close failed:|cleanup did not fully stop the browser process tree"
+    },
+    "tab_failure_markers": [
+      "[chrome] target_crash status=crashed ",
+      "[chrome] target_crash status=oom ",
+      "tab closed unexpectedly!"
+    ]
+  }
+}

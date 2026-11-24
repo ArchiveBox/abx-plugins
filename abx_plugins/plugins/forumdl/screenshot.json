@@ -1,4 +1,5 @@
 {
   "url": "https://arstechnica.com/civis/threads/watch-militarized-microbes-use-some-sophisticated-weapons-to-snare-prey.1380035/",
-  "wait_for_text": "militarized microbes"
+  "wait_for_text": "militarized microbes",
+  "public_lane": "web"
 }

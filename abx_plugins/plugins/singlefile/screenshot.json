@@ -1,0 +1,13 @@
+{
+  "diagnostics": {
+    "phases": {
+      "singlefile": "on_Snapshot__50_singlefile"
+    },
+    "signals": {
+      "singlefile_download_timeout": "SingleFile download for tab \\d+ did not complete"
+    },
+    "stderr_logs": [
+      "on_Snapshot__50_singlefile*.stderr.log"
+    ]
+  }
+}

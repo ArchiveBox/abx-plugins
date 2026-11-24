@@ -4,5 +4,6 @@
     "PLAYWRIGHT_TIMEOUT": 240,
     "PLAYWRIGHT_SCRIPT": "await page.getByRole(\"button\", { name: \"Start\", exact: true }).click();\nawait page.getByRole(\"radio\", { name: \"AI\", exact: true }).check();\nawait page.getByText(\"Click to expand me\", { exact: true }).click();\n"
   },
-  "output_plugin": "screenshot"
+  "output_plugin": "screenshot",
+  "public_lane": "browser-automation"
 }

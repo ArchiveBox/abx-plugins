@@ -1,1 +1,5 @@
-{"url": "https://pypi.org/project/requests/", "wait_for_text": "requests"}
+{
+  "url": "https://pypi.org/project/requests/",
+  "wait_for_text": "requests",
+  "public_lane": "packageregistry"
+}

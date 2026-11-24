@@ -1,0 +1,8 @@
+{
+  "library": {
+    "fixture_output": "archivewebpage.wacz",
+    "format": "wacz",
+    "export_player_template": "gallery_export"
+  },
+  "wait_for_frame_text": "microbial ballistics"
+}

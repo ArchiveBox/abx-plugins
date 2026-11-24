@@ -1,4 +1,10 @@
 {
   "url": "https://www.w3schools.com/html/html5_video.asp",
-  "wait_for_text": "HTML Video"
+  "wait_for_text": "HTML Video",
+  "public_lane": "ytdlp",
+  "library": {
+    "folder_config": {
+      "YTDLP_MAX_SIZE": "1256m"
+    }
+  }
 }

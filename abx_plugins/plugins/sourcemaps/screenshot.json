@@ -1,4 +1,5 @@
 {
   "url": "https://jquery.com/",
-  "wait_for_text": "Source maps"
+  "wait_for_text": "Source maps",
+  "public_lane": "parsers"
 }

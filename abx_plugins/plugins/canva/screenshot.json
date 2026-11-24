@@ -1,4 +1,9 @@
 {
   "url": "https://www.canva.com/design/DAHa0z1qR7Y/wufF6Eb9UfJTAjLFz7EGRA/edit",
-  "wait_for_text": "Copy of Public Access - Certificate v1 (Bleed) - 8.5 x 11.pdf"
+  "wait_for_text": "Copy of Public Access - Certificate v1 (Bleed) - 8.5 x 11.pdf",
+  "diagnostics": {
+    "phases": {
+      "canva": "on_Snapshot__53_canva"
+    }
+  }
 }

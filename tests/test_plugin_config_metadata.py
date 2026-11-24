@@ -186,12 +186,18 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             "source_config_overrides",
             "output_plugin",
             "importer",
+            "library",
+            "diagnostics",
+            "output_ready",
+            "public_lane",
+            "settings_example",
+            "wait_for_frame_text",
         }, recipe_path
         assert not (recipe.get("url") and recipe.get("view")), recipe_path
         if "importer" in recipe:
             assert recipe["importer"] in config.get("importers", {}), recipe_path
         assert isinstance(recipe.get("enabled", True), bool), recipe_path
-        for key in ("url", "view", "wait_for_text"):
+        for key in ("url", "view", "wait_for_text", "wait_for_frame_text"):
             if key in recipe:
                 assert _is_non_empty_string(recipe[key]), recipe_path
                 assert not any(character in recipe[key] for character in "\n\r|"), (
@@ -219,6 +225,36 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
                 recipe_path,
                 key,
             )
+        library = recipe.get("library", {})
+        for key in ("config_overrides", "folder_config", "homepage_config"):
+            assert library.get(key, {}).keys() <= config["properties"].keys(), (
+                recipe_path
+            )
+        if "output_view" in library:
+            assert (
+                library["model_setting"] in config["properties"]
+                and config["default_output_path"]
+            ), recipe_path
+            assert library["verify"] in {"text", "snapshot_tags"}, recipe_path
+        if template := library.get("export_player_template"):
+            assert (plugin_dir / "templates" / f"{template}.html").is_file(), (
+                recipe_path
+            )
+        if example := recipe.get("settings_example"):
+            assert example["feed"] in config["importers"], recipe_path
+            assert example["settings"].keys() <= config["properties"].keys(), (
+                recipe_path
+            )
+        if "public_lane" in recipe:
+            assert recipe.get("url") and _is_non_empty_string(recipe["public_lane"]), (
+                recipe_path
+            )
+        for hook in recipe.get("diagnostics", {}).get("phases", {}).values():
+            assert any(plugin_dir.glob(f"{hook}.*")), (recipe_path, hook)
+        if ready := recipe.get("output_ready"):
+            assert _is_non_empty_string(ready["selector"]) and recipe["outputs"], (
+                recipe_path
+            )
         scoped = recipe.get("source_config_overrides", {})
         assert isinstance(scoped, dict), recipe_path
         sources = {
@@ -238,7 +274,7 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
         assert isinstance(outputs, list), recipe_path
         for output in outputs:
             assert isinstance(output, dict), recipe_path
-            assert output.keys() <= {"name", "path", "url", "model"}, recipe_path
+            assert output.keys() <= {"name", "path", "url", "ready"}, recipe_path
             assert _is_non_empty_string(output.get("name")), recipe_path
             assert _is_non_empty_string(output.get("path")), recipe_path
             assert not any(
@@ -253,7 +289,8 @@ def test_plugin_screenshot_recipes_reference_real_inputs() -> None:
             assert ".." not in Path(path.path).parts, recipe_path
             if "url" in output:
                 assert output["url"].startswith(("http://", "https://")), recipe_path
-            assert isinstance(output.get("model", False), bool), recipe_path
+            if "ready" in output:
+                assert _is_non_empty_string(output["ready"]["selector"]), recipe_path
         assert isinstance(recipe.get("config", False), bool), recipe_path
         if recipe.get("config"):
             assert recipe.get("view"), recipe_path

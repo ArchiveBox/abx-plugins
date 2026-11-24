@@ -4,5 +4,6 @@
     "PUPPETEER_TIMEOUT": 240,
     "PUPPETEER_SCRIPT": "await page.locator('::-p-aria(Start[role=\"button\"])').click();\nawait page.locator('::-p-aria(AI[role=\"radio\"])').click();\nawait page.locator(\"::-p-text(Click to expand me)\").click();\n"
   },
-  "output_plugin": "screenshot"
+  "output_plugin": "screenshot",
+  "public_lane": "browser-automation"
 }

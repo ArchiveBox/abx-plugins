@@ -1,0 +1,8 @@
+{
+  "library": {
+    "model_setting": "AUTOTAG_MODEL",
+    "output_view": "Snapshot View (automatic tags)",
+    "settings_view": "Automatic tags configuration",
+    "verify": "snapshot_tags"
+  }
+}

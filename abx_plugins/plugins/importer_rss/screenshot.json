@@ -1,0 +1,11 @@
+{
+  "settings_example": {
+    "view": "RSS importer settings",
+    "feed": "feed",
+    "name": "Hacker News RSS",
+    "schedule": "daily",
+    "settings": {
+      "IMPORTER_RSS_URL": "https://news.ycombinator.com/rss"
+    }
+  }
+}

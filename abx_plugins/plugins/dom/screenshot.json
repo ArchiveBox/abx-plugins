@@ -1,0 +1,6 @@
+{
+  "library": {
+    "fixture_output": "output.html",
+    "format": "html"
+  }
+}

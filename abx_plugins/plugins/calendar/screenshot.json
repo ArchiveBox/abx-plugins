@@ -1,4 +1,5 @@
 {
   "url": "https://www.gov.uk/bank-holidays/england-and-wales.ics",
-  "wait_for_text": "Christmas Day"
+  "wait_for_text": "Christmas Day",
+  "public_lane": "documents"
 }

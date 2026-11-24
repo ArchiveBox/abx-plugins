@@ -4,25 +4,28 @@
   "outputs": [
     {
       "name": "Model preview (STL)",
-      "path": "files/slotted_disk.stl?preview=1&raw=1",
-      "model": true
+      "path": "files/slotted_disk.stl?preview=1&raw=1"
     },
     {
       "name": "Model preview (3MF)",
       "path": "files/cube_gears.3mf?preview=1&raw=1",
-      "model": true,
       "url": "https://threejs.org/examples/webgl_loader_3mf.html"
     },
     {
       "name": "Model preview (GLB)",
       "url": "https://modelviewer.dev/",
-      "path": "files/NeilArmstrong.glb?preview=1&raw=1",
-      "model": true
+      "path": "files/NeilArmstrong.glb?preview=1&raw=1"
     }
   ],
   "source_config_overrides": {
     "https://threejs.org/examples/webgl_loader_3mf.html": {
       "CHROME_WAIT_FOR": "networkidle0"
     }
+  },
+  "public_lane": "cad",
+  "output_ready": {
+    "selector": "#model[data-state=\"ready\"]",
+    "positive_attribute": "data-rendered-triangles",
+    "error_selector": "#model[data-state=\"error\"]"
   }
 }

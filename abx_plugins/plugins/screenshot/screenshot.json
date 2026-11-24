@@ -1,0 +1,10 @@
+{
+  "diagnostics": {
+    "phases": {
+      "screenshot": "on_Snapshot__51_screenshot"
+    }
+  },
+  "library": {
+    "format": "screenshot"
+  }
+}

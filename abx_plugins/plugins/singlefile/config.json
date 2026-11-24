@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "screenshot": "screenshot.json",
   "title": "SingleFile",
   "description": "Save a complete page as a single self-contained HTML file using the SingleFile Chrome extension.",
   "type": "object",
