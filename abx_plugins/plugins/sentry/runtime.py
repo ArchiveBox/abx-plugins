@@ -46,6 +46,8 @@ PROCESS_ATTRIBUTES = (
     "user.id",
     "user.name",
     "user.email",
+    "user.ip_address",
+    "client.address",
     "snapshot.url",
     "snapshot.title",
 )
@@ -472,7 +474,10 @@ def initialize(config):
                 key: attributes[key]
                 for key in PROCESS_ATTRIBUTES
                 if key in attributes
-                and (not key.startswith("user.") or config.SENTRY_SEND_DEFAULT_PII)
+                and (
+                    config.SENTRY_SEND_DEFAULT_PII
+                    or (not key.startswith("user.") and key != "client.address")
+                )
             }
 
         def before_send_log(log, hint):
@@ -496,6 +501,12 @@ def initialize(config):
                 ):
                     if key in attributes:
                         event.setdefault("user", {}).setdefault(field, attributes[key])
+                if "user.ip_address" in attributes:
+                    # Native error integrations may have already recorded the
+                    # transport peer; keep errors aligned with the request span.
+                    event.setdefault("user", {})["ip_address"] = attributes[
+                        "user.ip_address"
+                    ]
             return event
 
         sentry.init(

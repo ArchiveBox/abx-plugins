@@ -1,6 +1,7 @@
 """Opt-in Sentry initialization through the host's native Django app registry."""
 
 from pathlib import Path
+from ipaddress import ip_address
 
 from django.apps import AppConfig as DjangoAppConfig
 from django.conf import settings
@@ -149,6 +150,28 @@ def wrap_asgi(application, config):
         attributes = scope.get("archivebox.process", {})
         span.set_attributes(attributes)
         get_global_scope().set_attributes(attributes)
+        if resolved.SENTRY_SEND_DEFAULT_PII:
+            # X-Forwarded-For describes the original client, whereas scope.client
+            # is the proxy socket used by the host's authentication trust checks.
+            # Change telemetry only, and never put request identity on global scope.
+            forwarded = next(
+                (
+                    value
+                    for key, value in scope.get("headers", ())
+                    if key.lower() == b"x-forwarded-for"
+                ),
+                b"",
+            )
+            try:
+                address = str(
+                    ip_address(forwarded.decode("latin-1").split(",", 1)[0].strip()),
+                )
+            except ValueError:
+                # An unknown/malformed first hop is not the later proxy's identity.
+                pass
+            else:
+                span.set_attribute("client.address", address)
+                span.set_attribute("user.ip_address", address)
 
     return OpenTelemetryMiddleware(
         application,
