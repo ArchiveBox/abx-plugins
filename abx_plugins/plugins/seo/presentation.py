@@ -3,6 +3,7 @@
 import json
 from html.parser import HTMLParser
 from pathlib import Path
+from stat import S_ISREG
 
 
 class _Text(HTMLParser):
@@ -19,13 +20,24 @@ def template_context(slot, context):
         return {}
     root = Path(context["output_dir"])
     files = context["output_files"]
+    canonical_root = None
+
+    def contained(path):
+        nonlocal canonical_root
+        if canonical_root is None:
+            # Resolving the collection path may traverse remote FUSE metadata.
+            # Reuse it within this rendering call, retaining each file's symlink
+            # containment check without probing the same root for every artifact.
+            canonical_root = root.resolve()
+        source = (canonical_root / path).resolve()
+        return source if source.is_relative_to(canonical_root) else None
 
     def read(path, limit=262144):
         if path not in files:
             return ""
         try:
-            source = (root / path).resolve()
-            if not source.is_relative_to(root.resolve()):
+            source = contained(path)
+            if source is None:
                 return ""
             with source.open("rb") as handle:
                 data = handle.read(limit + 1)
@@ -52,7 +64,6 @@ def template_context(slot, context):
         return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
     seo = metadata("seo/seo.json")
-    article = metadata("readability/article.json")
     title = next(
         (
             text
@@ -60,9 +71,6 @@ def template_context(slot, context):
                 seo.get("og:title"),
                 seo.get("twitter:title"),
                 seo.get("title"),
-                article.get("title"),
-                context["title"],
-                context["url"],
             )
             if (text := plain(value, 300))
         ),
@@ -75,13 +83,25 @@ def template_context(slot, context):
                 seo.get("og:description"),
                 seo.get("twitter:description"),
                 seo.get("description"),
-                article.get("excerpt"),
-                article.get("description"),
             )
             if (text := plain(value, 300))
         ),
         "",
     )
+    if not title or not description:
+        # SEO already owns these fields when present. Reading readability only
+        # for missing values avoids fetching a second remote artifact needlessly.
+        article = metadata("readability/article.json")
+        title = title or plain(article.get("title"), 300)
+        description = description or next(
+            (
+                text
+                for value in (article.get("excerpt"), article.get("description"))
+                if (text := plain(value, 300))
+            ),
+            "",
+        )
+    title = title or plain(context["title"], 300) or plain(context["url"], 300)
     if not description:
         for path in ("readability/content.txt", "htmltotext/htmltotext.txt"):
             if description := plain(read(path, 16384), 300):
@@ -99,12 +119,11 @@ def template_context(slot, context):
             }:
                 continue
             try:
-                source = (root / path).resolve()
-                if (
-                    source.is_relative_to(root.resolve())
-                    and source.is_file()
-                    and source.stat().st_size
-                ):
+                source = contained(path)
+                if source is None:
+                    continue
+                info = source.stat()
+                if S_ISREG(info.st_mode) and info.st_size:
                     image = path
                     break
             except (OSError, ValueError):
