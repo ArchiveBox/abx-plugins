@@ -1,11 +1,15 @@
 """Collection graph routes; capture and permission operations belong to the host."""
 
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+import errno
 from functools import partial
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
+import stat
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).parent
@@ -145,14 +149,10 @@ def view(request, *, host, data=False, asset=None):
         }:
             raise Http404
         return serve(request, asset, document_root=ROOT / "static")
-    batch = max(1, min(32, int(config.get("NETWORKGRAPH_BATCH_SIZE", 16))))
+    batch = max(1, min(32, int(config.get("NETWORKGRAPH_BATCH_SIZE", 8))))
     if not data:
         context = {
             **host.admin_context(request),
-            "max_nodes": max(
-                100,
-                min(20000, int(config.get("NETWORKGRAPH_MAX_NODES", 12000))),
-            ),
             "admin_url": host.route_urls(request)["admin"] + "/",
         }
         return HttpResponse(
@@ -163,7 +163,7 @@ def view(request, *, host, data=False, asset=None):
     if len(request.META.get("QUERY_STRING", "")) > 4096:
         return JsonResponse({}, status=400)
     key = (
-        "collection-graph:v4:"
+        "collection-graph:v6:"
         + sha256(
             f"{config['DATA_DIR']}:{batch}:{request.GET.urlencode()}".encode(),
         ).hexdigest()
@@ -172,7 +172,12 @@ def view(request, *, host, data=False, asset=None):
     if result is None:
         try:
             if request.GET.get("scan") == "links":
-                result = outlink_page(host, request, request.GET.get("after") or None)
+                result = outlink_page(
+                    host,
+                    request,
+                    request.GET.get("after") or None,
+                    batch,
+                )
             elif request.GET.get("scan") == "1":
                 result = collection_page(
                     host,
@@ -218,45 +223,82 @@ def view(request, *, host, data=False, asset=None):
     return JsonResponse(result, headers={"Cache-Control": "private, no-store"})
 
 
+def saved_targets(record, *, default_paths):
+    root = Path(record["output_dir"])
+    targets = set()
+    for relative in record.get("paths", default_paths):
+        try:
+            with open(
+                root / relative,
+                "rb",
+                opener=lambda path, flags: os.open(
+                    path,
+                    flags | os.O_NOFOLLOW | os.O_NONBLOCK,
+                ),
+            ) as stream:
+                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                    continue
+                for line in stream:
+                    try:
+                        item = json.loads(line)
+                    except (ValueError, UnicodeError):
+                        continue
+                    url = item.get("url") if isinstance(item, dict) else None
+                    if (
+                        isinstance(url, str)
+                        and len(url) <= 8192
+                        and not is_boilerplate_url(url)
+                    ):
+                        targets.add(url)
+        except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
+            continue
+        except OSError as error:
+            if error.errno != errno.ELOOP:
+                raise
+    return targets
+
+
+def saved_domain_targets(host, request, records, default_paths):
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        url_sets = list(
+            executor.map(partial(saved_targets, default_paths=default_paths), records),
+        )
+    candidates = sorted(set().union(*url_sets))
+    domains = {}
+    for start in range(0, len(candidates), 256):
+        domains.update(
+            target_domains(host, request, candidates[start : start + 256]),
+        )
+    return [{domains[url] for url in urls if url in domains} for urls in url_sets]
+
+
 def neighbors(host, request, domain, after, batch):
     page = host.snapshot_records(request, domain=domain, after=after, limit=batch)
     edges = Counter()
     nodes = set()
-    # Each request reads at most 32 x 64 KiB; no archive-wide file walk.
-    # Group saved targets the same way as the collection catalog.
-    captures = []
-    for record in page["records"]:
+    captures = [
+        record
+        for record in page["records"]
+        if record["domain"] and not is_boilerplate_url(record["url"])
+    ]
+    saved = saved_domain_targets(
+        host,
+        request,
+        captures,
+        ("parse_dom_outlinks/urls.jsonl",),
+    )
+    for record, targets in zip(captures, saved, strict=True):
         source = record["domain"]
-        if not source or is_boilerplate_url(record["url"]):
-            continue
-        captures.append(record)
         nodes.add(source)
-        targets = (
+        targets.update(
             {
                 target
                 for target, url in record["child_links"]
                 if not is_boilerplate_url(url)
             }
             if "child_links" in record
-            else set(record["children"])
+            else set(record["children"]),
         )
-        urls = []
-        file = Path(record["output_dir"]) / "parse_dom_outlinks" / "urls.jsonl"
-        try:
-            with file.open("rb") as stream:
-                content = stream.read(65536)
-            for line in content.splitlines()[:256]:
-                try:
-                    item = json.loads(line)
-                except (ValueError, UnicodeError):
-                    continue
-                if isinstance(item, dict) and isinstance(item.get("url"), str):
-                    url = item["url"][:8192]
-                    if not is_boilerplate_url(url):
-                        urls.append(url)
-        except OSError:
-            pass
-        targets.update(target_domains(host, request, urls).values())
         for target in targets:
             if target and target != source:
                 edges[source, target] += 1
@@ -311,7 +353,7 @@ def collection_page(host, request, after):
             domain,
             {
                 "id": domain,
-                "scope": f"*.{domain}",
+                "scope": record.get("scope", f"*.{domain}"),
                 "count": 0,
                 "size": 0,
                 "favicon": "",
@@ -339,49 +381,19 @@ def collection_page(host, request, after):
     }
 
 
-def outlink_page(host, request, after):
-    page = host.outlink_records(request, after=after, limit=32)
-    sources = []
-    urls = set()
-    for record in page["records"]:
-        if is_boilerplate_url(record.get("url")):
-            continue
-        targets = set()
-        root = Path(record["output_dir"])
-        budget = 65536
-        for relative in page["paths"]:
-            if not budget:
-                break
-            try:
-                with (root / relative).open("rb") as stream:
-                    content = stream.read(budget)
-                budget -= len(content)
-                for line in content.splitlines()[:256]:
-                    try:
-                        item = json.loads(line)
-                        url = item.get("url") if isinstance(item, dict) else None
-                        if (
-                            isinstance(url, str)
-                            and len(url) <= 8192
-                            and not is_boilerplate_url(url)
-                        ):
-                            targets.add(url)
-                    except (ValueError, UnicodeError):
-                        continue
-            except OSError:
-                continue
-        sources.append((record["domain"], targets))
-        urls.update(targets)
-    resolved = {}
-    candidates = sorted(urls)
-    for start in range(0, len(candidates), 256):
-        resolved.update(
-            target_domains(host, request, candidates[start : start + 256]),
-        )
+def outlink_page(host, request, after, batch):
+    page = host.outlink_records(request, after=after, limit=batch)
+    records = [
+        record
+        for record in page["records"]
+        if record["domain"] and not is_boilerplate_url(record.get("url"))
+    ]
+    saved = saved_domain_targets(host, request, records, page["paths"])
     edges = Counter()
-    for source, targets in sources:
-        for domain in {resolved.get(target) for target in targets}:
-            if source and domain and source != domain:
+    for record, targets in zip(records, saved, strict=True):
+        source = record["domain"]
+        for domain in targets:
+            if domain and source != domain:
                 edges[source, domain] += 1
     return {
         "links": [

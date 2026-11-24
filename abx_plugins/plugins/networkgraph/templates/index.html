@@ -1,11 +1,11 @@
 {% extends "admin/base.html" %}
 {% block title %}Graph Explorer{% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="{{ admin_url }}">Home</a> &rsaquo; Graph Explorer</div>{% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="assets/graph.css">{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="assets/graph.css?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">{% endblock %}
 {% block content_title %}{% endblock %}
-{% block content %}<div id="networkgraph-ui" data-max-nodes="{{ max_nodes }}"><main id="graph" aria-label="Domain graph"></main><div id="labels" aria-hidden="true"></div>
-<nav><a href="{{ admin_url }}" aria-label="Collection" title="Collection">▦</a><button id="play" aria-label="Pause" title="Pause">Ⅱ</button><button id="fit" aria-label="Fit" title="Fit">⛶</button><button id="dimensions" aria-label="3D view" title="Toggle 3D view" aria-pressed="false">2D</button><button id="orbit" aria-label="Orbit" title="Orbit" disabled>◌</button><button id="reset" aria-label="Reset" title="Reset">↻</button><input id="search" type="search" aria-label="Domain" placeholder="⌕" autocomplete="off"><span id="connection" role="status" aria-label="Loading">●</span></nav>
+{% block content %}<div id="networkgraph-ui"><main id="graph" aria-label="Domain graph"></main><div id="labels" aria-hidden="true"></div>
+<nav><a href="{{ admin_url }}" aria-label="Collection" title="Collection">▦</a><button id="play" aria-label="Pause loading" title="Pause loading">Ⅱ</button><button id="fit" aria-label="Fit" title="Fit">⛶</button><button id="dimensions" aria-label="3D view" title="Toggle 3D view" aria-pressed="false">2D</button><button id="orbit" aria-label="Orbit" title="Orbit" disabled>◌</button><button id="reset" aria-label="Reset" title="Reset">↻</button><input id="search" type="search" aria-label="Domain" placeholder="⌕" autocomplete="off"><span id="connection" role="status" aria-label="Loading">●</span></nav>
 <aside><div class="meter"><span>◉ <output id="node-count">0</output></span><span>⇢ <output id="link-count">0</output></span><span>▤ <output id="snapshot-count">0</output></span></div><svg id="distribution" viewBox="0 0 220 45" aria-label="Domain distribution"></svg><div id="domains"></div></aside>
 <section id="selection" hidden><button id="close" aria-label="Close">×</button><strong id="selected-domain"></strong><output id="selected-count"></output><div id="node-metrics"></div><div><button id="expand" aria-label="Expand" title="Expand">⊕</button><a id="snapshots" aria-label="Snapshots" title="Snapshots">▤</a><button id="hide" aria-label="Hide node" title="Hide node">⊘</button></div><div id="neighbors"></div><div id="captures"></div></section>
 <div id="axis" aria-hidden="true"><i></i><i></i><i></i></div>
-<script src="assets/vendor/3d-force-graph.min.js"></script><script type="module" src="assets/graph.mjs"></script></div>{% endblock %}
+<script src="assets/vendor/3d-force-graph.min.js"></script><script type="module" src="assets/graph.mjs?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script></div>{% endblock %}

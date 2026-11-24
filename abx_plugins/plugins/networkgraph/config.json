@@ -16,15 +16,9 @@
       "type": "boolean",
       "default": true
     },
-    "NETWORKGRAPH_MAX_NODES": {
-      "type": "integer",
-      "default": 12000,
-      "minimum": 100,
-      "maximum": 20000
-    },
     "NETWORKGRAPH_BATCH_SIZE": {
       "type": "integer",
-      "default": 16,
+      "default": 8,
       "minimum": 1,
       "maximum": 32
     }

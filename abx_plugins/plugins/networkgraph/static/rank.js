@@ -13,6 +13,15 @@ importScripts(
   "vendor/graphology.umd.min.js",
   "vendor/graphology-library.min.js"
 );
+function publishLayout(dimensions, nodes, clusters) {
+  postMessage({
+    dimensions,
+    nodes: nodes.map(({ id, x, y, z, rank, radius, community }) => ({
+      id, x, y, z, rank, radius, community,
+    })),
+    communities: clusters.map(({ id, members }) => ({ id, count: members.length })),
+  });
+}
 onmessage = ({ data }) => {
   const { dimensions } = data;
   const spatial = dimensions === 3;
@@ -28,7 +37,7 @@ onmessage = ({ data }) => {
     }));
   const count = allNodes.length;
   if (!count) {
-    postMessage({ dimensions, ranks: [], nodes: [], communities: [] });
+    postMessage({ dimensions, nodes: [], communities: [] });
     return;
   }
   let rank = new Float64Array(count).fill(1 / count);
@@ -46,20 +55,8 @@ onmessage = ({ data }) => {
     if (error < 1e-7) break;
   }
   for (let i = 0; i < count; i++) allNodes[i].rank = rank[i];
-  const focus = new Set(data.focus);
-  const nodes = allNodes
-    .sort(
-      (a, b) =>
-        Number(focus.has(b.id)) - Number(focus.has(a.id)) ||
-        b.rank - a.rank ||
-        b.count - a.count
-    )
-    .slice(0, data.layoutLimit);
-  const positioned = new Set(nodes.map((n) => n.id));
-  const links = allLinks
-    .filter((l) => positioned.has(l.source) && positioned.has(l.target))
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, data.layoutLimit * 3);
+  const nodes = allNodes;
+  const links = allLinks;
   const network = new graphology.DirectedGraph();
   for (const n of nodes) network.addNode(n.id);
   for (const l of links)
@@ -103,6 +100,16 @@ onmessage = ({ data }) => {
   const clusters = [...groups.values()]
     .filter((g) => g.id)
     .sort((a, b) => b.rank - a.rank);
+  if (nodes.every((n) => n.position)) {
+    for (const n of nodes) {
+      n.x = n.position.x;
+      n.y = n.position.y;
+      n.z = spatial ? n.position.z ?? 0 : 0;
+      if (!n.community) n.radius = 1 + Math.log2(1 + n.count) * 1.8;
+    }
+    publishLayout(dimensions, nodes, clusters);
+    return;
+  }
   clusters.forEach((g, i) => {
     g.radius =
       Math.sqrt(g.members.reduce((s, v) => s + (nodes[v].radius + 4) ** 2, 0)) *
@@ -111,14 +118,21 @@ onmessage = ({ data }) => {
     g.x = Math.cos(angle) * Math.sqrt(i) * 150;
     g.y = Math.sin(angle) * Math.sqrt(i) * 150;
     g.z = spatial ? Math.sin(i * 2) * (g.radius + 150) : 0;
+    const established = g.members.map((v) => nodes[v].position).filter(Boolean);
+    if (established.length) {
+      for (const axis of spatial ? ["x", "y", "z"] : ["x", "y"])
+        g[axis] = g[`f${axis}`] =
+          established.reduce((sum, p) => sum + (p[axis] ?? 0), 0) / established.length;
+    }
   });
-  d3.forceSimulation(clusters, dimensions)
-    .stop()
-    .force("collide", d3.forceCollide((g) => g.radius + 80).iterations(3))
-    .force("x", d3.forceX().strength(0.025))
-    .force("y", d3.forceY().strength(0.025))
-    .force("z", spatial ? d3.forceZ().strength(0.025) : null)
-    .tick(150);
+  if (clusters.some((g) => g.fx == null))
+    d3.forceSimulation(clusters, dimensions)
+      .stop()
+      .force("collide", d3.forceCollide((g) => g.radius + 80).iterations(3))
+      .force("x", d3.forceX().strength(0.025))
+      .force("y", d3.forceY().strength(0.025))
+      .force("z", spatial ? d3.forceZ().strength(0.025) : null)
+      .tick(150);
   for (const g of clusters) {
     g.members.sort((a, b) => nodes[b].radius - nodes[a].radius);
     g.members.forEach((v, i) => {
@@ -137,9 +151,8 @@ onmessage = ({ data }) => {
     });
   }
   if (unlinked) {
-    const extent = Math.max(
-      250,
-      ...clusters.map((g) => Math.hypot(g.x, g.y) + g.radius)
+    const extent = clusters.reduce(
+      (max, g) => Math.max(max, Math.hypot(g.x, g.y) + g.radius), 250
     );
     unlinked.members.sort((a, b) => nodes[b].count - nodes[a].count);
     unlinked.members.forEach((v, i) => {
@@ -153,13 +166,20 @@ onmessage = ({ data }) => {
       n.radius = 1 + Math.log2(1 + n.count) * 1.8;
     });
   }
+  // Keep published positions while placing newly discovered neighbors.
+  for (const n of nodes) {
+    if (!n.position) continue;
+    n.x = n.fx = n.position.x;
+    n.y = n.fy = n.position.y;
+    n.z = n.fz = spatial ? n.position.z ?? 0 : 0;
+  }
   // Cluster anchors preserve separation while links pull related sites together.
   d3.forceSimulation(nodes, dimensions)
     .stop()
     .force(
       "link",
       d3
-        .forceLink(links)
+        .forceLink(links.filter((l) => !nodes[l.a].position || !nodes[l.b].position))
         .id((n) => n.id)
         .distance((l) => 40 + l.source.radius + l.target.radius)
         .strength(0.015)
@@ -169,25 +189,5 @@ onmessage = ({ data }) => {
     .force("y", d3.forceY((n) => n.cy).strength(0.08))
     .force("z", spatial ? d3.forceZ((n) => n.cz).strength(0.08) : null)
     .tick(35);
-  postMessage({
-    dimensions,
-    ranks: allNodes.map(({ id, rank }) => [id, rank]),
-    nodes: nodes.map(({ id, x, y, z, rank, radius, community }) => ({
-      id,
-      x,
-      y,
-      z,
-      rank,
-      radius,
-      community,
-    })),
-    communities: clusters.map(({ id, x, y, z, radius, members }) => ({
-      id,
-      x,
-      y,
-      z,
-      radius,
-      count: members.length,
-    })),
-  });
+  publishLayout(dimensions, nodes, clusters);
 };
