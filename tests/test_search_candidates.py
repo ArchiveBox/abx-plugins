@@ -8,10 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import (
-    get_hydrated_required_binaries,
-    install_required_binary_from_config,
-)
 
 PLUGINS = Path(__file__).resolve().parents[1] / "abx_plugins/plugins"
 
@@ -37,14 +33,6 @@ def run_candidates(
     if archive_root:
         request["archive_root"] = str(archive_root)
     env = {**os.environ, "DATA_DIR": str(tmp_path)}
-    if plugin == "search_backend_ripgrep":
-        # A cold runner may need apt to install rg. Keep provisioning outside
-        # the search deadline, just as a configured ArchiveBox host does.
-        directory = PLUGINS / plugin
-        (binary,) = get_hydrated_required_binaries(directory)
-        installed = install_required_binary_from_config(directory, binary["name"])
-        assert installed.loaded_abspath
-        env["RIPGREP_BINARY"] = str(installed.loaded_abspath)
     proc = subprocess.run(
         [str(PLUGINS / plugin / script), *args],
         input=json.dumps(request) + "\n",
@@ -59,59 +47,6 @@ def run_candidates(
 
 def term(key, value, mode="literal"):
     return {"key": key, "value": value, "mode": mode}
-
-
-def test_ripgrep_scans_only_supplied_snapshots_and_respects_literal_case_and_caps(
-    tmp_path,
-):
-    root = tmp_path / "candidate"
-    root.mkdir()
-    (root / "article.txt").write_text("Solar panel 12%_é\nAlpha:Beta")
-    outside = tmp_path / "other"
-    outside.mkdir()
-    (outside / "leak").write_text("secretcontrol")
-    (root / "escape").symlink_to(outside, target_is_directory=True)
-    (root / "filelink").symlink_to(outside / "leak")
-    (tmp_path / "empty").mkdir()
-    candidates = [
-        {"id": "one", "path": str(root)},
-        {"id": "missing", "path": str(tmp_path / "missing")},
-        {"id": "empty", "path": str(tmp_path / "empty")},
-    ]
-    terms = [
-        term("x", "solar PANEL", "deep"),
-        term("y", "solar panel", "deep"),
-        term("z", "12%_é", "deep"),
-        term("other", "secretcontrol", "deep"),
-        term("colon", "alpha:beta", "word"),
-    ]
-    rows = run_candidates("search_backend_ripgrep", tmp_path, candidates, terms)
-    assert rows["one"]["matches"] == {
-        "x": False,
-        "y": True,
-        "z": True,
-        "other": False,
-        "colon": True,
-    }
-    assert rows["one"]["usage"]["bytes"] == (root / "article.txt").stat().st_size
-    assert rows["missing"]["matches"] == {}
-    assert rows["empty"]["matches"] == {}
-    single = run_candidates(
-        "search_backend_ripgrep",
-        tmp_path,
-        candidates[:1],
-        [term("x", "alpha:beta", "deep")],
-    )
-    assert single["one"]["matches"] == {"x": True}
-    short = run_candidates(
-        "search_backend_ripgrep",
-        tmp_path,
-        candidates[:1],
-        [term("a", "SOLAR"), term("b", "Sol", "deep")],
-        bytes=3,
-    )
-    assert short["one"]["matches"] == {"b": True}
-    assert short["one"]["usage"]["bytes"] == 3
 
 
 @pytest.mark.parametrize("has_lookup", [True, False], ids=["current", "fts-only"])
@@ -186,34 +121,6 @@ def test_sonic_cannot_certify_character_case_or_exact_substrings(tmp_path):
     assert rows["one"]["matches"] == {}
 
 
-def test_ripgrep_candidates_are_descendants_of_the_supplied_archive_root(tmp_path):
-    archive = tmp_path / "archive"
-    valid = archive / "user" / "snapshots" / "abc"
-    outside = tmp_path / "folder" / "abc"
-    for folder in (valid, outside):
-        folder.mkdir(parents=True)
-        (folder / "entry.txt").write_text("fixture")
-    (archive / "redirect").symlink_to(valid.parent, target_is_directory=True)
-    paths = [
-        valid,
-        archive / "redirect" / "abc",
-        outside,
-        archive,
-        archive / ".." / "folder" / "abc",
-    ]
-    rows = run_candidates(
-        "search_backend_ripgrep",
-        tmp_path,
-        [{"id": str(i), "path": str(path)} for i, path in enumerate(paths)],
-        [term("x", "fixture", "deep")],
-        archive_root=archive,
-    )
-    assert rows["0"]["matches"] == {"x": True}
-    for i in range(1, len(paths)):
-        assert rows[str(i)]["matches"] == {}
-        assert rows[str(i)]["usage"]["bytes"] == 0
-
-
 @pytest.mark.parametrize("archive_root", ["relative/archive", "/archive/../other"])
 def test_invalid_archive_root_is_rejected(tmp_path, archive_root):
     with pytest.raises(subprocess.CalledProcessError, match="non-zero") as err:
@@ -273,18 +180,21 @@ def test_unreadable_sqlite_document_does_not_hide_later_candidates(tmp_path):
     assert rows["next"]["matches"] == {"posting": False, "literal": True}
 
 
-def test_file_scan_progresses_across_windows_and_utf8_boundaries(tmp_path):
-    root = tmp_path / "snap"
-    root.mkdir()
-    (root / "late.txt").write_bytes(b"x" * 63 + "Éclipse".encode())
+def test_index_scan_progresses_across_windows_and_utf8_boundaries(tmp_path):
+    content = "x" * 63 + "Éclipse"
+    with sqlite3.connect(tmp_path / "search.sqlite3") as db:
+        db.execute(
+            "CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id,url,title,content)"
+        )
+        db.execute("INSERT INTO search_index VALUES ('snap', '', '', ?)", (content,))
     found = run_candidates(
-        "search_backend_ripgrep",
+        "search_backend_sqlite",
         tmp_path,
-        [{"id": "snap", "path": str(root)}],
-        [term("a", "éclipse", "deep"), term("b", "absent", "deep")],
+        [{"id": "snap"}],
+        [term("a", "éclipse"), term("b", "absent")],
         streaming=True,
         bytes=64,
         per_file=32,
     )
     assert found["snap"]["matches"] == {"a": True, "b": False}
-    assert found["snap"]["usage"]["bytes"] == (root / "late.txt").stat().st_size
+    assert found["snap"]["usage"]["bytes"] >= len(content.encode())

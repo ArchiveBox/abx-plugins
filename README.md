@@ -260,9 +260,8 @@ models and `request` when supplied by the view.
 A search provider registers `search` and `flush` in `config.json > commands`.
 It can also register `"search_candidates": ["search.py", "search_candidates"]`
 to evaluate content predicates against an authorized page of snapshot IDs.
-Disk-scanning hosts should send an absolute `archive_root` alongside `candidates`
-and lexical candidate paths beneath that directory. The scanner opens each path
-component relative to the trusted root and rejects symlinks and parent references.
+Content search reads the provider's collection index. ArchiveBox sends snapshot
+IDs and applies the active scope without opening snapshot directories.
 
 An indexed provider's optional `app_module.search_word_hits(word, *, environ, timeout)`
 can return a bounded, ranked iterable of confirmed snapshot IDs for a lowercase
@@ -277,7 +276,7 @@ candidate to stdout, in the order evidence becomes available. It may omit
 unresolved candidates. Each operand in a request must have a unique key.
 
 ```json
-{"candidates":[{"id":"snap-1","path":"/archive/snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}
+{"candidates":[{"id":"snap-1"}],"terms":[{"key":"t0","mode":"literal","value":"Solar panel"}],"limits":{"seconds":2,"files":8,"entries":64,"bytes":131072,"per_file":65536}}
 ```
 
 ```json
@@ -285,23 +284,21 @@ unresolved candidates. Each operand in a request must have a unique key.
 ```
 
 - `word` requests the provider's term search. `literal` requests a contiguous
-  substring. `deep` requests a literal in archived files from a `search_scan`
-  provider. Each operand determines its own case mode. An uppercase letter in
+  substring in indexed text. Each operand determines its own case mode. An uppercase letter in
   its value requires matching case. Only original text can establish such a
   match when a provider's token index discards case.
 - `matches` contains confirmed booleans keyed by the request's opaque term
   keys. Omit a key or candidate when it is unsupported, unindexed, unreadable,
   capped or otherwise unresolved. A negative requires complete evidence.
   Optional `scores` rank confirmed matches, with larger finite values first.
-- Hosts supply candidate IDs and trusted absolute snapshot directories.
-  Indexed providers can omit use of paths. Each page admits up to 64 candidates
+- Hosts supply candidate IDs. Each page admits up to 64 candidates
   and 128 terms. Limits apply across the page. The shared command caps work at
   8 seconds, 96 file attempts, 512 directory entries, 4 MiB of source bytes
   and 512 KiB per file. `usage` gives the increment for each emitted row so
   callers can charge subsequent pages against one query budget. Hosts also
   enforce a subprocess timeout for blocked filesystem or network reads.
 
-Connected clients may send `"streaming": true` to continue beyond the preview limits. The bundled file and SQLite scanners keep a cursor and match across chunk boundaries. For this mode the file, entry and byte allowances renew in one-second windows, and `per_file` limits an individual read. While processing a long candidate, providers may flush `{"progress":true}` to renew the inactivity timeout without reporting a match. Consumers must terminate their subprocess when the client disconnects. An unavailable source still supplies no evidence for negation.
+Connected clients may send `"streaming": true` to continue beyond the preview limits. The SQLite provider keeps a cursor and matches across chunk boundaries. For this mode the file, entry and byte allowances renew in one-second windows, and `per_file` limits an individual read. While processing a long candidate, providers may flush `{"progress":true}` to renew the inactivity timeout without reporting a match. Consumers must terminate their subprocess when the client disconnects. An unavailable source still supplies no evidence for negation.
 
 ### Configuration field templates
 
