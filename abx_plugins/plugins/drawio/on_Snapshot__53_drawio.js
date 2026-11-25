@@ -144,14 +144,30 @@ async function main() {
         await page.waitForSelector('.geDialog input[type="checkbox"]', {
           timeout: remaining(),
         });
-        const include = await page.$(
-          '::-p-aria([name="Include a copy of my diagram"])',
-        );
+        const includeSelector =
+          '::-p-aria([name="Include a copy of my diagram"])';
+        let include = await page.$(includeSelector);
+        const previewDialog = ".geDialog .geExportDialog.gePreviewTemplate";
+        const hasPreviewDialog = Boolean(await page.$(previewDialog));
+        if (!include && hasPreviewDialog) {
+          // The preview dialog hides the editable export option under More
+          // options, so it does not appear in the accessibility tree yet.
+          await click(
+            `${previewDialog} .gePreviewOptions > .geCollapsibleTitle[aria-expanded="false"]`,
+          );
+          include = await page.$(includeSelector);
+        }
         if (!include)
           throw new Error("Editable SVG export option is unavailable");
         if (!(await include.evaluate((el) => el.checked)))
           await include.click();
-        await click(".geDialog ::-p-text(Export)");
+        // The preview's "Export SVG" button shares the dialog with an
+        // "Export" heading. Target the primary action, not the heading.
+        await click(
+          hasPreviewDialog
+            ? `${previewDialog} button.gePrimaryBtn`
+            : ".geDialog ::-p-text(Export)",
+        );
         phase = "Waiting for download destination";
         await page.waitForSelector(
           '.geDialog select option[value="download"]',
