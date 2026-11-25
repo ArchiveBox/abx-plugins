@@ -66,7 +66,7 @@ async function main() {
       console.error("Not a Figma document");
       return emitArchiveResultRecord("noresults", "Not a Figma document");
     }
-    await waitForNavigationComplete(
+    const navigation = await waitForNavigationComplete(
       path.join(snapshotDir, "chrome"),
       remaining(),
     );
@@ -75,15 +75,15 @@ async function main() {
       console.error("Not a Figma document");
       return emitArchiveResultRecord("noresults", "Not a Figma document");
     }
-    const blocked = await page.evaluate(() => {
-      const text = document.body.innerText;
+    const blocked = await page.evaluate((status) => {
+      const text = document.body?.innerText ?? "";
       if (/403 ERROR|Request blocked/.test(text)) return "403";
       if (document.title === "Human Verification" && (
         text.includes("Let's confirm you are human") || document.querySelector("#captcha-container")
       ))
         return "human-verification";
-      return null;
-    });
+      return status === 403 ? "403" : null;
+    }, navigation.status);
     if (blocked === "403")
       throw new ExportPrerequisiteError("Figma blocked this browser session (HTTP 403)");
     if (blocked === "human-verification")

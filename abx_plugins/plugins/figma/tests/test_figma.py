@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import pytest
+
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -17,16 +19,29 @@ URL = "https://www.figma.com/design/0YpAEiii3cM0l3xidTbWPk/Style-Guide-Starter--
 HOOK = Path(__file__).resolve().parents[1] / "on_Snapshot__53_figma.js"
 
 
-def test_human_verification_with_empty_visible_body_has_noresults(
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        (405, "Figma requires human verification"),
+        (403, "Figma blocked this browser session (HTTP 403)"),
+    ],
+)
+def test_blocked_document_has_noresults(
     tmp_path,
     tmp_path_factory,
     ensure_chrome_test_prereqs,
+    status,
+    expected,
 ):
-    html = (Path(__file__).parent / "fixtures" / "human-verification.html").read_text()
+    body = (
+        (Path(__file__).parent / "fixtures" / "human-verification.html").read_text()
+        if status == 405
+        else "<!doctype html><body><script>document.body.remove()</script></body>"
+    )
     server = _create_https_test_server(tmp_path_factory)
     server.expect_request(urlsplit(URL).path).respond_with_data(
-        html,
-        status=405,
+        body,
+        status=status,
         content_type="text/html",
     )
     server.start()
@@ -61,10 +76,10 @@ def test_human_verification_with_empty_visible_body_has_noresults(
             assert parse_jsonl_output(navigated.stdout) == {
                 "type": "ArchiveResult",
                 "status": "failed",
-                "output_str": "HTTP 405: document request failed",
+                "output_str": f"HTTP {status}: document request failed",
             }
             navigation = json.loads((chrome / "navigation.json").read_text())
-            assert navigation["status"] == 405
+            assert navigation["status"] == status
             probe = subprocess.run(
                 [
                     env["NODE_BINARY"],
@@ -74,7 +89,7 @@ def test_human_verification_with_empty_visible_body_has_noresults(
                     (async () => {{
                         const {{browser,page}} = await connectToPage({{chromeSessionDir:process.argv[1]}});
                         try {{ console.log(JSON.stringify(await page.evaluate(() => ({{
-                            title:document.title, text:document.body.innerText,
+                            title:document.title, text:document.body?.innerText ?? null,
                             challenge:!!document.querySelector('#captcha-container')
                         }})))); }} finally {{ await browser.disconnect(); }}
                     }})().catch(error => {{console.error(error);process.exitCode=1;}});
@@ -87,11 +102,15 @@ def test_human_verification_with_empty_visible_body_has_noresults(
                 timeout=20,
             )
             assert probe.returncode == 0, probe.stderr
-            assert json.loads(probe.stdout) == {
-                "title": "Human Verification",
-                "text": "",
-                "challenge": True,
-            }
+            page = json.loads(probe.stdout)
+            if status == 405:
+                assert page == {
+                    "title": "Human Verification",
+                    "text": "",
+                    "challenge": True,
+                }
+            else:
+                assert page["text"] is None
             result = subprocess.run(
                 [str(HOOK), f"--url={URL}"],
                 cwd=chrome.parent,
@@ -103,10 +122,9 @@ def test_human_verification_with_empty_visible_body_has_noresults(
             assert result.returncode == 0, result.stderr
             record = parse_jsonl_output(result.stdout)
             assert record and record["status"] == "noresults", result.stdout
-            assert record["output_str"] == "Figma requires human verification"
+            assert record["output_str"] == expected
             assert result.stderr.strip() == (
-                "Checking Figma document: Figma requires human verification\n"
-                "Figma requires human verification"
+                f"Checking Figma document: {expected}\n{expected}"
             )
             assert not (chrome.parent / "figma" / "downloads.json").exists()
     finally:
@@ -149,7 +167,7 @@ def test_public_export_requires_login_has_noresults(
                     f"""const {{connectToPage}} = require({json.dumps(str(CHROME_UTILS))});
                     (async () => {{
                         const {{browser,page}} = await connectToPage({{chromeSessionDir:process.argv[1],timeoutMs:10000}});
-                        try {{ console.log(JSON.stringify(await page.evaluate(() => ({{url:location.href,title:document.title,text:document.body.innerText}})))); }}
+                        try {{ console.log(JSON.stringify(await page.evaluate(() => ({{url:location.href,title:document.title,text:document.body?.innerText ?? null}})))); }}
                         finally {{ await browser.disconnect(); }}
                     }})().catch(error => {{console.error(error);process.exitCode=1;}});""",
                     str(chrome),
