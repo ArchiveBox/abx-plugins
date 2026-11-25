@@ -12,6 +12,7 @@
     }
   ],
   "required_plugins": [],
+  "output_mimetypes": [],
   "search_order": 300,
   "x-auto-run": false,
   "hidden": true,
