@@ -1,9 +1,15 @@
 {{ sentry_config|json_script:"sentry-config" }}
-<script src="https://browser.sentry-cdn.com/11.16.0/bundle.tracing.logs.metrics.min.js"
+<script id="sentry-sdk" async fetchpriority="low" src="https://browser.sentry-cdn.com/11.16.0/bundle.tracing.logs.metrics.min.js"
         integrity="sha384-XcZ8m7iwkARVWfuRO/UAILjpG673Dp/Ac8WpsofArNE4uo943lmfAHuQOtXUmrDu"
         crossorigin="anonymous"></script>
 <script>
-if (window.Sentry) {
+(function initializeSentry() {
+    // A cached SDK can execute before this script. Otherwise initialize on its
+    // load event so a slow CDN cannot stall HTML parsing or first paint.
+    if (!window.Sentry) {
+        document.getElementById('sentry-sdk').addEventListener('load', initializeSentry, {once: true});
+        return;
+    }
     const config = JSON.parse(document.getElementById('sentry-config').textContent);
     Sentry.init({
         ...config,
@@ -28,5 +34,5 @@ if (window.Sentry) {
             if (navigation) Sentry.metrics.distribution('archivebox.ui.dom_ready', navigation.domContentLoadedEventEnd, {unit: 'millisecond'});
         }, {once: true});
     }
-}
+})();
 </script>
