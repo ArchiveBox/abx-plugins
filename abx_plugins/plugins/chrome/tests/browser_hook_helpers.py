@@ -65,8 +65,8 @@ def assert_unconfigured_hook(hook, tmp_path):
         timeout=10,
     )
     assert result.returncode == 10, result.stderr
-    records = parse_jsonl_records(result.stdout)
-    assert len(records) == 1 and records[0]["status"] == "skipped", records
+    assert result.stdout == ""
+    assert result.stderr == ""
     assert not list(tmp_path.iterdir())
 
 

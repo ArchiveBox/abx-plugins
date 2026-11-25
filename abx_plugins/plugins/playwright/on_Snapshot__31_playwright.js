@@ -14,7 +14,6 @@ const config = loadConfig(path.join(__dirname, "config.json"), {
 });
 const script = config.PLAYWRIGHT_SCRIPT.trim();
 if (!config.PLAYWRIGHT_ENABLED || !script) {
-  emitArchiveResultRecord("skipped", "No script configured");
   process.exit(PROCESS_EXIT_SKIPPED);
 }
 ensureNodeModuleResolution(module);

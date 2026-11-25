@@ -15,7 +15,6 @@ const config = loadConfig(path.join(__dirname, "config.json"), {
 const script = config.STAGEHAND_SCRIPT.trim();
 const prompt = (config.STAGEHAND_PROMPT || "").trim();
 if (!config.STAGEHAND_ENABLED || (!script && !prompt)) {
-  emitArchiveResultRecord("skipped", "No script or prompt configured");
   process.exit(PROCESS_EXIT_SKIPPED);
 }
 ensureNodeModuleResolution(module);

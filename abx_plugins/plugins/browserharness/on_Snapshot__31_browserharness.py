@@ -28,7 +28,6 @@ config = load_config(
 script = config.BROWSERHARNESS_SCRIPT.strip()
 prompt = config.BROWSERHARNESS_PROMPT.strip()
 if not config.BROWSERHARNESS_ENABLED or (not script and not prompt):
-    emit_archive_result_record("skipped", "No script or prompt configured")
     sys.exit(PROCESS_EXIT_SKIPPED)
 
 
