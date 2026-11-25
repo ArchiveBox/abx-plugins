@@ -117,6 +117,10 @@ def extract_arxiv_id_from_url(url: str) -> str | None:
 class PaperReferences(HTMLParser):
     """Collect article text and citation links without script/style contents."""
 
+    # Keep inline tags contiguous (e.g. a DOI containing <em>), but do not
+    # join adjacent blocks into a fabricated citation.
+    BLOCK_TAGS = {"p", "div", "li", "td", "dt", "dd", "h1", "h2", "h3"}
+
     def __init__(self):
         super().__init__()
         self.references: list[str] = []
@@ -144,13 +148,13 @@ class PaperReferences(HTMLParser):
                 "prism.doi",
             }:
                 self.references.append(value)
-        if tag in {"p", "div", "li", "br", "td", "h1", "h2", "h3"}:
+        if tag == "br" or tag in self.BLOCK_TAGS:
             self.text.append("\n")
 
     def handle_endtag(self, tag):
         if tag == self.ignored_tag:
             self.ignored_tag = None
-        if not self.ignored_tag and tag in {"p", "div", "li", "td", "h1", "h2", "h3"}:
+        if not self.ignored_tag and tag in self.BLOCK_TAGS:
             self.text.append("\n")
 
     def handle_data(self, data):

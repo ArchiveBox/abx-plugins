@@ -16,6 +16,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from urllib.request import urlopen
@@ -664,6 +665,44 @@ def test_reports_cited_papers_that_could_not_be_downloaded(tmp_path, httpserver)
         "output_str": f"Found 1 paper, none downloadable: {doi}",
     }, result.stdout + result.stderr
     assert not list((tmp_path / "papersdl").glob("*.pdf"))
+
+
+def test_definition_list_keeps_citation_text_separate(tmp_path):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import runpy, sys; "
+                "parser = runpy.run_path(sys.argv[1])['PaperReferences'](); "
+                "parser.feed(sys.stdin.read()); "
+                "print(''.join(parser.text))"
+            ),
+            str(PAPERSDL_HOOK.resolve()),
+        ],
+        cwd=tmp_path,
+        input=(
+            "<dl><dt>DOI:</dt><dd><a>10.18653/v1/<em>D19-5409</em></a></dd>"
+            "<dt>Bibkey:</dt><dd><button>gliwa-etal-2019-samsum</button></dd></dl>"
+        ),
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                filter(None, [str(PLUGIN_DIR.parents[2]), os.environ.get("PYTHONPATH")])
+            ),
+            "SNAP_DIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    assert result.stdout.split() == [
+        "DOI:",
+        "10.18653/v1/D19-5409",
+        "Bibkey:",
+        "gliwa-etal-2019-samsum",
+    ]
 
 
 @pytest.mark.parametrize("saved_html", [False, True])
