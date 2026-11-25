@@ -126,8 +126,13 @@ def run_git(
     # from checkout/submodules: a timeout does not necessarily mean slow network.
     operation = f"git {cmd[3]}"
     print(f"[*] {operation} started", file=sys.stderr, flush=True)
+    env = os.environ.copy()
+    # Git's HTTP transport reads GIT_SSL_CAINFO on runners with a custom CA bundle.
+    if ca_file := env.get("SSL_CERT_FILE"):
+        env.setdefault("GIT_SSL_CAINFO", ca_file)
     proc = subprocess.Popen(
         cmd,
+        env=env,
         start_new_session=True,
         pass_fds=(lock_fd,) if lock_fd is not None else (),
         stdout=subprocess.PIPE if capture else None,
