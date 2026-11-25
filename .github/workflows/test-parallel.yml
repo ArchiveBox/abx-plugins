@@ -14,6 +14,10 @@ on:
         description: Run Linux tests with replayed responses and direct networking disabled
         type: boolean
         default: false
+      test_path:
+        description: Optional test file for a replay verification run
+        type: string
+        default: ''
   pull_request:
     branches: [main, 'codex/feature-*']
   push:
@@ -102,8 +106,20 @@ jobs:
         env:
           CI_TEST_PLATFORM: ${{ steps.gate.outputs.platform }}
           UGNAS_CI_MAX_JOBS: ${{ vars.UGNAS_CI_MAX_JOBS || 3 }}
+          REPLAY_TESTS: ${{ inputs.replay_tests }}
+          TEST_PATH: ${{ inputs.test_path }}
         run: |
-          uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          matrix="$(uv run --no-cache --no-project python .github/ci_test_matrix.py)"
+          if [[ -n "$TEST_PATH" ]]; then
+            [[ "$REPLAY_TESTS" == true ]]
+            test_matrix="$(sed -n 's/^test-matrix=//p' <<<"$matrix")"
+            matrix="test-matrix=$(jq -ce --arg path "$TEST_PATH" '
+              map(select(.paths | index($path)) | .path = $path | .paths = [$path])
+              | if length == 1 then . else error("Expected one discovered job for this test file") end
+            ' <<<"$test_matrix")"
+          fi
+          printf '%s\n' "$matrix" >> "$GITHUB_OUTPUT"
 
   prek:
     needs: prepare
@@ -490,6 +506,21 @@ jobs:
       - name: Install locked dependencies
         run: |
           uv sync --locked --dev --no-sources --no-cache
+
+      - name: Resolve the pinned Node.js version for replay tests
+        id: replay-node
+        if: inputs.replay_tests
+        shell: bash
+        run: |
+          version="$(jq -er '.required_binaries[] | select(.name == "{NODE_BINARY}") | .max_version' \
+            abx_plugins/plugins/chrome/config.json)"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install Node.js before isolating tests
+        if: inputs.replay_tests
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ steps.replay-node.outputs.version }}
 
       # These hosted Chrome lanes repeatedly timed out acquiring this 7.5 MB
       # Noble universe package. Populate only APT's download cache: the native
