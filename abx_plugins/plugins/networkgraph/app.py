@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 import re
 import stat
-from urllib.parse import urlsplit
+from urllib.parse import urldefrag, urlsplit
+from uuid import UUID
 
 ROOT = Path(__file__).parent
 METADATA_DOMAINS = frozenset(
@@ -89,6 +90,60 @@ def target_domains(host, request, urls):
     return group(request, urls)
 
 
+def snapshot_detail_card(host, request, *, snapshot_id):
+    from django.urls import reverse
+    from django.utils.html import format_html
+    from django.utils.translation import gettext as _
+
+    if not host.request_config(request).get("NETWORKGRAPH_ENABLED", True):
+        return None
+    neighbors = host.snapshot_relationships(request, snapshot_id=snapshot_id, limit=2)
+    if not neighbors or not neighbors["root"]:
+        return None
+    parent = neighbors["parent"]
+    children = neighbors["children"]
+    # The summary is entirely DB-backed. It never reads captured files or loads WebGL.
+    left = (
+        format_html(
+            '<path d="M28 28h42"/><circle cx="25" cy="28" r="4"><title>{}</title></circle>',
+            parent["title"] or parent["url"],
+        )
+        if parent
+        else ""
+    )
+    right = (
+        format_html(
+            '<path d="M80 28 124 {}"/><circle cx="127" cy="{}" r="4"><title>{}</title></circle>',
+            17 if len(children) > 1 else 28,
+            17 if len(children) > 1 else 28,
+            children[0]["title"] or children[0]["url"],
+        )
+        if children
+        else ""
+    )
+    last = (
+        format_html(
+            '<path d="M80 28 124 39"/><circle cx="127" cy="39" r="4"><title>{}</title></circle>',
+            children[1]["title"] or children[1]["url"],
+        )
+        if len(children) > 1
+        else ""
+    )
+    return {
+        "path": reverse("networkgraph-index") + f"?snapshot={snapshot_id}",
+        "title": _("Graph"),
+        "output_group": "metadata",
+        "thumbnail": format_html(
+            '<svg viewBox="0 0 152 56" width="100%" height="56" aria-hidden="true"'
+            ' fill="none" stroke="currentColor" stroke-width="1.5">'
+            '{}<circle cx="75" cy="28" r="5" fill="currentColor"/>{}{}</svg>',
+            left,
+            right,
+            last,
+        ),
+    }
+
+
 def get_urlpatterns(host):
     from django.urls import path
 
@@ -117,6 +172,7 @@ def view(request, *, host, data=False, asset=None):
         HttpResponseForbidden,
         HttpResponseNotAllowed,
         JsonResponse,
+        StreamingHttpResponse,
     )
     from django.template import engines
     from django.views.static import serve
@@ -150,18 +206,52 @@ def view(request, *, host, data=False, asset=None):
             raise Http404
         return serve(request, asset, document_root=str(ROOT / "static"))
     batch = max(1, min(32, int(config.get("NETWORKGRAPH_BATCH_SIZE", 8))))
+    if len(request.META.get("QUERY_STRING", "")) > 4096:
+        return JsonResponse({}, status=400)
+    snapshot = request.GET.get("snapshot")
+    if snapshot is not None:
+        try:
+            snapshot = str(UUID(snapshot))
+        except ValueError:
+            return JsonResponse({}, status=400)
+        if not hasattr(host, "snapshot_neighborhood_records"):
+            raise Http404
+        if data:
+            from asgiref.sync import sync_to_async
+            from django.core.handlers.asgi import ASGIRequest
+
+            records = host.snapshot_neighborhood_records(request, ids=(snapshot,))
+            if not records or not graph_url(records[0]["url"]):
+                raise Http404
+            frames = (
+                json.dumps(frame, separators=(",", ":")) + "\n"
+                for frame in snapshot_neighborhood(host, request, records[0])
+            )
+
+            async def async_frames():
+                read = sync_to_async(next)
+                while (frame := await read(frames, None)) is not None:
+                    yield frame
+
+            return StreamingHttpResponse(
+                async_frames() if isinstance(request, ASGIRequest) else frames,
+                content_type="application/x-ndjson",
+                headers={
+                    "Cache-Control": "private, no-store",
+                    "X-Accel-Buffering": "no",
+                },
+            )
     if not data:
         context = {
             **host.admin_context(request),
             "admin_url": host.route_urls(request)["admin"] + "/",
+            "graph_snapshot": snapshot,
         }
         return HttpResponse(
             engines["django"]
             .from_string((ROOT / "templates/index.html").read_text())
             .render(context, request),
         )
-    if len(request.META.get("QUERY_STRING", "")) > 4096:
-        return JsonResponse({}, status=400)
     key = (
         "collection-graph:v6:"
         + sha256(
@@ -223,10 +313,13 @@ def view(request, *, host, data=False, asset=None):
     return JsonResponse(result, headers={"Cache-Control": "private, no-store"})
 
 
-def saved_targets(record, *, default_paths):
-    root = Path(record["output_dir"])
-    targets = set()
-    for relative in record.get("paths", default_paths):
+def iter_saved_targets(record, *, default_paths, max_line=None):
+    if saved_files := record.get("saved_url_outputs"):
+        directory, paths = saved_files()
+    else:
+        directory, paths = record["output_dir"], record.get("paths", default_paths)
+    root = Path(directory)
+    for relative in paths:
         try:
             with open(
                 root / relative,
@@ -238,7 +331,11 @@ def saved_targets(record, *, default_paths):
             ) as stream:
                 if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                     continue
-                for line in stream:
+                while line := stream.readline(max_line or -1):
+                    if max_line and len(line) == max_line and not line.endswith(b"\n"):
+                        while line and not line.endswith(b"\n"):
+                            line = stream.readline(max_line)
+                        continue
                     try:
                         item = json.loads(line)
                     except (ValueError, UnicodeError):
@@ -249,13 +346,145 @@ def saved_targets(record, *, default_paths):
                         and len(url) <= 8192
                         and not is_boilerplate_url(url)
                     ):
-                        targets.add(url)
+                        yield url
         except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
             continue
         except OSError as error:
             if error.errno != errno.ELOOP:
                 raise
-    return targets
+
+
+def saved_targets(record, *, default_paths):
+    return set(iter_saved_targets(record, default_paths=default_paths))
+
+
+def graph_url(url):
+    if not isinstance(url, str) or len(url) > 8192:
+        return None
+    try:
+        parts = urlsplit(url)
+        if parts.scheme in {"http", "https"} and parts.hostname:
+            return urldefrag(url).url
+    except ValueError:
+        pass
+    return None
+
+
+def snapshot_neighborhood(host, request, root_capture):
+    root = graph_url(root_capture["url"])
+    captures = {root: root_capture}
+    positions = {root: 0}
+    edges = set()
+    chunk_size = 16
+    incoming = [root]
+    outgoing = [root]
+    seen = {-1: {root}, 1: {root}}
+
+    def frame(urls, links):
+        return {
+            "nodes": [
+                {"id": url, "column": positions[url], "count": int(url in captures)}
+                for url in urls
+            ],
+            "links": [
+                {"source": source, "target": target, "value": 1}
+                for source, target in links
+            ],
+            "captures": [
+                {
+                    **{
+                        key: captures[url][key]
+                        for key in (
+                            "id",
+                            "url",
+                            "title",
+                            "status",
+                            "size",
+                            "created",
+                            "downloaded",
+                        )
+                    },
+                    "domain": url,
+                }
+                for url in urls
+                if url in captures
+            ],
+        }
+
+    def discover(frontier, direction, depth, next_frontier):
+        for source in frontier:
+            if not (record := captures.get(source)):
+                continue
+            if direction == -1:
+                # Crawl parents are indexed. Saved outlinks have no reverse index.
+                parents = record.get("parents")
+                if parents is None:
+                    parents = [
+                        {"id": record.get("parent_id"), "url": record.get("parent_url")}
+                    ]
+                links = ((item["url"], item["id"]) for item in parents)
+            else:
+                links = (
+                    (url, None)
+                    for url in iter_saved_targets(
+                        record, default_paths=(), max_line=64 * 1024
+                    )
+                )
+            for url, capture_id in links:
+                target = graph_url(url)
+                if not target or target == source:
+                    continue
+                if target not in seen[direction]:
+                    seen[direction].add(target)
+                    next_frontier.append(target)
+                    positions.setdefault(target, direction * depth)
+                edge = (target, source) if direction == -1 else (source, target)
+                if edge not in edges:
+                    edges.add(edge)
+                    yield target, capture_id, edge
+
+    def resolve(chunk):
+        ids = tuple(
+            dict.fromkeys(
+                capture_id
+                for target, capture_id, _ in chunk
+                if capture_id and target not in captures
+            )
+        )
+        urls = tuple(
+            dict.fromkeys(
+                target
+                for target, capture_id, _ in chunk
+                if not capture_id and target not in captures
+            )
+        )
+        if ids or urls:
+            for record in host.snapshot_neighborhood_records(
+                request, ids=ids, urls=urls
+            ):
+                if url := graph_url(record["url"]):
+                    captures.setdefault(url, record)
+        return frame(
+            dict.fromkeys(target for target, _, _ in chunk),
+            [edge for _, _, edge in chunk],
+        )
+
+    yield frame((root,), ())
+    for hop in (1, 2):
+        next_incoming, next_outgoing = [], []
+        for frontier, direction, next_frontier in (
+            (incoming, -1, next_incoming),
+            (outgoing, 1, next_outgoing),
+        ):
+            chunk = []
+            for edge in discover(frontier, direction, hop, next_frontier):
+                chunk.append(edge)
+                if len(chunk) == chunk_size:
+                    yield resolve(chunk)
+                    chunk.clear()
+            if chunk:
+                yield resolve(chunk)
+        incoming, outgoing = next_incoming, next_outgoing
 
 
 def saved_domain_targets(host, request, records, default_paths):

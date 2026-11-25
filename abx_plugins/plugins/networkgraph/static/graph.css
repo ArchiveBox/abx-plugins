@@ -412,3 +412,12 @@
   flex: 0 0 18px;
   object-fit: contain;
 }
+
+#networkgraph-ui[data-snapshot] .node-label {
+  max-width: 175px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#networkgraph-ui[data-snapshot] #selected-domain {
+  overflow-wrap: anywhere;
+}

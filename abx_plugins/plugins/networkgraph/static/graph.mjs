@@ -16,14 +16,17 @@ import {
 } from "./vendor/three.core.js";
 const root = document.getElementById("networkgraph-ui");
 const $ = (id) => root.querySelector(`#${id}`);
+const snapshot = root.dataset.snapshot;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sampledCaptures = new Set();
 const nodes = new Map(),
   links = new Map(),
   pages = new Map(),
   queued = new Set(),
   hiddenNodes = new Set(),
   adjacency = new Map();
-let queue = [],
+let resumeSnapshot,
+  queue = [],
   catalogCursor = "",
   catalogDone = false,
   outlinkCursor = "",
@@ -163,30 +166,58 @@ worker.onmessage = ({ data }) => {
     requestLayout();
     return;
   }
+  const columnSizes = new Map(), columnOffsets = new Map();
+  if (snapshot)
+    for (const n of nodes.values())
+      columnSizes.set(n.column, (columnSizes.get(n.column) || 0) + 1);
   for (const row of data.nodes) {
     const n = nodes.get(row.id);
     if (!n) continue;
+    if (snapshot) row.radius = n.column === 0 ? 10 : 5;
     Object.assign(n, {
       rank: row.rank,
       radius: row.radius,
       community: row.community,
     });
+    if (snapshot) {
+      const offset = columnOffsets.get(n.column) || 0;
+      columnOffsets.set(n.column, offset + 1);
+      row.x = n.column * 185;
+      const count = columnSizes.get(n.column);
+      const spacing = Math.max(26, Math.min(65, 520 / count));
+      row.y = (offset - (count - 1) / 2) * spacing;
+      row.z = 0;
+    }
     n.target = { ...row, dimensions: data.dimensions };
     if (n.sprite) n.sprite.scale.set(row.radius * 1.5, row.radius * 1.5, 1);
-    if (!Number.isFinite(n.x)) {
+    if ((snapshot && !n.placement) || !Number.isFinite(n.x)) {
       n.x = row.x;
       n.y = row.y;
       n.z = row.z;
     }
   }
-  communityLabels = data.communities;
+  communityLabels = snapshot ? [] : data.communities;
   layout();
+  if (snapshot && initialFit && catalogDone && !layoutDirty && visible.length) {
+    initialFit = false;
+    let halfWidth = 0, halfHeight = 0;
+    for (const node of visible) {
+      halfWidth = Math.max(halfWidth, Math.abs(node.target.x) + (node.radius || 0));
+      halfHeight = Math.max(halfHeight, Math.abs(node.target.y) + (node.radius || 0));
+    }
+    const camera = graph.camera();
+    const height = Math.max(90, halfHeight, halfWidth / camera.aspect);
+    const z = 1.35 * height / Math.tan(camera.fov * Math.PI / 360);
+    graph.cameraPosition({ x: 0, y: 0, z }, { x: 0, y: 0, z: 0 }, 0);
+    wakeRenderer();
+  }
   if (pendingLocate === selected && pendingLocate?.target)
     locateNode(pendingLocate);
   scheduleLayout();
 };
 function scheduleLayout() {
-  if (!layoutDirty || layoutBusy || drag || pointerDown || document.hidden) return;
+  if (!layoutDirty || layoutBusy || drag || pointerDown || document.hidden)
+    return;
   if (layoutUrgent) {
     clearTimeout(layoutTimer);
     layoutTimer = null;
@@ -236,7 +267,9 @@ const incident = (l) =>
   end(l.source) === focused().id ||
   end(l.target) === focused().id;
 const linkColor = (l) =>
-  !incident(l)
+  snapshot && !selected
+    ? (nodes.get(end(l.target))?.column <= 0 ? incomingColor : outgoingColor)
+    : !incident(l)
     ? "#cbd7e3"
     : !focused()
     ? color(end(l.source))
@@ -630,11 +663,8 @@ function scheduleFetch(delay = 0) {
   }, delay);
 }
 function enqueue(n, priority = false) {
-  if (
-    hiddenNodes.has(n.id) ||
-    queued.has(n.id) ||
-    pages.get(n.id) === null
-  )
+  if (snapshot) return;
+  if (hiddenNodes.has(n.id) || queued.has(n.id) || pages.get(n.id) === null)
     return;
   queued.add(n.id);
   priority ? queue.unshift(n) : queue.push(n);
@@ -655,7 +685,7 @@ function merge(data, source, catalog = false) {
       const count = (n.count || 0) + (row.count || 0),
         size = (n.size || 0) + (row.size || 0);
       Object.assign(n, { ...row, favicon: row.favicon || n.favicon });
-      if (catalog) Object.assign(n, { count, size });
+      if (catalog && !snapshot) Object.assign(n, { count, size });
     }
   }
   for (const edge of (source && linksDone ? [] : data.links) || []) {
@@ -675,8 +705,12 @@ function merge(data, source, catalog = false) {
     const previous = link.value;
     if (source) {
       link.previews ??= new Map();
-      link.previews.set(source.id, (link.previews.get(source.id) || 0) + edge.value);
-    } else link.overview += edge.value;
+      link.previews.set(
+        source.id,
+        (link.previews.get(source.id) || 0) + edge.value
+      );
+    } else if (snapshot) link.overview = edge.value;
+    else link.overview += edge.value;
     link.value = Math.max(link.overview, ...(link.previews?.values() || []));
     changed ||= previous !== link.value;
   }
@@ -708,7 +742,10 @@ function drawableNodes(activeLinks) {
   return [...nodes.values()].filter(
     (n) =>
       !hiddenNodes.has(n.id) &&
-      (connected.has(n.id) || n === selected || (linksDone && !links.size))
+      (connected.has(n.id) ||
+        n === selected ||
+        (snapshot && n.column === 0) ||
+        (linksDone && !links.size))
   );
 }
 function layout() {
@@ -728,7 +765,7 @@ function layout() {
       (l) => visibleIds.has(end(l.source)) && visibleIds.has(end(l.target))
     )
     .map((l) => {
-      l.emphasized = Boolean(selected && incident(l));
+      l.emphasized = Boolean(snapshot || (selected && incident(l)));
       l.source = nodes.get(end(l.source));
       l.target = nodes.get(end(l.target));
       return l;
@@ -788,8 +825,10 @@ function layout() {
     ? `${visibleLinks.length.toLocaleString()}/${activeLinks.length.toLocaleString()}`
     : visibleLinks.length.toLocaleString();
   $("snapshot-count").textContent = sampled.toLocaleString();
+  const labelPriority = (n) => snapshot && n.column !== 1 ? 1 : 0;
   const byDegree = [...visible].sort(
-    (a, b) => b.incoming + b.outgoing - a.incoming - a.outgoing
+    (a, b) => labelPriority(b) - labelPriority(a) ||
+      b.incoming + b.outgoing - a.incoming - a.outgoing
   );
   const labeled = new Map(byDegree.slice(0, 20).map((n) => [n.id, 0]));
   for (const { id, count } of communityLabels
@@ -884,10 +923,15 @@ function details() {
       ? new Date(captures.at(-1).created).toLocaleDateString()
       : "·"
   }`;
-  $("snapshots").href = `../core/snapshot/?domain=${encodeURIComponent(
-    n.scope || "*." + n.id
-  )}`;
-  $("expand").disabled = pages.get(n.id) === null;
+  const snapshots = $("snapshots");
+  const capture = captures[0];
+  snapshots.hidden = Boolean(snapshot && !capture);
+  snapshots.href = snapshot
+    ? capture
+      ? `../core/snapshot/${capture.id}/change/`
+      : "#"
+    : `../core/snapshot/?domain=${encodeURIComponent(n.scope || "*." + n.id)}`;
+  $("expand").disabled = Boolean(snapshot) || pages.get(n.id) === null;
   const neighborhood = graphLinks()
     .filter((l) => end(l.source) === n.id || end(l.target) === n.id)
     .sort((a, b) => b.value - a.value);
@@ -940,12 +984,46 @@ function select(n, locate = false) {
 function locateNode(n) {
   pendingLocate = null;
   const distance = 160 + Math.log2(1 + (n.count || 1)) * 6;
-  const position = graph.camera().position.clone()
+  const position = graph
+    .camera()
+    .position.clone()
     .sub(graph.controls().target)
     .setLength(distance)
     .add(n);
   wakeRenderer(1100);
   graph.cameraPosition(position, n, reduced ? 0 : 800);
+}
+async function streamSnapshot() {
+  const response = await fetch(`data/?${new URLSearchParams({ snapshot })}`);
+  if (!response.ok || !response.body) throw new Error(String(response.status));
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  const accept = (line) => {
+    const data = JSON.parse(line);
+    for (const capture of data.captures) sampledCaptures.add(capture.id);
+    sampled = sampledCaptures.size;
+    merge(data, null, true);
+    requestLayout(nodes.size === 1);
+  };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += value;
+      let newline;
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        if (loadingPaused) await new Promise((resume) => { resumeSnapshot = resume; });
+        accept(buffer.slice(0, newline));
+        buffer = buffer.slice(newline + 1);
+      }
+    }
+    if (buffer) accept(buffer);
+    catalogDone = linksDone = true;
+    root.dataset.complete = root.dataset.linksComplete = "true";
+    requestLayout();
+  } finally {
+    reader.releaseLock();
+  }
 }
 async function step() {
   if (
@@ -960,6 +1038,13 @@ async function step() {
   indicator.className = "loading";
   let node = null;
   try {
+    if (snapshot) {
+      await streamSnapshot();
+      indicator.className = "";
+      indicator.ariaLabel = indicator.title = "Connected";
+      $("play").hidden = true;
+      return;
+    }
     const params = new URLSearchParams();
     if (!catalogDone) {
       params.set("scan", "1");
@@ -1022,6 +1107,7 @@ async function step() {
     indicator.ariaLabel = "Graph loading stopped. Resume to continue.";
     indicator.title = indicator.ariaLabel;
     loadingPaused = true;
+    $("play").hidden = false;
     $("play").textContent = "▶";
     $("play").ariaLabel = "Resume loading";
     $("play").title = "Resume loading";
@@ -1036,7 +1122,11 @@ function togglePause() {
   $("play").textContent = loadingPaused ? "▶" : "Ⅱ";
   $("play").ariaLabel = loadingPaused ? "Resume loading" : "Pause loading";
   $("play").title = $("play").ariaLabel;
-  if (!loadingPaused) scheduleFetch();
+  if (!loadingPaused) {
+    resumeSnapshot?.();
+    resumeSnapshot = null;
+    scheduleFetch();
+  }
 }
 $("play").onclick = togglePause;
 function fit(duration) {
@@ -1164,14 +1254,19 @@ function advanceFrame(t) {
 const projected = new Vector3();
 function positionLabels() {
   const camera = graph.camera();
-  const width = graph.width(), height = graph.height();
+  const width = graph.width(),
+    height = graph.height();
   for (const { n, el } of labelNodes) {
     projected.set(n.x, n.y, n.z).project(camera);
-    const x = (projected.x + 1) * width / 2;
-    const y = (1 - projected.y) * height / 2;
+    const x = ((projected.x + 1) * width) / 2;
+    const y = ((1 - projected.y) * height) / 2;
     el.hidden =
-      projected.z < -1 || projected.z > 1 ||
-      x < 0 || x > width || y < 65 || y > height - 30;
+      projected.z < -1 ||
+      projected.z > 1 ||
+      x < 0 ||
+      x > width ||
+      y < 65 ||
+      y > height - 30;
     if (el.hidden) continue;
     const isNear =
       !focused() || focused() === n || adjacency.get(focused().id)?.has(n.id);
@@ -1183,15 +1278,27 @@ function positionLabels() {
 graph.scene().onAfterRender = () => {
   positionLabels();
   if (edgePickDirty) pickEdge();
-  if (initialFit && catalogDone && visible.length &&
-      !layoutDirty && !layoutBusy && graph.getGraphBbox()) {
+  if (
+    !snapshot &&
+    initialFit &&
+    catalogDone &&
+    visible.length &&
+    !layoutDirty &&
+    !layoutBusy &&
+    graph.getGraphBbox()
+  ) {
     fit(0);
   } else if (
-    !drag && !pointerDown && !(dimensionality === 3 && orbit) &&
+    !drag &&
+    !pointerDown &&
+    !(dimensionality === 3 && orbit) &&
     performance.now() >= renderDeadline
   ) {
     // ForceGraph schedules its next frame after this render callback returns.
     queueMicrotask(stopRenderer);
   }
 };
+if (snapshot) {
+  $("expand").hidden = true;
+}
 scheduleFetch();
