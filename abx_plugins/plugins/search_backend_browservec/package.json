@@ -1,0 +1,8 @@
+{
+  "name": "archivebox-browservec-runtime",
+  "private": true,
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "browservec": "1.0.0"
+  }
+}

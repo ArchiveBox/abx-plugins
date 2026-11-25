@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BrowserVec",
+  "description": "Rank archived text by meaning with a local embedding model and BrowserVec.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_binaries": [
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,node",
+      "min_version": "24.0.0"
+    },
+    {
+      "name": "browservec-runtime",
+      "binproviders": "bash",
+      "min_version": "1.0.0",
+      "overrides": {
+        "bash": {
+          "install_root": "{DATA_DIR}/search_backend_browservec/bootstrap",
+          "install_args": [
+            "browservec-runtime@1.0.0"
+          ],
+          "install": "\"$ABXPKG_PYTHON\" -m abx_plugins.plugins.search_backend_browservec.setup_runtime",
+          "docs_url": "https://sharma-open-source.github.io/browservec/"
+        }
+      }
+    }
+  ],
+  "required_plugins": [],
+  "search_order": 300,
+  "x-auto-run": false,
+  "hidden": true,
+  "properties": {
+    "SEARCH_BACKEND_BROWSERVEC_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Index archived text for local similarity search."
+    },
+    "SEARCH_BACKEND_BROWSERVEC_RUNTIME": {
+      "type": "string",
+      "default": "",
+      "description": "Directory containing the plugin's local JavaScript dependencies and embedding model."
+    }
+  },
+  "search_operators": {
+    "similar": {
+      "icon": "\u2248",
+      "description": "Find snapshots with similar meaning"
+    }
+  },
+  "commands": {
+    "search_scope": [
+      "search.py",
+      "search_scope"
+    ],
+    "search_candidates": [
+      "search.py",
+      "search_candidates"
+    ],
+    "flush": [
+      "search.py",
+      "flush"
+    ],
+    "search": [
+      "search.py",
+      "search"
+    ]
+  },
+  "x-runtimes": [
+    "archivebox"
+  ]
+}
