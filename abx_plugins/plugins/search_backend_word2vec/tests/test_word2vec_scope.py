@@ -40,7 +40,11 @@ def test_scoped_model_persists_ranks_and_flushes(native):
     cmd = [sys.executable, "-m", backend.__name__, "search_scope"]
     payload = json.dumps({"query": query, "ids": scope, "limit": 1}) + "\n"
     result = subprocess.run(
-        cmd, input=payload, text=True, capture_output=True, check=True
+        cmd,
+        input=payload,
+        text=True,
+        capture_output=True,
+        check=True,
     )
     hits = [json.loads(line) for line in result.stdout.splitlines()]
     assert len(hits) == 1
@@ -68,7 +72,9 @@ def test_busy_model_waits_only_within_budget(monkeypatch, tmp_path):
     (runtime / "ready").touch()
     invoked = []
     monkeypatch.setattr(
-        backend.subprocess, "run", lambda *_a, **_kw: invoked.append(True)
+        backend.subprocess,
+        "run",
+        lambda *_a, **_kw: invoked.append(True),
     )
     with (backend.index_root() / "runtime.lock").open("wb") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -87,7 +93,7 @@ def test_model_failure_releases_lock(monkeypatch, tmp_path):
         [
             subprocess.TimeoutExpired("node", 0.01),
             subprocess.CompletedProcess([], 0, stdout="[]"),
-        ]
+        ],
     )
 
     def run(*_a, **_kw):
@@ -110,11 +116,13 @@ def test_model_switch_keeps_indexes_separate(monkeypatch, tmp_path):
     assert backend.index_dir() != minilm
     monkeypatch.setenv("SEARCH_BACKEND_WORD2VEC_MODEL", "Custom Hugging Face")
     monkeypatch.setenv(
-        "SEARCH_BACKEND_WORD2VEC_HUGGINGFACE_MODEL", "Xenova/bge-small-en-v1.5"
+        "SEARCH_BACKEND_WORD2VEC_HUGGINGFACE_MODEL",
+        "Xenova/bge-small-en-v1.5",
     )
     custom = backend.index_dir()
     monkeypatch.setenv(
-        "SEARCH_BACKEND_WORD2VEC_HUGGINGFACE_MODEL", "Xenova/all-MiniLM-L6-v2"
+        "SEARCH_BACKEND_WORD2VEC_HUGGINGFACE_MODEL",
+        "Xenova/all-MiniLM-L6-v2",
     )
     assert backend.index_dir() not in {minilm, custom}
     monkeypatch.setenv("SEARCH_BACKEND_WORD2VEC_HUGGINGFACE_MODEL", "../escape")

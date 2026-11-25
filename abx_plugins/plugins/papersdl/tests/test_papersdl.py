@@ -688,7 +688,10 @@ def test_definition_list_keeps_citation_text_separate(tmp_path):
         env={
             **os.environ,
             "PYTHONPATH": os.pathsep.join(
-                filter(None, [str(PLUGIN_DIR.parents[2]), os.environ.get("PYTHONPATH")])
+                filter(
+                    None,
+                    [str(PLUGIN_DIR.parents[2]), os.environ.get("PYTHONPATH")],
+                ),
             ),
             "SNAP_DIR": str(tmp_path),
         },

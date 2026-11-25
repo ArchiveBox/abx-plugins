@@ -56,11 +56,12 @@ def model_selection() -> tuple[str, str]:
     if preset == "Custom Hugging Face":
         model = os.environ.get("SEARCH_BACKEND_WORD2VEC_HUGGINGFACE_MODEL", "").strip()
         if re.fullmatch(
-            r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", model
+            r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}",
+            model,
         ):
             return "huggingface", model
     raise RuntimeUnavailable(
-        "Choose a model and provide a public owner/model ID for Custom Hugging Face."
+        "Choose a model and provide a public owner/model ID for Custom Hugging Face.",
     )
 
 
@@ -139,13 +140,13 @@ def index_text(snapshot_id: str, text: str) -> None:
     directory = index_dir()
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     vector = base64.b64decode(
-        invoke({"operation": "embed", "texts": [text[:4096]]}, 8.0)
+        invoke({"operation": "embed", "texts": [text[:4096]]}, 8.0),
     )
     if len(vector) != dimension(runtime_dir()) * 4:
         raise RuntimeUnavailable
     with closing(sqlite3.connect(directory / "index.sqlite3", timeout=2)) as conn, conn:
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS embeddings (id TEXT PRIMARY KEY, vector BLOB NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS embeddings (id TEXT PRIMARY KEY, vector BLOB NOT NULL)",
         )
         conn.execute(
             "INSERT OR REPLACE INTO embeddings VALUES (?,?)",
@@ -154,7 +155,9 @@ def index_text(snapshot_id: str, text: str) -> None:
 
 
 def search_candidates(
-    candidates: list[Candidate], terms: list[SearchTerm], budget: SearchBudget
+    candidates: list[Candidate],
+    terms: list[SearchTerm],
+    budget: SearchBudget,
 ):
     if not enabled() or not candidates or not terms:
         return
@@ -166,7 +169,7 @@ def search_candidates(
     try:
         vector_bytes = dimension(runtime_dir()) * 4
         with closing(
-            sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0)
+            sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0),
         ) as conn:
             slots = ",".join("?" for _ in aliases)
             for ident, vector in conn.execute(
@@ -262,7 +265,8 @@ def flush(snapshot_ids: Iterable[str]) -> None:
     for path in index_root().glob("*/index.sqlite3"):
         with closing(sqlite3.connect(path, timeout=2)) as conn, conn:
             conn.executemany(
-                "DELETE FROM embeddings WHERE id=?", ((item,) for item in ids)
+                "DELETE FROM embeddings WHERE id=?",
+                ((item,) for item in ids),
             )
 
 
@@ -270,5 +274,5 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["search_scope"]:
         raise SystemExit(scoped_rank_command())
     raise SystemExit(
-        run_search_command(search, flush, search_candidates=search_candidates)
+        run_search_command(search, flush, search_candidates=search_candidates),
     )

@@ -420,14 +420,19 @@ def snapshot_neighborhood(host, request, root_capture):
                 parents = record.get("parents")
                 if parents is None:
                     parents = [
-                        {"id": record.get("parent_id"), "url": record.get("parent_url")}
+                        {
+                            "id": record.get("parent_id"),
+                            "url": record.get("parent_url"),
+                        },
                     ]
                 links = ((item["url"], item["id"]) for item in parents)
             else:
                 links = (
                     (url, None)
                     for url in iter_saved_targets(
-                        record, default_paths=(), max_line=64 * 1024
+                        record,
+                        default_paths=(),
+                        max_line=64 * 1024,
                     )
                 )
             for url, capture_id in links:
@@ -449,18 +454,20 @@ def snapshot_neighborhood(host, request, root_capture):
                 capture_id
                 for target, capture_id, _ in chunk
                 if capture_id and target not in captures
-            )
+            ),
         )
         urls = tuple(
             dict.fromkeys(
                 target
                 for target, capture_id, _ in chunk
                 if not capture_id and target not in captures
-            )
+            ),
         )
         if ids or urls:
             for record in host.snapshot_neighborhood_records(
-                request, ids=ids, urls=urls
+                request,
+                ids=ids,
+                urls=urls,
             ):
                 if url := graph_url(record["url"]):
                     captures.setdefault(url, record)

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -36,7 +37,7 @@ MODEL_SHA256 = {
 }
 
 
-def _model_files(preset: str, model: str) -> tuple[str, dict[str, str | None]]:
+def _model_files(preset: str, model: str) -> tuple[str, Mapping[str, str | None]]:
     if preset == "minilm":
         return MODEL_URL, MODEL_SHA256
     with urlopen(f"https://huggingface.co/api/models/{model}", timeout=30) as response:
@@ -53,7 +54,7 @@ def _model_files(preset: str, model: str) -> tuple[str, dict[str, str | None]]:
     }
     if not required <= files:
         raise RuntimeUnavailable(
-            "Custom models need their tokenizer and onnx/model_quantized.onnx"
+            "Custom models need their tokenizer and onnx/model_quantized.onnx",
         )
     return f"https://huggingface.co/{model}/resolve/{revision}/", {
         name: None for name in sorted(files & MODEL_SHA256.keys())
@@ -69,7 +70,8 @@ def _download_model(staging: Path, preset: str, model: str, deadline: float) -> 
         total = 0
         with (
             urlopen(
-                base + name, timeout=min(30, max(1, deadline - time.monotonic()))
+                base + name,
+                timeout=min(30, max(1, deadline - time.monotonic())),
             ) as response,
             path.open("wb") as dest,
         ):
@@ -82,7 +84,7 @@ def _download_model(staging: Path, preset: str, model: str, deadline: float) -> 
                 )
                 if total > limit or time.monotonic() > deadline:
                     raise RuntimeUnavailable(
-                        f"Model file exceeded setup budget: {name}"
+                        f"Model file exceeded setup budget: {name}",
                     )
                 checksum.update(chunk)
                 dest.write(chunk)
@@ -100,7 +102,8 @@ def _install_packages(preset: str, deadline: float) -> Path:
         return target / "node_modules"
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
-        prefix=".install-", dir=target.parent
+        prefix=".install-",
+        dir=target.parent,
     ) as directory:
         staging = Path(directory)
         if hashes_only:
@@ -143,13 +146,15 @@ def ensure_runtime() -> Path:
         if (target / "ready").is_file():
             return target
         with tempfile.TemporaryDirectory(
-            prefix=".install-", dir=target.parent
+            prefix=".install-",
+            dir=target.parent,
         ) as directory:
             staging = Path(directory)
             try:
                 modules = _install_packages(preset, deadline)
                 (staging / "node_modules").symlink_to(
-                    os.path.relpath(modules, staging), target_is_directory=True
+                    os.path.relpath(modules, staging),
+                    target_is_directory=True,
                 )
                 revision = (
                     ""
@@ -157,11 +162,13 @@ def ensure_runtime() -> Path:
                     else _download_model(staging, preset, model, deadline)
                 )
                 (staging / "ready").write_text(
-                    json.dumps({"preset": preset, "model": model, "revision": revision})
+                    json.dumps(
+                        {"preset": preset, "model": model, "revision": revision},
+                    ),
                 )
                 staging.rename(target)
             except (OSError, subprocess.SubprocessError, ValueError, KeyError) as exc:
                 raise RuntimeUnavailable(
-                    f"Cannot set up Word2Vec Search: {exc}"
+                    f"Cannot set up Word2Vec Search: {exc}",
                 ) from exc
     return target
