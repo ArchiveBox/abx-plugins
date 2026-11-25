@@ -10,6 +10,10 @@ on:
         type: choice
         options: [linux, macos]
         default: linux
+      replay_tests:
+        description: Run Linux tests with replayed responses and direct networking disabled
+        type: boolean
+        default: false
   pull_request:
     branches: [main, 'codex/feature-*']
   push:
@@ -64,7 +68,12 @@ jobs:
           MACOS: ${{ github.event_name == 'schedule' || inputs.platform == 'macos' }}
           CHANGED: ${{ steps.changes.outputs.changed }}
           VERSION_READY: ${{ github.event_name != 'push' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved' }}
+          REPLAY_TESTS: ${{ inputs.replay_tests }}
         run: |
+          if [[ "$MACOS" == true && "$REPLAY_TESTS" == true ]]; then
+            echo 'Replay test isolation currently requires Linux.' >&2
+            exit 1
+          fi
           if [[ "$MACOS" == true ]]; then
             echo 'platform=macos' >> "$GITHUB_OUTPUT"
             echo "run_tests=$CHANGED" >> "$GITHUB_OUTPUT"
@@ -75,7 +84,7 @@ jobs:
 
       - name: Select available CI capacity
         id: runner
-        if: steps.gate.outputs.run_tests == 'true' && steps.gate.outputs.platform == 'linux' && (vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        if: steps.gate.outputs.run_tests == 'true' && steps.gate.outputs.platform == 'linux' && (vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && !inputs.replay_tests
         uses: ArchiveBox/monorepo/.github/actions/select-ci-runner@main
         with:
           github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
@@ -203,13 +212,14 @@ jobs:
         if: >-
           github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' &&
           (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@b00e2aa78c715e8be1e16ada64fcb9e8ce7bb2d7
         with:
           proxy: ${{ vars[runner.environment == 'self-hosted' && 'SQUID_LAN_URL' || 'SQUID_TAILNET_URL'] }}
           ca: ${{ vars.SQUID_CA }}
           tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID }}
           tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE }}
           browser: 'true'
+          replay-tests: ${{ inputs.replay_tests == true }}
 
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -611,11 +621,17 @@ jobs:
           CHROME_HEADLESS: "True"
           ABX_CI_STAGE_NOBLE_FONT: ${{ runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && matrix.test.os == 'ubuntu-24.04' }}
           TEST_PATHS: ${{ join(matrix.test.paths, ' ') }}
+          REPLAY_TESTS: ${{ inputs.replay_tests }}
         run: |
           set -Eeuo pipefail
           read -r -a test_paths <<< "$TEST_PATHS"
           mkdir -p "$RUNNER_TEMP/pytest"
           export ABXPKG_LIB_DIR="$RUNNER_TEMP/runtime-abx-lib"
+          test_prefix=()
+          if [[ "$REPLAY_TESTS" == true ]]; then
+            test -f "${CI_REPLAY_SANDBOX:?Replay-only test network was not configured}"
+            test_prefix=(node "$CI_REPLAY_SANDBOX")
+          fi
           test_status=0
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
@@ -629,7 +645,7 @@ jobs:
               esac
             fi
             pytest_status=0
-            "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
+            "${test_prefix[@]}" "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
               --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || pytest_status=$?
             uv run --no-project python .github/ci_test_status.py \
