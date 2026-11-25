@@ -1022,9 +1022,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
   function getProcessWorkingDir(pid) {
     const procCwdPath = `/proc/${pid}/cwd`;
     try {
-      if (fs.existsSync(procCwdPath)) {
-        return path.resolve(fs.readlinkSync(procCwdPath));
-      }
+      // readlink reads procfs metadata; existsSync follows cwd into potentially
+      // remote archive storage before we have even checked ownership.
+      return path.resolve(fs.readlinkSync(procCwdPath));
     } catch (error) {
       // Fall back to lsof on platforms without /proc, e.g. macOS.
     }
@@ -6404,7 +6404,7 @@ if (require.main === module) {
     );
     console.log("  killChrome <pid>          Kill Chrome process by PID");
     console.log("  killZombieChrome          Clean up zombie Chrome processes");
-    console.log("  recover <root>...         Recover abandoned browser sessions");
+    console.log("  recover <pid>...          Stop verified abandoned browsers");
     console.log("");
     console.log("  getExtensionsDir          Get Chrome extensions directory");
     console.log("");
@@ -6525,8 +6525,12 @@ if (require.main === module) {
 
         case "recover": {
           let processes_orphaned = 0;
-          for (const root of commandArgs) {
-            processes_orphaned += await killZombieChrome(root);
+          for (const value of commandArgs) {
+            const pid = Number(value);
+            if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("Invalid browser PID");
+            // browser.py verified the live browser's local profile and owners.
+            // No outputDir: recovery must never read or modify archive markers.
+            if (await killChrome(pid)) processes_orphaned++;
           }
           console.log(JSON.stringify({ processes_orphaned }));
           break;

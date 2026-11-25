@@ -1,10 +1,13 @@
 """Small, optional saved-artifact summaries for server-rendered link previews."""
 
 import json
+import os
 from functools import cache
 from html.parser import HTMLParser
 from pathlib import Path
 from stat import S_ISREG
+
+from abx_plugins.plugins.base.filesystem import resolve_contained_file
 
 
 class _Text(HTMLParser):
@@ -24,16 +27,25 @@ def template_context(slot, context):
 
     @cache
     def resolved_root():
-        return root.resolve()
+        # Linux resolves through pinned descriptors; other platforms reuse the
+        # canonical root across the metadata and image reads in this render.
+        return (
+            None
+            if hasattr(os, "O_PATH") and Path("/proc/self/fd").is_dir()
+            else root.resolve()
+        )
 
     def read(path, limit=262144):
         if path not in files:
             return ""
         try:
-            source = (root / path).resolve()
-            if not source.is_relative_to(resolved_root()):
-                return ""
-            with source.open("rb") as handle:
+            with (
+                resolve_contained_file(root, path, resolved_root=resolved_root()) as (
+                    source,
+                    _info,
+                ),
+                source.open("rb") as handle,
+            ):
                 data = handle.read(limit + 1)
             # Never parse truncated JSON or load an unbounded capture into memory.
             if path.endswith(".json") and len(data) > limit:
@@ -100,13 +112,14 @@ def template_context(slot, context):
             }:
                 continue
             try:
-                source = (root / path).resolve()
-                if not source.is_relative_to(resolved_root()):
-                    continue
-                file_stat = source.stat()
-                if S_ISREG(file_stat.st_mode) and file_stat.st_size:
-                    image = path
-                    break
+                with resolve_contained_file(
+                    root,
+                    path,
+                    resolved_root=resolved_root(),
+                ) as (_source, file_stat):
+                    if S_ISREG(file_stat.st_mode) and file_stat.st_size:
+                        image = path
+                        break
             except (OSError, ValueError):
                 continue
         if image:

@@ -96,8 +96,10 @@ def main():
         if request.get("browser_binary"):
             payload["CHROME_BINARY"] = request["browser_binary"]
     binaries = {}
-    recovery_paths = None
+    recovery_pids = None
     if operation == "recover":
+        import psutil
+
         from abxpkg.exceptions import BinaryLoadError
 
         paths = request.get("paths")
@@ -105,7 +107,97 @@ def main():
             not isinstance(path, str) or not Path(path).is_absolute() for path in paths
         ):
             raise ValueError("paths must be a list of absolute runtime roots")
-        recovery_paths = paths
+        # Start with real browsers, never historical PID files or archive trees.
+        # Chrome's native profile lock is published at process startup, before
+        # CDP hydration/optional observers, and stays on the local runtime volume.
+        roots = [Path(os.path.abspath(path)) for path in paths]
+        recovery_pids = set()
+        processes = list(psutil.process_iter(["cmdline", "cwd", "status"]))
+        hook_names = {
+            "on_CrawlSetup__90_chrome_launch.daemon.bg.js",
+            "on_Snapshot__00_chrome_launch.daemon.bg.js",
+            "on_Snapshot__01_chrome_tab.daemon.bg.js",
+        }
+        owners = [
+            process
+            for process in processes
+            if process.info["status"] != psutil.STATUS_ZOMBIE
+            and any(
+                Path(arg).name in hook_names for arg in process.info["cmdline"] or []
+            )
+        ]
+        for process in processes:
+            command = process.info["cmdline"] or []
+            if process.info["status"] == psutil.STATUS_ZOMBIE or not any(
+                arg.startswith("--remote-debugging-port=")
+                or arg == "--remote-debugging-pipe"
+                for arg in command
+            ):
+                continue
+            profile_arg = next(
+                (
+                    arg.split("=", 1)[1]
+                    for arg in command
+                    if arg.startswith("--user-data-dir=")
+                ),
+                "",
+            )
+            # Normalize ../ lexically without resolving archive-backed links.
+            profile = Path(os.path.abspath(profile_arg))
+            if not Path(profile_arg).is_absolute() or not any(
+                profile.is_relative_to(root) for root in roots
+            ):
+                continue
+            try:
+                if (
+                    int(os.readlink(profile / "SingletonLock").rsplit("-", 1)[1])
+                    != process.pid
+                ):
+                    continue
+            except (OSError, ValueError):
+                continue  # An unrelated profile or an exited browser owns no session.
+            browser_cwd = process.info["cwd"]
+            owned = False
+            for owner in owners:
+                try:
+                    if owner in process.parents() or (
+                        browser_cwd and owner.info["cwd"] == browser_cwd
+                    ):
+                        owned = True
+                        break
+                    # A tab daemon can outlive its launch hook and still own the
+                    # shared crawl browser. Compare its declared runtime identity
+                    # lexically; resolving archive paths would touch remote storage.
+                    env = owner.environ()
+                    owner_profile = env.get("CHROME_USER_DATA_DIR") or (
+                        str(
+                            Path(env["PERSONAS_DIR"])
+                            / (env.get("ACTIVE_PERSONA") or "Default")
+                            / "chrome_profile",
+                        )
+                        if env.get("PERSONAS_DIR")
+                        else ""
+                    )
+                    if (
+                        owner_profile
+                        and Path(os.path.abspath(owner_profile)) == profile
+                    ) or (
+                        browser_cwd
+                        and env.get("CRAWL_DIR")
+                        and str(Path(env["CRAWL_DIR"]) / "chrome") == browser_cwd
+                    ):
+                        owned = True
+                        break
+                except psutil.NoSuchProcess:
+                    continue
+                except psutil.AccessDenied:
+                    owned = True  # Ownership cannot safely be disproved.
+                    break
+            if not owned:
+                recovery_pids.add(process.pid)
+        if not recovery_pids:
+            print(json.dumps({"processes_orphaned": 0}))
+            return
         dependency = next(
             item
             for item in json.loads(config_path.read_text())["required_binaries"]
@@ -152,7 +244,7 @@ def main():
     env["NODE_MODULES_DIR"] = str(
         Path(payload["ABXPKG_LIB_DIR"]) / "pnpm/packages/chrome/node_modules",
     )
-    if recovery_paths is not None:
+    if recovery_pids is not None:
         # Recovery uses the same JS helper as browser operations, so it needs
         # the same resolved module environment even though it never installs.
         os.execvpe(
@@ -161,7 +253,7 @@ def main():
                 node,
                 str(Path(__file__).with_name("chrome_utils.js")),
                 "recover",
-                *recovery_paths,
+                *(str(pid) for pid in sorted(recovery_pids)),
             ],
             env,
         )

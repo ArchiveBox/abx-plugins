@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,148 @@ import pytest
 PLUGIN = Path(__file__).resolve().parent.parent
 
 
-def test_recovery_resolves_its_node_environment(tmp_path):
+def test_recovery_stops_browser_before_hook_hydration(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+):
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+        find_chromium,
+        get_test_env,
+    )
+
+    profile = tmp_path / "profile"
+    binary = find_chromium()
+    assert binary is not None, "The real Chrome test binary must be installed"
+    # Launch the real browser without any hook/observer or archive sidecars.
+    # Its native local profile lock must be sufficient to recover this orphan.
+    with (tmp_path / "chrome.log").open("w+") as log:
+        process = subprocess.Popen(
+            [
+                binary,
+                "--headless",
+                "--no-sandbox",
+                "--remote-debugging-port=0",
+                f"--user-data-dir={profile}",
+                "about:blank",
+            ],
+            cwd=tmp_path,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+        )
+        try:
+            deadline = time.monotonic() + 10
+            while (
+                not (profile / "SingletonLock").is_symlink()
+                and time.monotonic() < deadline
+            ):
+                assert process.poll() is None
+                time.sleep(0.05)
+            assert (
+                int(os.readlink(profile / "SingletonLock").rsplit("-", 1)[1])
+                == process.pid
+            )
+            env = get_test_env()
+            for name in (
+                "NODE_MODULES_DIR",
+                "NODE_MODULE_DIR",
+                "NODE_PATH",
+                "PNPM_HOME",
+                "PNPM_BIN_DIR",
+            ):
+                env.pop(name, None)
+            result = subprocess.run(
+                [str(PLUGIN / "browser.py"), "recover"],
+                input=json.dumps({"paths": [str(tmp_path)]}),
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=30,
+            )
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout) == {"processes_orphaned": 1}
+            process.wait(timeout=10)
+            assert not (tmp_path / "chrome").exists()
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=10)
+
+
+def test_browser_profile_lock_identifies_live_browser(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+    httpserver,
+):
+    import psutil
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+
+    httpserver.expect_request("/").respond_with_data("<h1>Browser ownership</h1>")
+    with chrome_session(tmp_path, test_url=httpserver.url_for("/"), navigate=False) as (
+        launcher,
+        pid,
+        _,
+        env,
+    ):
+        process = psutil.Process(pid)
+        profile = Path(
+            next(
+                arg.split("=", 1)[1]
+                for arg in process.cmdline()
+                if arg.startswith("--user-data-dir=")
+            ),
+        )
+        lock = profile / "SingletonLock"
+        assert lock.is_symlink(), list(profile.iterdir())
+        assert int(os.readlink(lock).rsplit("-", 1)[1]) == pid
+        # The real tab daemon still owns this crawl browser after its launch
+        # hook is killed, so collection recovery must leave it running.
+        launcher.kill()
+        launcher.wait(timeout=10)
+        result = subprocess.run(
+            [str(PLUGIN / "browser.py"), "recover"],
+            input=json.dumps({"paths": [str(tmp_path)]}),
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {"processes_orphaned": 0}
+        assert process.is_running()
+
+
+def test_collection_recovery_does_not_scan_saved_outputs(tmp_path):
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
+
+    # Use an actual exited process identity; these files are archived content,
+    # not runtime bookkeeping, even though their names match Chrome sidecars.
+    process = subprocess.Popen([sys.executable, "-c", "pass"])
+    assert process.wait() == 0
+    saved = tmp_path / "crawl/snapshots/snapshot/wget/site/chrome"
+    saved.mkdir(parents=True)
+    pid_file = saved / "on_Snapshot__00_chrome_launch.daemon.bg.js.pid"
+    pid_file.write_text(str(process.pid))
+    persona = saved.parent / ".persona"
+    persona.mkdir()
+    (persona / "auth.json").write_text("{}")
+    result = subprocess.run(
+        [str(PLUGIN / "browser.py"), "recover"],
+        input=json.dumps({"paths": [str(tmp_path)]}),
+        cwd=tmp_path,
+        env=get_test_env(),
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {"processes_orphaned": 0}
+    assert "Checking for zombie Chrome processes" not in result.stderr
+    assert pid_file.read_text() == str(process.pid)
+    assert (persona / "auth.json").read_text() == "{}"
+
+
+def test_recovery_without_browsers_needs_no_node_environment(tmp_path):
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
 
     env = get_test_env()
@@ -33,7 +175,14 @@ def test_recovery_resolves_its_node_environment(tmp_path):
     command = json.loads((PLUGIN / "config.json").read_text())["commands"]["recover"]
     result = subprocess.run(
         [str(PLUGIN / command[0]), *command[1:]],
-        input=json.dumps({"paths": [str(tmp_path)]}),
+        # A bad Node provider must not matter when there is no orphan. Put it
+        # in the command request so the Python script launcher still works.
+        input=json.dumps(
+            {
+                "paths": [str(tmp_path)],
+                "config": {"ABXPKG_BINPROVIDERS": "unsupported-recovery-provider"},
+            },
+        ),
         cwd=tmp_path,
         env=env,
         text=True,
@@ -42,7 +191,7 @@ def test_recovery_resolves_its_node_environment(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == {"processes_orphaned": 0}
-    assert "Checking for zombie Chrome processes" in result.stderr
+    assert "Checking for zombie Chrome processes" not in result.stderr
 
 
 def run_profile(**request):
