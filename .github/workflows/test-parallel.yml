@@ -676,7 +676,8 @@ jobs:
               esac
             fi
             pytest_status=0
-            "${test_prefix[@]}" "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
+            # Bash 3.2 with nounset treats a declared empty array as unset.
+            ${test_prefix[@]+"${test_prefix[@]}"} "${display_command[@]}" uv run --no-cache --no-sync --no-sources pytest -vs -rA -n ${{ matrix.test.workers }} "$test_path" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
               --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || pytest_status=$?
             uv run --no-project python .github/ci_test_status.py \
