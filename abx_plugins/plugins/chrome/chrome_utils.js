@@ -1492,8 +1492,8 @@ async function launchChromium(options = {}) {
   chromiumArgs.push(`--enable-features=${[...new Set(enabledFeatures)].join(",")}`);
 
   if (isCI) {
-    // Fresh CI profiles otherwise send Google time and AI eligibility requests on startup.
-    disabledFeatures.push("NetworkTimeServiceQuerying", "AimEnabled");
+    // Fresh CI profiles do not need Chrome's Google time, AI eligibility, or form autofill services.
+    disabledFeatures.push("NetworkTimeServiceQuerying", "AimEnabled", "AutofillServerCommunication");
     chromiumArgs.push(`--disable-features=${[...new Set(disabledFeatures)].join(",")}`);
   }
 

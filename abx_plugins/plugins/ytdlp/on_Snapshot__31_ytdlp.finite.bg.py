@@ -242,6 +242,9 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
 
     if not check_ssl:
         cmd.append("--no-check-certificate")
+    elif os.environ.get("SSL_CERT_FILE"):
+        # yt-dlp otherwise uses certifi, which omits the CA supplied by the runner.
+        cmd.extend(["--compat-options", "no-certifi"])
 
     if has_netscape_cookie_entries(cookies_file):
         cmd.extend(["--cookies", cookies_file])
