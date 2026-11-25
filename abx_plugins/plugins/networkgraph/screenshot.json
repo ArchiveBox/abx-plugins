@@ -1,0 +1,8 @@
+{
+  "view": "Graph Explorer",
+  "app_page": {
+    "path": "/admin/graph/",
+    "source": "templates/index.html",
+    "wait_for_selector": "#networkgraph-ui[data-links-complete='true']:has(#link-count[title]:not([title='0'])) #graph canvas"
+  }
+}

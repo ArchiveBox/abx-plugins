@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "app_module": "abx_plugins.plugins.networkgraph.app",
+  "screenshot": "screenshot.json",
   "category": "utilities",
   "display_order": 1010,
   "required_plugins": [],

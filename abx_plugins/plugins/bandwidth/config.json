@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "app_module": "abx_plugins.plugins.bandwidth.app",
+  "screenshot": "screenshot.json",
   "category": "utilities",
   "required_plugins": [],
   "required_binaries": [],

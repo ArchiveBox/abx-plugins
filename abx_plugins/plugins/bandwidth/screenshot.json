@@ -1,0 +1,8 @@
+{
+  "view": "Bandwidth",
+  "app_page": {
+    "path": "/admin/bandwidth/",
+    "source": "templates/index.html",
+    "wait_for_selector": "#sites .day-chart path"
+  }
+}
