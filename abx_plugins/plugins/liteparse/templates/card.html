@@ -75,8 +75,11 @@
             } else {
                 const source = value.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/);
                 if (source) { value = value.slice(source[0].length); showOriginal(source[1]); }
+                // Older captures saved LiteParse's headers even for empty pages.
+                // Match its complete serialization so literal headers in OCR text survive.
+                if (/^\n--- Page [0-9]+ ---\n(?:\n\n\n--- Page [0-9]+ ---\n)*$/.test(value)) value = '';
             }
-            text.textContent = value.trim() ? value.slice(0, 2000) : 'No text detected';
+            text.textContent = value.trim() ? value.slice(0, 2000) : '';
         }).catch(() => { text.textContent = 'Text unavailable'; });
     }
     if (!documents.size) grid.textContent = 'No parsed files';

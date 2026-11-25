@@ -62,7 +62,7 @@
     count.textContent=visible+' / '+entries.length;empty.hidden=visible>0;
   }
   // Office outputs preserve native sections/slides/sheets; only PDF outputs have pages.
-  const jsonText=text=>{const data=JSON.parse(text);if(Array.isArray(data))return data.flatMap(item=>item.document?.units||[]).map(unit=>[unit.text?.startsWith(unit.title)?null:unit.title,unit.text].filter(Boolean).join('\n')).join('\n\n');if(Array.isArray(data.pages))return data.pages.map((page,index)=>{const rawItems=page.text_items||page.textItems,items=Array.isArray(rawItems)?rawItems.map(item=>item&&item.text).filter(Boolean):[];const body=page.text||items.join('\n');return body?'Page '+(page.page_number||page.page||index+1)+'\n'+body:''}).filter(Boolean).join('\n\n');return [data.text,data.content,data.body].find(value=>typeof value==='string')||JSON.stringify(data,null,2)};
+  const jsonText=text=>{const data=JSON.parse(text);if(Array.isArray(data))return data.flatMap(item=>item.document?.units||[]).map(unit=>[unit.text?.startsWith(unit.title)?null:unit.title,unit.text].filter(Boolean).join('\n')).join('\n\n');if(Array.isArray(data.pages))return data.pages.map((page,index)=>{const rawItems=page.text_items||page.textItems,items=Array.isArray(rawItems)?rawItems.map(item=>item&&item.text).filter(Boolean):[];const body=page.text?.trim()?page.text:items.join('\n');return body.trim()?'Page '+(page.page_number||page.page||index+1)+'\n'+body:''}).filter(Boolean).join('\n\n');return [data.text,data.content,data.body].find(value=>typeof value==='string')||JSON.stringify(data,null,2)};
   const previews=new IntersectionObserver(items=>{for(const item of items){if(item.isIntersecting){previews.unobserve(item.target);load(item.target.entry)}}},{rootMargin:'200px'});
   function showFilename(entry){
     const path=entry.source?.path.replace(/^\.\//,'').replace(/^responses\//,'');
@@ -105,8 +105,14 @@
       const response=await fetch(raw(entry.document.formats[format]));if(!response.ok)throw new Error('Unavailable');
       let text=await response.text();
       if(format==='json')text=jsonText(text);
-      else{const source=text.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/);if(source){text=text.slice(source[0].length);showSource(entry,source[1])}}
-      entry.preview.textContent=text.trim()?text:'No text detected.';
+      else{
+        const source=text.match(/^\uFEFF?<!-- source: ([^\r\n]+) -->\r?\n/);
+        if(source){text=text.slice(source[0].length);showSource(entry,source[1])}
+        // Older captures saved LiteParse's headers even for empty pages.
+        // Match its complete serialization so literal headers in OCR text survive.
+        if(/^\n--- Page [0-9]+ ---\n(?:\n\n\n--- Page [0-9]+ ---\n)*$/.test(text))text='';
+      }
+      entry.preview.textContent=text.trim()?text:'';
     }catch{entry.preview.textContent='Unable to read parsed text. Open the saved file below.'}
   }
   // Match the responses gallery: type, original bytes descending, then path.
