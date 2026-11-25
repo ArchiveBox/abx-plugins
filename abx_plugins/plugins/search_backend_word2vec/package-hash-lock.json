@@ -1,0 +1,22 @@
+{
+  "name": "archivebox-word2vec-runtime",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "archivebox-word2vec-runtime",
+      "dependencies": {
+        "browservec": "1.0.0"
+      }
+    },
+    "node_modules/browservec": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/browservec/-/browservec-1.0.0.tgz",
+      "integrity": "sha512-ypffNB4bRlwzoxZpfwk9RSURfJitAI/YOGBfgjb+ZYA9Cxvbnjhv8JLk8X5TYrdPJMQOvCUWLzP6jPXy8lyOIg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=18"
+      }
+    }
+  }
+}

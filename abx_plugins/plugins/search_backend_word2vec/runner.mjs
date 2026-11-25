@@ -5,37 +5,43 @@ const root = process.argv[2];
 let input = '';
 process.stdin.setEncoding('utf8');
 for await (const chunk of process.stdin) input += chunk;
-const { operation, texts, records, database, ids, limit } = JSON.parse(input);
+const { operation, texts, records, database, ids, limit, preset, dimension } = JSON.parse(input);
 const load = (path) => import(pathToFileURL(join(root, 'node_modules', path)).href);
-const { env, pipeline } = await load('@huggingface/transformers/dist/transformers.node.mjs');
+const { BrowserVec, hashingEmbedder } = await load('browservec/dist/browservec.js');
 
-// The install step may download model files, but search must never contact a model host.
-env.allowRemoteModels = false;
-env.allowLocalModels = true;
-env.localModelPath = root + '/';
-env.useFSCache = false;
-
-const model = await pipeline('feature-extraction', 'model', {
-    device: 'cpu',
-    dtype: 'q8',
-    session_options: { intraOpNumThreads: 1, interOpNumThreads: 1 },
-});
+let model;
+let embed;
+if (preset === 'browservec') {
+    const hashing = hashingEmbedder({ dimension });
+    embed = async (text) => (await hashing.embed([text]))[0];
+} else {
+    const { env, pipeline } = await load('@huggingface/transformers/dist/transformers.node.mjs');
+    env.allowRemoteModels = false;
+    env.allowLocalModels = true;
+    env.localModelPath = root + '/';
+    env.useFSCache = false;
+    model = await pipeline('feature-extraction', 'model', {
+        device: 'cpu',
+        dtype: 'q8',
+        session_options: { intraOpNumThreads: 1, interOpNumThreads: 1 },
+    });
+    embed = async (text) => (await model(text, { pooling: 'mean', normalize: true })).data;
+}
 try {
-    const embed = async (text) => (await model(text, { pooling: 'mean', normalize: true })).data;
     const encode = (v) => {
-        const data = Buffer.alloc(384 * 4);
-        for (let i = 0; i < 384; i++) data.writeFloatLE(v[i], i * 4);
+        const data = Buffer.alloc(dimension * 4);
+        if (v.length !== dimension) throw new Error('Unexpected embedding size');
+        for (let i = 0; i < dimension; i++) data.writeFloatLE(v[i], i * 4);
         return data.toString('base64');
     };
     const decode = (s) => {
         const data = Buffer.from(s, 'base64');
-        return Float32Array.from({ length: 384 }, (_, i) => data.readFloatLE(i * 4));
+        return Float32Array.from({ length: dimension }, (_, i) => data.readFloatLE(i * 4));
     };
     if (operation === 'embed') {
         process.stdout.write(JSON.stringify(encode(await embed(texts[0]))));
     } else if (operation === 'rank') {
-        const { BrowserVec } = await load('browservec/dist/browservec.js');
-        const db = await BrowserVec.create({ dimension: 384, metric: 'cosine', fallback: 'wasm' });
+        const db = await BrowserVec.create({ dimension, metric: 'cosine', fallback: 'wasm' });
         try {
             await db.addBatch(records.map(([id, vector]) => ({ id, vector: decode(vector) })));
             const output = [];
@@ -47,19 +53,11 @@ try {
             db.destroy();
         }
     } else if (operation === 'scan') {
-        const { BrowserVec } = await load('browservec/dist/browservec.js');
         const { DatabaseSync } = await import('node:sqlite');
         const key = (id) => /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id) || /^[a-f\d]{32}$/i.test(id)
             ? id.toLowerCase().replaceAll('-', '')
             : id;
         const scope = ids === null ? null : new Map(ids.map((id) => [key(id), id]));
-        const aliases = new Set();
-        for (const canonical of scope?.keys() ?? []) {
-            aliases.add(canonical);
-            if (/^[a-f\d]{32}$/.test(canonical)) {
-                aliases.add(canonical.replace(/^(........)(....)(....)(....)(............)$/, '$1-$2-$3-$4-$5'));
-            }
-        }
         const query = await embed(texts[0]);
         const connection = new DatabaseSync(database, { readOnly: true });
         let batch = [];
@@ -67,7 +65,7 @@ try {
         const compare = (a, b) => (b.score - a.score) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
         const flush = async () => {
             if (!batch.length) return;
-            const db = await BrowserVec.create({ dimension: 384, metric: 'cosine', fallback: 'wasm' });
+            const db = await BrowserVec.create({ dimension, metric: 'cosine', fallback: 'wasm' });
             try {
                 await db.addBatch(batch);
                 // Ask for the whole chunk so score ties remain stable across chunk boundaries.
@@ -83,7 +81,7 @@ try {
                 yield* connection.prepare('SELECT id, vector FROM embeddings ORDER BY id').iterate();
                 return;
             }
-            const keys = [...aliases];
+            const keys = [...scope.keys()];
             for (let start = 0; start < keys.length; start += 512) {
                 const part = keys.slice(start, start + 512);
                 const placeholders = part.map(() => '?').join(',');
@@ -93,11 +91,11 @@ try {
         try {
             for (const { id, vector } of rows()) {
                 const selectedId = scope === null ? id : scope.get(key(id));
-                if (!selectedId || vector.byteLength !== 384 * 4) continue;
+                if (!selectedId || vector.byteLength !== dimension * 4) continue;
                 const bytes = Buffer.from(vector.buffer, vector.byteOffset, vector.byteLength);
                 batch.push({
                     id: selectedId,
-                    vector: Float32Array.from({ length: 384 }, (_, i) => bytes.readFloatLE(i * 4)),
+                    vector: Float32Array.from({ length: dimension }, (_, i) => bytes.readFloatLE(i * 4)),
                 });
                 if (batch.length >= 512) await flush();
             }
@@ -110,5 +108,5 @@ try {
         throw new Error('Unknown operation');
     }
 } finally {
-    await model.dispose();
+    await model?.dispose();
 }

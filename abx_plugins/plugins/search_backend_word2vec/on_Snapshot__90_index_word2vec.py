@@ -11,7 +11,7 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.search_text import clean_index_text
 from abx_plugins.plugins.base.utils import emit_archive_result_record
-from abx_plugins.plugins.search_backend_browservec.search import (
+from abx_plugins.plugins.search_backend_word2vec.search import (
     RuntimeUnavailable,
     enabled,
     index_text,
@@ -51,8 +51,8 @@ def main() -> int:
         return 0
     try:
         index_text(args.snapshot_id, "\n\n".join(texts))
-    except RuntimeUnavailable:
-        print("BrowserVec local runtime unavailable", file=sys.stderr)
+    except RuntimeUnavailable as error:
+        print(str(error) or "Word2Vec Search runtime unavailable", file=sys.stderr)
         return 1
     emit_archive_result_record("succeeded", "")
     return 0

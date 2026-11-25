@@ -1,5 +1,5 @@
 {
-  "name": "archivebox-browservec-runtime",
+  "name": "archivebox-word2vec-runtime",
   "private": true,
   "dependencies": {
     "@huggingface/transformers": "4.3.2",
