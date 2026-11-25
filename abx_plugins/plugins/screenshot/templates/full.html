@@ -1,9 +1,36 @@
-<!-- Screenshot fullscreen - centered image with vertical scroll -->
-<div style="width: 100%; min-height: 100vh; overflow: auto; background: #fff; padding: 0; box-sizing: border-box;">
-    <div style="width: 100%; min-width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-        <img src="{{ output_path }}"
-             alt="Screenshot of page"
-             class="extractor-fullscreen screenshot-fullscreen"
-             style="width: auto; max-width: 100%; height: auto; display: block; margin: 0 auto;">
-    </div>
-</div>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Screenshot</title>
+    <style>
+        html, body { margin: 0; background: #fff; }
+        .screenshot-fullscreen { display: block; flex: none; max-width: 100%; width: auto; height: auto; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <img src="{{ output_path }}" alt="Screenshot of page" class="extractor-fullscreen screenshot-fullscreen">
+    <script>
+        (() => {
+            if (parent === window || window.name !== 'preview') return;
+            const image = document.querySelector('.screenshot-fullscreen');
+            let previousHeight = 0;
+            const reportHeight = () => {
+                // Measure the image, not the viewport: growing the frame must not feed back into its height.
+                const height = Math.ceil(image.getBoundingClientRect().height);
+                if (height <= 0 || height === previousHeight) return;
+                previousHeight = height;
+                parent.postMessage({type: 'archivebox-preview-height', height, fitContent: true}, '*');
+            };
+            const observer = new ResizeObserver(reportHeight);
+            observer.observe(image);
+            image.addEventListener("load", reportHeight);
+            window.addEventListener("resize", reportHeight);
+
+            window.addEventListener('pagehide', () => observer.disconnect(), {once: true});
+            reportHeight();
+        })();
+    </script>
+</body>
+</html>
