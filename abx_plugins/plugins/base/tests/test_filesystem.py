@@ -12,7 +12,7 @@ from abx_plugins.plugins.base.filesystem import resolve_contained_file
     "target",
     ["file", "inside", "outside", "directory", "missing", "loop", "fifo"],
 )
-def test_resolve_contained_file(tmp_path, target):
+def test_resolve_contained_file(tmp_path, target, request):
     root = tmp_path / "snapshot"
     root.mkdir()
     saved = root / "saved.txt"
@@ -30,6 +30,7 @@ def test_resolve_contained_file(tmp_path, target):
         source.mkdir()
     elif target == "loop":
         source.symlink_to(source)
+        request.addfinalizer(source.unlink)
     elif target == "fifo":
         os.mkfifo(source)
 
