@@ -11,6 +11,7 @@ import {
   Raycaster,
   TextureLoader,
   SRGBColorSpace,
+  TOUCH,
   Vector2,
   Vector3,
 } from "./vendor/three.core.js";
@@ -343,6 +344,9 @@ graph.d3Force("center", null);
 graph.d3Force("link", null);
 graph.renderer().setPixelRatio(Math.min(devicePixelRatio, 1.25));
 graph.controls().enableRotate = false;
+// A pinch ending with one finger must transition to pan in 2D. Keeping the
+// disabled ROTATE gesture leaves OrbitControls in its two-pointer dolly state.
+graph.controls().touches.ONE = TOUCH.PAN;
 graph.controls().zoomToCursor = true;
 // Set our own initial camera so ForceGraph does not rescale it on data updates.
 graph.cameraPosition({ z: 600 });
@@ -1145,6 +1149,7 @@ $("dimensions").onclick = () => {
   wakeRenderer(1300);
   if (!spatial) target.z = 0;
   graph.controls().enableRotate = spatial;
+  graph.controls().touches.ONE = spatial ? TOUCH.ROTATE : TOUCH.PAN;
   graph.cameraPosition(
     {
       x: target.x + (spatial ? distance * 0.45 : 0),
