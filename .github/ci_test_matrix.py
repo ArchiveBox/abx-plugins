@@ -229,9 +229,8 @@ if __name__ == "__main__":
         item["ugnas"] = True
 
     for item in test_matrix:
-        item["chrome_vendor_archive"] = (
-            item["os"] == "ubuntu-24.04"
-            and any(uses_shared_chrome_runtime(Path(path)) for path in item["paths"])
+        item["chrome_vendor_archive"] = item["os"] == "ubuntu-24.04" and any(
+            uses_shared_chrome_runtime(Path(path)) for path in item["paths"]
         )
 
     # Parallelize the measured multi-minute files within their hosted runner.
