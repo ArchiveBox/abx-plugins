@@ -297,7 +297,11 @@ def test_replay_prefers_latest_capture_of_requested_page_including_post(
     assert f'data-url="{html_escape(cleared, quote=True)}"' in html
 
 
-def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path):
+@pytest.mark.parametrize("source_revision", ["", "same-hash-generation"])
+def test_replay_prefers_recorded_final_navigation_over_initial_document(
+    tmp_path,
+    source_revision,
+):
     original = "https://example.com/article"
     final = original + "?referrer=https%3A%2F%2Fexample.com%2Farticle"
     capture = tmp_path / "archivewebpage" / "archivewebpage.wacz"
@@ -336,6 +340,7 @@ def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path
         "/archivewebpage/archivewebpage.wacz",
         source_path=capture,
         fallback_url=original,
+        source_revision=source_revision,
     )
     assert f'data-url="{html_escape(final, quote=True)}"' in html
 
@@ -356,6 +361,7 @@ def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path
             "/archivewebpage/archivewebpage.wacz",
             source_path=capture,
             fallback_url=original,
+            source_revision=source_revision,
         )
         assert f'data-url="{original}"' in html
     navigation.write_text("{")
@@ -364,8 +370,44 @@ def test_replay_prefers_recorded_final_navigation_over_initial_document(tmp_path
         "/archivewebpage/archivewebpage.wacz",
         source_path=capture,
         fallback_url=original,
+        source_revision=source_revision,
     )
     assert f'data-url="{original}"' in html
+
+    navigation.unlink()
+
+    def trace(frame, event, arg):
+        if (
+            event == "call"
+            and frame.f_code is presentation._first_archived_url.__code__
+        ):
+            # A navigation record arriving after the cache key was sampled must
+            # not leave its final URL cached under the missing-file identity.
+            navigation.write_text(json.dumps({"url": original, "finalUrl": final}))
+
+    previous = sys.getprofile()
+    sys.setprofile(trace)
+    try:
+        changed = presentation.render_replay_html(
+            "archivewebpage.wacz",
+            "/archivewebpage/archivewebpage.wacz",
+            source_path=capture,
+            fallback_url=original,
+            source_revision=source_revision,
+        )
+    finally:
+        sys.setprofile(previous)
+    assert "noCache" in changed
+    navigation.unlink()
+    stable = presentation.render_replay_html(
+        "archivewebpage.wacz",
+        "/archivewebpage/archivewebpage.wacz",
+        source_path=capture,
+        fallback_url=original,
+        source_revision=source_revision,
+    )
+    assert "noCache" not in stable
+    assert f'data-url="{original}"' in stable
 
 
 def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
@@ -482,6 +524,11 @@ def test_hashed_replay_metadata_is_cached_by_generation(tmp_path):
         assert "noCache" not in unsealed
         assert "replay-cache=" in unsealed
         assert len(reads) == 3
+        assert (
+            presentation.render_replay_html("capture.wacz", "/capture.wacz", source)
+            == unsealed
+        )
+        assert len(reads) == 3
     finally:
         sys.setprofile(previous)
 
@@ -498,16 +545,28 @@ def test_replay_metadata_and_payload_version_follow_file_stat(
 
     source = tmp_path / "capture.wacz"
     shutil.copyfile(Path(__file__).parent / "fixtures/replay/iframetest.wacz", source)
+    reads = []
+
+    def trace(frame, event, arg):
+        if event == "call" and frame.f_code is presentation._replay_index.__code__:
+            reads.append(source)
 
     def render():
-        return presentation.render_replay_html(
-            "capture.wacz",
-            "/capture.wacz",
-            source,
-            source_revision=source_revision,
-        )
+        previous = sys.getprofile()
+        sys.setprofile(trace)
+        try:
+            return presentation.render_replay_html(
+                "capture.wacz",
+                "/capture.wacz",
+                source,
+                source_revision=source_revision,
+            )
+        finally:
+            sys.setprofile(previous)
 
     first = render()
+    assert render() == first
+    assert len(reads) == 1
     match = re.search(r'data-source="([^"]+)"', first)
     assert match is not None
     before = source.stat()
@@ -526,6 +585,56 @@ def test_replay_metadata_and_payload_version_follow_file_stat(
     # Invalidate the cached ZIP directory as well as the browser collection.
     assert f'"size":{source.stat().st_size},' in changed
     assert render() == changed
+    assert len(reads) == 2
+
+
+@pytest.mark.parametrize("source_revision", ["", "same-hash-generation"])
+def test_replay_does_not_cache_metadata_from_different_file_versions(
+    tmp_path,
+    source_revision,
+):
+    source = tmp_path / "capture.wacz"
+    replacement = tmp_path / "replacement.wacz"
+    for path, url in (
+        (source, "https://example.com/first"),
+        (replacement, "https://example.com/later"),
+    ):
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("pages/pages.jsonl", json.dumps({"url": url}))
+    before = source.stat()
+
+    def trace(frame, event, arg):
+        if (
+            event == "return"
+            and frame.f_code is presentation._first_archived_url.__code__
+        ):
+            # Replace the real file between page selection and ZIP inspection,
+            # as an upload can, while preserving its size and modification time.
+            replacement.replace(source)
+            os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+
+    previous = sys.getprofile()
+    sys.setprofile(trace)
+    try:
+        changed = presentation.render_replay_html(
+            "capture.wacz",
+            "/capture.wacz",
+            source,
+            source_revision=source_revision,
+        )
+    finally:
+        sys.setprofile(previous)
+    assert source.stat().st_size == before.st_size
+    assert "noCache" in changed
+    assert "replay-cache=" not in changed
+    stable = presentation.render_replay_html(
+        "capture.wacz",
+        "/capture.wacz",
+        source,
+        source_revision=source_revision,
+    )
+    assert 'data-url="https://example.com/later"' in stable
+    assert "noCache" not in stable
 
 
 def test_hashed_incomplete_wacz_never_reuses_hash_only_payload_cache(tmp_path):
