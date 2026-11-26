@@ -51,8 +51,12 @@ CHROME_TEST_DEPENDENCIES = {
     "install_chromium_with_abxpkg",
     "launch_chromium_session",
     "launch_snapshot_tab",
+    "real_competing_html_snapshot",
+    "real_html_snapshot",
+    "real_staticfile_output",
     "require_chrome_runtime",
     "require_chrome_runtime_impl",
+    "setup_test_env",
 }
 
 
