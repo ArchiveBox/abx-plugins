@@ -9,6 +9,10 @@
       "name": "{NODE_BINARY}",
       "binproviders": "env,node",
       "min_version": "24.0.0"
+    },
+    {
+      "name": "{NPM_BINARY}",
+      "binproviders": "env,node"
     }
   ],
   "required_plugins": [],
@@ -21,6 +25,11 @@
       "type": "string",
       "default": "node",
       "description": "Path to Node.js binary"
+    },
+    "NPM_BINARY": {
+      "type": "string",
+      "default": "npm",
+      "description": "Path to the npm executable"
     },
     "SEARCH_BACKEND_WORD2VEC_ENABLED": {
       "type": "boolean",

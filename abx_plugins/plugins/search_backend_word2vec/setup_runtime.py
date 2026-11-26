@@ -115,7 +115,13 @@ def _install_packages(preset: str, deadline: float) -> Path:
             shutil.copyfile(PLUGIN_DIR / "package.json", staging / "package.json")
         shutil.copyfile(lock, staging / "package-lock.json")
         subprocess.run(
-            ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"],
+            [
+                os.environ.get("NPM_BINARY", "npm"),
+                "ci",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+            ],
             cwd=staging,
             stdout=subprocess.DEVNULL,
             check=True,
