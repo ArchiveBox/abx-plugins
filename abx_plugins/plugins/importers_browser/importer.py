@@ -13,8 +13,14 @@ import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.parse import urlsplit
 
 from abx_plugins.plugins.base.importers import emit, read_request
+from abx_plugins.plugins.base.utils import (
+    get_hydrated_required_binary,
+    load_required_binary,
+)
 from abx_plugins.plugins.browserharness.runtime import (
     capture_failure,
     importer_environment,
@@ -24,6 +30,54 @@ from abx_plugins.plugins.browserharness.runtime import (
 )
 
 PLUGIN = Path(__file__).parent
+
+
+def run_x_bookmarks(request):
+    gallerydl_config = PLUGIN.parent / "gallerydl" / "config.json"
+    binary = get_hydrated_required_binary("gallery-dl", gallerydl_config)
+    # The bookmark paginator needs the Python package. A system executable
+    # alone does not provide it in the importer's Python environment.
+    gallerydl = load_required_binary(
+        {**binary, "name": "gallery-dl", "binproviders": "uv"},
+        install=True,
+    )
+    with bookmark_environment() as env:
+        gallerydl.exec(
+            bin_name=sys.executable,
+            cmd=[str(PLUGIN / "x_bookmarks.py")],
+            input=json.dumps(request),
+            env=env,
+            capture_output=False,
+            check=True,
+        )
+
+
+@contextmanager
+def bookmark_environment():
+    if os.environ.get("COOKIES_FILE") or os.environ.get("AUTH_STORAGE_FILE"):
+        yield os.environ
+        return
+
+    # Standalone callers can supply a live browser instead of a persona
+    # export. Keep the temporary cookie file inside a private directory.
+    chrome = PLUGIN.parent / "chrome"
+    command = json.loads((chrome / "config.json").read_text())["commands"][
+        "browser-export-state"
+    ]
+    with connection(Path.cwd()) as browser, TemporaryDirectory() as directory:
+        cookies_file = str(Path(directory) / "cookies.txt")
+        subprocess.run(
+            [sys.executable, str(chrome / command[0]), *command[1:]],
+            input=json.dumps(
+                {"cdp_url": browser["BU_CDP_URL"], "cookies_output_file": cookies_file}
+            ),
+            env=browser,
+            stdout=subprocess.DEVNULL,
+            text=True,
+            timeout=60,
+            check=True,
+        )
+        yield {**os.environ, "COOKIES_FILE": cookies_file}
 
 
 @contextmanager
@@ -145,6 +199,20 @@ def learn(binary, task, env, workspace, run_dir, error, attempt, deadline):
 def main():
     deadline = time.monotonic() + int(os.environ.get("IMPORTERS_TIMEOUT", "900")) - 25
     request = read_request()
+    if request["feed"] == "x_bookmarks":
+        url = urlsplit(
+            request["settings"].get("IMPORTERS_BROWSER_URL")
+            or "https://x.com/i/bookmarks"
+        )
+        if url.hostname in {
+            "x.com",
+            "www.x.com",
+            "twitter.com",
+            "www.twitter.com",
+        } and url.path.rstrip("/") in {"", "/home", "/i/bookmarks", "/i/history"}:
+            run_x_bookmarks(request)
+            return
+
     task = json.loads((PLUGIN / "config.json").read_text())["importers"][
         request["feed"]
     ]["task"]

@@ -1,9 +1,9 @@
 # Browser importers
 
 Browser discovery learned and repaired by OpenCode using browser-harness and
-Stagehand. There are no maintained social-site selectors in ArchiveBox core or
-handwritten social scripts in this plugin. Feed declarations contain short task
-prompts; the agent learns against the selected account's real browser.
+Stagehand. Feed declarations contain short task prompts for the selected
+account's browser. X Bookmarks uses the persona's saved sign-in and follows X's
+bookmark cursor across batches.
 
 The existing tab lifecycle, failure screenshots, and replay implementation live
 in `browserharness.runtime`; Stagehand's dependency and client instructions live
