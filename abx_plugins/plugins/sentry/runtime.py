@@ -340,7 +340,9 @@ def get_subprocess_env(config):
         "opentelemetry.baggage.propagation",
     ).W3CBaggagePropagator()
 
-    active = context.get_current()
+    # Incoming HTTP baggage is untrusted and may include arbitrary identity.
+    # Retain the span context, then rebuild baggage from attributed span fields.
+    active = baggage.clear(context=context.get_current())
     attributes = getattr(trace.get_current_span(), "attributes", {}) or {}
     # W3C baggage carries only the existing attribution fields; credentials,
     # request bodies and arbitrary environment values are never propagated.
@@ -492,13 +494,14 @@ def initialize(config):
             key: os.environ.pop(key.upper(), "")
             for key in ("traceparent", "tracestate", "baggage")
         }
+        propagated_attributes = {}
         if carrier["traceparent"]:
-            context_api.attach(
-                baggage_propagator.extract(
-                    carrier,
-                    context=trace_propagator.extract(carrier),
-                ),
+            inherited_context = baggage_propagator.extract(
+                carrier,
+                context=trace_propagator.extract(carrier),
             )
+            context_api.attach(inherited_context)
+            propagated_attributes = dict(baggage.get_all(inherited_context))
 
         sentry = import_module("sentry_sdk")
         logs = import_module("sentry_sdk.integrations.logging")
@@ -643,7 +646,7 @@ def initialize(config):
                 inherited = {
                     **{
                         key: value
-                        for key, value in baggage.get_all(parent_context).items()
+                        for key, value in propagated_attributes.items()
                         if key in PROCESS_ATTRIBUTES
                         and not key.startswith(("process.", "worker."))
                         and (
