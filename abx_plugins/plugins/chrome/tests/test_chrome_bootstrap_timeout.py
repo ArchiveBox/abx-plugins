@@ -57,6 +57,13 @@ def test_chrome_bootstrap_timeout_reaps_real_browser_installer(
     )
     # The timed run must reach the browser installer. First provision a real
     # isolated browser cache so pnpm and APT setup happen before the 20s oracle.
+    # Reuse the workflow's verified ZIP for setup. The live screenshot test
+    # covers a cold download, and the timed reinstall still runs Puppeteer.
+    if archive_path := env.get("CHROME_VENDOR_ARCHIVE"):
+        archive = Path(archive_path)
+        cache = Path(puppeteer_root.name) / "cache" / "chrome"
+        cache.mkdir(parents=True)
+        (cache / archive.name).hardlink_to(archive)
     setup = _run_chrome_required_binary_env(env)
     assert setup.returncode == 0, setup.stderr or setup.stdout
     browser = load_required_binary_from_config(

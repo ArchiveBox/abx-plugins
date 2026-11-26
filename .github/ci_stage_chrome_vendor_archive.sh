@@ -11,8 +11,9 @@ browser="$cache/linux-$version/chrome-linux64/chrome"
 
 case "${1:?}" in
   check)
-    actual="$("$browser" --version 2>/dev/null || true)"
-    if [[ "$actual" != "Google Chrome for Testing $version" ]]; then
+    # Chrome for Testing includes a trailing space in --version output.
+    read -r actual <<< "$("$browser" --version 2>/dev/null || true)"
+    if [[ "${2:-}" == --always || "$actual" != "Google Chrome for Testing $version" ]]; then
       echo 'needed=true' >> "$GITHUB_OUTPUT"
     fi
     ;;
@@ -34,9 +35,10 @@ case "${1:?}" in
     else
       printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --strict
       mkdir -p "$cache"
-      # Puppeteer owns extraction and dependency installation. Link the archive
-      # into only the ordinary fixture cache, not isolated cold-install roots.
+      # Puppeteer owns extraction and dependency installation. The timeout
+      # test can also use this verified source for its separate setup cache.
       ln -f "$archive" "$cache/$filename"
+      printf 'CHROME_VENDOR_ARCHIVE=%s\n' "$archive" >> "$GITHUB_ENV"
     fi
     ;;
   *)
