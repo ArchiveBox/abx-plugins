@@ -311,10 +311,11 @@ def _replay_index(wacz_path: Path) -> dict:
             directory_size = before.st_size - archive.start_dir
             if 0 < directory_size <= limit:
                 source.seek(archive.start_dir)
+                # Reject growth below without first reading an unbounded append.
                 ranges.append(
                     [
                         archive.start_dir,
-                        base64.b64encode(source.read()).decode("ascii"),
+                        base64.b64encode(source.read(directory_size)).decode("ascii"),
                     ],
                 )
         after = wacz_path.stat()

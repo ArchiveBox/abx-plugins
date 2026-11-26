@@ -228,6 +228,41 @@ def test_replay_index_stops_file_reads_after_metadata_budget(tmp_path):
     assert reads == [0, 0], reads  # Read its header, then its exact inline bytes.
 
 
+def test_replay_index_bounds_tail_read_when_archive_grows(tmp_path):
+    path = tmp_path / "capture.wacz"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("pages/pages.jsonl", b'{"url":"https://example.com/"}\n')
+    with zipfile.ZipFile(path) as archive:
+        directory_offset = archive.start_dir
+    original_size = path.stat().st_size
+    positions = []
+
+    def profile(frame, event, function):
+        if (
+            frame.f_code is not presentation._replay_index.__code__
+            or getattr(function, "__name__", "") != "read"
+        ):
+            return
+        if event == "c_call" and function.__self__.tell() == directory_offset:
+            positions.append(directory_offset)
+            # Append real bytes after the size check but before the tail read.
+            # The later stat must reject the change without first reading it all.
+            with path.open("ab") as writer:
+                writer.write(b"x" * 1024 * 1024)
+        elif event == "c_return" and positions:
+            positions.append(function.__self__.tell())
+
+    previous = sys.getprofile()
+    try:
+        sys.setprofile(profile)
+        index = presentation._replay_index(path)
+    finally:
+        sys.setprofile(previous)
+    assert path.stat().st_size == original_size + 1024 * 1024
+    assert index == {}
+    assert positions == [directory_offset, original_size]
+
+
 def test_replay_prefers_requested_page_over_unrelated_first_page(
     tmp_path: Path,
 ) -> None:
