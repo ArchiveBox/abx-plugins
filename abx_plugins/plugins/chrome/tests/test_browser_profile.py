@@ -124,6 +124,116 @@ def test_browser_profile_lock_identifies_live_browser(
         assert process.is_running()
 
 
+def test_recovery_requires_matching_local_crawl_runtime(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+):
+    from contextlib import ExitStack
+
+    import psutil
+
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+        get_test_env,
+        is_pid_alive,
+        kill_chrome,
+        launch_chromium_session,
+    )
+
+    root = tmp_path.resolve()
+    scratch = root / "scratch"
+    collection = root / "collection" / "archive" / "users" / "test-user" / "crawls"
+    foreign = root / "foreign" / "archive" / "users" / "test-user" / "crawls"
+    base_env = get_test_env()
+    home = root / "home"
+    home.mkdir()
+    env = {**base_env, "HOME": str(home), "CHROME_HEADLESS": "true"}
+    env.pop("CHROME_USER_DATA_DIR", None)
+
+    def recover(expected):
+        result = subprocess.run(
+            [str(PLUGIN / "browser.py"), "recover"],
+            input=json.dumps(
+                {"paths": [str(collection)], "config": {"TMP_DIR": str(scratch)}}
+            ),
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {"processes_orphaned": expected}, (
+            result.stderr
+        )
+
+    def launch(stack, archive_root, crawl_id):
+        output = archive_root / "20260101" / "example.test" / crawl_id
+        output.mkdir(parents=True)
+        persona_dir = scratch / "personas" / crawl_id / ".persona"
+        persona_dir.mkdir(parents=True)
+        link = output / ".persona"
+        link.symlink_to(persona_dir, target_is_directory=True)
+        chrome_dir = output / "chrome"
+        launcher, _ = launch_chromium_session(
+            env={**env, "PERSONAS_DIR": str(persona_dir), "ACTIVE_PERSONA": "Default"},
+            chrome_dir=chrome_dir,
+            crawl_id=crawl_id,
+        )
+        pid = int((chrome_dir / "chrome.pid").read_text())
+
+        def cleanup():
+            if launcher.poll() is None:
+                launcher.terminate()
+                launcher.wait(timeout=15)
+            if is_pid_alive(pid):
+                kill_chrome(pid)
+            launcher._stdout_handle.close()
+            launcher._stderr_handle.close()
+
+        stack.callback(cleanup)
+        process = psutil.Process(pid)
+        profile = persona_dir / "Default" / "chrome_profile"
+        assert Path(process.cwd()) == chrome_dir
+        assert f"--user-data-dir={profile}" in process.cmdline()
+        assert int(os.readlink(profile / "SingletonLock").rsplit("-", 1)[1]) == pid
+        return launcher, pid, link, persona_dir
+
+    with ExitStack() as stack:
+        owned, owned_pid, owned_link, owned_persona = launch(
+            stack, collection, "1" * 32
+        )
+        other, other_pid, _, other_persona = launch(stack, foreign, "2" * 32)
+        # Both browsers have real live owners.
+        recover(0)
+        assert is_pid_alive(owned_pid) and is_pid_alive(other_pid)
+
+        for launcher in (owned, other):
+            launcher.kill()
+            launcher.wait(timeout=10)
+        assert is_pid_alive(owned_pid) and is_pid_alive(other_pid)
+
+        # Neither a mismatched crawl link nor a foreign collection authorizes termination.
+        owned_link.unlink()
+        owned_link.symlink_to(other_persona, target_is_directory=True)
+        recover(0)
+        assert is_pid_alive(owned_pid) and is_pid_alive(other_pid)
+
+        owned_link.unlink()
+        owned_link.symlink_to(owned_persona, target_is_directory=True)
+        profile = owned_persona / "Default" / "chrome_profile"
+        displaced_profile = root / "outside-scratch"
+        profile.rename(displaced_profile)
+        profile.symlink_to(displaced_profile, target_is_directory=True)
+        try:
+            recover(0)  # The exact runtime path cannot contain a profile redirect.
+            assert is_pid_alive(owned_pid) and is_pid_alive(other_pid)
+        finally:
+            profile.unlink()
+            displaced_profile.rename(profile)
+
+        recover(1)
+        assert not is_pid_alive(owned_pid) and is_pid_alive(other_pid)
+
+
 def test_collection_recovery_does_not_scan_saved_outputs(tmp_path):
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
 

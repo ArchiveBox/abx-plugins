@@ -7,12 +7,60 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
 
 from abxpkg import BinProvider
 from abx_plugins.plugins.base.utils import load_config, load_required_binary
+
+
+def local_crawl_profile_lock(profile, browser_cwd, roots, tmp_dir):
+    """Read the browser lock only for a verified crawl's local Persona."""
+    if (
+        os.name != "posix"
+        or not browser_cwd
+        or not isinstance(tmp_dir, str)
+        or not Path(tmp_dir).is_absolute()
+    ):
+        return None
+    cwd = Path(browser_cwd)
+    crawl_id = cwd.parent.name
+    if (
+        not cwd.is_absolute()
+        or len(cwd.parents) < 4
+        or cwd.name != "chrome"
+        or not re.fullmatch(r"[0-9a-f]{32}", crawl_id)
+        or not re.fullmatch(r"[0-9]{8}", cwd.parents[2].name)
+    ):
+        return None
+    if cwd.parents[3].name != "crawls" or cwd.parents[3] not in roots:
+        return None
+
+    # Core puts browser state on local storage and leaves this link in the
+    # crawl output directory. Inspect only that link, not the archive tree.
+    tmp_root = Path(os.path.abspath(tmp_dir))
+    target = tmp_root / "personas" / crawl_id / ".persona"
+    if profile.name != "chrome_profile" or profile.parent.parent != target:
+        return None
+    try:
+        if Path(os.readlink(cwd.parent / ".persona")) != target:
+            return None
+        # Do not follow a substituted directory link outside the declared
+        # local runtime subtree while reading the native SingletonLock.
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        fd = os.open(tmp_root, flags)
+        try:
+            for component in profile.relative_to(tmp_root).parts:
+                next_fd = os.open(component, flags, dir_fd=fd)
+                os.close(fd)
+                fd = next_fd
+            return os.readlink("SingletonLock", dir_fd=fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        return None
 
 
 def main():
@@ -144,19 +192,22 @@ def main():
             )
             # Normalize ../ lexically without resolving archive-backed links.
             profile = Path(os.path.abspath(profile_arg))
-            if not Path(profile_arg).is_absolute() or not any(
-                profile.is_relative_to(root) for root in roots
-            ):
+            browser_cwd = process.info["cwd"]
+            if not Path(profile_arg).is_absolute():
                 continue
             try:
-                if (
-                    int(os.readlink(profile / "SingletonLock").rsplit("-", 1)[1])
-                    != process.pid
-                ):
+                lock = (
+                    os.readlink(profile / "SingletonLock")
+                    if any(profile.is_relative_to(root) for root in roots)
+                    else local_crawl_profile_lock(
+                        profile, browser_cwd, roots, request_config.get("TMP_DIR")
+                    )
+                )
+                host, _, locked_pid = (lock or "").rpartition("-")
+                if not host or int(locked_pid) != process.pid:
                     continue
             except (OSError, ValueError):
                 continue  # An unrelated profile or an exited browser owns no session.
-            browser_cwd = process.info["cwd"]
             owned = False
             for owner in owners:
                 try:
