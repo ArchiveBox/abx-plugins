@@ -37,7 +37,10 @@ class RangedFileReader:
     https://github.com/satchamo/django/commit/2ce75c5c4bee2a858c0214d136bfcd351fcde11d
     """
 
-    block_size = 8192
+    # ASGI hands each blocking read to an executor. Match Django's ASGI send
+    # chunk size so a 256 KiB WACZ range needs four handoffs instead of 32,
+    # while large downloads still release control and apply backpressure.
+    block_size = 64 * 1024
 
     def __init__(self, file_like, start=0, stop=float("inf"), block_size=None):
         self.f = file_like
