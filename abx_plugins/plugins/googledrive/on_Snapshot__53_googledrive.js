@@ -105,18 +105,52 @@ async function main() {
         if (breadcrumb) await breadcrumb.click();
         else {
           const first = await page.waitForSelector('[role="row"][data-id]', {
+            visible: true,
             timeout: remaining(),
           });
           await first.click();
-          // Drive chooses shortcuts from the user agent, not the host OS.
-          // ArchiveBox's default Mac UA also runs on Linux: using platform there
-          // leaves only the first row selected and can download an empty folder.
+          await page.waitForFunction(
+            (row) => row.getAttribute("aria-selected") === "true",
+            { timeout: remaining() },
+            first,
+          );
+          const allRowsSelected = () => {
+            const rows = [
+              ...document.querySelectorAll(
+                '[role="row"][data-id][aria-selected]',
+              ),
+            ].filter((row) => row.getClientRects().length > 0);
+            return (
+              rows.length > 0 &&
+              rows.every((row) => row.getAttribute("aria-selected") === "true")
+            );
+          };
+          // Drive may interpret the configured UA differently from the actual
+          // platform. Verify Select all before opening the context menu: for a
+          // one-row selection Drive happily downloads just that one directory.
           const modifier = await page.evaluate(() =>
             /Mac/.test(navigator.userAgent) ? "Meta" : "Control",
           );
-          await page.keyboard.down(modifier);
-          await page.keyboard.press("KeyA");
-          await page.keyboard.up(modifier);
+          const selectAll = async (key) => {
+            await page.keyboard.down(key);
+            try {
+              await page.keyboard.press("KeyA");
+            } finally {
+              await page.keyboard.up(key);
+            }
+          };
+          await selectAll(modifier);
+          try {
+            await page.waitForFunction(allRowsSelected, {
+              timeout: Math.min(1500, remaining()),
+            });
+          } catch (error) {
+            if (error.name !== "TimeoutError") throw error;
+            await selectAll(modifier === "Meta" ? "Control" : "Meta");
+            await page.waitForFunction(allRowsSelected, {
+              timeout: remaining(),
+            });
+          }
           await first.click({ button: "right" });
         }
         console.error("Opening Drive Download action");
