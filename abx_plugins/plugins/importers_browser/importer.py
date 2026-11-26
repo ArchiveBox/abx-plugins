@@ -202,6 +202,7 @@ def main():
     if request["feed"] == "x_bookmarks":
         url = urlsplit(
             request["settings"].get("IMPORTERS_BROWSER_URL")
+            or request["settings"].get("url")
             or "https://x.com/i/bookmarks",
         )
         if url.hostname in {
