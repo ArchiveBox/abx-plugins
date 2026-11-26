@@ -186,6 +186,7 @@ def test_replay_storage_fix_preserves_installed_bundle_and_rejects_changes(tmp_p
     assert source.read_bytes() == original
     assert content_type == "application/javascript; charset=utf-8"
     assert headers["Service-Worker-Allowed"] == "/"
+    assert headers["Cache-Control"] == "public, no-cache"
     indexed_result = presentation.serve_replay_asset("replay/sw-index.js", config)
     assert indexed_result is not None
     assert indexed_result[0] == transformed
@@ -392,6 +393,7 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     assert 'data-source="/archivewebpage/archivewebpage.wacz?replay-cache=' in html
     assert 'data-url="https://example.com/"' in html
     assert "navigator.serviceWorker.register(" in html
+    assert "updateViaCache: 'none'" in html
     assert "customElements.whenDefined('replay-web-page')" in html
     assert ".then(mountReplay)" in html
     assert "noWebWorker" in html
@@ -470,17 +472,95 @@ def test_hashed_replay_metadata_is_cached_by_generation(tmp_path):
             source_revision="hash-generation-2",
         )
         assert len(reads) == 2
-        assert 'source="/capture.wacz?replay-cache=hash-generation-2"' in changed
+        assert 'source="/capture.wacz?replay-cache=hash-generation-2-' in changed
         assert "noCache" not in changed
         unsealed = presentation.render_replay_html(
             "capture.wacz",
             "/capture.wacz",
             source,
         )
-        assert "noCache" in unsealed
-        assert "replay-cache=" not in unsealed
+        assert "noCache" not in unsealed
+        assert "replay-cache=" in unsealed
+        assert len(reads) == 3
     finally:
         sys.setprofile(previous)
+
+
+@pytest.mark.parametrize("source_revision", ["", "same-hash-generation"])
+@pytest.mark.parametrize("change", ["size", "mtime"])
+def test_replay_metadata_and_payload_version_follow_file_stat(
+    tmp_path,
+    source_revision,
+    change,
+):
+    import re
+    import shutil
+
+    source = tmp_path / "capture.wacz"
+    shutil.copyfile(Path(__file__).parent / "fixtures/replay/iframetest.wacz", source)
+
+    def render():
+        return presentation.render_replay_html(
+            "capture.wacz",
+            "/capture.wacz",
+            source,
+            source_revision=source_revision,
+        )
+
+    first = render()
+    match = re.search(r'data-source="([^"]+)"', first)
+    assert match is not None
+    before = source.stat()
+    if change == "size":
+        with zipfile.ZipFile(source, "a") as archive:
+            archive.comment = b"different-sized-archive"
+        os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+        assert source.stat().st_mtime_ns == before.st_mtime_ns
+        assert source.stat().st_size != before.st_size
+    else:
+        os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+        assert source.stat().st_size == before.st_size
+        assert source.stat().st_mtime_ns != before.st_mtime_ns
+    changed = render()
+    assert match.group(0) not in changed
+    # Invalidate the cached ZIP directory as well as the browser collection.
+    assert f'"size":{source.stat().st_size},' in changed
+    assert render() == changed
+
+
+def test_replay_without_hashes_reuses_payloads_until_file_changes(tmp_path):
+    import re
+    import shutil
+
+    source = tmp_path / "capture.wacz"
+    shutil.copyfile(Path(__file__).parent / "fixtures/replay/iframetest.wacz", source)
+
+    def render():
+        return presentation.render_replay_html("capture.wacz", "/capture.wacz", source)
+
+    # A ZIP comment can change without changing member payloads or total size.
+    with zipfile.ZipFile(source, "a") as archive:
+        archive.comment = b"initial"
+    first = render()
+    assert "noCache" not in first
+    assert render() == first
+    # File replacement tools may preserve mtime and size. ctime must still
+    # select a new collection instead of replaying the previous saved payload.
+    replacement = tmp_path / "replacement.wacz"
+    shutil.copyfile(source, replacement)
+    with zipfile.ZipFile(replacement, "a") as archive:
+        archive.comment = b"changed"
+    match = re.search(r'data-source="/capture.wacz\?replay-cache=([^"&]+)', first)
+    assert match is not None
+    version = match.group(1)
+    before = source.stat()
+    replacement.replace(source)
+    os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+    assert source.stat().st_size == before.st_size
+    assert f"replay-cache={version}" not in render()
+    source.write_bytes(b"incomplete WACZ")
+    assert "noCache" in render()
+    assert "replay-cache=" not in render()
 
 
 def test_replay_index_contains_exact_metadata_but_no_warc_response_bytes():

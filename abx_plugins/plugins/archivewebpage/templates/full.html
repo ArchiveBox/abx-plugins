@@ -21,12 +21,13 @@
         }
         const registration = await navigator.serviceWorker.register(
             '{{ replay_base }}sw-index.js?serveIndex=1',
-            { scope: '{{ replay_base }}' },
+            { scope: '{{ replay_base }}', updateViaCache: 'none' },
         );
-        if (registration.active && registration.active.state === 'activated' && !registration.installing) return registration.active;
-
+        // Prefer an update already waiting or installing: sending our index
+        // to the old worker loses it when the replacement claims this page.
         const worker = registration.installing || registration.waiting || registration.active;
         if (!worker) throw new Error('Replay service worker was not created');
+        if (worker.state === 'activated') return worker;
         await new Promise((resolve, reject) => {
             function onStateChange() {
                 if (worker.state === 'activated') {

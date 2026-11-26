@@ -143,11 +143,16 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
         return None
 
     body = file_path.read_bytes()
+    modified = file_path.stat().st_mtime
     if target == "sw.js":
-        body = (
-            _replay_worker_body(body)
-            + b"\n"
-            + (_PLUGIN_DIR / "replay_index.js").read_bytes()
+        index_path = _PLUGIN_DIR / "replay_index.js"
+        body = _replay_worker_body(body) + b"\n" + index_path.read_bytes()
+        # The installed extension can stay unchanged when our served worker
+        # changes. Its HTTP validator must include the transformation sources.
+        modified = max(
+            modified,
+            index_path.stat().st_mtime,
+            Path(__file__).stat().st_mtime,
         )
     content_type = (
         "application/javascript; charset=utf-8"
@@ -156,13 +161,14 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
     )
     headers = {
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Last-Modified": formatdate(file_path.stat().st_mtime, usegmt=True),
+        "Last-Modified": formatdate(modified, usegmt=True),
     }
     if file_path.name == "sw.js":
         # Allow the SW to claim the whole snapshot host scope rather than
         # only ``/replay/``; replayweb.page intercepts arbitrary in-archive
         # URLs once the worker activates.
         headers["Service-Worker-Allowed"] = "/"
+        headers["Cache-Control"] = "public, no-cache"
     return body, content_type, headers
 
 
@@ -312,11 +318,15 @@ def _replay_index(wacz_path: Path) -> dict:
                     ],
                 )
         after = wacz_path.stat()
-        if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+        if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
             return {}
         return {
             "size": before.st_size,
-            "version": f"{before.st_mtime_ns}-{before.st_size}",
+            "version": f"{before.st_mtime_ns}-{before.st_ctime_ns}-{before.st_size}",
             "ranges": ranges,
         }
     except (OSError, ValueError, zipfile.BadZipFile):
@@ -328,8 +338,9 @@ def _hashed_replay_metadata(
     source_path: Path,
     source_revision: str,
     fallback_url: str,
+    source_stat: tuple[int, int, int],
 ) -> tuple[str, dict]:
-    """Read each completed hash generation once, not on every viewer reload."""
+    """Reuse metadata only while both its hash generation and file stat match."""
     return _first_archived_url(source_path, fallback_url), _replay_index(source_path)
 
 
@@ -359,25 +370,36 @@ def render_replay_html(
     replay_index = {}
     if source_path is not None and source_path.suffix.lower() == ".wacz":
         if source_revision:
-            archived_url, replay_index = _hashed_replay_metadata(
-                source_path,
-                source_revision,
-                fallback_url,
-            )
+            try:
+                current = source_path.stat()
+                archived_url, replay_index = _hashed_replay_metadata(
+                    source_path,
+                    source_revision,
+                    fallback_url,
+                    (current.st_size, current.st_mtime_ns, current.st_ctime_ns),
+                )
+            except OSError:
+                pass
         else:
             archived_url = _first_archived_url(source_path, fallback_url)
             replay_index = _replay_index(source_path)
     if not archived_url:
         archived_url = fallback_url or ""
 
-    if source_revision or replay_index:
+    # A completed ZIP has its own version even when the optional hashes plugin
+    # is disabled. Reuse wabac's payload cache for that version; rereading the
+    # metadata above still detects replacement on every viewer load, including
+    # manual edits which did not regenerate a completed hashes result.
+    # ctime in the ZIP version also catches copies that preserve size and mtime.
+    replay_revision = "-".join(
+        filter(None, (source_revision, replay_index.get("version", ""))),
+    )
+    if replay_revision:
         # A distinct collection enables payload caching for viewers previously
         # opened with noCache. Replacing the archive also creates a new identity.
         source = urlsplit(output_path)
         query = dict(parse_qsl(source.query))
-        query["replay-cache" if source_revision else "replay-index"] = (
-            source_revision or replay_index["version"]
-        )
+        query["replay-cache"] = replay_revision
         output_path = urlunsplit(source._replace(query=urlencode(query)))
     archived_url_attr = (
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
@@ -394,7 +416,7 @@ def render_replay_html(
         .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
         .replace("{{ replay_base }}", html_escape(replay_base, quote=True))
         .replace("{{ replay_index }}", json.dumps(replay_index, separators=(",", ":")))
-        .replace("{{ replay_cache_attribute }}", "" if source_revision else "noCache")
+        .replace("{{ replay_cache_attribute }}", "" if replay_revision else "noCache")
     )
 
 
@@ -421,8 +443,11 @@ def render_full_response(
         headers["Last-Modified"] = last_modified
     # The supplied ETag identifies saved bytes, not this generated viewer.
     # Use it for replay persistence without freezing the HTML across deploys.
-    if cache_control:
-        headers["Cache-Control"] = cache_control
+    # Revalidate the viewer on navigation so file replacements select a fresh
+    # collection. Cached archived payloads remain available inside that version.
+    headers["Cache-Control"] = (
+        f"{cache_control}, no-cache" if cache_control else "no-cache"
+    )
     if content_encoding:
         headers["Content-Encoding"] = content_encoding
     return (
