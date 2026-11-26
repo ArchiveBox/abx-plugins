@@ -81,10 +81,12 @@ def test_replay_collects_aliases_from_the_original_dom(tmp_path):
     (responses / "saved.png").touch()
     (responses / "index.jsonl").write_text(
         json.dumps({"method": "GET", "status": 200, "url": proxy, "path": "saved.png"})
-        + "\n"
+        + "\n",
     )
     args = dict(
-        snapshot_root=tmp_path, rel_path="dom/output.html", content_type="text/html"
+        snapshot_root=tmp_path,
+        rel_path="dom/output.html",
+        content_type="text/html",
     )
     ordinary, count = rewrite_replay_document(source, source_text=source, **args)
     assert (ordinary, count) == rewrite_replay_document(source, **args)
