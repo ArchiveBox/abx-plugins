@@ -60,7 +60,7 @@ if (!getEnv("ANTHROPIC_API_KEY")) {
 }
 
 const puppeteer = resolvePuppeteerModule();
-const { execFileSync } = require("child_process");
+const { spawnSync } = require("child_process");
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -377,7 +377,7 @@ function callAnthropicAPI(body, options = {}) {
   fs.writeFileSync(tmpFile, bodyJson);
 
   try {
-    const result = execFileSync(
+    const result = spawnSync(
       "curl",
       [
         "-s",
@@ -405,7 +405,12 @@ function callAnthropicAPI(body, options = {}) {
       }
     );
 
-    const response = JSON.parse(result);
+    if (result.error || result.status !== 0) {
+      // execFileSync errors include the full command, including the API key.
+      const reason = result.error?.code || result.signal || `exit ${result.status}`;
+      throw new Error(`curl request failed (${reason})`);
+    }
+    const response = JSON.parse(result.stdout);
     if (response.type === "error") {
       throw new Error(`${response.error.type}: ${response.error.message}`);
     }
