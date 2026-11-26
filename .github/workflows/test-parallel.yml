@@ -32,6 +32,9 @@ env:
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
   UV_NO_SOURCES: "1"
+  CHROME_VENDOR_VERSION: "157.0.8103.38"
+  CHROME_VENDOR_GENERATION: "1793667047341974"
+  CHROME_VENDOR_SHA256: "8cdeb344e9b2cefe59f4aea8d1d93d5d93054c03cde217665c16fc1f62e72a66"
 
 jobs:
   prepare:
@@ -417,6 +420,50 @@ jobs:
           ], hashes
           PY
 
+  chrome-vendor-cache:
+    name: Populate the verified Chrome vendor cache
+    if: >-
+      github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main' &&
+      github.event_name != 'schedule' && inputs.platform != 'macos' && !inputs.replay_tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: chrome-vendor-cache-main
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check the existing vendor cache
+        id: chrome-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          lookup-only: true
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: chrome-vendor-v1-linux-x64-${{ env.CHROME_VENDOR_VERSION }}-${{ env.CHROME_VENDOR_SHA256 }}
+
+      - name: Set up Squid for the vendor download
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+        uses: ArchiveBox/monorepo/.github/actions/setup-squid@eeae1fd64ddeefc27f7d32a26d483b7a894d7915
+        with:
+          proxy: ${{ vars.SQUID_TAILNET_URL }}
+          ca: ${{ vars.SQUID_CA }}
+          tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID }}
+          tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE }}
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+      - name: Download and verify the exact vendor archive
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+        run: bash .github/ci_stage_chrome_vendor_archive.sh download
+
+      - name: Save verified Chrome vendor archive
+        if: steps.chrome-archive.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/chrome-vendor-archive
+          key: ${{ steps.chrome-archive.outputs.cache-primary-key }}
+
   run-tests:
     name: ${{ matrix.test.path }} / Python ${{ matrix.test.python }} / ${{ matrix.test.os }}
     # Ordinary Linux tests are eligible; # ci-runner: hosted declares exceptions.
@@ -427,6 +474,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      actions: read
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -560,57 +608,53 @@ jobs:
           path: ${{ runner.temp }}/noble-font-archive
           key: ${{ steps.noble-font-archive.outputs.cache-primary-key }}
 
-      # Download once without skipping the real unpack/setup/--install-deps path.
-      - name: Restore exact Chrome vendor archive for response bytes
-        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && (matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' || matrix.test.path == 'abx_plugins/plugins/mobilesize/tests/test_mobilesize.py')
+      - name: Check whether the browser fixture needs its vendor ZIP
+        if: runner.environment == 'github-hosted' && runner.arch == 'X64' && matrix.test.chrome_vendor_archive && !inputs.replay_tests
+        id: chrome-vendor-needed
+        run: bash .github/ci_stage_chrome_vendor_archive.sh check
+
+      - name: Restore exact Chrome vendor archive
+        if: steps.chrome-vendor-needed.outputs.needed == 'true'
         id: chrome-archive
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/chrome-vendor-archive
-          key: chrome-vendor-v1-linux-x64-157.0.8103.38-8cdeb344e9b2cefe59f4aea8d1d93d5d93054c03cde217665c16fc1f62e72a66
+          key: chrome-vendor-v1-linux-x64-${{ env.CHROME_VENDOR_VERSION }}-${{ env.CHROME_VENDOR_SHA256 }}
 
-      - name: Verify and stage exact Chrome vendor archive
-        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && (matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' || matrix.test.path == 'abx_plugins/plugins/mobilesize/tests/test_mobilesize.py')
-        shell: bash
+      # Let the one producer finish an occasional cold cache. These steps only
+      # run for browser fixtures, and ordinary Puppeteer can still fetch on a miss.
+      - name: Wait briefly for the shared Chrome vendor cache
+        if: >-
+          steps.chrome-vendor-needed.outputs.needed == 'true' && steps.chrome-archive.outputs.cache-hit != 'true' &&
+          github.repository == 'ArchiveBox/abx-plugins' && github.ref == 'refs/heads/main'
+        id: chrome-cache-wait
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          uv run --no-sync --no-sources python - <<'PYTHON'
-          import json
-          from pathlib import Path
+          key="chrome-vendor-v1-linux-x64-$CHROME_VENDOR_VERSION-$CHROME_VENDOR_SHA256"
+          # Space out the metadata requests if a new Chrome version is cold.
+          sleep "$(( RANDOM % 10 ))"
+          for _ in {1..6}; do
+            count="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/caches" \
+              -f key="$key" -f ref=refs/heads/main --jq '.total_count')" || break
+            if [[ "$count" != 0 ]]; then
+              echo 'available=true' >> "$GITHUB_OUTPUT"
+              break
+            fi
+            sleep 10
+          done
 
-          config = json.loads(Path("abx_plugins/plugins/chrome/config.json").read_text())
-          chrome = next(binary for binary in config["required_binaries"] if binary["name"] == "{CHROME_BINARY}")
-          assert chrome["min_version"] == chrome["max_version"] == "157.0.8103.38"
-          assert chrome["overrides"]["puppeteer"]["install_args"] == ["chrome@157.0.8103.38", "--install-deps"]
-          PYTHON
-          archive_dir="$RUNNER_TEMP/chrome-vendor-archive"
-          archive="$archive_dir/157.0.8103.38-chrome-linux64.zip"
-          checksum=8cdeb344e9b2cefe59f4aea8d1d93d5d93054c03cde217665c16fc1f62e72a66
-          mkdir -p "$archive_dir"
-          if [[ ! -f "$archive" ]]; then
-            temporary="$(mktemp "$archive_dir/download.XXXXXX")"
-            trap 'rm -f -- "$temporary"' EXIT
-            curl --fail --location --silent --show-error \
-              'https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.38/linux64/chrome-linux64.zip?generation=1793667047341974' \
-              --output "$temporary"
-            printf '%s  %s\n' "$checksum" "$temporary" | sha256sum --check --strict
-            mv "$temporary" "$archive"
-          fi
-          printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --strict
-          cache="$RUNNER_TEMP/runtime-abx-lib/puppeteer/cache/chrome"
-          browser="$cache/linux-157.0.8103.38/chrome-linux64/chrome"
-          if [[ ! -x "$browser" ]] || ! [[ "$("$browser" --version)" =~ ^Google\ Chrome\ for\ Testing\ 157\.0\.8103\.38[[:space:]]*$ ]]; then
-            mkdir -p "$cache"
-            cp "$archive" "$cache/157.0.8103.38-chrome-linux64.zip"
-          fi
-
-      # Save before pytest so downstream failures do not discard verified bytes.
-      - name: Save verified Chrome vendor archive
-        if: runner.os == 'Linux' && runner.arch == 'X64' && runner.environment == 'github-hosted' && (matrix.test.path == 'abx_plugins/plugins/responses/tests/test_response_bytes.py' || matrix.test.path == 'abx_plugins/plugins/mobilesize/tests/test_mobilesize.py') && steps.chrome-archive.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - name: Restore newly populated Chrome vendor archive
+        if: steps.chrome-cache-wait.outputs.available == 'true'
+        id: cold-chrome-archive
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/chrome-vendor-archive
-          key: ${{ steps.chrome-archive.outputs.cache-primary-key }}
+          key: chrome-vendor-v1-linux-x64-${{ env.CHROME_VENDOR_VERSION }}-${{ env.CHROME_VENDOR_SHA256 }}
+
+      - name: Verify and stage exact Chrome vendor archive
+        if: steps.chrome-archive.outputs.cache-hit == 'true' || steps.cold-chrome-archive.outputs.cache-hit == 'true'
+        run: bash .github/ci_stage_chrome_vendor_archive.sh stage
 
       - name: Install display for headed anonymous provider tests
         if: >-

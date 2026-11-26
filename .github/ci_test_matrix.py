@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import os
 from collections import Counter
@@ -25,6 +26,7 @@ class TestMatrixItem(TypedDict):
     python: str
     ugnas: bool
     workers: int
+    chrome_vendor_archive: NotRequired[bool]
     api: NotRequired[bool]
     paid_captcha: NotRequired[bool]
 
@@ -37,6 +39,31 @@ def discover_tests() -> list[Path]:
     if not tests:
         raise SystemExit("No test files were discovered")
     return sorted(path.relative_to(REPO_ROOT) for path in tests)
+
+
+# A file that actually calls the shared browser helpers or requests their
+# fixtures needs the vendor ZIP. Merely being in a browser plugin is not enough.
+CHROME_TEST_DEPENDENCIES = {
+    "chrome_session",
+    "ensure_chrome_test_prereqs",
+    "ensure_chromium_and_puppeteer_installed",
+    "get_test_env",
+    "install_chromium_with_abxpkg",
+    "launch_chromium_session",
+    "launch_snapshot_tab",
+    "require_chrome_runtime",
+    "require_chrome_runtime_impl",
+}
+
+
+def uses_shared_chrome_runtime(path: Path) -> bool:
+    tree = ast.parse((REPO_ROOT / path).read_text(), filename=str(path))
+    return any(
+        (isinstance(node, ast.Name) and node.id in CHROME_TEST_DEPENDENCIES)
+        or (isinstance(node, ast.arg) and node.arg in CHROME_TEST_DEPENDENCIES)
+        or (isinstance(node, ast.Attribute) and node.attr in CHROME_TEST_DEPENDENCIES)
+        for node in ast.walk(tree)
+    )
 
 
 if __name__ == "__main__":
@@ -196,6 +223,13 @@ if __name__ == "__main__":
     # long browser tests that otherwise become the final CI tail.
     for item in list(reversed(eligible))[:capacity]:
         item["ugnas"] = True
+
+    for item in test_matrix:
+        item["chrome_vendor_archive"] = (
+            item["os"] == "ubuntu-24.04"
+            and not item["ugnas"]
+            and any(uses_shared_chrome_runtime(Path(path)) for path in item["paths"])
+        )
 
     # Parallelize the measured multi-minute files within their hosted runner.
     # Short batches avoid worker startup costs; CPU-capped NAS jobs stay serial.
