@@ -109,6 +109,23 @@ def enter_operation(name, config, *, attributes):
     return operation(name, attributes=attributes)
 
 
+def get_subprocess_env(config):
+    """Propagate tracing only after this machine has enabled Sentry."""
+    resolved = load_config(
+        CONFIG_PATH,
+        global_config=config,
+        environ={},
+        hydrate_binaries=False,
+        hydrate_user_agent=False,
+    )
+    if not resolved.SENTRY_ENABLED:
+        return {}
+    from .runtime import initialize, get_subprocess_env as prepare
+
+    initialize(resolved)
+    return prepare(resolved)
+
+
 def register_eventbus(bus, config):
     """ArchiveBox offers the bus; this plugin decides whether to attach tracing."""
     resolved = load_config(

@@ -306,6 +306,12 @@ def shutdown():
 def enter_operation(name, *, attributes):
     """Keep worker SQL, logs and errors under the same completed operation."""
     assert _provider is not None and _sentry is not None
+    if not _sentry.get_client().options["send_default_pii"]:
+        attributes = {
+            key: value
+            for key, value in attributes.items()
+            if not key.startswith("user.") and key != "client.address"
+        }
     with _sentry.isolation_scope() as scope:
         scope.set_attributes(attributes)
         for key, value in attributes.items():
@@ -321,6 +327,40 @@ def enter_operation(name, *, attributes):
             except Exception as error:
                 _sentry.capture_exception(error)
                 raise
+
+
+def get_subprocess_env(config):
+    baggage = import_module("opentelemetry.baggage")
+    context = import_module("opentelemetry.context")
+    trace = import_module("opentelemetry.trace")
+    trace_propagator = import_module(
+        "opentelemetry.trace.propagation.tracecontext",
+    ).TraceContextTextMapPropagator()
+    baggage_propagator = import_module(
+        "opentelemetry.baggage.propagation",
+    ).W3CBaggagePropagator()
+
+    active = context.get_current()
+    attributes = getattr(trace.get_current_span(), "attributes", {}) or {}
+    # W3C baggage carries only the existing attribution fields; credentials,
+    # request bodies and arbitrary environment values are never propagated.
+    for key in PROCESS_ATTRIBUTES:
+        if key.startswith("process.") or key.startswith("worker."):
+            continue
+        if not config.SENTRY_SEND_DEFAULT_PII and (
+            key.startswith("user.") or key == "client.address"
+        ):
+            continue
+        if key in attributes:
+            active = baggage.set_baggage(key, str(attributes[key]), context=active)
+    carrier = {}
+    trace_propagator.inject(carrier, context=active)
+    baggage_propagator.inject(carrier, context=active)
+    # Empty values clear inherited context when there is no active trace.
+    return {
+        key.upper(): carrier.get(key, "")
+        for key in ("traceparent", "tracestate", "baggage")
+    }
 
 
 def register_hook_reporting(bus, config):
@@ -436,6 +476,29 @@ def initialize(config):
         for path in sdk.loaded_binprovider.ENV.get("PYTHONPATH", "").split(os.pathsep):
             if path and path not in sys.path:
                 sys.path.append(path)
+
+        # Context belongs to this subprocess, not to a hook implementation.
+        # Pop it after extraction so later children receive only their own
+        # active parent context rather than a stale inherited environment.
+        context_api = import_module("opentelemetry.context")
+        trace_propagator = import_module(
+            "opentelemetry.trace.propagation.tracecontext",
+        ).TraceContextTextMapPropagator()
+        baggage_propagator = import_module(
+            "opentelemetry.baggage.propagation",
+        ).W3CBaggagePropagator()
+        baggage = import_module("opentelemetry.baggage")
+        carrier = {
+            key: os.environ.pop(key.upper(), "")
+            for key in ("traceparent", "tracestate", "baggage")
+        }
+        if carrier["traceparent"]:
+            context_api.attach(
+                baggage_propagator.extract(
+                    carrier,
+                    context=trace_propagator.extract(carrier),
+                ),
+            )
 
         sentry = import_module("sentry_sdk")
         logs = import_module("sentry_sdk.integrations.logging")
@@ -578,6 +641,16 @@ def initialize(config):
                 parent = trace_api.get_current_span(parent_context)
                 parent_attributes = getattr(parent, "attributes", {}) or {}
                 inherited = {
+                    **{
+                        key: value
+                        for key, value in baggage.get_all(parent_context).items()
+                        if key in PROCESS_ATTRIBUTES
+                        and not key.startswith(("process.", "worker."))
+                        and (
+                            config.SENTRY_SEND_DEFAULT_PII
+                            or (not key.startswith("user.") and key != "client.address")
+                        )
+                    },
                     **process_attributes,
                     **{
                         key: parent_attributes[key]
