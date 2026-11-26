@@ -609,7 +609,7 @@ jobs:
           key: ${{ steps.noble-font-archive.outputs.cache-primary-key }}
 
       - name: Check whether the browser fixture needs its vendor ZIP
-        if: runner.environment == 'github-hosted' && runner.arch == 'X64' && matrix.test.chrome_vendor_archive && !inputs.replay_tests
+        if: runner.arch == 'X64' && matrix.test.chrome_vendor_archive && !inputs.replay_tests
         id: chrome-vendor-needed
         run: bash .github/ci_stage_chrome_vendor_archive.sh check
 

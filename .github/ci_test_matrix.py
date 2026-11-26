@@ -231,7 +231,6 @@ if __name__ == "__main__":
     for item in test_matrix:
         item["chrome_vendor_archive"] = (
             item["os"] == "ubuntu-24.04"
-            and not item["ugnas"]
             and any(uses_shared_chrome_runtime(Path(path)) for path in item["paths"])
         )
 
