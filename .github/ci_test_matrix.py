@@ -127,7 +127,6 @@ if __name__ == "__main__":
     # spend testing. Share setup for more files there, including files still
     # awaiting a duration measurement.
     batch_file_seconds = 90 if platform == "macos" else 60
-    batch_total_seconds = 360 if platform == "macos" else 180
 
     for test_path in all_tests:
         paid_captcha = environments.get(str(test_path)) == "provider-paid-manual"
@@ -190,9 +189,7 @@ if __name__ == "__main__":
         batch_seconds = 0
         for path in paths:
             duration = durations.get(path, 60)
-            if batch and (
-                len(batch) == 8 or batch_seconds + duration > batch_total_seconds
-            ):
+            if batch and (len(batch) == 8 or batch_seconds + duration > 180):
                 test_matrix.append(
                     {
                         "path": f"batch/{batch[0]}",
