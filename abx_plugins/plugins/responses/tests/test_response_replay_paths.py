@@ -26,7 +26,7 @@ def test_indexed_replay_resolves_common_parent_once(tmp_path, monkeypatch):
         "external-dir/outside.png",
         "all/missing.png",
     ]
-    records = [
+    records: list[dict] = [
         {
             "method": "GET",
             "status": 200,
@@ -35,7 +35,11 @@ def test_indexed_replay_resolves_common_parent_once(tmp_path, monkeypatch):
         }
         for path in relative
     ]
-    encoded = [_encoded_responses_image_url(record["url"], None) for record in records]
+    encoded: list[str] = []
+    for path in relative:
+        key = _encoded_responses_image_url(f"https://example.com/{path}", None)
+        assert key is not None
+        encoded.append(key)
 
     original_resolve = Path.resolve
     resolved = []
