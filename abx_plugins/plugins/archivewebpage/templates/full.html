@@ -21,8 +21,15 @@
         }
         const registration = await navigator.serviceWorker.register(
             '{{ replay_base }}sw-index.js?serveIndex=1',
-            { scope: '{{ replay_base }}', updateViaCache: 'none' },
+            { scope: '{{ replay_base }}' },
         );
+        // Match ReplayWeb.page's default updateViaCache option so its later
+        // register() does not download this worker again. An unchanged
+        // registration skips validation, so explicitly check once before
+        // delivering the index to a worker from an earlier deployment.
+        if (registration.active && !registration.installing && !registration.waiting) {
+            await registration.update();
+        }
         // Prefer an update already waiting or installing: sending our index
         // to the old worker loses it when the replacement claims this page.
         const worker = registration.installing || registration.waiting || registration.active;

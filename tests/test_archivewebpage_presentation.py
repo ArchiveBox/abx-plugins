@@ -470,7 +470,7 @@ def test_replay_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     assert 'data-source="/archivewebpage/archivewebpage.wacz?replay-cache=' in html
     assert 'data-url="https://example.com/"' in html
     assert "navigator.serviceWorker.register(" in html
-    assert "updateViaCache: 'none'" in html
+    assert "await registration.update()" in html
     assert "customElements.whenDefined('replay-web-page')" in html
     assert ".then(mountReplay)" in html
     assert "noWebWorker" in html

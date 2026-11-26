@@ -182,7 +182,12 @@ def serve_replay_asset_response(rel_path: str, config, response_factory):
     response = response_factory(body, content_type=content_type)
     for key, value in headers.items():
         response.headers[key] = value
-    return _add_replay_archive_fallbacks(response)
+    response = _add_replay_archive_fallbacks(response)
+    # The final worker includes local repairs absent from the installed bundle.
+    # Validate these exact bytes so update checks can reuse an unchanged worker
+    # without downloading the entire bundle on every replay navigation.
+    response.headers["ETag"] = f'"{hashlib.sha256(response.content).hexdigest()}"'
+    return response
 
 
 def _page_request_url(url: str) -> str:
