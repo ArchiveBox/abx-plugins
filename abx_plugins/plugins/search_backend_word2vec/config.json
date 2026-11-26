@@ -17,6 +17,11 @@
   "x-auto-run": false,
   "hidden": true,
   "properties": {
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
     "SEARCH_BACKEND_WORD2VEC_ENABLED": {
       "type": "boolean",
       "default": false,
