@@ -200,7 +200,10 @@ def main():
                     os.readlink(profile / "SingletonLock")
                     if any(profile.is_relative_to(root) for root in roots)
                     else local_crawl_profile_lock(
-                        profile, browser_cwd, roots, request_config.get("TMP_DIR")
+                        profile,
+                        browser_cwd,
+                        roots,
+                        request_config.get("TMP_DIR"),
                     )
                 )
                 host, _, locked_pid = (lock or "").rpartition("-")

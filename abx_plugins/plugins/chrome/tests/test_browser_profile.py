@@ -153,7 +153,7 @@ def test_recovery_requires_matching_local_crawl_runtime(
         result = subprocess.run(
             [str(PLUGIN / "browser.py"), "recover"],
             input=json.dumps(
-                {"paths": [str(collection)], "config": {"TMP_DIR": str(scratch)}}
+                {"paths": [str(collection)], "config": {"TMP_DIR": str(scratch)}},
             ),
             env=env,
             text=True,
@@ -199,7 +199,9 @@ def test_recovery_requires_matching_local_crawl_runtime(
 
     with ExitStack() as stack:
         owned, owned_pid, owned_link, owned_persona = launch(
-            stack, collection, "1" * 32
+            stack,
+            collection,
+            "1" * 32,
         )
         other, other_pid, _, other_persona = launch(stack, foreign, "2" * 32)
         # Both browsers have real live owners.
