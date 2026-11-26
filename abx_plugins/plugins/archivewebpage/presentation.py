@@ -394,6 +394,10 @@ def render_replay_html(
     replay_revision = "-".join(
         filter(None, (source_revision, replay_index.get("version", ""))),
     )
+    if filename.lower().endswith(".wacz") and not replay_index.get("version"):
+        # An incomplete replacement must not reopen an older hash-only browser
+        # collection. A saved hashes row cannot validate an unreadable ZIP.
+        replay_revision = ""
     if replay_revision:
         # A distinct collection enables payload caching for viewers previously
         # opened with noCache. Replacing the archive also creates a new identity.

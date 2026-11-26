@@ -528,6 +528,31 @@ def test_replay_metadata_and_payload_version_follow_file_stat(
     assert render() == changed
 
 
+def test_hashed_incomplete_wacz_never_reuses_hash_only_payload_cache(tmp_path):
+    source = tmp_path / "capture.wacz"
+    for content in (b"incomplete ZIP", b"incomplete ZIP with more bytes"):
+        source.write_bytes(content)
+        before = source.stat()
+        for modified in (before.st_mtime_ns, before.st_mtime_ns + 1_000_000_000):
+            os.utime(source, ns=(before.st_atime_ns, modified))
+            html = presentation.render_replay_html(
+                "capture.wacz",
+                "/capture.wacz",
+                source,
+                source_revision="unchanged-hashes",
+            )
+            assert "noCache" in html
+            assert "replay-cache=" not in html
+    # Raw WARC replay has no ZIP metadata. Its supplied revision remains usable.
+    warc = presentation.render_replay_html(
+        "capture.warc.gz",
+        "/capture.warc.gz",
+        source_revision="warc-revision",
+    )
+    assert "noCache" not in warc
+    assert "replay-cache=warc-revision" in warc
+
+
 def test_replay_without_hashes_reuses_payloads_until_file_changes(tmp_path):
     import re
     import shutil
