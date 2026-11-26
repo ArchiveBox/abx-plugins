@@ -117,6 +117,14 @@ def test_ci_batches_preserve_every_file_platform_and_runner_assignment(
     )
     outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
     matrix = json.loads(outputs.pop("test-matrix"))
+    if platform == "linux":
+        # This real test declares its browser setup with usefixtures, rather
+        # than a fixture argument. Its job must receive the same verified ZIP.
+        orphan_workers = (
+            "abx_plugins/plugins/chrome/tests/test_orphan_service_workers.py"
+        )
+        job = next(item for item in matrix if orphan_workers in item["paths"])
+        assert job["chrome_vendor_archive"] is True
     assert sum(item["ugnas"] for item in matrix) == (3 if platform == "linux" else 0)
     provider_matrix = json.loads(outputs["provider-matrix"])
     pinned_providers = {

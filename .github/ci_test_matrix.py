@@ -66,6 +66,19 @@ def uses_shared_chrome_runtime(path: Path) -> bool:
         (isinstance(node, ast.Name) and node.id in CHROME_TEST_DEPENDENCIES)
         or (isinstance(node, ast.arg) and node.arg in CHROME_TEST_DEPENDENCIES)
         or (isinstance(node, ast.Attribute) and node.attr in CHROME_TEST_DEPENDENCIES)
+        # pytest.mark.usefixtures declares fixtures as strings, so no Name or
+        # argument node otherwise reveals the shared browser dependency.
+        or (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "usefixtures"
+            and any(
+                isinstance(arg, ast.Constant)
+                and isinstance(arg.value, str)
+                and arg.value in CHROME_TEST_DEPENDENCIES
+                for arg in node.args
+            )
+        )
         for node in ast.walk(tree)
     )
 
