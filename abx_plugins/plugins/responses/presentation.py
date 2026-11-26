@@ -4,6 +4,7 @@ import html
 import json
 import posixpath
 import re
+import stat
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote, urljoin, urlsplit
@@ -91,6 +92,7 @@ def _index_responses_paths_for_html_images(
     index = responses_root / "index.jsonl"
     if index.is_file():
         resolved_root = responses_root.resolve()
+        resolved_parents = {responses_root: resolved_root}
         if records is None:
             records = _saved_response_records(index)
         for record in records:
@@ -110,11 +112,28 @@ def _index_responses_paths_for_html_images(
                 matches = encoded_urls & urls
                 if not matches:
                     continue
-                candidate = (responses_root / record.get("path", "")).resolve()
-                if (
-                    not candidate.is_relative_to(resolved_root)
-                    or not candidate.is_file()
-                ):
+                path = responses_root / record.get("path", "")
+                parent = resolved_parents.get(path.parent)
+                if parent is None:
+                    parent = resolved_parents[path.parent] = path.parent.resolve()
+                candidate = parent / path.name
+                if not candidate.is_relative_to(resolved_root):
+                    continue
+                # Each path component can require a network lookup on a
+                # mounted archive. Resolve shared directories once per view,
+                # while still resolving and checking containment of symlinks.
+                try:
+                    mode = candidate.lstat().st_mode
+                except (FileNotFoundError, NotADirectoryError):
+                    continue
+                if stat.S_ISLNK(mode):
+                    candidate = candidate.resolve()
+                    if (
+                        not candidate.is_relative_to(resolved_root)
+                        or not candidate.is_file()
+                    ):
+                        continue
+                elif not stat.S_ISREG(mode):
                     continue
                 for encoded in matches:
                     best_matches[encoded] = posixpath.relpath(
