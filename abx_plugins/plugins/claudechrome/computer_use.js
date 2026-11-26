@@ -162,34 +162,37 @@ function screenshotOptions(viewport, deviceScaleFactor) {
     : {};
 }
 
-async function captureViewportScreenshot(page, captureOptions, timeoutMs) {
-  let timedOut = false;
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      timedOut = true;
-      reject(new Error(`Page.captureScreenshot timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
-  const capture = async () => {
+async function captureViewportScreenshot(page, captureOptions, timeoutMs, attempts = 1) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const attemptDeadline = Date.now() + timeoutMs;
     let options = captureOptions;
     if (options?.clip) {
-      // Puppeteer's viewport-only mode ignores clip.scale. Keep the scaled
-      // clip aligned with the visible document after scrolling.
       const { x, y } = await page.evaluate(() => ({
         x: window.visualViewport?.pageLeft ?? window.scrollX,
         y: window.visualViewport?.pageTop ?? window.scrollY,
       }));
-      if (timedOut) return;
       options = { ...options, clip: { ...options.clip, x, y } };
     }
-    return page.screenshot({ encoding: "base64", fullPage: false, ...options });
-  };
-  try {
-    return await Promise.race([capture(), timeout]);
-  } finally {
-    clearTimeout(timer);
+
+    // Detach the timed-out request before starting the next screenshot.
+    const session = await page.createCDPSession();
+    try {
+      const { data } = await session.send("Page.captureScreenshot", {
+        format: "png",
+        fromSurface: true,
+        captureBeyondViewport: false,
+        ...options,
+      }, { timeout: Math.max(1, attemptDeadline - Date.now()) });
+      return data;
+    } catch (error) {
+      lastError = error;
+    } finally {
+      if (!session.detached) await session.detach();
+    }
+    if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 500));
   }
+  throw lastError;
 }
 
 function pngDimensions(screenshot) {

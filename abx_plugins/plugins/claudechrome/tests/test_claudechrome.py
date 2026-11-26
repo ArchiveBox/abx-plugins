@@ -353,11 +353,10 @@ def test_api_rejection_fails_and_preserves_capture(tmp_path, claudechrome_test_u
             for message in conversation["conversation"]
         )
         assert "authentication_error" in (output / "conversation.txt").read_text()
-        assert (
-            (output / "screenshot_initial.png")
-            .read_bytes()
-            .startswith(b"\x89PNG\r\n\x1a\n")
-        )
+        screenshot = (output / "screenshot_initial.png").read_bytes()
+        assert screenshot.startswith(b"\x89PNG\r\n\x1a\n")
+        assert int.from_bytes(screenshot[16:20], "big") > 1
+        assert int.from_bytes(screenshot[20:24], "big") > 1
 
 
 if __name__ == "__main__":
