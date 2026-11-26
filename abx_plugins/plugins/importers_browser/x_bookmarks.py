@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from gallery_dl import config, exception, extractor
-from gallery_dl.extractor.twitter import TwitterAPI
+from gallery_dl.extractor.twitter import TwitterAPI, TwitterBookmarkExtractor
 
 from abx_plugins.plugins.base.importers import NeedsLogin, emit, run
 
@@ -22,9 +22,9 @@ HANDLE = re.compile(r"[A-Za-z0-9_]{1,15}")
 
 
 class BookmarkAPI(TwitterAPI):
-    cursor = None
+    cursor: str | None = None
 
-    def _pagination_tweets(self, endpoint, variables, path, **kwargs):
+    def _pagination_tweets(self, endpoint, variables, path=None, *args, **kwargs):
         # Reuse gallery-dl's X endpoint, session and request signing. Read one
         # response at a time so the importer controls the durable cursor and
         # can tell a stalled response from the end of the bookmark timeline.
@@ -39,10 +39,17 @@ class BookmarkAPI(TwitterAPI):
         )
         if body.get("errors"):
             raise ValueError("X returned an error instead of a bookmark page.")
-        instructions = body["data"]
-        for key in path:
-            instructions = instructions[key]
-        return instructions["instructions"]
+        instructions: object = body.get("data")
+        for key in path or ():
+            if not isinstance(instructions, dict):
+                raise ValueError("X returned no recognizable bookmark timeline.")
+            instructions = instructions.get(key)
+        if not isinstance(instructions, dict) or not isinstance(
+            pages := instructions.get("instructions"),
+            list,
+        ):
+            raise ValueError("X returned no recognizable bookmark timeline.")
+        return pages
 
 
 def session():
@@ -55,6 +62,8 @@ def session():
     }.items():
         config.set(TWITTER_CONFIG, name, value)
     bookmarks = extractor.find(URL)
+    if not isinstance(bookmarks, TwitterBookmarkExtractor):
+        raise ValueError("The installed gallery-dl package cannot read X Bookmarks.")
     bookmarks.initialize()
 
     if auth_file := os.environ.get("AUTH_STORAGE_FILE"):
@@ -108,7 +117,8 @@ def item_from_entry(entry):
         bookmarked_at = (int(sort_index) >> 20) / 1000
         if 0 < bookmarked_at <= time.time():
             metadata["bookmarked_at"] = datetime.fromtimestamp(
-                bookmarked_at, UTC
+                bookmarked_at,
+                UTC,
             ).isoformat()
     return {
         "type": "ImporterItem",
@@ -174,11 +184,11 @@ def import_bookmarks(request):
         discover(request, bookmarks, account)
     except (exception.AuthRequired, exception.AuthorizationError) as error:
         raise NeedsLogin(
-            "X requires sign-in or account verification. Sync the persona and check access again."
+            "X requires sign-in or account verification. Sync the persona and check access again.",
         ) from error
     except exception.GalleryDLException as error:
         raise ValueError(
-            f"Could not read X Bookmarks ({type(error).__name__})."
+            f"Could not read X Bookmarks ({type(error).__name__}).",
         ) from error
 
 
@@ -220,17 +230,19 @@ def discover(request, bookmarks, account):
             # cursor. Confirm it once more so a transient empty page cannot
             # cause older bookmarks to be skipped.
             confirmed_rows, confirmed_cursor, terminal = bookmark_page(
-                bookmarks, cursor, count
+                bookmarks,
+                cursor,
+                count,
             )
             if not confirmed_rows and (terminal or confirmed_cursor == cursor):
                 complete = True
                 break
             raise ValueError(
-                "X returned an inconsistent final bookmark page. The saved cursor was kept."
+                "X returned an inconsistent final bookmark page. The saved cursor was kept.",
             )
         if next_cursor is None or next_cursor in visited:
             raise ValueError(
-                "X stopped advancing the bookmark cursor. The saved cursor was kept."
+                "X stopped advancing the bookmark cursor. The saved cursor was kept.",
             )
         cursor = next_cursor
         visited.add(cursor)

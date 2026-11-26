@@ -69,7 +69,7 @@ def bookmark_environment():
         subprocess.run(
             [sys.executable, str(chrome / command[0]), *command[1:]],
             input=json.dumps(
-                {"cdp_url": browser["BU_CDP_URL"], "cookies_output_file": cookies_file}
+                {"cdp_url": browser["BU_CDP_URL"], "cookies_output_file": cookies_file},
             ),
             env=browser,
             stdout=subprocess.DEVNULL,
@@ -202,7 +202,7 @@ def main():
     if request["feed"] == "x_bookmarks":
         url = urlsplit(
             request["settings"].get("IMPORTERS_BROWSER_URL")
-            or "https://x.com/i/bookmarks"
+            or "https://x.com/i/bookmarks",
         )
         if url.hostname in {
             "x.com",
