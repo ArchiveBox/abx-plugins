@@ -356,11 +356,20 @@ def test_real_sonic_indexes_files_and_cli_id_not_reflection_context(tmp_path: Pa
                 config["SEARCH_BACKEND_SONIC_PASSWORD"],
             ) as ingest:
                 for object_id in sorted(objects):
-                    ingest.push(
+                    assert ingest.push(
                         "archivebox",
                         "snapshots",
                         object_id,
                         "paginationuniqueneedle",
+                    )
+                # Sonic 1.10 filters terms common to nearly the whole bucket.
+                # Keep the pagination term distinct from unrelated documents.
+                for i in range(128):
+                    assert ingest.push(
+                        "archivebox",
+                        "snapshots",
+                        f"unrelated-{i}",
+                        "unrelateddocument",
                     )
             first_page = search("paginationuniqueneedle", environ=env)
             assert len(first_page) == 100
