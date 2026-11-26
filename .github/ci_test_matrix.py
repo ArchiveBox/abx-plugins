@@ -123,6 +123,11 @@ if __name__ == "__main__":
         if requirement.startswith("hosted")
     }
     short_tests: dict[tuple[str, str, bool], list[str]] = {}
+    # Scheduled macOS jobs have waited much longer for a runner than they
+    # spend testing. Share setup for more files there, including files still
+    # awaiting a duration measurement.
+    batch_file_seconds = 90 if platform == "macos" else 60
+    batch_total_seconds = 360 if platform == "macos" else 180
 
     for test_path in all_tests:
         paid_captcha = environments.get(str(test_path)) == "provider-paid-manual"
@@ -161,7 +166,7 @@ if __name__ == "__main__":
         expected_tests.append(test_path)
         cells_used.add((os_name, python_version))
         path = str(test_path)
-        if durations.get(path, 60) < 60:
+        if durations.get(path, 60) < batch_file_seconds:
             short_tests.setdefault(
                 (os_name, python_version, path in hosted),
                 [],
@@ -179,12 +184,15 @@ if __name__ == "__main__":
         )
 
     # Keep the original OS/Python assignment and a separate pytest process per
-    # file. Only measured short files share checkout and dependency setup.
+    # file. Each batch shares checkout and dependency setup.
     for (os_name, python_version, _), paths in short_tests.items():
         batch: list[str] = []
         batch_seconds = 0
         for path in paths:
-            if batch and (len(batch) == 8 or batch_seconds + durations[path] > 180):
+            duration = durations.get(path, 60)
+            if batch and (
+                len(batch) == 8 or batch_seconds + duration > batch_total_seconds
+            ):
                 test_matrix.append(
                     {
                         "path": f"batch/{batch[0]}",
@@ -198,7 +206,7 @@ if __name__ == "__main__":
                 batch = []
                 batch_seconds = 0
             batch.append(path)
-            batch_seconds += durations[path]
+            batch_seconds += duration
         if batch:
             test_matrix.append(
                 {
