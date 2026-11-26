@@ -553,11 +553,9 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 
   for (let iteration = 0; iteration < maxActions; iteration++) {
     if (Date.now() - startTime > timeout * 1000) {
-      console.error(`[!] Timeout reached after ${iteration} iterations`);
-      conversation.push({
-        role: "system",
-        text: `Timeout after ${iteration} iterations`,
-      });
+      error = `Timeout after ${iteration} iterations`;
+      console.error(`[!] ${error}`);
+      conversation.push({ role: "error", text: error });
       break;
     }
 
@@ -667,8 +665,10 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 
   }
 
-  // Take final screenshot
-  const finalScreenshot = await takeScreenshot(page);
+  // Preserve the captured page instead of starting another screenshot after timeout.
+  const finalScreenshot = Date.now() - startTime > timeout * 1000
+    ? lastScreenshot
+    : await takeScreenshot(page);
   fs.writeFileSync(
     path.join(OUTPUT_DIR, "screenshot_final.png"),
     Buffer.from(finalScreenshot, "base64")
