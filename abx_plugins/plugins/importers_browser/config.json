@@ -51,7 +51,7 @@
     "x_bookmarks": {
       "provider": "X",
       "title": "Bookmarks",
-      "description": "Import your X bookmarks, including older bookmarks.",
+      "description": "Import your X bookmarks. Learns the browser workflow on first use and repairs it when needed.",
       "auth": "persona",
       "timeout": 900,
       "task": "- Discover canonical URLs for this account's X bookmarks.\n- Start at the configured URL, or https://x.com.\n- Identify the signed-in account; exclude unrelated recommendations.",

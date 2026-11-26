@@ -39,7 +39,6 @@ opencode = [
 dev = [
     { name = "django-stubs" },
     { name = "feedparser" },
-    { name = "gallery-dl" },
     { name = "httpx" },
     { name = "jinja2" },
     { name = "playwright" },
@@ -80,7 +79,6 @@ provides-extras = ["opencode"]
 dev = [
     { name = "django-stubs", specifier = ">=6.0" },
     { name = "feedparser", specifier = ">=6.0.0" },
-    { name = "gallery-dl", specifier = "==1.32.19" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "playwright", specifier = ">=1.62.0" },
@@ -358,18 +356,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/da/df/38596299216e5c22d60ed7f97902bb2bc72cfb95f732400f4fa976fd2e62/feedparser_sgmllib-2.1.0.tar.gz", hash = "sha256:61facf2918c4389b5b00714f76c5e03431ffcd94cd1f51d657edd6cd7c396579", size = 26845, upload-time = "2026-08-02T21:27:53.891Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/85/a0/79a31f898092e145bd66e2b338fb0656979acb2bbbcae8220940fbfcd820/feedparser_sgmllib-2.1.0-py3-none-any.whl", hash = "sha256:2cab2d43b95a954f920f18aebce7a4dbbb3f539780b127e2aa114f579821e01d", size = 11652, upload-time = "2026-08-02T21:27:52.894Z" },
-]
-
-[[package]]
-name = "gallery-dl"
-version = "1.32.19"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1a/71/f233d60f40e37381f33590907f0884da453e46963112fb22f352dc1def26/gallery_dl-1.32.19.tar.gz", hash = "sha256:63323bc1bc37b8ba25c19d2ef7a86158d1f79cccaee8d69dda907986f3f3e824", size = 765627, upload-time = "2026-10-31T11:28:47.403Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/c3/87c38fa0d392455a14b3f32b8a3acf0887ced4689a7b5fc6e0d9f761213f/gallery_dl-1.32.19-py3-none-any.whl", hash = "sha256:f6b1eb5e9a7409a988b754335d99dbb1873e130d133ed5d164d32e5e645d1c50", size = 946594, upload-time = "2026-10-31T11:28:43.517Z" },
 ]
 
 [[package]]
