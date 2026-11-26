@@ -12,7 +12,8 @@
     },
     {
       "name": "{NPM_BINARY}",
-      "binproviders": "env,node"
+      "binproviders": "env,node",
+      "min_version": null
     }
   ],
   "required_plugins": [],
