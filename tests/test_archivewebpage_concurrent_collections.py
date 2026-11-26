@@ -2138,8 +2138,8 @@ const progress = (...args) => console.error(`Replay probe +${Date.now() - starte
     const observedClients = new WeakSet();
     for (const event of ["requestfinished", "requestfailed"]) {
       page.on(event, (request) => {
-        if (replayRequestIds.has(request.id)) {
-          progress(event, { id: request.id, failure: request.failure() });
+        if (replayRequestIds.has(request.id) || event === "requestfailed") {
+          progress(event, { id: request.id, url: request.url().split("?")[0], failure: request.failure() });
         }
       });
     }
@@ -2230,6 +2230,23 @@ const progress = (...args) => console.error(`Replay probe +${Date.now() - starte
       });
     });
     progress("scrolling finished", scrollExit);
+    // DOMContentLoaded and scrolling do not finish an asynchronously loaded
+    // archive. Wait for the same document state asserted below, including
+    // replay frames attached after scrolling, inside the existing probe budget.
+    await page.waitForFrame(async (frame) => {
+      try {
+        if (!new URL(frame.url()).pathname.startsWith("/replay/w/")) return false;
+        const ready = await frame.waitForFunction(() =>
+          document.readyState === "complete" &&
+          new TextEncoder().encode(document.body?.innerText || "").length > 1000 &&
+          document.body?.childElementCount > 0,
+          { timeout: Math.max(1, 180000 - (Date.now() - started)) }
+        );
+        await ready.dispose();
+        return true;
+      } catch { return false; }
+    }, { timeout: Math.max(1, 180000 - (Date.now() - started)) });
+    progress("archived document finished loading");
     const frames = await Promise.all(page.frames().map(async (frame) => {
       try {
         const parsed = new URL(frame.url());
