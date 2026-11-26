@@ -171,7 +171,7 @@ def fix_urljoin_bug(url: str, nesting_limit=5) -> str:
             r"(?P<suburl>[^/\\]+)",
             r"\1\2\3://\4",
             input_url,
-            re.IGNORECASE | re.UNICODE,
+            flags=re.IGNORECASE | re.UNICODE,
         )
         if url == input_url:
             break
