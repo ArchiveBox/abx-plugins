@@ -290,9 +290,15 @@ jobs:
           for name in ("abxbus", "abxpkg"):
               package = locked[name]
               version = package["version"]
+              requirements.append(f"{name}=={version}")
+              if "git" in package["source"]:
+                  url, commit = package["source"]["git"].split("#")
+                  requirement = f"{name} @ git+{url.split('?')[0]}@{commit}"
+                  if requirement not in metadata["dependencies"]:
+                      raise SystemExit(f"Project dependencies do not pin {requirement}")
+                  continue
               if f"{name}=={version}" not in metadata["dependencies"]:
                   raise SystemExit(f"Project dependencies do not pin locked {name}=={version}")
-              requirements.append(f"{name}=={version}")
               artifacts = [package["sdist"], *package["wheels"]]
               expected[name] = {
                   Path(urlsplit(item["url"]).path).name: item["hash"].removeprefix("sha256:")
@@ -338,11 +344,22 @@ jobs:
                   )
                   if result.returncode == 0:
                       print(result.stderr, flush=True)
+                      verify = (
+                          "from importlib.metadata import version, distribution; import json, sys; "
+                          "assert all(version(name) == expected for name, expected in "
+                          "(item.split('==') for item in sys.argv[1:])); "
+                      )
+                      # A candidate reports the release version too; verify its source commit.
+                      for name in ("abxbus", "abxpkg"):
+                          if "git" in locked[name]["source"]:
+                              commit = locked[name]["source"]["git"].rsplit("#", 1)[1]
+                              verify += (
+                                  f"assert json.loads(distribution({name!r}).read_text('direct_url.json'))"
+                                  f"['vcs_info']['commit_id'] == {commit!r}; "
+                              )
                       subprocess.run(
                           ["uv", "run", "--no-cache", "--active", "--no-project", "python", "-c",
-                           "from importlib.metadata import version; import sys; "
-                           "assert all(version(name) == expected for name, expected in "
-                           "(item.split('==') for item in sys.argv[1:]))", *requirements],
+                           verify, *requirements],
                           cwd=smoke_root, env={**os.environ, "VIRTUAL_ENV": str(smoke_env)}, check=True,
                       )
                       with open(os.environ["GITHUB_ENV"], "a") as output:
@@ -534,6 +551,9 @@ jobs:
           # Prefer the public archive over the remaining cloud-local mirror.
           # The Azure mirror can trickle bytes indefinitely without triggering
           # APT's stall timeout: https://github.com/actions/runner-images/issues/14823
+          # The runner's unrelated Microsoft feed returns 403 and makes APT
+          # reject the entire index refresh before Chrome's Ubuntu dependencies.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
           if [[ -f /etc/apt/apt-mirrors.txt ]]; then
             sudo sed -Ei '\|^http://azure\.archive\.ubuntu\.com/ubuntu/[[:space:]]+priority:1$|d' /etc/apt/apt-mirrors.txt
             sudo sed -Ei 's|^(https://archive\.ubuntu\.com/ubuntu/[[:space:]]+)priority:2$|\1priority:0|' /etc/apt/apt-mirrors.txt
@@ -578,6 +598,23 @@ jobs:
       - name: Install locked dependencies
         run: |
           uv sync --locked --dev --no-sources --no-cache
+
+      - name: Verify locked abxpkg and opt-in installer bootstrap
+        run: |
+          uv run --no-sync --no-sources python - <<'PYTHON'
+          import inspect
+          import json
+          import tomllib
+          from importlib.metadata import distribution
+          from abxpkg import BinProvider
+
+          package = next(p for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "abxpkg")
+          if "git" in package["source"]:
+              installed = json.loads(distribution("abxpkg").read_text("direct_url.json"))
+              assert installed["vcs_info"]["commit_id"] == package["source"]["git"].rsplit("#", 1)[1]
+          assert inspect.signature(BinProvider.INSTALLER_BINARY).parameters["install"].default is False
+          print("Verified locked abxpkg with INSTALLER_BINARY(install=False)")
+          PYTHON
 
       - name: Resolve the pinned Node.js version for replay tests
         id: replay-node
