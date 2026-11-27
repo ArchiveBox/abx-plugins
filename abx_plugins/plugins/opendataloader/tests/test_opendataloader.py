@@ -130,6 +130,9 @@ TableStructureModel.download_models(progress=True)
         ],
         check=True,
         timeout=180,
+        # Use complete HTTPS objects the CI proxy can reuse across cold test
+        # runs, rather than Xet's per-session signed byte ranges.
+        env={**os.environ, "HF_HUB_DISABLE_XET": "1"},
     )
 
 
