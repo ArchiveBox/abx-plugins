@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "abxbus==2.5.96",
-    "abxpkg==1.13.122",
+    "abxpkg @ git+https://github.com/ArchiveBox/abxpkg.git@b1f83757387b08ac403ae3e04fcf1eb09a88e7da",
     "certifi>=2026.10.19",
     "imagesize>=2.0.0",
     "psutil>=7.2.1,!=7.2.2",
@@ -60,6 +60,10 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Test the exact abxpkg change before its release.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 include = ["abx_plugins/**"]
