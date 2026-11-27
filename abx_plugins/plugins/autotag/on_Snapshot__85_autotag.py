@@ -95,13 +95,16 @@ def main():
         result,
         style=config.AUTOTAG_STYLE,
     )
+    records = [
+        {"name": tag, "model": model, "opencode_session": session_id} for tag in tags
+    ]
     output = root / "autotag"
     output.mkdir(parents=True, exist_ok=True)
     write_text_atomic(
         output / "tags.jsonl",
         "".join(
-            json.dumps({"type": "Tag", "name": tag}, ensure_ascii=False) + "\n"
-            for tag in tags
+            json.dumps({"type": "Tag", **record}, ensure_ascii=False) + "\n"
+            for record in records
         ),
     )
     write_text_atomic(
@@ -117,8 +120,8 @@ def main():
         )
         + "\n",
     )
-    for tag in tags:
-        emit_tag_record(tag)
+    for record in records:
+        emit_tag_record(**record)
     emit_archive_result_record("succeeded", "autotag/tags.jsonl")
 
 

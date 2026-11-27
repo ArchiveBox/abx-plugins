@@ -1749,8 +1749,9 @@ def emit_installed_binary_record(
     print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 
-def emit_tag_record(name: str) -> None:
+def emit_tag_record(name: str, **extra: Any) -> None:
     record: dict[str, Any] = {
+        **extra,
         "type": "Tag",
         "name": name,
     }

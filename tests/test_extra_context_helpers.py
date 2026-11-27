@@ -43,6 +43,36 @@ def test_python_emit_archive_result_merges_extra_context_from_cli(uv_binary):
     assert record["snapshot_id"] == "snap-123"
 
 
+@pytest.mark.parametrize(
+    "metadata",
+    [{}, {"model": "openai/gpt-6.2-luna", "opencode_session": "ses_autotag"}],
+)
+def test_python_emit_tag_preserves_metadata_and_context(uv_binary, metadata):
+    result = subprocess.run(
+        [
+            uv_binary,
+            "run",
+            "--no-sync",
+            "python",
+            "-c",
+            "from abx_plugins.plugins.base.utils import emit_tag_record; "
+            f"emit_tag_record('Solar energy', **{metadata!r})",
+            '--extra-context={"snapshot_id":"snap-123","type":"ignored","name":"ignored"}',
+        ],
+        cwd=REPO_ROOT,
+        env={**os.environ, "EXTRA_CONTEXT": "{}"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(result.stdout) == {
+        "type": "Tag",
+        "name": "Solar energy",
+        "snapshot_id": "snap-123",
+        **metadata,
+    }
+
+
 def test_python_emit_installed_binary_record_merges_extra_context_from_env(
     uv_binary,
 ):

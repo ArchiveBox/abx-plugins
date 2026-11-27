@@ -230,7 +230,14 @@ disabled plugins return the original callable before importing optional runtime
 dependencies. Registration errors fail startup. This hook does not wrap individual
 views or create a second Django middleware stack.
 
-ArchiveBox's `services.runner.create_bus(config=..., **bus_options)` registers
+An `app_module` may export `enter_operation(name, config, *, attributes)` returning
+a synchronous context manager. ArchiveBox enters it around finite CLI commands,
+scheduler/importer iterations and background deletion. Existing Process UUID,
+parent UUID, process/worker types and any known crawl UUID are passed as attributes.
+Plugins own enable checks before optional imports. Context managers must preserve
+errors and clean up on exit; idle waits remain outside the operation.
+
+ArchiveBox's `workers.runner.create_bus(config=..., **bus_options)` registers
 apps immediately; crawl runners defer registration until their config is loaded.
 Standalone abx-dl does not call these application hooks. No separate EventBus
 metadata is needed beyond `app_module`. See the [Sentry app](abx_plugins/plugins/sentry/app.py)
@@ -508,6 +515,13 @@ Output records:
 ```
 
 - `Snapshot` and `Tag` records may appear before the final `ArchiveResult`
+
+Autotag includes `model` (the resolved `provider/model`) and `opencode_session`
+(the native OpenCode session ID) in every Tag record, both on stdout and in
+`autotag/tags.jsonl`. These identify the generating conversation in the collection's
+configured OpenCode state. They describe this tagging run, not the shared Tag's
+identity; consumers may ignore them. `autotag/analysis.json` retains its existing
+`model` and `session_id` fields.
 
 Semantics:
 
