@@ -1,5 +1,7 @@
 """Exercise the shared helper on real independent files and the current filesystem."""
 
+import errno
+import struct
 import sys
 from pathlib import Path
 
@@ -41,3 +43,39 @@ def test_native_deduplication_preserves_independent_outputs(tmp_path):
     assert first.read_bytes() == second.read_bytes() == original.read_bytes()
     second.write_bytes(b"independent later write")
     assert first.read_bytes() == original.read_bytes()
+
+
+def test_native_deduplication_stops_on_unsupported_device(tmp_path):
+    data = (Path(__file__).parents[1] / "config.json").read_bytes()
+    paths = [tmp_path / f"{name}.json" for name in ("first", "second", "third")]
+    for path in paths:
+        path.write_bytes(data)
+    digest = sha256_file(paths[0])
+
+    unsupported = False
+    if sys.platform == "linux":
+        import fcntl
+
+        # No destinations: the kernel checks the source file operation without
+        # sharing or changing extents.
+        with paths[0].open("rb") as source:
+            try:
+                fcntl.ioctl(
+                    source,
+                    0xC0189436,
+                    bytearray(struct.pack("=QQHHI", 0, 1, 0, 0, 0)),
+                    True,
+                )
+            except OSError as exc:
+                unsupported = exc.errno == errno.EOPNOTSUPP
+
+    result = deduplicate_files(
+        tmp_path,
+        [{"path": path.name, "hash": digest, "size": len(data)} for path in paths],
+    )
+    expected_attempts = (1 if unsupported else 2) if sys.platform == "linux" else 0
+    assert result["attempted_files"] == expected_attempts
+    if unsupported:
+        assert result["failed_files"] == 1
+        assert result["extent_bytes_verified"] == 0
+    assert all(path.read_bytes() == data for path in paths)

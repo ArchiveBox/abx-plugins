@@ -1,5 +1,6 @@
 """File hashing and native copy-on-write deduplication shared by the hashes hook."""
 
+import errno
 import hashlib
 import os
 import stat
@@ -34,6 +35,7 @@ def deduplicate_files(
     import fcntl
 
     originals: dict[tuple[str, int], Path] = {}
+    unsupported_devices: set[int] = set()
     for item in files:
         key = (str(item["hash"]), int(item["size"]))
         # Empty files reclaim nothing; a zero digest means hashing failed, not equality.
@@ -44,7 +46,10 @@ def deduplicate_files(
         if source == path:
             continue
         try:
-            source_stat, path_stat = source.lstat(), path.lstat()
+            source_stat = source.lstat()
+            if source_stat.st_dev in unsupported_devices:
+                continue
+            path_stat = path.lstat()
             if (
                 os.path.samestat(source_stat, path_stat)
                 or source_stat.st_dev != path_stat.st_dev
@@ -78,7 +83,15 @@ def deduplicate_files(
                             0,
                         ),
                     )
-                    fcntl.ioctl(src.fileno(), 0xC0189436, request, True)
+                    try:
+                        fcntl.ioctl(src.fileno(), 0xC0189436, request, True)
+                    except OSError as exc:
+                        # Linux returns EOPNOTSUPP directly when the source
+                        # filesystem cannot remap extents, before examining
+                        # any destination. Pair-specific errors are below.
+                        if exc.errno == errno.EOPNOTSUPP:
+                            unsupported_devices.add(os.fstat(src.fileno()).st_dev)
+                        raise
                     _, _, _, _, _, _, _, deduped, status, _ = struct.unpack(
                         "=QQHHIqQQiI",
                         request,
